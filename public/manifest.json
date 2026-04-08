@@ -1,0 +1,13 @@
+{
+  "name": "M!LK — Essentiels bébé bambou",
+  "short_name": "M!LK",
+  "description": "Vêtements nourrisson en bambou certifié OEKO-TEX",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1410",
+  "theme_color": "#1a1410",
+  "icons": [
+    { "src": "/favicon-192x192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/favicon-512x512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

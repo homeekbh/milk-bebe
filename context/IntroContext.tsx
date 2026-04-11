@@ -1,7 +1,6 @@
-﻿// context/IntroContext.tsx
-"use client";
+﻿"use client";
 
-import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState } from "react";
 
 type IntroState = {
   isOpen: boolean;
@@ -12,35 +11,16 @@ type IntroState = {
 
 const IntroCtx = createContext<IntroState | null>(null);
 
-const STORAGE_KEY = "milk_intro_seen_v1";
-
 export function IntroProvider({ children }: { children: React.ReactNode }) {
-  const [isOpen, setIsOpen] = useState(false);
+  // ✅ true au montage = l'intro s'affiche à chaque visite / refresh
+  const [isOpen, setIsOpen] = useState(true);
 
-  useEffect(() => {
-    try {
-      const seen = localStorage.getItem(STORAGE_KEY) === "1";
-      if (!seen) setIsOpen(true);
-    } catch {
-      // If storage blocked, still show intro once per session
-      setIsOpen(true);
-    }
-  }, []);
-
-  const value = useMemo<IntroState>(() => {
-    return {
-      isOpen,
-      open: () => setIsOpen(true),
-      close: () => setIsOpen(false),
-      markSeen: () => {
-        try {
-          localStorage.setItem(STORAGE_KEY, "1");
-        } catch {
-          // ignore
-        }
-      },
-    };
-  }, [isOpen]);
+  const value = useMemo<IntroState>(() => ({
+    isOpen,
+    open:     () => setIsOpen(true),
+    close:    () => setIsOpen(false),
+    markSeen: () => setIsOpen(false),
+  }), [isOpen]);
 
   return <IntroCtx.Provider value={value}>{children}</IntroCtx.Provider>;
 }

@@ -5,16 +5,15 @@ import Image from "next/image";
 import Link from "next/link";
 
 const C = {
-  bg:    "#1a1410",
-  bg2:   "#221c16",
-  bg3:   "#2d2419",
+  bg:    "#2a2018",
+  bg2:   "#332619",
+  bg3:   "#3d2e1e",
   warm:  "#f2ede6",
   muted: "rgba(242,237,230,0.45)",
   faint: "rgba(242,237,230,0.07)",
   amber: "#c49a4a",
 };
 
-// ─── Hook scroll reveal (one-shot) ───────────────────────────────────────────
 function useScrollReveal(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -31,7 +30,6 @@ function useScrollReveal(threshold = 0.15) {
   return { ref, visible };
 }
 
-// ─── Hook intersection bidirectionnel ────────────────────────────────────────
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -48,7 +46,6 @@ function useInView(threshold = 0.15) {
   return { ref, visible };
 }
 
-// ─── Compteur animé ───────────────────────────────────────────────────────────
 function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
   const [count, setCount] = useState(0);
   const { ref, visible }  = useScrollReveal(0.3);
@@ -66,7 +63,6 @@ function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: strin
   return <span ref={ref}>{count.toLocaleString("fr-FR")}{suffix}</span>;
 }
 
-// ─── Ticker ───────────────────────────────────────────────────────────────────
 const TICKER_ITEMS = [
   "✦ Bambou certifié OEKO-TEX",
   "✦ 3× plus doux que le coton",
@@ -97,7 +93,6 @@ function Ticker() {
   );
 }
 
-// ─── Reveal one-shot ─────────────────────────────────────────────────────────
 function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
   const { ref, visible } = useScrollReveal();
   return (
@@ -107,9 +102,8 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
-// ─── Gros texte style ────────────────────────────────────────────────────────
 const bigTextStyle = {
-  fontSize: "clamp(36px, 6.5vw, 110px)",
+  fontSize: "clamp(28px, 6.5vw, 110px)",
   fontWeight: 950,
   letterSpacing: "-1.5px",
   lineHeight: 1.05,
@@ -121,10 +115,9 @@ const bigTextStyle = {
   textAlign: "center" as const,
 };
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
 export default function HomePage() {
-  const heroRef    = useRef<HTMLDivElement>(null);
-  const bambouRef  = useRef<HTMLDivElement>(null);
+  const heroRef   = useRef<HTMLDivElement>(null);
+  const bambouRef = useRef<HTMLDivElement>(null);
   const [products, setProducts] = useState<any[]>([]);
 
   const topText     = useMemo(() => "M!LK RÉDUIT LES GALÈRES", []);
@@ -140,14 +133,13 @@ export default function HomePage() {
       .then(data => {
         if (Array.isArray(data)) {
           const featured = data.filter(p => p.featured && p.stock > 0).slice(0, 4);
-          const fallback = data.filter(p => p.stock > 0).slice(0, 4);
+          const fallback  = data.filter(p => p.stock > 0).slice(0, 4);
           setProducts(featured.length >= 2 ? featured : fallback);
         }
       })
       .catch(() => {});
   }, []);
 
-  // Parallaxe hero
   useEffect(() => {
     const el = heroRef.current;
     if (!el) return;
@@ -156,7 +148,6 @@ export default function HomePage() {
     return () => window.removeEventListener("scroll", handle);
   }, []);
 
-  // Parallaxe bambou
   useEffect(() => {
     const el = bambouRef.current;
     if (!el) return;
@@ -180,39 +171,56 @@ export default function HomePage() {
         @keyframes hero-in    { from { opacity:0; transform:translateY(24px); } to { opacity:1; transform:none; } }
         @keyframes badge-spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         @keyframes bounce     { 0%,100% { transform:translateX(-50%) translateY(0); } 50% { transform:translateX(-50%) translateY(6px); } }
+
         .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
         .product-card-home { transition: all 0.3s cubic-bezier(.22,.61,.36,1); cursor: pointer; }
         .product-card-home:hover { transform: translateY(-8px); box-shadow: 0 40px 70px rgba(0,0,0,0.5); border-color: rgba(196,154,74,0.4) !important; }
         .product-card-home:hover .card-img { transform: scale(1.07) !important; }
 
+        .hero-padding   { padding: 160px 24px 80px; }
+        .products-grid  { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+        .cat-grid       { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .univers-grid   { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .bambou-grid    { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        .reviews-grid   { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .reassurance-grid { grid-template-columns: repeat(4, 1fr); }
+
         @media (max-width: 768px) {
-          .hero-kpis { flex-direction: row !important; gap: 20px !important; }
-          .hero-btns { flex-direction: column !important; }
-          .hero-btns a { text-align: center !important; }
-          .badge-svg { display: none !important; }
+          .hero-padding   { padding: 110px 20px 60px !important; }
+          .hero-btns      { flex-direction: column !important; }
+          .hero-btns a    { text-align: center !important; width: 100%; box-sizing: border-box; }
+          .hero-kpis      { gap: 20px !important; flex-wrap: wrap !important; }
+          .badge-svg      { display: none !important; }
+          .products-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .cat-grid       { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .univers-grid   { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .bambou-grid    { grid-template-columns: 1fr !important; }
+          .reviews-grid   { grid-template-columns: 1fr !important; }
           .reassurance-grid { grid-template-columns: 1fr 1fr !important; }
-          .reassurance-item { border-right: none !important; border-bottom: 1px solid rgba(242,237,230,0.07); }
-          .univers-grid { grid-template-columns: 1fr 1fr !important; }
-          .reviews-grid { grid-template-columns: 1fr !important; }
-          .cta-btns { flex-direction: column !important; align-items: center !important; }
+          .reassurance-item { border-right: none !important; border-bottom: 1px solid rgba(242,237,230,0.07) !important; }
+          .cta-btns       { flex-direction: column !important; align-items: stretch !important; }
+          .cta-btns a     { text-align: center !important; }
+          .section-padding { padding-left: 20px !important; padding-right: 20px !important; }
         }
 
         @media (max-width: 480px) {
-          .hero-kpis { gap: 12px !important; }
-          .univers-grid { grid-template-columns: 1fr !important; }
+          .hero-kpis      { gap: 12px !important; }
+          .products-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .cat-grid       { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .univers-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .reassurance-grid { grid-template-columns: 1fr 1fr !important; }
         }
       `}</style>
 
-      {/* ── HERO ─────────────────────────────────────────────────────────── */}
+      {/* ── HERO ── */}
       <section data-theme="dark" style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "center", overflow: "hidden" }}>
         <div ref={heroRef} style={{ position: "absolute", inset: "-20% 0 -20% 0", willChange: "transform" }}>
           <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK — Papa et bébé" fill priority sizes="100vw" style={{ objectFit: "cover", objectPosition: "center 60%" }} />
         </div>
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(13,11,9,0.88) 0%, rgba(13,11,9,0.5) 50%, rgba(13,11,9,0.75) 100%)" }} />
 
-        <div className="hero-content" style={{ position: "relative", zIndex: 2, maxWidth: 1200, margin: "0 auto", padding: "160px 24px 80px", width: "100%", boxSizing: "border-box" }}>
+        <div className="hero-content hero-padding" style={{ position: "relative", zIndex: 2, maxWidth: 1200, margin: "0 auto", width: "100%", boxSizing: "border-box" }}>
 
-          {/* Tags tailles */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 28 }}>
             {["Nouveau-né", "0-3 mois", "3-6 mois"].map(tag => (
               <span key={tag} style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${C.amber}`, color: C.amber, fontSize: 12, fontWeight: 800, letterSpacing: 0.5 }}>
@@ -221,14 +229,11 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Titre + badge */}
           <div style={{ position: "relative", display: "inline-block", marginBottom: 20, maxWidth: "100%" }}>
-            <h1 style={{ margin: 0, fontSize: "clamp(42px, 7vw, 88px)", fontWeight: 950, letterSpacing: -3, lineHeight: 0.95, color: C.warm }}>
+            <h1 style={{ margin: 0, fontSize: "clamp(38px, 7vw, 88px)", fontWeight: 950, letterSpacing: -3, lineHeight: 0.95, color: C.warm }}>
               L'essentiel.<br />
               <span style={{ color: C.amber }}>Sans compromis.</span>
             </h1>
-
-            {/* Badge rotatif — masqué sur mobile via CSS */}
             <div className="badge-svg" style={{ position: "absolute", top: -20, right: -130 }}>
               <svg width="110" height="110" viewBox="0 0 110 110" style={{ animation: "badge-spin 12s linear infinite" }}>
                 <path id="badgecircle" d="M 55,55 m -42,0 a 42,42 0 1,1 84,0 a 42,42 0 1,1 -84,0" fill="none" />
@@ -239,7 +244,7 @@ export default function HomePage() {
             </div>
           </div>
 
-          <p style={{ margin: "0 0 32px", fontSize: "clamp(15px, 2vw, 19px)", color: C.muted, maxWidth: 540, lineHeight: 1.7 }}>
+          <p style={{ margin: "0 0 32px", fontSize: "clamp(14px, 2vw, 19px)", color: C.muted, maxWidth: 540, lineHeight: 1.7 }}>
             Vêtements nourrisson en bambou certifié OEKO-TEX. Ultra-doux, thermorégulateur, antibactérien — pensé pour les peaux les plus fragiles.
           </p>
 
@@ -252,7 +257,6 @@ export default function HomePage() {
             </Link>
           </div>
 
-          {/* KPIs animés */}
           <div className="hero-kpis" style={{ display: "flex", gap: 36, marginTop: 48, flexWrap: "wrap" }}>
             {[
               { value: 500, suffix: "+", label: "familles satisfaites" },
@@ -260,7 +264,7 @@ export default function HomePage() {
               { value: 30,  suffix: "j", label: "retour gratuit"        },
             ].map(k => (
               <div key={k.label}>
-                <div style={{ fontSize: "clamp(24px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm, lineHeight: 1 }}>
+                <div style={{ fontSize: "clamp(22px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm, lineHeight: 1 }}>
                   <AnimatedCounter value={k.value} suffix={k.suffix} />
                 </div>
                 <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>{k.label}</div>
@@ -269,7 +273,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Flèche scroll */}
         <div style={{ position: "absolute", bottom: 28, left: "50%", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: 0.35 }}>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.warm }}>Découvrir</div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: "bounce 2s ease infinite" }}>
@@ -278,14 +281,13 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── TICKER ────────────────────────────────────────────────────────── */}
+      {/* ── TICKER ── */}
       <Ticker />
 
-      {/* ── SECTION TEXTE SCROLL + CARDS ────────────────────────────────── */}
+      {/* ── SECTION TEXTE SCROLL + CARDS CATÉGORIES ── */}
       <div ref={scrollSection.ref} style={{ background: C.bg, padding: "80px 24px", overflow: "hidden" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
-          {/* Gros texte — arrive de droite */}
           <div style={{ overflow: "hidden", marginBottom: 56 }}>
             <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(100vw)", opacity: scrollSection.visible ? 1 : 0 }}>
               {topText}
@@ -295,13 +297,13 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Cards catégories avec emoji — arrivent par les côtés */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 16, marginBottom: 56 }}>
+          {/* Cards catégories */}
+          <div className="cat-grid" style={{ display: "grid", gap: 16, marginBottom: 56 }}>
             {[
-              { emoji: "👶", label: "Bodies",      desc: "L'essentiel du quotidien",      href: "/categorie/bodies",      delay: 0,   from: "left"  },
-              { emoji: "🌙", label: "Pyjamas",     desc: "Pour des nuits sereines",       href: "/categorie/pyjamas",     delay: 0.1, from: "right" },
-              { emoji: "✦",  label: "Gigoteuses",  desc: "Sommeil sécurisé",              href: "/categorie/gigoteuses",  delay: 0.2, from: "left"  },
-              { emoji: "🌿", label: "Accessoires", desc: "Les détails qui changent tout", href: "/categorie/accessoires", delay: 0.3, from: "right" },
+              { emoji: "👶", label: "Bodies",      desc: "L'essentiel du quotidien",       href: "/categorie/bodies",      delay: 0,   from: "left"  },
+              { emoji: "🌙", label: "Pyjamas",     desc: "Pour des nuits sereines",        href: "/categorie/pyjamas",     delay: 0.1, from: "right" },
+              { emoji: "✦",  label: "Gigoteuses",  desc: "Sommeil sécurisé",               href: "/categorie/gigoteuses",  delay: 0.2, from: "left"  },
+              { emoji: "🌿", label: "Accessoires", desc: "Les détails qui changent tout",  href: "/categorie/accessoires", delay: 0.3, from: "right" },
             ].map(cat => (
               <div
                 key={cat.label}
@@ -337,7 +339,6 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Gros texte — arrive de gauche */}
           <div style={{ overflow: "hidden" }}>
             <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(-100vw)", opacity: scrollSection.visible ? 1 : 0 }}>
               {bottomText}
@@ -350,17 +351,17 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── SIGNATURE ─────────────────────────────────────────────────────── */}
+      {/* ── SIGNATURE ── */}
       <div style={{ background: "#111", color: "#fff", textAlign: "center", padding: "60px 24px" }}>
         <Reveal>
-          <div style={{ fontSize: "clamp(16px, 2.5vw, 22px)", maxWidth: 800, margin: "0 auto", lineHeight: 1.7, fontWeight: 500 }}>
+          <div style={{ fontSize: "clamp(15px, 2.5vw, 22px)", maxWidth: 800, margin: "0 auto", lineHeight: 1.7, fontWeight: 500 }}>
             M!LK n'est pas une marque de vêtements.<br />
             C'est une réponse aux petites galères répétées.
           </div>
         </Reveal>
       </div>
 
-      {/* ── SECTION BAMBOU parallaxe ──────────────────────────────────────── */}
+      {/* ── BAMBOU parallaxe ── */}
       <div
         ref={bambouRef}
         style={{
@@ -376,16 +377,16 @@ export default function HomePage() {
         <div style={{ padding: "80px 24px 90px", position: "relative", zIndex: 2 }}>
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
             <Reveal>
-              <h2 style={{ fontSize: "clamp(26px, 4vw, 38px)", margin: "0 0 48px", fontWeight: 900, letterSpacing: -0.5, color: "#1a1410" }}>
+              <h2 style={{ fontSize: "clamp(22px, 4vw, 38px)", margin: "0 0 48px", fontWeight: 900, letterSpacing: -0.5, color: "#1a1410" }}>
                 L'essentiel. Sans compromis.
               </h2>
             </Reveal>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 24 }}>
+            <div className="bambou-grid" style={{ display: "grid", gap: 24 }}>
               {[
-                { t: "Pensé pour la vraie vie",  d: "Un body doit accompagner les mouvements, pas les contraindre.",  delay: 0    },
-                { t: "Respirant, naturellement", d: "Moins de chaleur. Moins d'humidité. Moins d'irritation.",        delay: 0.1  },
-                { t: "Coupe maîtrisée",          d: "Ni trop large. Ni trop serrée. Juste ajustée.",                  delay: 0.2  },
-                { t: "Essentiels durables",      d: "Moins acheter. Mieux choisir.",                                  delay: 0.3  },
+                { t: "Pensé pour la vraie vie",   d: "Un body doit accompagner les mouvements, pas les contraindre.",  delay: 0   },
+                { t: "Respirant, naturellement",  d: "Moins de chaleur. Moins d'humidité. Moins d'irritation.",        delay: 0.1 },
+                { t: "Coupe maîtrisée",           d: "Ni trop large. Ni trop serrée. Juste ajustée.",                  delay: 0.2 },
+                { t: "Essentiels durables",       d: "Moins acheter. Mieux choisir.",                                  delay: 0.3 },
               ].map(card => (
                 <Reveal key={card.t} delay={card.delay}>
                   <div style={{ padding: 28, borderRadius: 18, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(3px)", boxShadow: "0 20px 50px rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.04)" }}>
@@ -399,14 +400,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── PRODUITS VEDETTES ─────────────────────────────────────────────── */}
+      {/* ── PRODUITS VEDETTES ── */}
       {products.length > 0 && (
-        <section data-theme="dark" style={{ padding: "80px 24px", maxWidth: 1200, margin: "0 auto", boxSizing: "border-box", width: "100%" }}>
+        <section data-theme="dark" className="section-padding" style={{ padding: "80px 24px", maxWidth: 1200, margin: "0 auto", boxSizing: "border-box", width: "100%" }}>
           <Reveal>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 36, flexWrap: "wrap", gap: 12 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Sélection</div>
-                <h2 style={{ margin: 0, fontSize: "clamp(24px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
+                <h2 style={{ margin: 0, fontSize: "clamp(22px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
                   Nos essentiels du moment
                 </h2>
               </div>
@@ -416,7 +417,7 @@ export default function HomePage() {
             </div>
           </Reveal>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(220px, 1fr))", gap: 16 }}>
+          <div className="products-grid" style={{ display: "grid", gap: 16 }}>
             {products.map((p, i) => {
               const promo = isPromoActive(p);
               const price = promo ? p.promo_price : p.price_ttc;
@@ -441,10 +442,10 @@ export default function HomePage() {
                           </div>
                         )}
                       </div>
-                      <div style={{ padding: "14px 16px 18px" }}>
-                        <div style={{ fontWeight: 900, fontSize: 15, color: C.warm, marginBottom: 6, letterSpacing: -0.3 }}>{p.name}</div>
+                      <div style={{ padding: "12px 14px 16px" }}>
+                        <div style={{ fontWeight: 900, fontSize: 14, color: C.warm, marginBottom: 5, letterSpacing: -0.3 }}>{p.name}</div>
                         <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                          <span style={{ fontWeight: 950, fontSize: 18, color: promo ? C.amber : C.warm }}>{Number(price).toFixed(2)} €</span>
+                          <span style={{ fontWeight: 950, fontSize: 16, color: promo ? C.amber : C.warm }}>{Number(price).toFixed(2)} €</span>
                           {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(242,237,230,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
                         </div>
                       </div>
@@ -457,23 +458,23 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* ── UNIVERS avec photos locales ───────────────────────────────────── */}
-      <section data-theme="dark" style={{ padding: "0 24px 80px", maxWidth: 1200, margin: "0 auto", boxSizing: "border-box", width: "100%" }}>
+      {/* ── UNIVERS ── */}
+      <section data-theme="dark" className="section-padding" style={{ padding: "0 24px 80px", maxWidth: 1200, margin: "0 auto", boxSizing: "border-box", width: "100%" }}>
         <Reveal>
           <div style={{ marginBottom: 32 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Univers M!LK</div>
-            <h2 style={{ margin: 0, fontSize: "clamp(24px, 4vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
+            <h2 style={{ margin: 0, fontSize: "clamp(22px, 4vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
               La vraie vie avec bébé
             </h2>
           </div>
         </Reveal>
 
-        <div className="univers-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+        <div className="univers-grid" style={{ display: "grid", gap: 14 }}>
           {[
-            { src: "/univers-maman-bebe.png",   label: "Le lien maman-bébé", delay: 0    },
-            { src: "/univers-nuit-calme.png",    label: "Des nuits sereines", delay: 0.1  },
-            { src: "/univers-change-rapide.png", label: "Le change facile",   delay: 0.2  },
-            { src: "/univers-moment-calme.png",  label: "Les moments calmes", delay: 0.3  },
+            { src: "/univers-maman-bebe.png",   label: "Le lien maman-bébé", delay: 0   },
+            { src: "/univers-nuit-calme.png",    label: "Des nuits sereines", delay: 0.1 },
+            { src: "/univers-change-rapide.png", label: "Le change facile",   delay: 0.2 },
+            { src: "/univers-moment-calme.png",  label: "Les moments calmes", delay: 0.3 },
           ].map(img => (
             <Reveal key={img.src} delay={img.delay}>
               <div style={{ borderRadius: 18, overflow: "hidden", position: "relative", aspectRatio: "3/4", background: C.bg3, cursor: "pointer" }}>
@@ -486,23 +487,23 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── AVIS CLIENTS ──────────────────────────────────────────────────── */}
-      <section data-theme="dark" style={{ padding: "0 24px 80px", maxWidth: 1200, margin: "0 auto", boxSizing: "border-box", width: "100%" }}>
+      {/* ── AVIS CLIENTS ── */}
+      <section data-theme="dark" className="section-padding" style={{ padding: "0 24px 80px", maxWidth: 1200, margin: "0 auto", boxSizing: "border-box", width: "100%" }}>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: 40 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Ce qu'on entend</div>
-            <h2 style={{ margin: 0, fontSize: "clamp(24px, 4vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
+            <h2 style={{ margin: 0, fontSize: "clamp(22px, 4vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
               Des parents, pas des acteurs
             </h2>
           </div>
         </Reveal>
 
-        <div className="reviews-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 14 }}>
+        <div className="reviews-grid" style={{ display: "grid", gap: 14 }}>
           {[
-            { name: "Sophie M.",  role: "Maman de Léo, 2 mois",     stars: 5, text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La différence est immédiate dès la première nuit." },
-            { name: "Thomas R.",  role: "Papa de Zoé, nouveau-né",   stars: 5, text: "On a reçu le coffret pour la naissance. La qualité est évidente, le bambou est incroyablement doux. On recommande à tous les futurs parents." },
-            { name: "Amina B.",   role: "Maman de Samy, 3 mois",    stars: 5, text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Le bambou thermorégulateur, ça marche vraiment." },
-            { name: "Julie D.",   role: "Maman d'Emma, née en juin", stars: 5, text: "Cadeau de naissance parfait. Les matières sont premium, les finitions soignées. On a l'impression d'habiller bébé dans quelque chose de vraiment spécial." },
+            { name: "Sophie M.",  role: "Maman de Léo, 2 mois",      stars: 5, text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La différence est immédiate dès la première nuit." },
+            { name: "Thomas R.",  role: "Papa de Zoé, nouveau-né",    stars: 5, text: "On a reçu le coffret pour la naissance. La qualité est évidente, le bambou est incroyablement doux. On recommande à tous les futurs parents." },
+            { name: "Amina B.",   role: "Maman de Samy, 3 mois",     stars: 5, text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Le bambou thermorégulateur, ça marche vraiment." },
+            { name: "Julie D.",   role: "Maman d'Emma, née en juin",  stars: 5, text: "Cadeau de naissance parfait. Les matières sont premium, les finitions soignées. On a l'impression d'habiller bébé dans quelque chose de vraiment spécial." },
           ].map((review, i) => (
             <Reveal key={review.name} delay={i * 0.08}>
               <div style={{ padding: "22px 20px", borderRadius: 16, background: C.bg2, border: `1px solid ${C.faint}` }}>
@@ -522,14 +523,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── REASSURANCE ───────────────────────────────────────────────────── */}
+      {/* ── REASSURANCE ── */}
       <div style={{ borderTop: `1px solid ${C.faint}`, borderBottom: `1px solid ${C.faint}` }}>
-        <div className="reassurance-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "grid", gridTemplateColumns: "repeat(4, 1fr)" }}>
+        <div className="reassurance-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "grid" }}>
           {[
-            { icon: "🚚", label: "Livraison offerte",  desc: "Dès 60€ d'achat"          },
-            { icon: "↩️", label: "Retour gratuit",     desc: "Sous 30 jours"             },
-            { icon: "🌿", label: "Bambou OEKO-TEX",    desc: "Certifié, testé, sécurisé" },
-            { icon: "🔒", label: "Paiement sécurisé",  desc: "Via Stripe"                },
+            { icon: "🚚", label: "Livraison offerte",  desc: "Dès 60€ d'achat"           },
+            { icon: "↩️", label: "Retour gratuit",     desc: "Sous 30 jours"              },
+            { icon: "🌿", label: "Bambou OEKO-TEX",    desc: "Certifié, testé, sécurisé"  },
+            { icon: "🔒", label: "Paiement sécurisé",  desc: "Via Stripe"                 },
           ].map((r, i) => (
             <div className="reassurance-item" key={r.label} style={{ padding: "24px 16px", textAlign: "center", borderRight: i < 3 ? `1px solid ${C.faint}` : "none" }}>
               <div style={{ fontSize: 26, marginBottom: 8 }}>{r.icon}</div>
@@ -540,14 +541,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── CTA FINAL ─────────────────────────────────────────────────────── */}
+      {/* ── CTA FINAL ── */}
       <section data-theme="dark" style={{ padding: "90px 24px", textAlign: "center" }}>
         <Reveal>
           <div style={{ maxWidth: 600, margin: "0 auto" }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 18 }}>
               Prêt à chouchouter bébé ?
             </div>
-            <h2 style={{ margin: "0 0 18px", fontSize: "clamp(28px, 5vw, 52px)", fontWeight: 950, letterSpacing: -2, color: C.warm, lineHeight: 1 }}>
+            <h2 style={{ margin: "0 0 18px", fontSize: "clamp(26px, 5vw, 52px)", fontWeight: 950, letterSpacing: -2, color: C.warm, lineHeight: 1 }}>
               La douceur du bambou.<br />
               <span style={{ color: C.amber }}>Dès maintenant.</span>
             </h2>

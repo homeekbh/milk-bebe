@@ -1,36 +1,25 @@
-﻿/* app/globals.css */
-
-@import "tailwindcss/preflight";
+﻿@import "tailwindcss/preflight";
 @import "tailwindcss/utilities";
 
-/* =========================
-   M!LK DESIGN TOKENS
-========================= */
-
 :root {
-  /* ── Palette nuit douce ── */
-  --milk-night:    #1a1410;   /* fond principal — brun nuit doux */
-  --milk-night-2:  #221c16;   /* fond secondaire */
-  --milk-night-3:  #2d2419;   /* fond tertiaire / cards */
-  --milk-night-4:  #3d3026;   /* bordures, séparateurs */
+  --milk-night:    #2a2018;   /* fond principal — éclairci pour lisibilité mobile */
+  --milk-night-2:  #332619;   /* fond secondaire */
+  --milk-night-3:  #3d2e1e;   /* fond tertiaire / cards */
+  --milk-night-4:  #4d3c2f;   /* bordures, séparateurs */
 
-  /* ── Chauds beige ── */
-  --milk-warm:     #f2ede6;   /* texte principal sur fond sombre */
-  --milk-warm-2:   #d9cfc4;   /* texte secondaire */
-  --milk-warm-3:   rgba(242,237,230,0.45); /* texte muted */
-  --milk-warm-4:   rgba(242,237,230,0.1);  /* bordures légères */
+  --milk-warm:     #f2ede6;
+  --milk-warm-2:   #d9cfc4;
+  --milk-warm-3:   rgba(242,237,230,0.45);
+  --milk-warm-4:   rgba(242,237,230,0.1);
 
-  /* ── Accents ── */
-  --milk-amber:    #c49a4a;   /* amber doré — accent principal */
-  --milk-amber-2:  #a07d35;   /* amber foncé hover */
-  --milk-gold:     #e8b84b;   /* or doux — très rare */
+  --milk-amber:    #c49a4a;
+  --milk-amber-2:  #a07d35;
+  --milk-gold:     #e8b84b;
 
-  /* ── Public (pages hors accueil) ── */
-  --milk-bg:       #f5f0e8;   /* beige chaud clair */
-  --milk-bg-2:     #ede8df;   /* beige légèrement plus sombre */
-  --milk-text:     #1a1410;   /* texte sur fond clair */
+  --milk-bg:       #f5f0e8;
+  --milk-bg-2:     #ede8df;
+  --milk-text:     #1a1410;
 
-  /* ── Legacy ── */
   --color-bg:      var(--milk-bg);
   --color-text:    var(--milk-text);
   --color-accent:  var(--milk-amber);
@@ -50,38 +39,18 @@ html, body {
 }
 
 * { box-sizing: border-box; }
-
 a { color: inherit; text-decoration: none; }
-/* ── Performances ───────────────────────────────────────── */
 
-/* Évite les sauts de layout sur les images */
-img {
-  max-width: 100%;
-  height: auto;
-}
-
-/* Smooth scroll natif */
-html {
-  scroll-behavior: smooth;
-}
-
-/* Évite le FOUC sur les fonts */
+img { max-width: 100%; height: auto; }
+html { scroll-behavior: smooth; }
 body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
 }
+button, a { -webkit-tap-highlight-color: transparent; }
+img[loading="lazy"] { content-visibility: auto; }
 
-/* Pas de sélection parasite */
-button, a {
-  -webkit-tap-highlight-color: transparent;
-}
-
-/* Lazy loading natif images hors Next/Image */
-img[loading="lazy"] {
-  content-visibility: auto;
-}
-/* ── Fix hover cards recherche (remplace useState dans map) ── */
 .search-card {
   transition: all 0.25s cubic-bezier(.22,.61,.36,1);
   border: 1px solid rgba(242,237,230,0.08) !important;

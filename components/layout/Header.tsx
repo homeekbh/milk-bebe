@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LangContext";
 
 // ─── Icônes ───────────────────────────────────────────────────────────────────
 function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
@@ -63,11 +64,62 @@ const CATS = [
   { label: "Accessoires", href: "/categorie/accessoires", desc: "Les détails qui changent tout", emoji: "🌿" },
 ];
 
+const LANGS = [
+  { code: "fr" as const, flag: "🇫🇷", label: "FR" },
+  { code: "en" as const, flag: "🇬🇧", label: "EN" },
+  { code: "it" as const, flag: "🇮🇹", label: "IT" },
+  { code: "hu" as const, flag: "🇭🇺", label: "HU" },
+];
+
+// ─── Sélecteur de langue ──────────────────────────────────────────────────────
+function LangSwitcher({ textColor }: { textColor: string }) {
+  const { locale, setLocale } = useLang();
+  const [open, setOpen] = useState(false);
+  const current = LANGS.find(l => l.code === locale) ?? LANGS[0];
+
+  return (
+    <div style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(v => !v)}
+        style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.2)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: textColor, display: "flex", alignItems: "center", gap: 4 }}
+      >
+        {current.flag} {current.label}
+        <span style={{ fontSize: 9, opacity: 0.5 }}>▼</span>
+      </button>
+      {open && (
+        <div style={{ position: "absolute", top: 44, right: 0, background: "rgba(22,18,14,0.98)", border: "1px solid rgba(242,237,230,0.1)", borderRadius: 12, padding: 6, minWidth: 110, boxShadow: "0 20px 40px rgba(0,0,0,0.4)", zIndex: 100 }}>
+          {LANGS.map(lang => (
+            <button key={lang.code} onClick={() => { setLocale(lang.code); setOpen(false); }}
+              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: lang.code === locale ? "rgba(196,154,74,0.15)" : "transparent", cursor: "pointer", fontSize: 13, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.7)", textAlign: "left", display: "flex", gap: 8, alignItems: "center" }}>
+              {lang.flag} {lang.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Mobile lang buttons ──────────────────────────────────────────────────────
+function MobileLangButtons({ onClose }: { onClose: () => void }) {
+  const { locale, setLocale } = useLang();
+  return (
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "4px 0" }}>
+      {LANGS.map(lang => (
+        <button key={lang.code} onClick={() => { setLocale(lang.code); onClose(); }}
+          style={{ padding: "10px 16px", borderRadius: 10, background: lang.code === locale ? "rgba(196,154,74,0.15)" : "rgba(242,237,230,0.06)", border: lang.code === locale ? "1px solid rgba(196,154,74,0.3)" : "1px solid rgba(242,237,230,0.08)", fontSize: 14, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.6)", cursor: "pointer" }}>
+          {lang.flag} {lang.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Header ───────────────────────────────────────────────────────────────────
 export default function Header() {
   const pathname = usePathname();
   const router   = useRouter();
-  const { items }       = useCart();
+  const { items }         = useCart();
   const { user, signOut } = useAuth();
 
   const [scrolled,   setScrolled]   = useState(false);
@@ -134,6 +186,18 @@ export default function Header() {
 
   return (
     <>
+      <style>{`
+        @media (max-width: 768px) {
+          .milk-nav       { display: none !important; }
+          .milk-desktop   { display: none !important; }
+          .milk-burger    { display: flex !important; }
+        }
+        @media (min-width: 769px) {
+          .milk-burger    { display: none !important; }
+          .milk-mobile-only { display: none !important; }
+        }
+      `}</style>
+
       <header
         ref={el => { headerRef.current = el; }}
         style={{
@@ -143,36 +207,31 @@ export default function Header() {
           transition: "background 0.25s ease, border-color 0.25s ease",
         }}
       >
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 32px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 72, gap: 24 }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 16px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 64, gap: 12 }}>
 
           {/* ── Logo ── */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }} aria-label="M!LK">
-            <div style={{ width: 52, height: 52, borderRadius: 999, background: "#1a1410", border: "1px solid rgba(242,237,230,0.15)", display: "grid", placeItems: "center", boxShadow: "0 8px 24px rgba(0,0,0,0.25)" }}>
-              <span style={{ color: "#f2ede6", fontWeight: 950, letterSpacing: -1.2, fontSize: 16, lineHeight: 1 }}>M!LK</span>
+            <div style={{ width: 46, height: 46, borderRadius: 999, background: "#1a1410", border: "1px solid rgba(242,237,230,0.15)", display: "grid", placeItems: "center", boxShadow: "0 4px 16px rgba(0,0,0,0.3)" }}>
+              <span style={{ color: "#f2ede6", fontWeight: 950, letterSpacing: -1.2, fontSize: 15, lineHeight: 1 }}>M!LK</span>
             </div>
           </Link>
 
           {/* ── Nav desktop ── */}
-          <nav style={{ display: "flex", alignItems: "center", gap: 6, flex: 1, justifyContent: "center" }}>
-
-            {/* Mega menu */}
-            <div
-              style={{ position: "relative" }}
+          <nav className="milk-nav" style={{ display: "flex", alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
+            <div style={{ position: "relative" }}
               onMouseEnter={() => { cancel(catTimer); setOpenCat(true); }}
               onMouseLeave={() => delay(() => setOpenCat(false), catTimer)}
             >
-              <button
-                style={{ background: "none", border: "none", cursor: "pointer", padding: "8px 14px", borderRadius: 10, color: C.text, fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}
+              <button style={{ background: "none", border: "none", cursor: "pointer", padding: "8px 14px", borderRadius: 10, color: C.text, fontWeight: 700, fontSize: 15, display: "flex", alignItems: "center", gap: 6 }}
                 onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(128,128,128,0.1)"; }}
                 onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "none"; }}
               >
                 Notre collection
-                <span style={{ fontSize: 10, opacity: 0.6, transition: "transform 0.2s", transform: openCat ? "rotate(180deg)" : "none" }}>▼</span>
+                <span style={{ fontSize: 10, opacity: 0.6, transform: openCat ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▼</span>
               </button>
 
               {openCat && (
-                <div
-                  style={{ position: "absolute", top: 52, left: "50%", transform: "translateX(-50%)", width: 520, background: C.dropBg, border: C.dropBdr, borderRadius: 20, padding: 20, boxShadow: "0 40px 80px rgba(0,0,0,0.35)", display: "grid", gap: 8 }}
+                <div style={{ position: "absolute", top: 52, left: "50%", transform: "translateX(-50%)", width: 520, background: C.dropBg, border: C.dropBdr, borderRadius: 20, padding: 20, boxShadow: "0 40px 80px rgba(0,0,0,0.35)", display: "grid", gap: 8 }}
                   onMouseEnter={() => { cancel(catTimer); setOpenCat(true); }}
                   onMouseLeave={() => delay(() => setOpenCat(false), catTimer)}
                 >
@@ -183,12 +242,10 @@ export default function Header() {
                     </div>
                     <span style={{ color: C.amber, fontSize: 18 }}>→</span>
                   </Link>
-
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                     {CATS.map(cat => (
-                      <Link key={cat.href} href={cat.href} onClick={() => setOpenCat(false)} style={{ textDecoration: "none", display: "block" }}>
-                        <div
-                          style={{ padding: "14px 16px", borderRadius: 14, background: "rgba(128,128,128,0.06)", border: "1px solid rgba(128,128,128,0.08)", transition: "all 0.15s ease", cursor: "pointer" }}
+                      <Link key={cat.href} href={cat.href} onClick={() => setOpenCat(false)} style={{ textDecoration: "none" }}>
+                        <div style={{ padding: "14px 16px", borderRadius: 14, background: "rgba(128,128,128,0.06)", border: "1px solid rgba(128,128,128,0.08)", transition: "all 0.15s", cursor: "pointer" }}
                           onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(196,154,74,0.08)"; el.style.borderColor = "rgba(196,154,74,0.2)"; el.style.transform = "translateY(-2px)"; }}
                           onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(128,128,128,0.06)"; el.style.borderColor = "rgba(128,128,128,0.08)"; el.style.transform = "translateY(0)"; }}
                         >
@@ -199,13 +256,13 @@ export default function Header() {
                       </Link>
                     ))}
                   </div>
-
                   <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginTop: 4 }}>
                     {[
                       { label: "Pourquoi le bambou ?", href: "/pourquoi-bambou" },
                       { label: "Qui sommes-nous ?",    href: "/qui-sommes-nous" },
                     ].map(l => (
-                      <Link key={l.href} href={l.href} onClick={() => setOpenCat(false)} style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(128,128,128,0.04)", textDecoration: "none", fontSize: 13, fontWeight: 700, color: C.muted, display: "block" }}>
+                      <Link key={l.href} href={l.href} onClick={() => setOpenCat(false)}
+                        style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(128,128,128,0.04)", textDecoration: "none", fontSize: 13, fontWeight: 700, color: C.muted, display: "block" }}>
                         {l.label}
                       </Link>
                     ))}
@@ -214,64 +271,52 @@ export default function Header() {
               )}
             </div>
 
-            {/* Liens directs */}
             {[
-              { label: "Qui sommes-nous",  href: "/qui-sommes-nous" },
+              { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
               { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
             ].map(l => (
-              <Link key={l.href} href={l.href} style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 14px", borderRadius: 10, opacity: pathname === l.href ? 1 : 0.8, borderBottom: pathname === l.href ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s" }}>
+              <Link key={l.href} href={l.href}
+                style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 14px", borderRadius: 10, opacity: pathname === l.href ? 1 : 0.8, borderBottom: pathname === l.href ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s" }}>
                 {l.label}
               </Link>
             ))}
           </nav>
 
-          {/* ── Actions droite ── */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
+          {/* ── Actions droite desktop ── */}
+          <div className="milk-desktop" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <LangSwitcher textColor={C.text} />
 
-            {/* Recherche */}
-            <Link
-              href="/recherche"
-              aria-label="Recherche"
-              style={{ width: 42, height: 42, borderRadius: 12, display: "grid", placeItems: "center", textDecoration: "none", transition: "background 0.15s" }}
+            <Link href="/recherche" aria-label="Recherche"
+              style={{ width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
             >
               <SearchIcon color={C.text} size={20} />
             </Link>
 
-            {/* Panier */}
-            <Link
-              href="/panier"
-              aria-label="Panier"
-              style={{ position: "relative", display: "grid", placeItems: "center", width: 42, height: 42, borderRadius: 12, textDecoration: "none", transition: "background 0.15s" }}
+            <Link href="/panier" aria-label="Panier"
+              style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
             >
               <CartIcon color={C.text} size={22} />
               {totalItems > 0 && (
-                <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, lineHeight: 1, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>
+                <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>
                   {totalItems}
                 </span>
               )}
             </Link>
 
-            {/* Compte */}
-            <div
-              style={{ position: "relative" }}
+            <div style={{ position: "relative" }}
               onMouseEnter={() => { cancel(userTimer); setOpenUser(true); }}
               onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}
             >
-              <button style={{ width: 42, height: 42, borderRadius: 12, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center", transition: "all 0.15s" }}>
-                {user ? (
-                  <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span>
-                ) : (
-                  <ProfileIcon color={C.text} size={22} />
-                )}
+              <button style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
+                {user ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span> : <ProfileIcon color={C.text} size={22} />}
               </button>
 
               {openUser && (
-                <div
-                  style={{ position: "absolute", top: 52, right: 0, width: 220, background: C.dropBg, border: C.dropBdr, borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.3)", display: "grid", gap: 4 }}
+                <div style={{ position: "absolute", top: 50, right: 0, width: 220, background: C.dropBg, border: C.dropBdr, borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.3)", display: "grid", gap: 4 }}
                   onMouseEnter={() => { cancel(userTimer); setOpenUser(true); }}
                   onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}
                 >
@@ -281,24 +326,23 @@ export default function Header() {
                         <div style={{ fontSize: 13, fontWeight: 900, color: C.text }}>{user.email?.split("@")[0]}</div>
                         <div style={{ fontSize: 11, color: C.muted, marginTop: 2 }}>{user.email}</div>
                       </div>
-                      <div style={{ height: 1, background: "rgba(128,128,128,0.1)", margin: "2px 0" }} />
+                      <div style={{ height: 1, background: "rgba(128,128,128,0.1)" }} />
                       {[
                         { label: "Mon profil",    href: "/profil"    },
                         { label: "Mes commandes", href: "/commandes" },
                         { label: "Mes adresses",  href: "/profil"    },
                       ].map(l => (
                         <Link key={l.href} href={l.href} onClick={() => setOpenUser(false)}
-                          style={{ display: "block", padding: "10px 12px", borderRadius: 10, textDecoration: "none", fontSize: 14, fontWeight: 700, color: C.text, transition: "background 0.12s" }}
+                          style={{ display: "block", padding: "10px 12px", borderRadius: 10, textDecoration: "none", fontSize: 14, fontWeight: 700, color: C.text }}
                           onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.08)"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
                         >
                           {l.label}
                         </Link>
                       ))}
-                      <div style={{ height: 1, background: "rgba(128,128,128,0.1)", margin: "2px 0" }} />
-                      <button
-                        onClick={handleSignOut}
-                        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#ef4444", textAlign: "left", transition: "background 0.12s" }}
+                      <div style={{ height: 1, background: "rgba(128,128,128,0.1)" }} />
+                      <button onClick={handleSignOut}
+                        style={{ width: "100%", padding: "10px 12px", borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#ef4444", textAlign: "left" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                       >
@@ -307,112 +351,130 @@ export default function Header() {
                     </>
                   ) : (
                     <>
-                      <div style={{ padding: "8px 12px 10px", fontSize: 13, color: C.muted }}>
-                        Connecte-toi pour suivre tes commandes
-                      </div>
-                      <Link href="/connexion" onClick={() => setOpenUser(false)} style={{ display: "block", padding: "11px 12px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", textDecoration: "none", fontSize: 14, fontWeight: 900, textAlign: "center" }}>
-                        Se connecter
-                      </Link>
-                      <Link href="/inscription" onClick={() => setOpenUser(false)} style={{ display: "block", padding: "11px 12px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.15)", textDecoration: "none", fontSize: 14, fontWeight: 700, color: C.text, textAlign: "center" }}>
-                        Créer un compte
-                      </Link>
+                      <div style={{ padding: "8px 12px 10px", fontSize: 13, color: C.muted }}>Connecte-toi pour suivre tes commandes</div>
+                      <Link href="/connexion" onClick={() => setOpenUser(false)} style={{ display: "block", padding: "11px 12px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", textDecoration: "none", fontSize: 14, fontWeight: 900, textAlign: "center" }}>Se connecter</Link>
+                      <Link href="/inscription" onClick={() => setOpenUser(false)} style={{ display: "block", padding: "11px 12px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.15)", textDecoration: "none", fontSize: 14, fontWeight: 700, color: C.text, textAlign: "center" }}>Créer un compte</Link>
                     </>
                   )}
                 </div>
               )}
             </div>
+          </div>
 
-            {/* Burger mobile */}
-            <button
-              onClick={() => setMobileOpen(v => !v)}
-              className="mobile-burger"
-              aria-label="Menu"
-              style={{ display: "none", width: 42, height: 42, borderRadius: 12, background: "none", border: "none", cursor: "pointer", flexDirection: "column", gap: 5, alignItems: "center", justifyContent: "center" }}
+          {/* ── Actions mobile droite (panier + burger) ── */}
+          <div className="milk-burger" style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+            <Link href="/panier" aria-label="Panier"
+              style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}
             >
-              <span style={{ width: 20, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(45deg) translate(5px, 5px)" : "none" }} />
-              <span style={{ width: 20, height: 2, background: C.text, borderRadius: 2, opacity: mobileOpen ? 0 : 1, transition: "opacity 0.2s" }} />
-              <span style={{ width: 20, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(-45deg) translate(5px, -5px)" : "none" }} />
+              <CartIcon color={C.text} size={22} />
+              {totalItems > 0 && (
+                <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>
+                  {totalItems}
+                </span>
+              )}
+            </Link>
+
+            <button onClick={() => setMobileOpen(v => !v)} aria-label="Menu"
+              style={{ width: 40, height: 40, borderRadius: 10, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, alignItems: "center", justifyContent: "center" }}
+            >
+              <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(45deg) translate(5px, 5px)" : "none" }} />
+              <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, opacity: mobileOpen ? 0 : 1, transition: "opacity 0.2s" }} />
+              <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(-45deg) translate(5px, -5px)" : "none" }} />
             </button>
           </div>
         </div>
       </header>
 
-      {/* ── Menu mobile ── */}
+      {/* ── Menu mobile fullscreen ── */}
       {mobileOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "rgba(13,11,9,0.97)", paddingTop: 90, paddingLeft: 24, paddingRight: 24, display: "flex", flexDirection: "column", gap: 8, overflowY: "auto" }}>
+        <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
+          <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: "calc(100vh - 80px)" }}>
 
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 8, marginTop: 8 }}>Collection</div>
-          {[
-            { label: "Tous les produits",  href: "/produits"               },
-            { label: "Bodies",             href: "/categorie/bodies"       },
-            { label: "Pyjamas",            href: "/categorie/pyjamas"      },
-            { label: "Gigoteuses",         href: "/categorie/gigoteuses"   },
-            { label: "Accessoires",        href: "/categorie/accessoires"  },
-          ].map(l => (
-            <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(242,237,230,0.06)", textDecoration: "none", fontSize: 16, fontWeight: 800, color: "#f2ede6" }}>
-              {l.label}
+            {/* Langue */}
+            <MobileLangButtons onClose={() => setMobileOpen(false)} />
+
+            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
+
+            {/* Collection */}
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>Collection</div>
+            {[
+              { label: "🛍 Tous les produits",  href: "/produits"              },
+              { label: "👶 Bodies",             href: "/categorie/bodies"      },
+              { label: "🌙 Pyjamas",            href: "/categorie/pyjamas"     },
+              { label: "✦ Gigoteuses",          href: "/categorie/gigoteuses"  },
+              { label: "🌿 Accessoires",        href: "/categorie/accessoires" },
+            ].map(l => (
+              <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
+                style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(242,237,230,0.06)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#f2ede6", display: "block" }}>
+                {l.label}
+              </Link>
+            ))}
+
+            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
+
+            {/* La marque */}
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>La marque</div>
+            {[
+              { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
+              { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
+            ].map(l => (
+              <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
+                style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(242,237,230,0.04)", textDecoration: "none", fontSize: 17, fontWeight: 700, color: "rgba(242,237,230,0.7)", display: "block" }}>
+                {l.label}
+              </Link>
+            ))}
+
+            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
+
+            {/* Recherche */}
+            <Link href="/recherche" onClick={() => setMobileOpen(false)}
+              style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(242,237,230,0.04)", textDecoration: "none", fontSize: 17, fontWeight: 700, color: "rgba(242,237,230,0.7)", display: "flex", alignItems: "center", gap: 12 }}>
+              <SearchIcon color="rgba(242,237,230,0.7)" size={20} />
+              Rechercher
             </Link>
-          ))}
 
-          <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 8 }}>La marque</div>
-          {[
-            { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
-            { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
-          ].map(l => (
-            <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(242,237,230,0.04)", textDecoration: "none", fontSize: 16, fontWeight: 700, color: "rgba(242,237,230,0.7)" }}>
-              {l.label}
-            </Link>
-          ))}
+            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
 
-          <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
-
-          {/* Recherche mobile */}
-          <Link href="/recherche" onClick={() => setMobileOpen(false)} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(242,237,230,0.04)", textDecoration: "none", fontSize: 16, fontWeight: 700, color: "rgba(242,237,230,0.7)", display: "flex", alignItems: "center", gap: 10 }}>
-            <SearchIcon color="rgba(242,237,230,0.7)" size={18} />
-            Rechercher un produit
-          </Link>
-
-          <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
-
-          {user ? (
-            <>
-              <div style={{ padding: "12px 16px", fontSize: 14, color: "rgba(242,237,230,0.45)" }}>
-                Connecté en tant que <strong style={{ color: "#f2ede6" }}>{user.email}</strong>
-              </div>
-              <Link href="/profil" onClick={() => setMobileOpen(false)} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(242,237,230,0.06)", textDecoration: "none", fontSize: 16, fontWeight: 800, color: "#f2ede6" }}>
-                Mon profil
-              </Link>
-              <button onClick={handleSignOut} style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(239,68,68,0.1)", border: "none", cursor: "pointer", fontSize: 16, fontWeight: 800, color: "#ef4444", textAlign: "left" }}>
-                Se déconnecter
-              </button>
-            </>
-          ) : (
-            <>
-              <Link href="/connexion" onClick={() => setMobileOpen(false)} style={{ padding: "14px 16px", borderRadius: 12, background: "#f2ede6", textDecoration: "none", fontSize: 16, fontWeight: 900, color: "#1a1410", textAlign: "center", display: "block" }}>
-                Se connecter
-              </Link>
-              <Link href="/inscription" onClick={() => setMobileOpen(false)} style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(242,237,230,0.15)", textDecoration: "none", fontSize: 16, fontWeight: 700, color: "#f2ede6", textAlign: "center", display: "block" }}>
-                Créer un compte
-              </Link>
-            </>
-          )}
-
-          <Link href="/panier" onClick={() => setMobileOpen(false)} style={{ marginTop: 8, padding: "14px 16px", borderRadius: 12, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 16, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span>Mon panier</span>
-            {totalItems > 0 && (
-              <span style={{ padding: "3px 10px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 13, fontWeight: 900 }}>{totalItems}</span>
+            {/* Compte */}
+            {user ? (
+              <>
+                <div style={{ padding: "12px 18px", fontSize: 14, color: "rgba(242,237,230,0.45)", background: "rgba(242,237,230,0.03)", borderRadius: 12 }}>
+                  Connecté : <strong style={{ color: "#f2ede6" }}>{user.email}</strong>
+                </div>
+                <Link href="/profil" onClick={() => setMobileOpen(false)}
+                  style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(242,237,230,0.06)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#f2ede6", display: "block" }}>
+                  Mon profil
+                </Link>
+                <button onClick={handleSignOut}
+                  style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(239,68,68,0.1)", border: "none", cursor: "pointer", fontSize: 17, fontWeight: 800, color: "#ef4444", textAlign: "left", width: "100%" }}>
+                  Se déconnecter
+                </button>
+              </>
+            ) : (
+              <>
+                <Link href="/connexion" onClick={() => setMobileOpen(false)}
+                  style={{ padding: "16px 18px", borderRadius: 14, background: "#f2ede6", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#1a1410", textAlign: "center", display: "block" }}>
+                  Se connecter
+                </Link>
+                <Link href="/inscription" onClick={() => setMobileOpen(false)}
+                  style={{ padding: "16px 18px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.15)", textDecoration: "none", fontSize: 17, fontWeight: 700, color: "#f2ede6", textAlign: "center", display: "block" }}>
+                  Créer un compte
+                </Link>
+              </>
             )}
-          </Link>
+
+            {/* Panier */}
+            <Link href="/panier" onClick={() => setMobileOpen(false)}
+              style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <span>🛒 Mon panier</span>
+              {totalItems > 0 && (
+                <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>
+              )}
+            </Link>
+
+          </div>
         </div>
       )}
-
-      <style>{`
-        @media (max-width: 768px) {
-          .mobile-burger { display: flex !important; }
-          nav { display: none !important; }
-        }
-      `}</style>
     </>
   );
 }

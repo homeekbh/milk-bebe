@@ -9,9 +9,10 @@ const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.ap
 
 // ✅ Emails de notification pour Bou + Erika
 const ADMIN_EMAILS = [
-  process.env.ADMIN_EMAIL_1 ?? "bou@milkbebe.fr",
-  process.env.ADMIN_EMAIL_2 ?? "erika@milkbebe.fr",
-].filter(Boolean);
+  process.env.ADMIN_EMAIL_1,
+  process.env.ADMIN_EMAIL_2,
+  process.env.ADMIN_EMAIL_3,
+].filter(Boolean) as string[];
 
 export async function POST(req: Request) {
   const body        = await req.text();

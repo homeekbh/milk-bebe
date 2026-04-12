@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useMemo } from "react";
 import Image from "next/image";
-import Link from "next/link";
+import Link  from "next/link";
 
 const C = {
   bg:    "#2a2018",
@@ -115,10 +115,20 @@ const bigTextStyle = {
   textAlign: "center" as const,
 };
 
+// ✅ Label section selon le type de highlight
+const HIGHLIGHT_LABELS: Record<string, string> = {
+  meilleure_vente: "Meilleures ventes",
+  selection:       "Sélection du moment",
+  nouveaute:       "Nouveautés",
+  featured:        "Nos essentiels du moment",
+  default:         "Nos essentiels du moment",
+};
+
 export default function HomePage() {
   const heroRef   = useRef<HTMLDivElement>(null);
   const bambouRef = useRef<HTMLDivElement>(null);
-  const [products, setProducts] = useState<any[]>([]);
+  const [products,      setProducts]      = useState<any[]>([]);
+  const [sectionLabel,  setSectionLabel]  = useState("Nos essentiels du moment");
 
   const topText     = useMemo(() => "M!LK RÉDUIT LES GALÈRES", []);
   const topText2    = useMemo(() => "DU QUOTIDIEN", []);
@@ -127,15 +137,30 @@ export default function HomePage() {
 
   const scrollSection = useInView(0.1);
 
+  // ✅ Chargement produits avec priorité highlight
   useEffect(() => {
     fetch("/api/produits")
       .then(r => r.json())
       .then(data => {
-        if (Array.isArray(data)) {
-          const featured = data.filter(p => p.featured && p.stock > 0).slice(0, 4);
-          const fallback  = data.filter(p => p.stock > 0).slice(0, 4);
-          setProducts(featured.length >= 2 ? featured : fallback);
-        }
+        if (!Array.isArray(data)) return;
+
+        const meilleures = data.filter(p => p.highlight === "meilleure_vente" && p.stock > 0);
+        const selection  = data.filter(p => p.highlight === "selection"       && p.stock > 0);
+        const nouveautes = data.filter(p => p.highlight === "nouveaute"       && p.stock > 0);
+        const featured   = data.filter(p => p.featured                        && p.stock > 0);
+        const fallback   = data.filter(p => p.stock > 0);
+
+        let chosen: any[]    = [];
+        let label = "default";
+
+        if (meilleures.length >= 1) { chosen = meilleures; label = "meilleure_vente"; }
+        else if (selection.length >= 1)  { chosen = selection;  label = "selection";       }
+        else if (nouveautes.length >= 1) { chosen = nouveautes; label = "nouveaute";        }
+        else if (featured.length >= 1)   { chosen = featured;   label = "featured";         }
+        else                              { chosen = fallback; }
+
+        setProducts(chosen.slice(0, 4));
+        setSectionLabel(HIGHLIGHT_LABELS[label] ?? HIGHLIGHT_LABELS.default);
       })
       .catch(() => {});
   }, []);
@@ -177,37 +202,37 @@ export default function HomePage() {
         .product-card-home:hover { transform: translateY(-8px); box-shadow: 0 40px 70px rgba(0,0,0,0.5); border-color: rgba(196,154,74,0.4) !important; }
         .product-card-home:hover .card-img { transform: scale(1.07) !important; }
 
-        .hero-padding   { padding: 160px 24px 80px; }
-        .products-grid  { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
-        .cat-grid       { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-        .univers-grid   { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
-        .bambou-grid    { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
-        .reviews-grid   { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+        .hero-padding    { padding: 160px 24px 80px; }
+        .products-grid   { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); }
+        .cat-grid        { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .univers-grid    { grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+        .bambou-grid     { grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+        .reviews-grid    { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
         .reassurance-grid { grid-template-columns: repeat(4, 1fr); }
 
         @media (max-width: 768px) {
-          .hero-padding   { padding: 110px 20px 60px !important; }
-          .hero-btns      { flex-direction: column !important; }
-          .hero-btns a    { text-align: center !important; width: 100%; box-sizing: border-box; }
-          .hero-kpis      { gap: 20px !important; flex-wrap: wrap !important; }
-          .badge-svg      { display: none !important; }
-          .products-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-          .cat-grid       { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-          .univers-grid   { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
-          .bambou-grid    { grid-template-columns: 1fr !important; }
-          .reviews-grid   { grid-template-columns: 1fr !important; }
+          .hero-padding    { padding: 110px 20px 60px !important; }
+          .hero-btns       { flex-direction: column !important; }
+          .hero-btns a     { text-align: center !important; width: 100%; box-sizing: border-box; }
+          .hero-kpis       { gap: 20px !important; flex-wrap: wrap !important; }
+          .badge-svg       { display: none !important; }
+          .products-grid   { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .cat-grid        { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .univers-grid    { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
+          .bambou-grid     { grid-template-columns: 1fr !important; }
+          .reviews-grid    { grid-template-columns: 1fr !important; }
           .reassurance-grid { grid-template-columns: 1fr 1fr !important; }
           .reassurance-item { border-right: none !important; border-bottom: 1px solid rgba(242,237,230,0.07) !important; }
-          .cta-btns       { flex-direction: column !important; align-items: stretch !important; }
-          .cta-btns a     { text-align: center !important; }
+          .cta-btns        { flex-direction: column !important; align-items: stretch !important; }
+          .cta-btns a      { text-align: center !important; }
           .section-padding { padding-left: 20px !important; padding-right: 20px !important; }
         }
 
         @media (max-width: 480px) {
-          .hero-kpis      { gap: 12px !important; }
-          .products-grid  { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-          .cat-grid       { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
-          .univers-grid   { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
+          .hero-kpis     { gap: 12px !important; }
+          .products-grid { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .cat-grid      { grid-template-columns: repeat(2, 1fr) !important; gap: 8px !important; }
+          .univers-grid  { grid-template-columns: 1fr 1fr !important; gap: 8px !important; }
           .reassurance-grid { grid-template-columns: 1fr 1fr !important; }
         }
       `}</style>
@@ -284,7 +309,7 @@ export default function HomePage() {
       {/* ── TICKER ── */}
       <Ticker />
 
-      {/* ── SECTION TEXTE SCROLL + CARDS CATÉGORIES ── */}
+      {/* ── TEXTE SCROLL + CARDS CATÉGORIES ── */}
       <div ref={scrollSection.ref} style={{ background: C.bg, padding: "80px 24px", overflow: "hidden" }}>
         <div style={{ maxWidth: 1200, margin: "0 auto" }}>
 
@@ -297,7 +322,6 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Cards catégories */}
           <div className="cat-grid" style={{ display: "grid", gap: 16, marginBottom: 56 }}>
             {[
               { emoji: "👶", label: "Bodies",      desc: "L'essentiel du quotidien",       href: "/categorie/bodies",      delay: 0,   from: "left"  },
@@ -305,29 +329,12 @@ export default function HomePage() {
               { emoji: "✦",  label: "Gigoteuses",  desc: "Sommeil sécurisé",               href: "/categorie/gigoteuses",  delay: 0.2, from: "left"  },
               { emoji: "🌿", label: "Accessoires", desc: "Les détails qui changent tout",  href: "/categorie/accessoires", delay: 0.3, from: "right" },
             ].map(cat => (
-              <div
-                key={cat.label}
-                style={{
-                  opacity:   scrollSection.visible ? 1 : 0,
-                  transform: scrollSection.visible ? "translateX(0)" : cat.from === "left" ? "translateX(-80px)" : "translateX(80px)",
-                  transition: `opacity 0.7s ease ${cat.delay}s, transform 0.7s cubic-bezier(.22,1,.36,1) ${cat.delay}s`,
-                }}
-              >
+              <div key={cat.label} style={{ opacity: scrollSection.visible ? 1 : 0, transform: scrollSection.visible ? "translateX(0)" : cat.from === "left" ? "translateX(-80px)" : "translateX(80px)", transition: `opacity 0.7s ease ${cat.delay}s, transform 0.7s cubic-bezier(.22,1,.36,1) ${cat.delay}s` }}>
                 <Link href={cat.href} style={{ textDecoration: "none", display: "block" }}>
                   <div
                     style={{ padding: "28px 22px", borderRadius: 20, background: C.bg2, border: `1px solid ${C.faint}`, transition: "all 0.25s ease", cursor: "pointer" }}
-                    onMouseEnter={e => {
-                      const el = e.currentTarget as HTMLDivElement;
-                      el.style.background = "rgba(196,154,74,0.08)";
-                      el.style.borderColor = "rgba(196,154,74,0.25)";
-                      el.style.transform = "translateY(-4px)";
-                    }}
-                    onMouseLeave={e => {
-                      const el = e.currentTarget as HTMLDivElement;
-                      el.style.background = C.bg2;
-                      el.style.borderColor = C.faint;
-                      el.style.transform = "translateY(0)";
-                    }}
+                    onMouseEnter={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = "rgba(196,154,74,0.08)"; el.style.borderColor = "rgba(196,154,74,0.25)"; el.style.transform = "translateY(-4px)"; }}
+                    onMouseLeave={e => { const el = e.currentTarget as HTMLDivElement; el.style.background = C.bg2; el.style.borderColor = C.faint; el.style.transform = "translateY(0)"; }}
                   >
                     <div style={{ fontSize: 34, marginBottom: 14 }}>{cat.emoji}</div>
                     <div style={{ fontWeight: 900, fontSize: 18, color: C.warm, marginBottom: 6 }}>{cat.label}</div>
@@ -362,17 +369,7 @@ export default function HomePage() {
       </div>
 
       {/* ── BAMBOU parallaxe ── */}
-      <div
-        ref={bambouRef}
-        style={{
-          position: "relative",
-          backgroundImage: "url('/matiere/bambou-02.png')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-          backgroundRepeat: "no-repeat",
-          overflow: "hidden",
-        }}
-      >
+      <div ref={bambouRef} style={{ position: "relative", backgroundImage: "url('/matiere/bambou-02.png')", backgroundSize: "cover", backgroundPosition: "center", backgroundRepeat: "no-repeat", overflow: "hidden" }}>
         <div style={{ position: "absolute", inset: 0, background: "radial-gradient(circle at 20% 20%, rgba(255,255,255,0.35), transparent 60%), linear-gradient(to bottom, rgba(255,255,255,0.72), rgba(255,255,255,0.87))" }} />
         <div style={{ padding: "80px 24px 90px", position: "relative", zIndex: 2 }}>
           <div style={{ maxWidth: 1200, margin: "0 auto" }}>
@@ -383,10 +380,10 @@ export default function HomePage() {
             </Reveal>
             <div className="bambou-grid" style={{ display: "grid", gap: 24 }}>
               {[
-                { t: "Pensé pour la vraie vie",   d: "Un body doit accompagner les mouvements, pas les contraindre.",  delay: 0   },
-                { t: "Respirant, naturellement",  d: "Moins de chaleur. Moins d'humidité. Moins d'irritation.",        delay: 0.1 },
-                { t: "Coupe maîtrisée",           d: "Ni trop large. Ni trop serrée. Juste ajustée.",                  delay: 0.2 },
-                { t: "Essentiels durables",       d: "Moins acheter. Mieux choisir.",                                  delay: 0.3 },
+                { t: "Pensé pour la vraie vie",  d: "Un body doit accompagner les mouvements, pas les contraindre.",  delay: 0   },
+                { t: "Respirant, naturellement", d: "Moins de chaleur. Moins d'humidité. Moins d'irritation.",        delay: 0.1 },
+                { t: "Coupe maîtrisée",          d: "Ni trop large. Ni trop serrée. Juste ajustée.",                  delay: 0.2 },
+                { t: "Essentiels durables",      d: "Moins acheter. Mieux choisir.",                                  delay: 0.3 },
               ].map(card => (
                 <Reveal key={card.t} delay={card.delay}>
                   <div style={{ padding: 28, borderRadius: 18, background: "rgba(255,255,255,0.96)", backdropFilter: "blur(3px)", boxShadow: "0 20px 50px rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.04)" }}>
@@ -406,9 +403,12 @@ export default function HomePage() {
           <Reveal>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 36, flexWrap: "wrap", gap: 12 }}>
               <div>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Sélection</div>
+                {/* ✅ Label dynamique selon le highlight */}
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>
+                  Sélection
+                </div>
                 <h2 style={{ margin: 0, fontSize: "clamp(22px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>
-                  Nos essentiels du moment
+                  {sectionLabel}
                 </h2>
               </div>
               <Link href="/produits" style={{ fontSize: 14, fontWeight: 800, color: C.amber, textDecoration: "none" }}>
@@ -431,6 +431,19 @@ export default function HomePage() {
                         ) : (
                           <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 24, fontWeight: 950, color: C.faint }}>M!LK</div>
                         )}
+
+                        {/* ✅ Badge highlight sur la card */}
+                        {p.highlight === "meilleure_vente" && (
+                          <div style={{ position: "absolute", top: 0, right: 0, overflow: "hidden", width: 88, height: 88 }}>
+                            <span style={{ position: "absolute", top: 18, right: -24, background: "#c49a4a", color: "#1a1410", fontSize: 9, fontWeight: 900, padding: "5px 32px", transform: "rotate(45deg)", display: "block", textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>Best</span>
+                          </div>
+                        )}
+                        {p.highlight === "nouveaute" && (
+                          <div style={{ position: "absolute", top: 0, right: 0, overflow: "hidden", width: 88, height: 88 }}>
+                            <span style={{ position: "absolute", top: 18, right: -24, background: "#2563eb", color: "#fff", fontSize: 9, fontWeight: 900, padding: "5px 32px", transform: "rotate(45deg)", display: "block", textTransform: "uppercase", letterSpacing: 0.5, whiteSpace: "nowrap" }}>New</span>
+                          </div>
+                        )}
+
                         {promo && (
                           <div style={{ position: "absolute", top: 10, left: 10 }}>
                             <span style={{ padding: "4px 9px", borderRadius: 99, background: C.amber, color: "#fff", fontSize: 10, fontWeight: 900 }}>PROMO</span>
@@ -468,7 +481,6 @@ export default function HomePage() {
             </h2>
           </div>
         </Reveal>
-
         <div className="univers-grid" style={{ display: "grid", gap: 14 }}>
           {[
             { src: "/univers-maman-bebe.png",   label: "Le lien maman-bébé", delay: 0   },
@@ -497,20 +509,17 @@ export default function HomePage() {
             </h2>
           </div>
         </Reveal>
-
         <div className="reviews-grid" style={{ display: "grid", gap: 14 }}>
           {[
-            { name: "Sophie M.",  role: "Maman de Léo, 2 mois",      stars: 5, text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La différence est immédiate dès la première nuit." },
-            { name: "Thomas R.",  role: "Papa de Zoé, nouveau-né",    stars: 5, text: "On a reçu le coffret pour la naissance. La qualité est évidente, le bambou est incroyablement doux. On recommande à tous les futurs parents." },
-            { name: "Amina B.",   role: "Maman de Samy, 3 mois",     stars: 5, text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Le bambou thermorégulateur, ça marche vraiment." },
-            { name: "Julie D.",   role: "Maman d'Emma, née en juin",  stars: 5, text: "Cadeau de naissance parfait. Les matières sont premium, les finitions soignées. On a l'impression d'habiller bébé dans quelque chose de vraiment spécial." },
+            { name: "Sophie M.",  role: "Maman de Léo, 2 mois",     stars: 5, text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La différence est immédiate dès la première nuit." },
+            { name: "Thomas R.",  role: "Papa de Zoé, nouveau-né",   stars: 5, text: "On a reçu le coffret pour la naissance. La qualité est évidente, le bambou est incroyablement doux. On recommande à tous les futurs parents." },
+            { name: "Amina B.",   role: "Maman de Samy, 3 mois",    stars: 5, text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Le bambou thermorégulateur, ça marche vraiment." },
+            { name: "Julie D.",   role: "Maman d'Emma, née en juin", stars: 5, text: "Cadeau de naissance parfait. Les matières sont premium, les finitions soignées. On a l'impression d'habiller bébé dans quelque chose de vraiment spécial." },
           ].map((review, i) => (
             <Reveal key={review.name} delay={i * 0.08}>
               <div style={{ padding: "22px 20px", borderRadius: 16, background: C.bg2, border: `1px solid ${C.faint}` }}>
                 <div style={{ display: "flex", marginBottom: 10 }}>
-                  {[...Array(review.stars)].map((_, j) => (
-                    <span key={j} style={{ color: C.amber, fontSize: 13 }}>★</span>
-                  ))}
+                  {[...Array(review.stars)].map((_, j) => <span key={j} style={{ color: C.amber, fontSize: 13 }}>★</span>)}
                 </div>
                 <p style={{ margin: "0 0 14px", fontSize: 14, color: C.muted, lineHeight: 1.7, fontStyle: "italic" }}>
                   &ldquo;{review.text}&rdquo;
@@ -523,14 +532,14 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* ── REASSURANCE ── */}
+      {/* ── RÉASSURANCE ── */}
       <div style={{ borderTop: `1px solid ${C.faint}`, borderBottom: `1px solid ${C.faint}` }}>
         <div className="reassurance-grid" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 24px", display: "grid" }}>
           {[
-            { icon: "🚚", label: "Livraison offerte",  desc: "Dès 60€ d'achat"           },
-            { icon: "↩️", label: "Retour gratuit",     desc: "Sous 30 jours"              },
-            { icon: "🌿", label: "Bambou OEKO-TEX",    desc: "Certifié, testé, sécurisé"  },
-            { icon: "🔒", label: "Paiement sécurisé",  desc: "Via Stripe"                 },
+            { icon: "🚚", label: "Livraison offerte",  desc: "Dès 60€ d'achat"          },
+            { icon: "↩️", label: "Retour gratuit",     desc: "Sous 30 jours"             },
+            { icon: "🌿", label: "Bambou OEKO-TEX",    desc: "Certifié, testé, sécurisé" },
+            { icon: "🔒", label: "Paiement sécurisé",  desc: "Via Stripe"                },
           ].map((r, i) => (
             <div className="reassurance-item" key={r.label} style={{ padding: "24px 16px", textAlign: "center", borderRight: i < 3 ? `1px solid ${C.faint}` : "none" }}>
               <div style={{ fontSize: 26, marginBottom: 8 }}>{r.icon}</div>

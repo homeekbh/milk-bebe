@@ -1,14 +1,15 @@
 ﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-import Header      from "@/components/layout/Header";
-import Footer      from "@/components/layout/Footer";
-import ChatWidget  from "@/components/bot/ChatWidget";
-import { IntroProvider } from "@/context/IntroContext";
-import IntroScreen from "@/components/intro/IntroScreen";
-import { CartProvider } from "@/context/CartContext";
-import { LangProvider } from "@/context/LangContext";
-import { AuthProvider } from "@/context/AuthContext";
+import Header          from "@/components/layout/Header";
+import Footer          from "@/components/layout/Footer";
+import ChatWidget      from "@/components/bot/ChatWidget";
+import { IntroProvider }  from "@/context/IntroContext";
+import IntroScreen     from "@/components/intro/IntroScreen";
+import { CartProvider }   from "@/context/CartContext";
+import { LangProvider }   from "@/context/LangContext";
+import { AuthProvider }   from "@/context/AuthContext";
+import PopupBienvenue  from "@/components/PopupBienvenue";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
 
@@ -46,7 +47,7 @@ export const metadata: Metadata = {
     "future maman vêtements bébé bambou", "habiller nouveau né bambou",
     "boutique vêtements bébé bambou France", "marque française vêtements bébé bambou",
   ],
-  authors: [{ name: "M!LK", url: BASE_URL }],
+  authors:  [{ name: "M!LK", url: BASE_URL }],
   openGraph: {
     type:        "website",
     locale:      "fr_FR",
@@ -93,17 +94,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
-        {/* ✅ Favicon SVG — modern browsers */}
-        <link rel="icon"             href="/favicon.svg"         type="image/svg+xml" />
-        {/* Fallback ICO — vieux browsers */}
-        <link rel="icon"             href="/favicon.ico"         sizes="any" />
-        {/* PNG pour les navigateurs qui ne supportent pas SVG */}
-        <link rel="icon"             href="/favicon-32x32.png"   type="image/png" sizes="32x32" />
-        {/* Apple touch icon */}
+        <link rel="icon"             href="/favicon.svg"          type="image/svg+xml" />
+        <link rel="icon"             href="/favicon.ico"          sizes="any" />
+        <link rel="icon"             href="/favicon-32x32.png"    type="image/png" sizes="32x32" />
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-        {/* PWA manifest */}
         <link rel="manifest"         href="/manifest.json" />
-        {/* Preconnect Supabase */}
         <link rel="preconnect"       href="https://ntkqmnenczltlwplswka.supabase.co" />
         <link rel="dns-prefetch"     href="https://ntkqmnenczltlwplswka.supabase.co" />
       </head>
@@ -112,7 +107,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CartProvider>
             <LangProvider>
               <IntroProvider>
+                {/* ✅ Intro screen — désactivée dans /admin via usePathname */}
                 <IntroScreen />
+                {/* ✅ Pop-up bienvenue — s'affiche à la 1ère visite */}
+                <PopupBienvenue />
                 <Header />
                 <main>{children}</main>
                 <Footer />

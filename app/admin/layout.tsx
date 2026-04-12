@@ -1,5 +1,5 @@
 ﻿"use client";
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -82,6 +82,19 @@ function Icon({ name, size = 22 }: { name: string; size?: number }) {
         <polyline points="12 19 5 12 12 5"/>
       </svg>
     ),
+    menu: (
+      <svg style={s} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap={sc} strokeLinejoin={sc}>
+        <line x1="3" y1="6"  x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
+    ),
+    close: (
+      <svg style={s} viewBox="0 0 24 24" fill="none" stroke={stroke} strokeWidth={sw} strokeLinecap={sc} strokeLinejoin={sc}>
+        <line x1="18" y1="6"  x2="6"  y2="18"/>
+        <line x1="6"  y1="6"  x2="18" y2="18"/>
+      </svg>
+    ),
   };
 
   return icons[name] ?? null;
@@ -100,153 +113,259 @@ const NAV = [
   { label: "Alertes stock", href: "/admin/alerts",     icon: "alerts"     },
 ];
 
+function NavContent({ path, onClose }: { path: string; onClose?: () => void }) {
+  return (
+    <>
+      {/* Logo */}
+      <div style={{
+        padding: "24px 20px 20px",
+        borderBottom: "1px solid rgba(242,237,230,0.08)",
+      }}>
+        <div style={{
+          background: "#c49a4a",
+          borderRadius: 18,
+          padding: "16px 18px",
+          display: "flex",
+          flexDirection: "column",
+          gap: 6,
+        }}>
+          <div style={{ fontSize: 38, fontWeight: 950, letterSpacing: -2, color: "#1a1410", lineHeight: 1 }}>
+            M!LK
+          </div>
+          <div style={{
+            background: "#1a1410", color: "#c49a4a",
+            fontSize: 10, fontWeight: 900, letterSpacing: 3,
+            padding: "3px 10px", borderRadius: 5,
+            textTransform: "uppercase", width: "fit-content",
+          }}>
+            ADMIN
+          </div>
+        </div>
+      </div>
+
+      {/* Nav items */}
+      <nav style={{ padding: "12px 10px", display: "flex", flexDirection: "column", gap: 2, flex: 1, overflowY: "auto" }}
+        className="admin-nav">
+        {NAV.map(({ label, href, icon }) => {
+          const active = path === href || (href !== "/admin" && path.startsWith(href));
+          return (
+            <Link
+              key={href}
+              href={href}
+              onClick={onClose}
+              style={{
+                padding: "13px 16px",
+                borderRadius: 12,
+                color:      active ? "#1a1410"              : "rgba(242,237,230,0.7)",
+                background: active ? "#c49a4a"              : "transparent",
+                textDecoration: "none",
+                fontSize: 16,
+                fontWeight: 800,
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                transition: "background 0.15s, color 0.15s",
+              }}
+              onMouseEnter={e => {
+                if (!active) {
+                  const el = e.currentTarget as HTMLAnchorElement;
+                  el.style.background = "rgba(196,154,74,0.15)";
+                  el.style.color = "#f2ede6";
+                }
+              }}
+              onMouseLeave={e => {
+                if (!active) {
+                  const el = e.currentTarget as HTMLAnchorElement;
+                  el.style.background = "transparent";
+                  el.style.color = "rgba(242,237,230,0.7)";
+                }
+              }}
+            >
+              <Icon name={icon} size={20} />
+              {label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Retour au site */}
+      <div style={{ padding: "12px 10px", borderTop: "1px solid rgba(242,237,230,0.08)" }}>
+        <Link href="/" onClick={onClose} style={{
+          padding: "12px 16px", borderRadius: 12,
+          color: "rgba(242,237,230,0.4)", textDecoration: "none",
+          fontSize: 15, fontWeight: 700,
+          display: "flex", alignItems: "center", gap: 10,
+        }}>
+          <Icon name="back" size={18} />
+          Retour au site
+        </Link>
+      </div>
+    </>
+  );
+}
+
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const path = usePathname();
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Nom de la page active pour la topbar mobile
+  const activePage = NAV.find(n => n.href === path || (n.href !== "/admin" && path.startsWith(n.href)))?.label ?? "Admin";
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f0e8" }}>
 
       <style>{`
-        /* ✅ Supprime la scrollbar de la sidebar sans bloquer le scroll */
+        /* Scrollbar invisible */
         .admin-nav::-webkit-scrollbar { display: none; }
         .admin-nav { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* Desktop : sidebar fixe visible */
+        .admin-sidebar-desktop {
+          display: flex;
+          flex-direction: column;
+          width: 260px;
+          background: #1a1410;
+          color: #f2ede6;
+          position: fixed;
+          top: 0; left: 0;
+          height: 100vh;
+          z-index: 100;
+          box-shadow: 4px 0 24px rgba(0,0,0,0.25);
+        }
+
+        /* Mobile topbar */
+        .admin-topbar-mobile {
+          display: none;
+        }
+
+        /* Mobile overlay menu */
+        .admin-drawer {
+          display: none;
+        }
+
+        /* Main content */
+        .admin-main {
+          margin-left: 260px;
+          flex: 1;
+          min-height: 100vh;
+          background: #f5f0e8;
+        }
+
+        @media (max-width: 768px) {
+          /* Cache la sidebar desktop */
+          .admin-sidebar-desktop {
+            display: none !important;
+          }
+
+          /* Affiche la topbar mobile */
+          .admin-topbar-mobile {
+            display: flex !important;
+            position: fixed;
+            top: 0; left: 0; right: 0;
+            height: 60px;
+            background: #1a1410;
+            z-index: 200;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+          }
+
+          /* Main content sans marge latérale, avec padding top pour la topbar */
+          .admin-main {
+            margin-left: 0 !important;
+            padding-top: 60px;
+          }
+
+          /* Drawer menu mobile */
+          .admin-drawer {
+            display: flex !important;
+            flex-direction: column;
+            position: fixed;
+            top: 0; left: 0;
+            width: 280px;
+            height: 100vh;
+            background: #1a1410;
+            z-index: 300;
+            transform: translateX(-100%);
+            transition: transform 0.3s cubic-bezier(.22,1,.36,1);
+            box-shadow: 4px 0 32px rgba(0,0,0,0.4);
+          }
+          .admin-drawer.open {
+            transform: translateX(0) !important;
+          }
+
+          /* Overlay sombre derrière le drawer */
+          .admin-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.6);
+            z-index: 250;
+          }
+          .admin-overlay.open {
+            display: block !important;
+          }
+        }
       `}</style>
 
-      {/* ── Sidebar — fond NOIR ── */}
-      <aside style={{
-        width: 260,
-        background: "#1a1410",
-        color: "#f2ede6",
-        display: "flex",
-        flexDirection: "column",
-        position: "fixed",
-        top: 0, left: 0,
-        height: "100vh",
-        zIndex: 100,
-        boxShadow: "4px 0 24px rgba(0,0,0,0.25)",
-        overflow: "hidden",
-      }}>
+      {/* ── SIDEBAR DESKTOP ── */}
+      <aside className="admin-sidebar-desktop">
+        <NavContent path={path} />
+      </aside>
 
-        {/* ── Logo — fond JAUNE, texte NOIR, grand, rond ── */}
-        <div style={{
-          padding: "24px 20px 22px",
-          borderBottom: "1px solid rgba(242,237,230,0.08)",
-          background: "#1a1410",
-        }}>
+      {/* ── TOPBAR MOBILE ── */}
+      <div className="admin-topbar-mobile">
+        {/* Bouton burger */}
+        <button
+          onClick={() => setMenuOpen(true)}
+          style={{ background: "none", border: "none", cursor: "pointer", color: "#c49a4a", padding: 4, display: "flex", alignItems: "center" }}
+        >
+          <Icon name="menu" size={26} />
+        </button>
+
+        {/* Logo centré */}
+        <div style={{ position: "absolute", left: "50%", transform: "translateX(-50%)" }}>
           <div style={{
-            background: "#c49a4a",
-            borderRadius: 20,
-            padding: "18px 20px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "flex-start",
-            gap: 6,
+            background: "#c49a4a", borderRadius: 10,
+            padding: "6px 14px",
+            fontSize: 20, fontWeight: 950, letterSpacing: -1, color: "#1a1410",
           }}>
-            <div style={{
-              fontSize: 42,
-              fontWeight: 950,
-              letterSpacing: -2,
-              color: "#1a1410",
-              lineHeight: 1,
-            }}>
-              M!LK
-            </div>
-            <div style={{
-              background: "#1a1410",
-              color: "#c49a4a",
-              fontSize: 10,
-              fontWeight: 900,
-              letterSpacing: 3,
-              padding: "3px 10px",
-              borderRadius: 6,
-              textTransform: "uppercase",
-            }}>
-              ADMIN
-            </div>
+            M!LK
           </div>
         </div>
 
-        {/* ── Navigation — sans scrollbar ── */}
-        <nav className="admin-nav" style={{
-          padding: "12px 10px",
-          display: "flex",
-          flexDirection: "column",
-          gap: 2,
-          flex: 1,
-          overflowY: "auto",
-        }}>
-          {NAV.map(({ label, href, icon }) => {
-            const active = path === href || (href !== "/admin" && path.startsWith(href));
-            return (
-              <Link
-                key={href}
-                href={href}
-                style={{
-                  padding: "11px 14px",
-                  borderRadius: 12,
-                  color:      active ? "#1a1410"           : "rgba(242,237,230,0.65)",
-                  background: active ? "#c49a4a"           : "transparent",
-                  textDecoration: "none",
-                  fontSize: 15,
-                  fontWeight: 800,
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 12,
-                  transition: "background 0.15s, color 0.15s",
-                }}
-                onMouseEnter={e => {
-                  if (!active) {
-                    const el = e.currentTarget as HTMLAnchorElement;
-                    el.style.background = "rgba(196,154,74,0.15)";
-                    el.style.color = "#f2ede6";
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!active) {
-                    const el = e.currentTarget as HTMLAnchorElement;
-                    el.style.background = "transparent";
-                    el.style.color = "rgba(242,237,230,0.65)";
-                  }
-                }}
-              >
-                <Icon name={icon} size={20} />
-                {label}
-              </Link>
-            );
-          })}
-        </nav>
-
-        {/* ── Retour au site ── */}
-        <div style={{
-          padding: "12px 10px",
-          borderTop: "1px solid rgba(242,237,230,0.08)",
-        }}>
-          <Link href="/" style={{
-            padding: "11px 14px",
-            borderRadius: 12,
-            color: "rgba(242,237,230,0.4)",
-            textDecoration: "none",
-            fontSize: 14,
-            fontWeight: 700,
-            display: "flex",
-            alignItems: "center",
-            gap: 10,
-          }}>
-            <Icon name="back" size={18} />
-            Retour au site
-          </Link>
+        {/* Nom de la page */}
+        <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(242,237,230,0.5)" }}>
+          {activePage}
         </div>
-      </aside>
+      </div>
 
-      {/* ── Contenu principal ── */}
-      <main style={{
-        marginLeft: 260,
-        flex: 1,
-        minHeight: "100vh",
-        background: "#f5f0e8",
-      }}>
+      {/* ── OVERLAY MOBILE ── */}
+      <div
+        className={`admin-overlay${menuOpen ? " open" : ""}`}
+        onClick={() => setMenuOpen(false)}
+      />
+
+      {/* ── DRAWER MOBILE ── */}
+      <div className={`admin-drawer${menuOpen ? " open" : ""}`}>
+        {/* Bouton fermer */}
+        <div style={{ position: "absolute", top: 14, right: 14, zIndex: 10 }}>
+          <button
+            onClick={() => setMenuOpen(false)}
+            style={{ background: "rgba(242,237,230,0.1)", border: "none", borderRadius: 10, cursor: "pointer", color: "#f2ede6", padding: 8, display: "flex", alignItems: "center" }}
+          >
+            <Icon name="close" size={22} />
+          </button>
+        </div>
+        <NavContent path={path} onClose={() => setMenuOpen(false)} />
+      </div>
+
+      {/* ── CONTENU PRINCIPAL ── */}
+      <main className="admin-main">
         {children}
       </main>
+
     </div>
   );
 }

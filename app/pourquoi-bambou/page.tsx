@@ -5,14 +5,12 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Pourquoi le bambou ? | M!LK — Vêtements nourrisson en bambou OEKO-TEX",
   description: "Thermorégulation, douceur extrême, antibactérien naturel — le bambou est la matière idéale pour la peau fragile des nourrissons. Certifié OEKO-TEX.",
-  keywords: ["bambou nourrisson", "vêtements bébé bambou", "OEKO-TEX bébé", "thermorégulation nourrisson", "bambou vs coton bébé"],
+  keywords: ["bambou nourrisson", "vêtements bébé bambou", "OEKO-TEX bébé", "thermorégulation nourrisson"],
   openGraph: {
     title: "Pourquoi le bambou pour habiller votre nourrisson ? | M!LK",
     description: "Thermorégulation, douceur, antibactérien naturel — le bambou est la matière idéale pour la peau fragile des nourrissons.",
     url: "https://milk-bebe.fr/pourquoi-bambou",
-    siteName: "M!LK",
-    locale: "fr_FR",
-    type: "article",
+    siteName: "M!LK", locale: "fr_FR", type: "article",
   },
   alternates: { canonical: "https://milk-bebe.fr/pourquoi-bambou" },
 };
@@ -21,10 +19,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "Article",
   headline: "Pourquoi le bambou est la meilleure matière pour habiller votre nourrisson",
-  description: "Thermorégulation, douceur, antibactérien — toutes les raisons de choisir le bambou pour les vêtements de votre nourrisson.",
   author: { "@type": "Organization", name: "M!LK" },
   publisher: { "@type": "Organization", name: "M!LK" },
-  mainEntityOfPage: "https://milk-bebe.fr/pourquoi-bambou",
 };
 
 const PROPRIETES = [
@@ -33,7 +29,7 @@ const PROPRIETES = [
     texte: "La fibre de bambou absorbe et évacue l'humidité 3 fois plus vite que le coton. Résultat : votre nourrisson reste à la bonne température, été comme hiver. Moins de surchauffe, moins de sueurs, moins de réveils nocturnes.",
     stat: "3×", statLabel: "plus respirant que le coton",
     image: "https://images.unsplash.com/photo-1544126592-807ade215a0b?w=800&q=85",
-    imageAlt: "Nourrisson emmailloté paisiblement — thermorégulation bambou M!LK",
+    imageAlt: "Nourrisson emmailloté — thermorégulation bambou M!LK",
   },
   {
     titre: "Douceur extrême",
@@ -73,57 +69,97 @@ export default function PourquoiBambouPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
+      <style>{`
+        /* ✅ FIX MOBILE — plus de direction:rtl, grilles responsives */
+        .pb-prop-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 64px;
+          align-items: center;
+          margin-bottom: 80px;
+        }
+        .pb-prop-img  { order: 0; }
+        .pb-prop-text { order: 1; }
+        .pb-prop-grid.reverse .pb-prop-img  { order: 1; }
+        .pb-prop-grid.reverse .pb-prop-text { order: 0; }
+
+        .pb-oekotex-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 64px;
+          align-items: center;
+        }
+        .pb-section { padding: 60px 20px; }
+        .pb-body { font-size: 17px; line-height: 1.8; }
+        .pb-comparatif-grid { grid-template-columns: 1fr repeat(3, 100px); }
+        .pb-cta-btns { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+        @media (max-width: 768px) {
+          .pb-prop-grid {
+            grid-template-columns: 1fr !important;
+            gap: 28px !important;
+            margin-bottom: 56px !important;
+          }
+          /* Toujours image en premier sur mobile */
+          .pb-prop-grid .pb-prop-img  { order: 0 !important; }
+          .pb-prop-grid .pb-prop-text { order: 1 !important; }
+          .pb-prop-grid.reverse .pb-prop-img  { order: 0 !important; }
+          .pb-prop-grid.reverse .pb-prop-text { order: 1 !important; }
+
+          .pb-oekotex-grid {
+            grid-template-columns: 1fr !important;
+            gap: 28px !important;
+          }
+          .pb-section { padding: 40px 20px !important; }
+          .pb-body { font-size: 15px !important; line-height: 1.7 !important; }
+          .pb-comparatif-grid { grid-template-columns: 1fr repeat(3, 72px) !important; }
+          .pb-cta-btns { flex-direction: column !important; align-items: stretch !important; }
+          .pb-cta-btns a { text-align: center !important; }
+          .pb-intro-text { font-size: 16px !important; line-height: 1.7 !important; }
+        }
+      `}</style>
+
       <div style={{ background: "#1a1410", minHeight: "100vh" }}>
 
-        {/* ── HERO — texture bambou locale ─────────────────────── */}
-        <section style={{ position: "relative", height: "65vh", minHeight: 480, overflow: "hidden" }}>
+        {/* ── HERO ── */}
+        <section style={{ position: "relative", height: "55vh", minHeight: 340, overflow: "hidden" }}>
           <Image
-            src="/images/bambou/bambou-texture.png"
-            alt="Tissu bambou naturel doux — matière première vêtements nourrisson M!LK"
+            src="/matiere/bambou-02.png"
+            alt="Tissu bambou naturel — matière première vêtements nourrisson M!LK"
             fill priority sizes="100vw"
             style={{ objectFit: "cover", objectPosition: "center", filter: "brightness(0.55) saturate(0.6)" }}
           />
           <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to bottom, rgba(26,20,16,0.1) 0%, rgba(26,20,16,0.85) 100%)" }} />
-          <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse at bottom left, rgba(196,154,74,0.08), transparent 60%)" }} />
-          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 64px" }}>
-            <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 6vw", width: "100%", color: "#f2ede6" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 16 }}>La matière</div>
-              <h1 style={{ margin: "0 0 16px", fontSize: "clamp(40px, 6vw, 72px)", fontWeight: 950, letterSpacing: -2, lineHeight: 1.05, maxWidth: 700 }}>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 48px" }}>
+            <div style={{ maxWidth: 1200, margin: "0 auto", padding: "0 20px", width: "100%", boxSizing: "border-box", color: "#f2ede6" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 14 }}>La matière</div>
+              <h1 style={{ margin: "0 0 14px", fontSize: "clamp(36px, 6vw, 72px)", fontWeight: 950, letterSpacing: -2, lineHeight: 1.05 }}>
                 Pourquoi le bambou ?
               </h1>
-              <p style={{ margin: 0, fontSize: 18, color: "rgba(242,237,230,0.65)", maxWidth: 520, lineHeight: 1.75 }}>
+              <p style={{ margin: 0, fontSize: "clamp(14px, 2vw, 18px)", color: "rgba(242,237,230,0.65)", maxWidth: 480, lineHeight: 1.65 }}>
                 La peau d'un nourrisson est 5 fois plus fine que celle d'un adulte. Chaque matière compte.
               </p>
             </div>
           </div>
         </section>
 
-        {/* ── INTRO ────────────────────────────────────────────── */}
-        <section style={{ maxWidth: 820, margin: "0 auto", padding: "80px 6vw 48px", textAlign: "center" }}>
-          <h2 style={{ margin: "0 0 26px", fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.2, color: "#f2ede6" }}>
+        {/* ── INTRO ── */}
+        <section className="pb-section" style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
+          <h2 style={{ margin: "0 0 24px", fontSize: "clamp(22px, 3.5vw, 38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.2, color: "#f2ede6" }}>
             La peau de votre nourrisson mérite mieux que le coton ordinaire
           </h2>
-          <p style={{ margin: 0, fontSize: 18, lineHeight: 2, color: "rgba(242,237,230,0.55)" }}>
+          <p className="pb-intro-text" style={{ margin: 0, fontSize: 17, lineHeight: 1.8, color: "rgba(242,237,230,0.55)" }}>
             Nous avons passé des mois à chercher la meilleure matière pour les nourrissons. Après avoir testé le coton bio, le modal, le tencel — nous sommes revenus au bambou. Chaque fois. Pour les mêmes raisons.
           </p>
         </section>
 
-        {/* ── PROPRIÉTÉS ───────────────────────────────────────── */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 6vw 80px" }}>
+        {/* ── PROPRIÉTÉS ── */}
+        <section className="pb-section" style={{ maxWidth: 1100, margin: "0 auto", paddingTop: 20 }}>
           {PROPRIETES.map((p, i) => (
-            <div
-              key={p.titre}
-              style={{
-                display: "grid",
-                gridTemplateColumns: "1fr 1fr",
-                gap: 64,
-                alignItems: "center",
-                marginBottom: 80,
-                direction: i % 2 === 0 ? "ltr" : "rtl",
-              }}
-            >
-              {/* Image */}
-              <div style={{ position: "relative", borderRadius: 24, overflow: "hidden", aspectRatio: "4/3", direction: "ltr" }}>
+            <div key={p.titre} className={`pb-prop-grid${i % 2 !== 0 ? " reverse" : ""}`}>
+
+              {/* Image — toujours en premier sur mobile */}
+              <div className="pb-prop-img" style={{ position: "relative", borderRadius: 20, overflow: "hidden", aspectRatio: "4/3", width: "100%" }}>
                 <Image
                   src={p.image}
                   alt={p.imageAlt}
@@ -131,51 +167,52 @@ export default function PourquoiBambouPage() {
                   sizes="(max-width: 768px) 100vw, 50vw"
                   style={{ objectFit: "cover", filter: "brightness(0.85) saturate(0.8)" }}
                 />
-                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(26,20,16,0.5) 0%, transparent 55%)" }} />
+                <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(26,20,16,0.55) 0%, transparent 55%)" }} />
                 {/* Badge stat */}
-                <div style={{ position: "absolute", bottom: 20, left: 20, background: "#c49a4a", borderRadius: 14, padding: "14px 18px", textAlign: "center", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>
-                  <div style={{ fontSize: 26, fontWeight: 950, letterSpacing: -1, color: "#fff", lineHeight: 1 }}>{p.stat}</div>
-                  <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.8)", marginTop: 4, maxWidth: 90, lineHeight: 1.3 }}>{p.statLabel}</div>
+                <div style={{ position: "absolute", bottom: 16, left: 16, background: "#c49a4a", borderRadius: 12, padding: "12px 16px", textAlign: "center", boxShadow: "0 8px 24px rgba(0,0,0,0.3)" }}>
+                  <div style={{ fontSize: 22, fontWeight: 950, letterSpacing: -1, color: "#fff", lineHeight: 1 }}>{p.stat}</div>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.85)", marginTop: 3, maxWidth: 80, lineHeight: 1.3 }}>{p.statLabel}</div>
                 </div>
               </div>
 
               {/* Texte */}
-              <div style={{ direction: "ltr" }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 18 }}>
+              <div className="pb-prop-text">
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 16 }}>
                   Propriété {i + 1} / {PROPRIETES.length}
                 </div>
-                <h2 style={{ margin: "0 0 22px", fontSize: "clamp(24px, 2.8vw, 36px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: "#f2ede6" }}>
+                <h2 style={{ margin: "0 0 20px", fontSize: "clamp(22px, 2.8vw, 34px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: "#f2ede6" }}>
                   {p.titre}
                 </h2>
-                <p style={{ margin: 0, fontSize: 17, lineHeight: 2, color: "rgba(242,237,230,0.55)" }}>
+                <p className="pb-body" style={{ margin: 0, color: "rgba(242,237,230,0.55)" }}>
                   {p.texte}
                 </p>
               </div>
+
             </div>
           ))}
         </section>
 
-        {/* ── COMPARATIF ───────────────────────────────────────── */}
-        <section style={{ background: "#2d2419", padding: "80px 6vw", borderTop: "1px solid rgba(242,237,230,0.08)", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>
+        {/* ── COMPARATIF ── */}
+        <section style={{ background: "#2d2419", padding: "60px 20px", borderTop: "1px solid rgba(242,237,230,0.08)", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>
           <div style={{ maxWidth: 820, margin: "0 auto" }}>
-            <div style={{ textAlign: "center", marginBottom: 48 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 14 }}>Comparatif matières</div>
-              <h2 style={{ margin: 0, fontSize: "clamp(26px, 3.5vw, 42px)", fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
+            <div style={{ textAlign: "center", marginBottom: 40 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 12 }}>Comparatif matières</div>
+              <h2 style={{ margin: 0, fontSize: "clamp(22px, 3.5vw, 38px)", fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
                 Bambou vs Coton vs Synthétique
               </h2>
             </div>
-            <div style={{ borderRadius: 20, overflow: "hidden" }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr repeat(3, 120px)", background: "rgba(242,237,230,0.05)", padding: "16px 24px" }}>
+            <div style={{ borderRadius: 16, overflow: "hidden" }}>
+              <div className="pb-comparatif-grid" style={{ display: "grid", background: "rgba(242,237,230,0.05)", padding: "14px 20px" }}>
                 <div style={{ fontSize: 12, color: "rgba(242,237,230,0.35)", fontWeight: 700 }}>Critère</div>
                 {["Bambou M!LK", "Coton", "Synthétique"].map((h, idx) => (
-                  <div key={h} style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: idx === 0 ? "#c49a4a" : "rgba(242,237,230,0.35)" }}>{h}</div>
+                  <div key={h} style={{ textAlign: "center", fontSize: 11, fontWeight: 800, color: idx === 0 ? "#c49a4a" : "rgba(242,237,230,0.35)" }}>{h}</div>
                 ))}
               </div>
               {COMPARATIF.map((row, i) => (
-                <div key={row.critere} style={{ display: "grid", gridTemplateColumns: "1fr repeat(3, 120px)", padding: "14px 24px", background: i % 2 === 0 ? "rgba(242,237,230,0.03)" : "transparent", borderBottom: i < COMPARATIF.length - 1 ? "1px solid rgba(242,237,230,0.05)" : "none", alignItems: "center" }}>
-                  <div style={{ fontSize: 15, color: "rgba(242,237,230,0.7)", fontWeight: 600 }}>{row.critere}</div>
+                <div key={row.critere} className="pb-comparatif-grid" style={{ display: "grid", padding: "12px 20px", background: i % 2 === 0 ? "rgba(242,237,230,0.03)" : "transparent", borderBottom: i < COMPARATIF.length - 1 ? "1px solid rgba(242,237,230,0.05)" : "none", alignItems: "center" }}>
+                  <div style={{ fontSize: 14, color: "rgba(242,237,230,0.7)", fontWeight: 600 }}>{row.critere}</div>
                   {[row.bambou, row.coton, row.synth].map((val, j) => (
-                    <div key={j} style={{ textAlign: "center", fontSize: 18 }}>
+                    <div key={j} style={{ textAlign: "center", fontSize: 16 }}>
                       {val
                         ? <span style={{ color: j === 0 ? "#c49a4a" : "#6bcf7f" }}>✓</span>
                         : <span style={{ color: "rgba(242,237,230,0.15)" }}>✕</span>
@@ -188,10 +225,10 @@ export default function PourquoiBambouPage() {
           </div>
         </section>
 
-        {/* ── OEKO-TEX ─────────────────────────────────────────── */}
-        <section style={{ maxWidth: 1100, margin: "0 auto", padding: "80px 6vw" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 64, alignItems: "center" }}>
-            <div style={{ position: "relative", borderRadius: 24, overflow: "hidden", aspectRatio: "1" }}>
+        {/* ── OEKO-TEX ── */}
+        <section className="pb-section" style={{ maxWidth: 1100, margin: "0 auto" }}>
+          <div className="pb-oekotex-grid">
+            <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", aspectRatio: "1", width: "100%" }}>
               <Image
                 src="/images/products/body-eclair-gris/milk-body-eclair-gris-bebe-rampant-lifestyle-01.png"
                 alt="Nourrisson en body bambou certifié OEKO-TEX M!LK"
@@ -200,60 +237,60 @@ export default function PourquoiBambouPage() {
               />
               <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to top, rgba(26,20,16,0.5) 0%, transparent 60%)" }} />
             </div>
-            <div style={{ display: "grid", gap: 24 }}>
-              <div style={{ display: "inline-block", padding: "8px 16px", borderRadius: 99, background: "rgba(196,154,74,0.12)", color: "#c49a4a", fontSize: 12, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", width: "fit-content", border: "1px solid rgba(196,154,74,0.2)" }}>
+            <div style={{ display: "grid", gap: 20 }}>
+              <div style={{ display: "inline-block", padding: "7px 14px", borderRadius: 99, background: "rgba(196,154,74,0.12)", color: "#c49a4a", fontSize: 11, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", width: "fit-content", border: "1px solid rgba(196,154,74,0.2)" }}>
                 Certifié OEKO-TEX Standard 100
               </div>
-              <h2 style={{ margin: 0, fontSize: "clamp(24px, 3vw, 38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: "#f2ede6" }}>
+              <h2 style={{ margin: 0, fontSize: "clamp(20px, 3vw, 34px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: "#f2ede6" }}>
                 La certification la plus exigeante pour les textiles nourrisson
               </h2>
-              <p style={{ margin: 0, fontSize: 17, lineHeight: 2, color: "rgba(242,237,230,0.55)" }}>
+              <p className="pb-body" style={{ margin: 0, color: "rgba(242,237,230,0.55)" }}>
                 OEKO-TEX Standard 100 teste plus de <strong style={{ color: "#f2ede6" }}>100 substances nocives</strong>. C'est la référence mondiale pour les textiles en contact avec la peau des nourrissons.
               </p>
-              <p style={{ margin: 0, fontSize: 17, lineHeight: 2, color: "rgba(242,237,230,0.55)" }}>
+              <p className="pb-body" style={{ margin: 0, color: "rgba(242,237,230,0.55)" }}>
                 Chaque lot M!LK est certifié. Pas de compromis. Pas d'exceptions.
               </p>
-              <Link href="/produits" style={{ display: "inline-block", padding: "14px 28px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 14, textDecoration: "none", width: "fit-content" }}>
+              <Link href="/produits" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 14, textDecoration: "none", width: "fit-content" }}>
                 Voir les produits certifiés →
               </Link>
             </div>
           </div>
         </section>
 
-        {/* ── FAQ ──────────────────────────────────────────────── */}
-        <section style={{ background: "#221c16", padding: "80px 6vw", borderTop: "1px solid rgba(242,237,230,0.08)" }}>
-          <div style={{ maxWidth: 780, margin: "0 auto" }}>
-            <h2 style={{ margin: "0 0 44px", fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
+        {/* ── FAQ ── */}
+        <section style={{ background: "#221c16", padding: "60px 20px", borderTop: "1px solid rgba(242,237,230,0.08)" }}>
+          <div style={{ maxWidth: 740, margin: "0 auto" }}>
+            <h2 style={{ margin: "0 0 40px", fontSize: "clamp(22px, 3.5vw, 36px)", fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
               Questions fréquentes sur le bambou
             </h2>
             {[
               { q: "Le bambou est-il vraiment meilleur que le coton bio pour les nourrissons ?", r: "Oui. Le bambou est naturellement thermorégulateur, antibactérien et 3× plus doux. Le coton bio est sans pesticides mais n'a pas ces propriétés fonctionnelles — un avantage décisif pour la peau ultra-sensible des nourrissons." },
-              { q: "Le bambou rétrécit-il au lavage ?", r: "Nos produits M!LK sont pré-lavés pour éviter le rétrécissement. Un lavage à 30°C maximum, cycle délicat, préserve la forme et la douceur indéfiniment." },
+              { q: "Le bambou rétrécit-il au lavage ?",     r: "Nos produits M!LK sont pré-lavés pour éviter le rétrécissement. Un lavage à 30°C maximum, cycle délicat, préserve la forme et la douceur indéfiniment." },
               { q: "Le bambou est-il durable pour l'environnement ?", r: "Oui — le bambou pousse sans pesticides, se régénère naturellement en quelques mois et consomme 30% moins d'eau que le coton. C'est l'une des plantes les plus durables au monde." },
               { q: "Puis-je mettre les vêtements M!LK en machine ?", r: "Oui, machine à 30°C, cycle délicat. Évitez l'adoucissant qui réduit les propriétés respirantes du bambou. Séchage à plat recommandé." },
             ].map((faq, i, arr) => (
-              <div key={faq.q} style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(242,237,230,0.08)" : "none", padding: "26px 0" }}>
-                <h3 style={{ margin: "0 0 14px", fontSize: 18, fontWeight: 900, color: "#f2ede6", lineHeight: 1.4 }}>{faq.q}</h3>
-                <p style={{ margin: 0, fontSize: 16, lineHeight: 2, color: "rgba(242,237,230,0.5)" }}>{faq.r}</p>
+              <div key={faq.q} style={{ borderBottom: i < arr.length - 1 ? "1px solid rgba(242,237,230,0.08)" : "none", padding: "24px 0" }}>
+                <h3 style={{ margin: "0 0 12px", fontSize: "clamp(15px, 2vw, 18px)", fontWeight: 900, color: "#f2ede6", lineHeight: 1.4 }}>{faq.q}</h3>
+                <p style={{ margin: 0, fontSize: 15, lineHeight: 1.75, color: "rgba(242,237,230,0.5)" }}>{faq.r}</p>
               </div>
             ))}
           </div>
         </section>
 
-        {/* ── CTA ──────────────────────────────────────────────── */}
-        <section style={{ padding: "80px 6vw" }}>
-          <div style={{ maxWidth: 600, margin: "0 auto", textAlign: "center" }}>
-            <h2 style={{ margin: "0 0 18px", fontSize: "clamp(26px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
+        {/* ── CTA ── */}
+        <section style={{ padding: "60px 20px" }}>
+          <div style={{ maxWidth: 560, margin: "0 auto", textAlign: "center" }}>
+            <h2 style={{ margin: "0 0 16px", fontSize: "clamp(22px, 3.5vw, 36px)", fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
               Prêt à essayer le bambou ?
             </h2>
-            <p style={{ margin: "0 0 32px", fontSize: 17, color: "rgba(242,237,230,0.45)", lineHeight: 1.75 }}>
+            <p style={{ margin: "0 0 28px", fontSize: 16, color: "rgba(242,237,230,0.45)", lineHeight: 1.7 }}>
               Tous nos produits sont en bambou certifié OEKO-TEX. Livraison offerte dès 60€.
             </p>
-            <div style={{ display: "flex", gap: 14, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/produits" style={{ padding: "15px 32px", borderRadius: 14, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 15, textDecoration: "none" }}>
+            <div className="pb-cta-btns">
+              <Link href="/produits" style={{ padding: "14px 30px", borderRadius: 14, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
                 Voir la collection
               </Link>
-              <Link href="/qui-sommes-nous" style={{ padding: "15px 32px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.2)", color: "#f2ede6", fontWeight: 800, fontSize: 15, textDecoration: "none" }}>
+              <Link href="/qui-sommes-nous" style={{ padding: "14px 30px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.2)", color: "#f2ede6", fontWeight: 800, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
                 Notre histoire
               </Link>
             </div>

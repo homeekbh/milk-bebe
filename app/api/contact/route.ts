@@ -8,10 +8,10 @@ export async function POST(req: Request) {
   if (!nom || !email || !message) return Response.json({ error: "Champs manquants" }, { status: 400 });
 
   await resend.emails.send({
-    from:     "M!LK Contact <bonjour@milk-bebe.fr>",
-    to:       ADMIN,
-    reply_to: email,
-    subject:  `📩 Message de ${nom} — ${sujet || "Contact M!LK"}`,
+    from:    "M!LK Contact <bonjour@milk-bebe.fr>",
+    to:      ADMIN,
+    replyTo: email,
+    subject: `📩 Message de ${nom} — ${sujet || "Contact M!LK"}`,
     html: `
 <div style="font-family:sans-serif;max-width:500px;padding:24px;background:#1a1410;color:#f2ede6;border-radius:16px">
   <h2 style="color:#c49a4a;margin:0 0 20px">Nouveau message de contact</h2>

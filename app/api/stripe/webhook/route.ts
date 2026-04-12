@@ -7,7 +7,6 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const resend  = new Resend(process.env.RESEND_API_KEY);
 const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
 
-// ✅ Emails de notification pour Bou + Erika
 const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_1,
   process.env.ADMIN_EMAIL_2,
@@ -34,16 +33,19 @@ export async function POST(req: Request) {
     console.log("✅ Webhook received:", session.id);
 
     try {
-      const items      = JSON.parse(session.metadata?.items ?? "[]");
-      const promoCode  = session.metadata?.promo_code || null;
-      const discount   = parseFloat(session.metadata?.discount ?? "0");
-      const email      = session.customer_details?.email ?? "";
-      const name       = session.customer_details?.name  ?? "";
-      const amount     = (session.amount_total ?? 0) / 100;
+      const items     = JSON.parse(session.metadata?.items ?? "[]");
+      const promoCode = session.metadata?.promo_code || null;
+      const discount  = parseFloat(session.metadata?.discount ?? "0");
+      const email     = session.customer_details?.email ?? "";
+      const name      = session.customer_details?.name  ?? "";
+      const amount    = (session.amount_total ?? 0) / 100;
 
-      // ✅ Adresse de livraison depuis Stripe
-      const shippingAddr = session.shipping_details?.address ?? session.customer_details?.address ?? null;
-      const shippingName = session.shipping_details?.name    ?? name;
+      // ✅ Adresse de livraison — cast any pour éviter l'erreur TS
+      const sessionAny   = session as any;
+      const shippingAddr = sessionAny.shipping_details?.address
+        ?? session.customer_details?.address
+        ?? null;
+      const shippingName = sessionAny.shipping_details?.name ?? name;
 
       const shippingAddress = shippingAddr ? {
         name:        shippingName,
@@ -54,7 +56,7 @@ export async function POST(req: Request) {
         country:     shippingAddr.country      ?? "FR",
       } : null;
 
-      // ✅ Enregistrer la commande
+      // ✅ Enregistrer la commande dans Supabase
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .insert([{
@@ -116,18 +118,23 @@ export async function POST(req: Request) {
           method:  "POST",
           headers: { "Content-Type": "application/json" },
           body:    JSON.stringify({
-            email, prenom, items,
-            amount_total: amount,
-            order_id:     orderData.id,
+            email,
+            prenom,
+            items,
+            amount_total:     amount,
+            order_id:         orderData.id,
             shipping_address: shippingAddress,
           }),
         }).catch(e => console.error("❌ Email confirmation error:", e));
       }
 
-      // ✅ Notification email Bou + Erika
-      if (orderData) {
-        const itemsText = items.map((i: any) => `• ${i.name} ×${i.quantity} — ${(i.price * i.quantity).toFixed(2)} €`).join("\n");
-        const addrText  = shippingAddress
+      // ✅ Notification email Bou + Erika + BHK
+      if (orderData && ADMIN_EMAILS.length > 0) {
+        const itemsText = items.map((i: any) =>
+          `• ${i.name} ×${i.quantity} — ${(Number(i.price) * Number(i.quantity)).toFixed(2)} €`
+        ).join("\n");
+
+        const addrText = shippingAddress
           ? `${shippingAddress.name}\n${shippingAddress.line1}${shippingAddress.line2 ? "\n" + shippingAddress.line2 : ""}\n${shippingAddress.postal_code} ${shippingAddress.city}\n${shippingAddress.country}`
           : "Non renseignée";
 
@@ -135,27 +142,36 @@ export async function POST(req: Request) {
 <!DOCTYPE html>
 <html lang="fr">
 <body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif">
-<div style="max-width:500px;margin:0 auto;padding:32px 20px">
+<div style="max-width:500px;margin:0 auto;padding:40px 20px">
+
   <div style="background:#c49a4a;border-radius:12px;padding:14px 20px;margin-bottom:24px;text-align:center">
     <span style="color:#1a1410;font-weight:950;font-size:22px">M!LK — Nouvelle vente !</span>
   </div>
+
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:16px">
-    <div style="font-size:13px;color:rgba(242,237,230,0.4);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Client</div>
-    <div style="font-size:18px;font-weight:800;color:#f2ede6">${name || "—"}</div>
+    <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Client</div>
+    <div style="font-size:20px;font-weight:800;color:#f2ede6">${name || "—"}</div>
     <div style="font-size:14px;color:rgba(242,237,230,0.5);margin-top:4px">${email}</div>
   </div>
+
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:16px">
-    <div style="font-size:13px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Articles</div>
-    <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap">${itemsText}</pre>
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(196,154,74,0.2);font-size:24px;font-weight:950;color:#c49a4a;text-align:right">${amount.toFixed(2)} €</div>
+    <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Articles commandés</div>
+    <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:sans-serif">${itemsText}</pre>
+    <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(196,154,74,0.2);font-size:26px;font-weight:950;color:#c49a4a;text-align:right">
+      ${amount.toFixed(2)} €
+    </div>
   </div>
+
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:24px">
-    <div style="font-size:13px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Adresse de livraison</div>
-    <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap">${addrText}</pre>
+    <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Adresse de livraison</div>
+    <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:sans-serif">${addrText}</pre>
   </div>
-  <a href="${BASE}/admin/commandes" style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:14px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
+
+  <a href="${BASE}/admin/commandes"
+    style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:16px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
     Voir dans l'admin →
   </a>
+
 </div>
 </body>
 </html>`;

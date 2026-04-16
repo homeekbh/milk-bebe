@@ -2,26 +2,29 @@ import { supabaseServer } from "@/lib/server/supabase";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const category = searchParams.get("category");
   const slug     = searchParams.get("slug");
+  const category = searchParams.get("category");
 
-  // Lookup direct par slug — pour la page produit /produits/[slug]
+  // ✅ Récupération d'un produit par slug
   if (slug) {
     const { data, error } = await supabaseServer
       .from("products")
-      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, description, featured")
+      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, description, featured, published, label, position, sizes, sizes_stock, colors, main_image_index, weight_g, seo_title, seo_description")
       .eq("slug", slug)
+      .eq("published", true)
       .single();
-    if (error || !data) return Response.json({ error: "Produit introuvable" }, { status: 404 });
+    if (error) return Response.json({ error: error.message }, { status: 404 });
     return Response.json(data);
   }
 
+  // ✅ Liste produits — inclut toutes les colonnes nécessaires
   let query = supabaseServer
     .from("products")
-    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, description, featured")
-    .order("created_at", { ascending: false });
+    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, description, featured, published, label, position, sizes, sizes_stock, colors, main_image_index")
+    .eq("published", true)
+    .order("position", { ascending: true });
 
-  if (category) query = query.eq("category_slug", category);
+  if (category) query = (query as any).eq("category_slug", category);
 
   const { data, error } = await query;
   if (error) return Response.json({ error: error.message }, { status: 500 });

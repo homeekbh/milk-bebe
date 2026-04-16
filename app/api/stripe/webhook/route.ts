@@ -40,7 +40,7 @@ export async function POST(req: Request) {
       const name      = session.customer_details?.name  ?? "";
       const amount    = (session.amount_total ?? 0) / 100;
 
-      // ✅ Adresse de livraison — cast any pour éviter l'erreur TS
+      // ✅ Adresse de livraison
       const sessionAny   = session as any;
       const shippingAddr = sessionAny.shipping_details?.address
         ?? session.customer_details?.address
@@ -56,7 +56,7 @@ export async function POST(req: Request) {
         country:     shippingAddr.country      ?? "FR",
       } : null;
 
-      // ✅ Enregistrer la commande dans Supabase
+      // ✅ Enregistrer la commande
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .insert([{
@@ -128,7 +128,7 @@ export async function POST(req: Request) {
         }).catch(e => console.error("❌ Email confirmation error:", e));
       }
 
-      // ✅ Notification email Bou + Erika + BHK
+      // ✅ Notification email admins
       if (orderData && ADMIN_EMAILS.length > 0) {
         const itemsText = items.map((i: any) =>
           `• ${i.name} ×${i.quantity} — ${(Number(i.price) * Number(i.quantity)).toFixed(2)} €`
@@ -143,17 +143,14 @@ export async function POST(req: Request) {
 <html lang="fr">
 <body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif">
 <div style="max-width:500px;margin:0 auto;padding:40px 20px">
-
   <div style="background:#c49a4a;border-radius:12px;padding:14px 20px;margin-bottom:24px;text-align:center">
     <span style="color:#1a1410;font-weight:950;font-size:22px">M!LK — Nouvelle vente !</span>
   </div>
-
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:16px">
     <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Client</div>
     <div style="font-size:20px;font-weight:800;color:#f2ede6">${name || "—"}</div>
     <div style="font-size:14px;color:rgba(242,237,230,0.5);margin-top:4px">${email}</div>
   </div>
-
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:16px">
     <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Articles commandés</div>
     <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:sans-serif">${itemsText}</pre>
@@ -161,24 +158,21 @@ export async function POST(req: Request) {
       ${amount.toFixed(2)} €
     </div>
   </div>
-
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:24px">
     <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Adresse de livraison</div>
     <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:sans-serif">${addrText}</pre>
   </div>
-
   <a href="${BASE}/admin/commandes"
     style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:16px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
     Voir dans l'admin →
   </a>
-
 </div>
 </body>
 </html>`;
 
         for (const adminEmail of ADMIN_EMAILS) {
           await resend.emails.send({
-            from:    "M!LK Admin <bonjour@milk-bebe.fr>",
+            from:    "M!LK <onboarding@resend.dev>",
             to:      adminEmail,
             subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
             html,

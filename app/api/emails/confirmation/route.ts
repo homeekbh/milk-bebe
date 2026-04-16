@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.fr";
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
 
 function emailConfirmation(
   prenom: string,
@@ -28,18 +28,14 @@ function emailConfirmation(
 <body style="margin:0;padding:0;background:#0d0b09;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
 <div style="max-width:600px;margin:0 auto;padding:40px 20px">
 
-  <!-- Logo -->
   <div style="text-align:center;margin-bottom:40px">
-    <div style="display:inline-block;background:#1a1410;border:1px solid rgba(196,154,74,0.3);border-radius:999px;padding:14px 28px">
-      <span style="color:#f2ede6;font-weight:900;font-size:22px;letter-spacing:-1px">M!LK</span>
+    <div style="display:inline-block;background:#c49a4a;border-radius:12px;padding:14px 28px">
+      <span style="color:#1a1410;font-weight:950;font-size:22px;letter-spacing:-1px">M!LK</span>
     </div>
   </div>
 
-  <!-- Hero -->
   <div style="background:#1a1410;border-radius:20px;border:1px solid rgba(242,237,230,0.08);padding:40px;margin-bottom:20px;text-align:center">
-    <div style="width:70px;height:70px;border-radius:50%;background:rgba(34,197,94,0.1);border:2px solid rgba(34,197,94,0.3);display:inline-flex;align-items:center;justify-content:center;margin-bottom:20px;font-size:32px">
-      ✅
-    </div>
+    <div style="font-size:48px;margin-bottom:20px">✅</div>
     <h1 style="margin:0 0 10px;color:#f2ede6;font-size:28px;font-weight:900;letter-spacing:-1px">
       Commande confirmée !
     </h1>
@@ -49,7 +45,6 @@ function emailConfirmation(
     </p>
   </div>
 
-  <!-- Articles -->
   <div style="background:#1a1410;border-radius:16px;border:1px solid rgba(242,237,230,0.08);padding:28px;margin-bottom:20px">
     <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(242,237,230,0.3);margin-bottom:16px">Ta commande</div>
     <table style="width:100%;border-collapse:collapse">
@@ -61,9 +56,8 @@ function emailConfirmation(
     </div>
   </div>
 
-  <!-- Infos livraison -->
   <div style="background:#1a1410;border-radius:16px;border:1px solid rgba(242,237,230,0.08);padding:24px;margin-bottom:20px">
-    <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(242,237,230,0.3);margin-bottom:16px">Livraison</div>
+    <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(242,237,230,0.3);margin-bottom:16px">Livraison estimée</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
       <div style="text-align:center;padding:16px;background:rgba(242,237,230,0.04);border-radius:12px">
         <div style="font-size:24px;margin-bottom:8px">📦</div>
@@ -78,19 +72,12 @@ function emailConfirmation(
     </div>
   </div>
 
-  <!-- CTA -->
   <div style="text-align:center;margin-bottom:32px">
-    <a href="${BASE}/profil" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 40px;border-radius:14px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:12px">
-      Suivre ma commande →
+    <a href="${BASE}/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 40px;border-radius:14px;font-weight:900;font-size:15px;text-decoration:none">
+      Continuer mes achats →
     </a>
-    <div style="margin-top:12px">
-      <a href="${BASE}/produits" style="color:rgba(242,237,230,0.3);font-size:13px;text-decoration:underline">
-        Continuer mes achats
-      </a>
-    </div>
   </div>
 
-  <!-- Bambou story -->
   <div style="background:#1a1410;border-radius:16px;border:1px solid rgba(196,154,74,0.12);padding:24px;margin-bottom:24px;text-align:center">
     <div style="color:#c49a4a;font-size:13px;font-weight:700;line-height:1.8">
       🌿 <strong>Bambou certifié OEKO-TEX</strong> · 3× plus doux que le coton<br>
@@ -99,10 +86,9 @@ function emailConfirmation(
     </div>
   </div>
 
-  <!-- Footer -->
   <div style="text-align:center;color:rgba(242,237,230,0.2);font-size:11px;line-height:1.8">
     <p style="margin:0">M!LK — Essentiels bébé en bambou premium</p>
-    <p style="margin:4px 0 0">contact@milk-bebe.fr · <a href="${BASE}/livraison" style="color:rgba(242,237,230,0.2);text-decoration:none">Livraison & retours</a></p>
+    <p style="margin:4px 0 0">contact@milkbebe.fr · <a href="${BASE}/livraison" style="color:rgba(242,237,230,0.2);text-decoration:none">Livraison & retours</a></p>
   </div>
 
 </div>
@@ -117,7 +103,7 @@ export async function POST(req: Request) {
     if (!email) return Response.json({ error: "Email manquant" }, { status: 400 });
 
     const { data, error } = await resend.emails.send({
-      from:    "M!LK <bonjour@milk-bebe.fr>",
+      from:    "M!LK <onboarding@resend.dev>",
       to:      email,
       subject: `✅ Commande confirmée — M!LK #${order_id?.slice(0, 8).toUpperCase()}`,
       html:    emailConfirmation(prenom ?? "", email, items ?? [], amount_total ?? 0, order_id ?? ""),

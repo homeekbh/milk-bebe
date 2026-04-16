@@ -8,18 +8,23 @@ export async function POST(req: Request) {
   const { email, source, promo_code } = await req.json();
   if (!email || !email.includes("@")) return Response.json({ error: "Email invalide" }, { status: 400 });
 
-  // Générer token désabonnement
   const token = crypto.randomUUID();
 
-  const { data, error } = await supabaseServer
+  const { error } = await supabaseServer
     .from("newsletter_subscribers")
-    .upsert([{ email: email.toLowerCase().trim(), source: source ?? "popup", promo_code: promo_code ?? null, unsubscribe_token: token, active: true }], { onConflict: "email" })
+    .upsert([{
+      email:             email.toLowerCase().trim(),
+      source:            source     ?? "popup",
+      promo_code:        promo_code ?? null,
+      unsubscribe_token: token,
+      active:            true,
+    }], { onConflict: "email" })
     .select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 400 });
 
-  // Email de bienvenue avec code promo si disponible
   const unsubUrl = `${BASE}/api/newsletter/unsubscribe?token=${token}`;
+
   const html = `
 <!DOCTYPE html>
 <html lang="fr">
@@ -53,7 +58,7 @@ export async function POST(req: Request) {
 </html>`;
 
   await resend.emails.send({
-    from:    "M!LK <bonjour@milk-bebe.fr>",
+    from:    "M!LK <onboarding@resend.dev>",
     to:      email,
     subject: promo_code ? `🎁 Ton code promo M!LK : ${promo_code}` : "Bienvenue chez M!LK !",
     html,

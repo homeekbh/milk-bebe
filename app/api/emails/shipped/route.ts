@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 </html>`;
 
   const { error } = await resend.emails.send({
-    from:    "M!LK <bonjour@milk-bebe.fr>",
+    from:    "M!LK <onboarding@resend.dev>",
     to:      email,
     subject: `🚚 Votre commande M!LK est en route !`,
     html,

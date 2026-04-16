@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   if (!nom || !email || !message) return Response.json({ error: "Champs manquants" }, { status: 400 });
 
   await resend.emails.send({
-    from:    "M!LK Contact <bonjour@milk-bebe.fr>",
+    from:    "M!LK Contact <onboarding@resend.dev>",
     to:      ADMIN,
     replyTo: email,
     subject: `📩 Message de ${nom} — ${sujet || "Contact M!LK"}`,
@@ -23,9 +23,8 @@ export async function POST(req: Request) {
 </div>`,
   });
 
-  // Accusé de réception au client
   await resend.emails.send({
-    from:    "M!LK <bonjour@milk-bebe.fr>",
+    from:    "M!LK <onboarding@resend.dev>",
     to:      email,
     subject: "Nous avons bien reçu votre message — M!LK",
     html: `
@@ -37,7 +36,8 @@ export async function POST(req: Request) {
   <p style="color:rgba(242,237,230,0.5);font-size:15px;line-height:1.7;margin:0 0 24px">
     Merci ${nom}, on revient vers toi sous 24h en jours ouvrés.
   </p>
-  <a href="https://milkbebe.fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:13px 28px;border-radius:12px;font-weight:900;font-size:14px;text-decoration:none">
+  <a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app"}/produits"
+    style="display:inline-block;background:#f2ede6;color:#1a1410;padding:13px 28px;border-radius:12px;font-weight:900;font-size:14px;text-decoration:none">
     Voir la collection →
   </a>
 </div>`,

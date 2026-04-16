@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 </html>`;
 
   await resend.emails.send({
-    from:    "M!LK <bonjour@milkbebe.fr>",
+    from:    "M!LK <onboarding@resend.dev>",
     to:      email,
     subject: promo_code ? `🎁 Ton code promo M!LK : ${promo_code}` : "Bienvenue chez M!LK !",
     html,

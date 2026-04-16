@@ -43,7 +43,7 @@ export async function GET() {
       if (!subject) continue;
 
       const { error } = await resend.emails.send({
-        from:    "M!LK <bonjour@milkbebe.fr>",
+        from:    "M!LK <onboarding@resend.dev>",
         to:      cart.email,
         subject,
         html,

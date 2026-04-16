@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     if (!email) return Response.json({ error: "Email manquant" }, { status: 400 });
 
     const { data, error } = await resend.emails.send({
-      from:    "M!LK <bonjour@milkbebe.fr>",
+      from:    "M!LK <onboarding@resend.dev>",
       to:      email,
       subject: `✅ Commande confirmée — M!LK #${order_id?.slice(0, 8).toUpperCase()}`,
       html:    emailConfirmation(prenom ?? "", email, items ?? [], amount_total ?? 0, order_id ?? ""),

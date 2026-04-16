@@ -8,7 +8,7 @@ export async function POST(req: Request) {
   if (!nom || !email || !message) return Response.json({ error: "Champs manquants" }, { status: 400 });
 
   await resend.emails.send({
-    from:    "M!LK Contact <bonjour@milkbebe.fr>",
+    from:    "M!LK Contact <onboarding@resend.dev>",
     to:      ADMIN,
     replyTo: email,
     subject: `📩 Message de ${nom} — ${sujet || "Contact M!LK"}`,
@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   });
 
   await resend.emails.send({
-    from:    "M!LK <bonjour@milkbebe.fr>",
+    from:    "M!LK <onboarding@resend.dev>",
     to:      email,
     subject: "Nous avons bien reçu votre message — M!LK",
     html: `

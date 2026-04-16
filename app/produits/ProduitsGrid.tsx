@@ -20,20 +20,29 @@ function isPromoActive(p: Product) {
   return new Date(p.promo_start) <= now && new Date(p.promo_end) >= now;
 }
 
-// ✅ Badge diagonal — grand, flashy, coloré
+// ✅ Badge diagonal — positionné sur la CARD (pas sur l'image) pour éviter le clipping
 function DiagonalBadge({ label, outOfStock }: { label?: string; outOfStock: boolean }) {
   if (outOfStock) {
     return (
-      <div style={{ position: "absolute", top: 0, right: 0, overflow: "hidden", width: 100, height: 100, zIndex: 10 }}>
+      <div style={{
+        position: "absolute", top: 0, right: 0,
+        width: 100, height: 100,
+        overflow: "hidden",
+        zIndex: 20,
+        pointerEvents: "none",
+      }}>
         <div style={{
-          position: "absolute", top: 24, right: -28,
-          background: "#6b7280", color: "#fff",
-          fontSize: 10, fontWeight: 900, letterSpacing: 1,
-          padding: "7px 40px",
+          position: "absolute",
+          top: 20, right: -30,
+          background: "#6b7280",
+          color: "#fff",
+          fontSize: 10, fontWeight: 900,
+          letterSpacing: 1,
+          padding: "7px 44px",
           transform: "rotate(45deg)",
           textTransform: "uppercase",
           whiteSpace: "nowrap",
-          boxShadow: "0 2px 8px rgba(0,0,0,0.3)",
+          boxShadow: "0 2px 8px rgba(0,0,0,0.4)",
         }}>
           Épuisé
         </div>
@@ -42,30 +51,39 @@ function DiagonalBadge({ label, outOfStock }: { label?: string; outOfStock: bool
   }
 
   const config: Record<string, { text: string; bg: string; color: string }> = {
-    nouveau:        { text: "Nouveau",           bg: "#2563eb", color: "#fff"    },
-    bestseller:     { text: "Best seller",       bg: "#c49a4a", color: "#1a1410" },
-    exclusif:       { text: "Exclusif",          bg: "#c49a4a", color: "#1a1410" },
-    last:           { text: "Dernières pièces",  bg: "#f59e0b", color: "#1a1410" },
-    bientot:        { text: "Bientôt dispo",     bg: "#6b7280", color: "#fff"    },
-    promo:          { text: "Promo",             bg: "#dc2626", color: "#fff"    },
-    coup_de_coeur:  { text: "Coup de cœur",      bg: "#e11d48", color: "#fff"    },
+    nouveau:        { text: "Nouveau",          bg: "#2563eb", color: "#fff"    },
+    bestseller:     { text: "Best seller",      bg: "#c49a4a", color: "#1a1410" },
+    exclusif:       { text: "Exclusif",         bg: "#c49a4a", color: "#1a1410" },
+    last:           { text: "Dernières pièces", bg: "#f59e0b", color: "#1a1410" },
+    bientot:        { text: "Bientôt dispo",    bg: "#6b7280", color: "#fff"    },
+    promo:          { text: "Promo",            bg: "#dc2626", color: "#fff"    },
+    coup_de_coeur:  { text: "Coup de cœur",     bg: "#e11d48", color: "#fff"    },
   };
 
-  const c = label ? config[label] : null;
+  const effectiveLabel = label && label !== "" ? label : null;
+  const c = effectiveLabel ? config[effectiveLabel] : null;
   if (!c) return null;
 
   return (
-    <div style={{ position: "absolute", top: 0, right: 0, overflow: "hidden", width: 110, height: 110, zIndex: 10 }}>
+    <div style={{
+      position: "absolute", top: 0, right: 0,
+      width: 110, height: 110,
+      overflow: "hidden",
+      zIndex: 20,
+      pointerEvents: "none",
+    }}>
       <div style={{
-        position: "absolute", top: 26, right: -32,
-        background: c.bg, color: c.color,
-        fontSize: 10, fontWeight: 900, letterSpacing: 0.5,
-        padding: "8px 44px",
+        position: "absolute",
+        top: 22, right: -32,
+        background: c.bg,
+        color: c.color,
+        fontSize: 10, fontWeight: 900,
+        letterSpacing: 0.5,
+        padding: "8px 46px",
         transform: "rotate(45deg)",
         textTransform: "uppercase",
         whiteSpace: "nowrap",
-        boxShadow: "0 3px 12px rgba(0,0,0,0.4)",
-        textShadow: c.color === "#fff" ? "0 1px 2px rgba(0,0,0,0.2)" : "none",
+        boxShadow: "0 3px 12px rgba(0,0,0,0.35)",
       }}>
         {c.text}
       </div>
@@ -78,16 +96,21 @@ function ProductCard({ p }: { p: Product }) {
   const price      = promo ? p.promo_price! : p.price_ttc;
   const outOfStock = (p.stock ?? 0) <= 0;
   const lowStock   = !outOfStock && (p.stock ?? 0) <= 5;
+  const badgeLabel = outOfStock ? undefined : (p.label || (promo ? "promo" : undefined));
 
   return (
     <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-      <div className="product-card" style={{ borderRadius: 20, overflow: "hidden", background: "#221c16", border: "1px solid rgba(242,237,230,0.08)", transition: "all 0.25s cubic-bezier(.22,.61,.36,1)", cursor: "pointer" }}>
+      {/* ✅ position relative sur la CARD entière — badge positionné ici */}
+      <div className="product-card" style={{ position: "relative", borderRadius: 20, overflow: "hidden", background: "#221c16", border: "1px solid rgba(242,237,230,0.08)", transition: "all 0.25s cubic-bezier(.22,.61,.36,1)", cursor: "pointer" }}>
 
-        {/* Image */}
+        {/* ✅ Badge placé AVANT l'image, en dehors du conteneur overflow:hidden de l'image */}
+        <DiagonalBadge label={badgeLabel} outOfStock={outOfStock} />
+
+        {/* Image — overflow hidden uniquement ici pour l'effet zoom */}
         <div style={{ position: "relative", aspectRatio: "3/4", background: "#2d2419", overflow: "hidden" }}>
           {p.image_url ? (
             <Image src={p.image_url} alt={p.name} fill
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               style={{ objectFit: "cover", transition: "transform 0.5s ease" }}
               className="product-card-img"
             />
@@ -97,21 +120,9 @@ function ProductCard({ p }: { p: Product }) {
             </div>
           )}
 
-          {/* ✅ Badge diagonal */}
-          <DiagonalBadge label={p.label} outOfStock={outOfStock} />
-
-          {/* Badge promo si pas d'autre label */}
-          {promo && !p.label && (
-            <div style={{ position: "absolute", top: 0, right: 0, overflow: "hidden", width: 110, height: 110, zIndex: 10 }}>
-              <div style={{ position: "absolute", top: 26, right: -32, background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 900, letterSpacing: 0.5, padding: "8px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 3px 12px rgba(0,0,0,0.4)" }}>
-                Promo
-              </div>
-            </div>
-          )}
-
           {/* Stock faible */}
           {lowStock && (
-            <div style={{ position: "absolute", bottom: 10, left: 10 }}>
+            <div style={{ position: "absolute", bottom: 10, left: 10, zIndex: 5 }}>
               <span style={{ padding: "4px 10px", borderRadius: 99, background: "rgba(0,0,0,0.7)", color: "#f59e0b", fontSize: 10, fontWeight: 800 }}>
                 Plus que {p.stock}
               </span>
@@ -120,7 +131,7 @@ function ProductCard({ p }: { p: Product }) {
 
           {/* Overlay épuisé */}
           {outOfStock && (
-            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center" }}>
+            <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 5 }}>
               <span style={{ padding: "10px 20px", borderRadius: 12, background: "rgba(0,0,0,0.7)", color: "#f2ede6", fontSize: 13, fontWeight: 800 }}>
                 Rupture de stock
               </span>
@@ -190,9 +201,7 @@ export default function ProduitsGrid({
   const [search,         setSearch]         = useState("");
 
   const filtered = useMemo(() => {
-    // ✅ Filtre les produits dépubliés côté client
     let list = products.filter(p => p.published !== false);
-
     if (activeCategory) list = list.filter(p => p.category_slug === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
@@ -201,12 +210,10 @@ export default function ProduitsGrid({
           .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q)
       );
     }
-
     if (sort === "price-asc")  list.sort((a, b) => (a.promo_price ?? a.price_ttc) - (b.promo_price ?? b.price_ttc));
     if (sort === "price-desc") list.sort((a, b) => (b.promo_price ?? b.price_ttc) - (a.promo_price ?? a.price_ttc));
     if (sort === "promo")      list.sort((a, b) => (isPromoActive(b) ? 1 : 0) - (isPromoActive(a) ? 1 : 0));
     if (sort === "position")   list.sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
-
     return list;
   }, [products, activeCategory, sort, search]);
 
@@ -217,7 +224,11 @@ export default function ProduitsGrid({
   return (
     <div style={{ background: "#1a1410", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <style>{`
-        .product-card:hover { border-color: rgba(196,154,74,0.4) !important; transform: translateY(-6px); box-shadow: 0 32px 60px rgba(0,0,0,0.5); }
+        .product-card:hover {
+          border-color: rgba(196,154,74,0.4) !important;
+          transform: translateY(-6px);
+          box-shadow: 0 32px 60px rgba(0,0,0,0.5);
+        }
         .product-card:hover .product-card-img { transform: scale(1.06); }
         @media (max-width: 768px) {
           .produits-outer { padding: 0 16px !important; }
@@ -274,10 +285,10 @@ export default function ProduitsGrid({
 
         <div style={{ marginTop: 80, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20 }}>
           {[
-            { icon: "🌿", label: "100% Bambou",       desc: "Certifié OEKO-TEX"  },
-            { icon: "🚚", label: "Livraison offerte",  desc: "Dès 60€ d'achat"   },
-            { icon: "↩️", label: "Retour gratuit",     desc: "Sous 30 jours"      },
-            { icon: "🔒", label: "Paiement sécurisé",  desc: "Via Stripe"         },
+            { icon: "🌿", label: "100% Bambou",      desc: "Certifié OEKO-TEX" },
+            { icon: "🚚", label: "Livraison offerte", desc: "Dès 60€ d'achat"   },
+            { icon: "↩️", label: "Retour gratuit",    desc: "Sous 30 jours"     },
+            { icon: "🔒", label: "Paiement sécurisé", desc: "Via Stripe"        },
           ].map(r => (
             <div key={r.label} style={{ padding: "20px 24px", borderRadius: 16, background: "#221c16", border: "1px solid rgba(242,237,230,0.06)", textAlign: "center" }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>{r.icon}</div>

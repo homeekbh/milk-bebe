@@ -3,6 +3,10 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import ProduitsGrid from "@/app/produits/ProduitsGrid";
 
+// ✅ CRITIQUE — toujours à jour
+export const dynamic    = "force-dynamic";
+export const revalidate = 0;
+
 const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle: string; seoDesc: string }> = {
   bodies: {
     title:    "Bodies nourrisson",
@@ -55,5 +59,12 @@ export default async function CategoriePage({ params }: Props) {
   if (!VALID_SLUGS.includes(slug)) notFound();
   const products = await getProductsByCategory(slug);
   const meta     = CATEGORY_META[slug];
-  return <ProduitsGrid products={products} title={meta.title} subtitle={meta.subtitle} defaultCategory={slug} />;
+  return (
+    <ProduitsGrid
+      products={products}
+      title={meta.title}
+      subtitle={meta.subtitle}
+      defaultCategory={slug}
+    />
+  );
 }

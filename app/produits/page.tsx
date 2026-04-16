@@ -2,6 +2,10 @@
 import type { Metadata } from "next";
 import ProduitsGrid from "@/app/produits/ProduitsGrid";
 
+// ✅ CRITIQUE — force le rechargement à chaque visite, pas de cache
+export const dynamic    = "force-dynamic";
+export const revalidate = 0;
+
 export const metadata: Metadata = {
   title: "Tous les produits — Bodies, Pyjamas, Gigoteuses | M!LK",
   description: "Découvrez toute la collection M!LK : bodies, pyjamas, gigoteuses et accessoires pour nourrissons 0-6 mois en bambou certifié OEKO-TEX.",
@@ -18,5 +22,11 @@ async function getProducts() {
 
 export default async function ProduitsPage() {
   const products = await getProducts();
-  return <ProduitsGrid products={products} title="Notre collection" subtitle="Vêtements nourrisson en bambou certifié OEKO-TEX" />;
+  return (
+    <ProduitsGrid
+      products={products}
+      title="Notre collection"
+      subtitle="Vêtements nourrisson en bambou certifié OEKO-TEX"
+    />
+  );
 }

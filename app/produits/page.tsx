@@ -10,8 +10,9 @@ export const metadata: Metadata = {
 async function getProducts() {
   const { data } = await supabaseServer
     .from("products")
-    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, description, featured")
-    .order("created_at", { ascending: false });
+    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, description, featured, published, label, position, sizes, sizes_stock, colors")
+    .eq("published", true)
+    .order("position", { ascending: true });
   return data ?? [];
 }
 

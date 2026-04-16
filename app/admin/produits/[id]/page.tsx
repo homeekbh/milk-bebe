@@ -2,22 +2,23 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
-const CATEGORIES   = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
+const CATEGORIES    = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
 const TAILLES_DISPO = ["Naissance", "0-3 mois", "3-6 mois", "6-12 mois"];
-const HIGHLIGHTS   = [
-  { value: "",                label: "Aucune mise en avant"      },
-  { value: "meilleure_vente", label: "Meilleure vente"           },
-  { value: "selection",       label: "Sélection du moment"       },
-  { value: "nouveaute",       label: "Nouveauté"                 },
+const HIGHLIGHTS    = [
+  { value: "",                label: "Aucune mise en avant"   },
+  { value: "meilleure_vente", label: "Meilleure vente"        },
+  { value: "selection",       label: "Sélection du moment"    },
+  { value: "nouveaute",       label: "Nouveauté"              },
 ];
 const LABELS = [
-  { value: "",             label: "Aucun badge"          },
-  { value: "nouveau",      label: "Nouveau"              },
-  { value: "bestseller",   label: "Bestseller"           },
-  { value: "exclusif",     label: "Exclusif"             },
-  { value: "last",         label: "Dernières pièces"     },
-  { value: "bientot",      label: "Bientôt disponible"   },
-  { value: "promo",        label: "Promo"                },
+  { value: "",              label: "Aucun badge"          },
+  { value: "nouveau",       label: "Nouveau"              },
+  { value: "bestseller",    label: "Bestseller"           },
+  { value: "exclusif",      label: "Exclusif"             },
+  { value: "last",          label: "Dernières pièces"     },
+  { value: "bientot",       label: "Bientôt disponible"   },
+  { value: "promo",         label: "Promo"                },
+  { value: "coup_de_coeur", label: "Coup de cœur"         },
 ];
 
 const EMPTY = {
@@ -37,7 +38,7 @@ function slugify(s: string) {
 }
 
 const IS: React.CSSProperties = {
-  padding: "11px 14px", borderRadius: 10,
+  padding: "12px 14px", borderRadius: 10,
   border: "2px solid rgba(0,0,0,0.1)", fontSize: 15,
   fontWeight: 600, background: "#fff", width: "100%",
   boxSizing: "border-box", outline: "none",
@@ -59,7 +60,7 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
-  const [ok, setOk]   = useState(false);
+  const [ok,  setOk]  = useState(false);
   const [err, setErr] = useState("");
 
   async function handleFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -102,7 +103,6 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   );
 }
 
-// ── Field ────────────────────────────────────────────────────────────────────
 function Field({ label, fieldKey, type = "text", placeholder = "", value, onChange, hint }: {
   label: string; fieldKey: string; type?: string; placeholder?: string;
   value: string; onChange: (k: string, v: string) => void; hint?: string;
@@ -116,21 +116,21 @@ function Field({ label, fieldKey, type = "text", placeholder = "", value, onChan
   );
 }
 
-// ── Page ─────────────────────────────────────────────────────────────────────
 export default function ProduitForm() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
   const isNew   = id === "new";
 
-  const [form,     setForm]     = useState<Record<string, string>>(EMPTY);
-  const [sizes,    setSizes]    = useState<string[]>([]);
-  // ✅ Stock par taille : { "Naissance": 5, "0-3 mois": 10, ... }
+  const [form,       setForm]       = useState<Record<string, string>>(EMPTY);
+  const [published,  setPublished]  = useState(true);
+  const [sizes,      setSizes]      = useState<string[]>([]);
   const [sizesStock, setSizesStock] = useState<Record<string, string>>({});
-  const [colors,   setColors]   = useState<{ name: string; hex: string; stock: string }[]>([]);
-  const [loading,  setLoading]  = useState(!isNew);
-  const [saving,   setSaving]   = useState(false);
-  const [error,    setError]    = useState("");
-  const [success,  setSuccess]  = useState("");
+  const [colors,     setColors]     = useState<{ name: string; hex: string; stock: string }[]>([]);
+  const [loading,    setLoading]    = useState(!isNew);
+  const [saving,     setSaving]     = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [error,      setError]      = useState("");
+  const [success,    setSuccess]    = useState("");
 
   useEffect(() => {
     if (isNew) return;
@@ -158,9 +158,13 @@ export default function ProduitForm() {
           seo_title:        data.seo_title          ?? "",
           seo_description:  data.seo_description    ?? "",
         });
+        setPublished(data.published !== false);
         setSizes(Array.isArray(data.sizes) ? data.sizes : []);
-        // ✅ Charger stock par taille
-        setSizesStock(data.sizes_stock && typeof data.sizes_stock === "object" ? Object.fromEntries(Object.entries(data.sizes_stock).map(([k, v]) => [k, String(v)])) : {});
+        setSizesStock(
+          data.sizes_stock && typeof data.sizes_stock === "object"
+            ? Object.fromEntries(Object.entries(data.sizes_stock).map(([k, v]) => [k, String(v)]))
+            : {}
+        );
         setColors(Array.isArray(data.colors) ? data.colors.map((c: any) => ({ ...c, stock: String(c.stock ?? 0) })) : []);
       }
       setLoading(false);
@@ -178,7 +182,6 @@ export default function ProduitForm() {
   function toggleSize(t: string) {
     setSizes(prev => {
       if (prev.includes(t)) {
-        // Retirer aussi le stock
         setSizesStock(s => { const n = { ...s }; delete n[t]; return n; });
         return prev.filter(s => s !== t);
       }
@@ -190,7 +193,6 @@ export default function ProduitForm() {
     setSizesStock(prev => ({ ...prev, [taille]: val }));
   }
 
-  // Stock total = somme des stocks tailles si définis, sinon somme couleurs, sinon champ direct
   const totalFromSizes  = sizes.length > 0 && Object.keys(sizesStock).length > 0
     ? sizes.reduce((s, t) => s + (parseInt(sizesStock[t] ?? "0") || 0), 0) : null;
   const totalFromColors = colors.length > 0
@@ -203,6 +205,22 @@ export default function ProduitForm() {
     setColors(p => p.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
   }
 
+  async function togglePublish() {
+    if (isNew) return;
+    setPublishing(true);
+    const newPublished = !published;
+    const res = await fetch("/api/admin/products", {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, published: newPublished }),
+    });
+    if (res.ok) {
+      setPublished(newPublished);
+      setSuccess(newPublished ? "✅ Produit publié en ligne !" : "⏸ Produit dépublié");
+      setTimeout(() => setSuccess(""), 3000);
+    }
+    setPublishing(false);
+  }
+
   async function handleSave() {
     setSaving(true); setError(""); setSuccess("");
     try {
@@ -211,6 +229,7 @@ export default function ProduitForm() {
 
       const body = {
         ...form,
+        published,
         price_ttc:        parseFloat(form.price_ttc),
         promo_price:      form.promo_price ? parseFloat(form.promo_price) : null,
         promo_start:      form.promo_start || null,
@@ -224,10 +243,7 @@ export default function ProduitForm() {
         seo_title:        form.seo_title        || null,
         seo_description:  form.seo_description  || null,
         sizes,
-        // ✅ Stock par taille
-        sizes_stock: Object.fromEntries(
-          sizes.map(t => [t, parseInt(sizesStock[t] ?? "0") || 0])
-        ),
+        sizes_stock: Object.fromEntries(sizes.map(t => [t, parseInt(sizesStock[t] ?? "0") || 0])),
         colors: colors.map(c => ({ ...c, stock: parseInt(c.stock) || 0 })),
       };
 
@@ -263,14 +279,41 @@ export default function ProduitForm() {
   return (
     <div style={{ padding: "32px 40px", maxWidth: 820 }}>
 
+      {/* ── En-tête + Bouton Publier ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
         <button onClick={() => router.push("/admin/produits")}
           style={{ padding: "10px 16px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 800 }}>
           ← Retour
         </button>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410" }}>
+        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410", flex: 1 }}>
           {isNew ? "Nouveau produit" : `Modifier : ${form.name || "..."}`}
         </h1>
+
+        {/* ✅ Voyant + bouton publier */}
+        {!isNew && (
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            {/* Voyant */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 99, background: published ? "rgba(22,163,74,0.1)" : "rgba(107,114,128,0.1)", border: `1px solid ${published ? "rgba(22,163,74,0.3)" : "rgba(107,114,128,0.2)"}` }}>
+              <div style={{ width: 10, height: 10, borderRadius: "50%", background: published ? "#16a34a" : "#9ca3af", boxShadow: published ? "0 0 8px rgba(22,163,74,0.6)" : "none" }} />
+              <span style={{ fontSize: 13, fontWeight: 800, color: published ? "#16a34a" : "#9ca3af" }}>
+                {published ? "En ligne" : "Hors ligne"}
+              </span>
+            </div>
+
+            {/* Bouton publier/dépublier */}
+            <button onClick={togglePublish} disabled={publishing}
+              style={{
+                padding: "12px 22px", borderRadius: 12, border: "none",
+                fontWeight: 900, fontSize: 14, cursor: "pointer",
+                background: published ? "#fee2e2" : "#1a1410",
+                color:      published ? "#b91c1c" : "#c49a4a",
+                opacity: publishing ? 0.6 : 1,
+                boxShadow: published ? "none" : "0 4px 16px rgba(0,0,0,0.2)",
+              }}>
+              {publishing ? "..." : published ? "⏸ Dépublier" : "🚀 Publier en ligne"}
+            </button>
+          </div>
+        )}
       </div>
 
       <div style={{ display: "grid", gap: 20 }}>
@@ -279,7 +322,8 @@ export default function ProduitForm() {
         <div style={SECTION}>
           <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410" }}>Informations générales</div>
           <Field label="Nom" fieldKey="name" placeholder="Ex : Body Bambou Ivoire" value={form.name} onChange={set} />
-          <Field label="Slug (URL)" fieldKey="slug" placeholder="body-bambou-ivoire" value={form.slug} onChange={set} hint="Généré automatiquement. Ne pas modifier après publication." />
+          <Field label="Slug (URL)" fieldKey="slug" placeholder="body-bambou-ivoire" value={form.slug} onChange={set}
+            hint="Généré automatiquement. Ne pas modifier après publication." />
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <Field label="Prix TTC (€)" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
             <Field label="Stock total" fieldKey="stock" type="number" placeholder="0"
@@ -342,49 +386,58 @@ export default function ProduitForm() {
 
           <div style={{ display: "grid", gap: 10 }}>
             {TAILLES_DISPO.map(t => {
-              const checked = sizes.includes(t);
+              const checked   = sizes.includes(t);
+              const stockVal  = parseInt(sizesStock[t] ?? "0") || 0;
+              const maxStock  = 50;
               return (
-                <div key={t} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", padding: "12px 16px", borderRadius: 12, border: checked ? "2px solid #1a1410" : "2px solid rgba(0,0,0,0.08)", background: checked ? "#f5f0e8" : "#fafafa", transition: "all 0.15s" }}>
+                <div key={t} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", padding: "14px 18px", borderRadius: 12, border: checked ? "2px solid #1a1410" : "2px solid rgba(0,0,0,0.08)", background: checked ? "#f5f0e8" : "#fafafa", transition: "all 0.15s" }}>
 
-                  {/* Checkbox */}
-                  <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+                  {/* Checkbox + label */}
+                  <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", minWidth: 140 }}>
                     <input type="checkbox" checked={checked} onChange={() => toggleSize(t)}
                       style={{ width: 20, height: 20, accentColor: "#1a1410", cursor: "pointer" }} />
-                    <span style={{ fontWeight: 800, fontSize: 15, color: checked ? "#1a1410" : "rgba(26,20,16,0.5)" }}>{t}</span>
+                    <span style={{ fontWeight: 800, fontSize: 15, color: checked ? "#1a1410" : "rgba(26,20,16,0.4)" }}>{t}</span>
                   </label>
 
-                  {/* Barre visuelle stock */}
-                  {checked && (
-                    <div style={{ height: 6, background: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
-                      <div style={{
-                        height: "100%", borderRadius: 99, background: "#c49a4a",
-                        width: `${Math.min(100, ((parseInt(sizesStock[t] ?? "0") || 0) / 50) * 100)}%`,
-                        transition: "width 0.3s ease",
-                      }} />
+                  {/* Barre progression */}
+                  {checked ? (
+                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                      <div style={{ flex: 1, height: 8, background: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
+                        <div style={{
+                          height: "100%", borderRadius: 99,
+                          background: stockVal === 0 ? "#9ca3af" : stockVal <= 3 ? "#f59e0b" : "#c49a4a",
+                          width: `${Math.min(100, (stockVal / maxStock) * 100)}%`,
+                          transition: "width 0.3s ease",
+                        }} />
+                      </div>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.4)", whiteSpace: "nowrap" }}>
+                        {stockVal === 0 ? "Épuisé" : stockVal <= 3 ? `⚠️ ${stockVal} restants` : `${stockVal} en stock`}
+                      </span>
                     </div>
+                  ) : (
+                    <span style={{ fontSize: 13, color: "rgba(26,20,16,0.25)", fontWeight: 600 }}>Non disponible</span>
                   )}
-                  {!checked && <div />}
 
                   {/* Input stock */}
                   {checked ? (
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 700, whiteSpace: "nowrap" }}>Stock :</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                      <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 700 }}>Stock :</span>
                       <input type="number" min="0" value={sizesStock[t] ?? "0"}
                         onChange={e => setSizeStock(t, e.target.value)}
-                        style={{ width: 70, padding: "8px 10px", borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", fontSize: 15, fontWeight: 800, textAlign: "center", outline: "none", background: "#fff" }}
+                        style={{ width: 72, padding: "8px 10px", borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", fontSize: 16, fontWeight: 900, textAlign: "center", outline: "none", background: "#fff" }}
                       />
                     </div>
                   ) : (
-                    <span style={{ fontSize: 13, color: "rgba(26,20,16,0.25)", fontWeight: 600 }}>Non dispo</span>
+                    <div style={{ width: 100 }} />
                   )}
                 </div>
               );
             })}
           </div>
 
-          {sizes.length > 0 && (
+          {sizes.length > 0 && totalFromSizes !== null && (
             <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", fontSize: 14, fontWeight: 700, color: "#166534" }}>
-              Stock total tailles : <strong>{totalFromSizes ?? 0} unités</strong>
+              Stock total : <strong>{totalFromSizes} unités</strong>
               {" · "}{sizes.map(t => `${t}: ${sizesStock[t] ?? 0}`).join(" · ")}
             </div>
           )}
@@ -395,7 +448,7 @@ export default function ProduitForm() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <div>
               <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Couleurs disponibles</div>
-              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Stock par couleur — additionné au stock total</div>
+              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Stock par couleur</div>
             </div>
             <button onClick={addColor}
               style={{ padding: "10px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
@@ -405,7 +458,7 @@ export default function ProduitForm() {
 
           {colors.length === 0 && (
             <div style={{ padding: 20, borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
-              Aucune couleur — le stock global sera utilisé
+              Aucune couleur définie
             </div>
           )}
 
@@ -440,10 +493,9 @@ export default function ProduitForm() {
             </div>
           ))}
 
-          {colors.length > 0 && (
+          {colors.length > 0 && totalFromColors !== null && (
             <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", fontSize: 14, fontWeight: 700, color: "#166534" }}>
               Stock couleurs : <strong>{totalFromColors} unités</strong>
-              {" · "}{colors.filter(c => c.name).map(c => `${c.name}: ${c.stock}`).join(" · ")}
             </div>
           )}
         </div>
@@ -476,7 +528,7 @@ export default function ProduitForm() {
         <div style={SECTION}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>SEO — Référencement Google</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le titre et description produit sont utilisés</div>
+            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le nom et la description sont utilisés</div>
           </div>
           <Field label="Titre SEO" fieldKey="seo_title" placeholder="Ex : Body Bambou Ivoire nourrisson — M!LK"
             value={form.seo_title} onChange={set}
@@ -484,7 +536,7 @@ export default function ProduitForm() {
           <div style={{ display: "grid", gap: 6 }}>
             <label style={LS}>Description SEO</label>
             <textarea value={form.seo_description} onChange={e => set("seo_description", e.target.value)}
-              placeholder="Ex : Body nourrisson en bambou certifié OEKO-TEX. Ultra-doux pour peaux sensibles..."
+              placeholder="Ex : Body nourrisson en bambou certifié OEKO-TEX..."
               rows={2} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
             <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>{form.seo_description.length}/155 caractères</div>
           </div>
@@ -501,15 +553,16 @@ export default function ProduitForm() {
         {error   && <div style={{ padding: "14px 18px", borderRadius: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 15, fontWeight: 700 }}>❌ {error}</div>}
         {success && <div style={{ padding: "14px 18px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontSize: 15, fontWeight: 700 }}>{success}</div>}
 
+        {/* ── Actions sticky ── */}
         <div style={{ display: "flex", gap: 12, position: "sticky", bottom: 20 }}>
           <button onClick={handleSave} disabled={saving}
             style={{ flex: 1, padding: "16px", borderRadius: 14, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1, boxShadow: "0 4px 20px rgba(0,0,0,0.2)" }}>
-            {saving ? "Enregistrement..." : isNew ? "Créer le produit" : "Enregistrer les modifications"}
+            {saving ? "Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
           </button>
           {!isNew && (
             <button onClick={handleDelete}
               style={{ padding: "16px 22px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
-              Supprimer
+              🗑 Supprimer
             </button>
           )}
         </div>

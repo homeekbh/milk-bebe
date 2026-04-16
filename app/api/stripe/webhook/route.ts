@@ -172,7 +172,7 @@ export async function POST(req: Request) {
 
         for (const adminEmail of ADMIN_EMAILS) {
           await resend.emails.send({
-            from:    "M!LK <onboarding@resend.dev>",
+            from:    "M!LK <bonjour@milkbebe.fr>",
             to:      adminEmail,
             subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
             html,

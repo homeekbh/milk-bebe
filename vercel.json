@@ -1,8 +1,12 @@
 {
   "crons": [
     {
-      "path": "/api/emails/relance",
+      "path":     "/api/emails/relance",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path":     "/api/admin/stock-alerts",
+      "schedule": "0 8 * * *"
     }
   ]
 }

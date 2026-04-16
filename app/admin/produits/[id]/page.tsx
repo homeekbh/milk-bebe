@@ -1,4 +1,5 @@
 "use client";
+
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
@@ -21,7 +22,7 @@ const LABELS = [
   { value: "coup_de_coeur", label: "Coup de cœur"         },
 ];
 
-const EMPTY = {
+const EMPTY: Record<string, string> = {
   name: "", slug: "", price_ttc: "", promo_price: "",
   promo_start: "", promo_end: "", stock: "0",
   category_slug: "bodies",
@@ -52,7 +53,7 @@ const SECTION: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.08)", padding: 28, display: "grid", gap: 18,
 };
 
-// ── PhotoField ───────────────────────────────────────────────────────────────
+// ── PhotoField ────────────────────────────────────────────────────────────────
 function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   label: string; fieldKey: string; value: string;
   isMain: boolean; onSetMain: () => void;
@@ -68,13 +69,19 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
     if (!file) return;
     setUploading(true); setErr(""); setOk(false);
     try {
-      const fd = new FormData(); fd.append("file", file);
+      const fd = new FormData();
+      fd.append("file", file);
       const res  = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur upload");
-      onChange(fieldKey, data.url); setOk(true);
-    } catch (e: any) { setErr(e.message); }
-    finally { setUploading(false); if (ref.current) ref.current.value = ""; }
+      onChange(fieldKey, data.url);
+      setOk(true);
+    } catch (e: any) {
+      setErr(e.message);
+    } finally {
+      setUploading(false);
+      if (ref.current) ref.current.value = "";
+    }
   }
 
   return (
@@ -87,13 +94,28 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
         </label>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
-        <input type="text" value={value} onChange={e => { onChange(fieldKey, e.target.value); setOk(false); }} placeholder="https://..." style={IS} />
-        <button type="button" onClick={() => ref.current?.click()} disabled={uploading}
-          style={{ padding: "11px 14px", borderRadius: 10, background: uploading ? "#f3f4f6" : "#1a1410", color: uploading ? "#9ca3af" : "#f2ede6", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+        <input
+          type="text" value={value}
+          onChange={e => { onChange(fieldKey, e.target.value); setOk(false); }}
+          placeholder="https://..."
+          style={IS}
+        />
+        <button
+          type="button"
+          onClick={() => ref.current?.click()}
+          disabled={uploading}
+          style={{ padding: "11px 14px", borderRadius: 10, background: uploading ? "#f3f4f6" : "#1a1410", color: uploading ? "#9ca3af" : "#f2ede6", fontWeight: 800, fontSize: 13, border: "none", cursor: uploading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}
+        >
           {uploading ? "..." : "📁 Upload"}
         </button>
         <div style={{ width: 48, height: 48, borderRadius: 10, background: "#f0ece4", overflow: "hidden", border: isMain ? "2px solid #c49a4a" : "1px solid rgba(0,0,0,0.08)", flexShrink: 0 }}>
-          {value && <img src={value} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
+          {value && (
+            <img
+              src={value} alt=""
+              style={{ width: "100%", height: "100%", objectFit: "cover" }}
+              onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
+            />
+          )}
         </div>
       </div>
       <input ref={ref} type="file" accept="image/jpeg,image/png,image/webp" style={{ display: "none" }} onChange={handleFile} />
@@ -103,6 +125,7 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   );
 }
 
+// ── Field ─────────────────────────────────────────────────────────────────────
 function Field({ label, fieldKey, type = "text", placeholder = "", value, onChange, hint }: {
   label: string; fieldKey: string; type?: string; placeholder?: string;
   value: string; onChange: (k: string, v: string) => void; hint?: string;
@@ -110,16 +133,23 @@ function Field({ label, fieldKey, type = "text", placeholder = "", value, onChan
   return (
     <div style={{ display: "grid", gap: 6 }}>
       <label style={LS}>{label}</label>
-      <input type={type} value={value} onChange={e => onChange(fieldKey, e.target.value)} placeholder={placeholder} style={IS} />
+      <input
+        type={type} value={value}
+        onChange={e => onChange(fieldKey, e.target.value)}
+        placeholder={placeholder}
+        style={IS}
+      />
       {hint && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", lineHeight: 1.5 }}>{hint}</div>}
     </div>
   );
 }
 
+// ── Page ──────────────────────────────────────────────────────────────────────
 export default function ProduitForm() {
   const { id } = useParams<{ id: string }>();
   const router  = useRouter();
   const isNew   = id === "new";
+  const draftKey = `milk_draft_product_${id}`;
 
   const [form,       setForm]       = useState<Record<string, string>>(EMPTY);
   const [published,  setPublished]  = useState(true);
@@ -132,44 +162,78 @@ export default function ProduitForm() {
   const [error,      setError]      = useState("");
   const [success,    setSuccess]    = useState("");
 
+  // ✅ Auto-save
+  const [autoSaved, setAutoSaved] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+
+  // Charger le produit existant
   useEffect(() => {
-    if (isNew) return;
-    fetch(`/api/admin/products?id=${id}`).then(r => r.json()).then(data => {
-      if (data && !data.error) {
-        setForm({
-          name:             data.name              ?? "",
-          slug:             data.slug              ?? "",
-          price_ttc:        String(data.price_ttc   ?? ""),
-          promo_price:      data.promo_price ? String(data.promo_price) : "",
-          promo_start:      data.promo_start ? data.promo_start.slice(0, 10) : "",
-          promo_end:        data.promo_end   ? data.promo_end.slice(0, 10)   : "",
-          stock:            String(data.stock       ?? 0),
-          category_slug:    data.category_slug      ?? "bodies",
-          image_url:        data.image_url          ?? "",
-          image_url_2:      data.image_url_2        ?? "",
-          image_url_3:      data.image_url_3        ?? "",
-          image_url_4:      data.image_url_4        ?? "",
-          description:      data.description        ?? "",
-          main_image_index: String(data.main_image_index ?? 0),
-          label:            data.label              ?? "",
-          highlight:        data.highlight          ?? "",
-          position:         String(data.position    ?? 0),
-          weight_g:         data.weight_g ? String(data.weight_g) : "",
-          seo_title:        data.seo_title          ?? "",
-          seo_description:  data.seo_description    ?? "",
-        });
-        setPublished(data.published !== false);
-        setSizes(Array.isArray(data.sizes) ? data.sizes : []);
-        setSizesStock(
-          data.sizes_stock && typeof data.sizes_stock === "object"
-            ? Object.fromEntries(Object.entries(data.sizes_stock).map(([k, v]) => [k, String(v)]))
-            : {}
-        );
-        setColors(Array.isArray(data.colors) ? data.colors.map((c: any) => ({ ...c, stock: String(c.stock ?? 0) })) : []);
-      }
-      setLoading(false);
-    }).catch(() => setLoading(false));
+    if (isNew) {
+      // Charger brouillon local si nouveau produit
+      try {
+        const saved = localStorage.getItem(draftKey);
+        if (saved) setForm(f => ({ ...f, ...JSON.parse(saved) }));
+      } catch {}
+      return;
+    }
+
+    fetch(`/api/admin/products?id=${id}`)
+      .then(r => r.json())
+      .then(data => {
+        if (data && !data.error) {
+          setForm({
+            name:             data.name              ?? "",
+            slug:             data.slug              ?? "",
+            price_ttc:        String(data.price_ttc  ?? ""),
+            promo_price:      data.promo_price  ? String(data.promo_price)  : "",
+            promo_start:      data.promo_start  ? data.promo_start.slice(0, 10) : "",
+            promo_end:        data.promo_end    ? data.promo_end.slice(0, 10)   : "",
+            stock:            String(data.stock       ?? 0),
+            category_slug:    data.category_slug      ?? "bodies",
+            image_url:        data.image_url          ?? "",
+            image_url_2:      data.image_url_2        ?? "",
+            image_url_3:      data.image_url_3        ?? "",
+            image_url_4:      data.image_url_4        ?? "",
+            description:      data.description        ?? "",
+            main_image_index: String(data.main_image_index ?? 0),
+            label:            data.label              ?? "",
+            highlight:        data.highlight          ?? "",
+            position:         String(data.position    ?? 0),
+            weight_g:         data.weight_g ? String(data.weight_g) : "",
+            seo_title:        data.seo_title          ?? "",
+            seo_description:  data.seo_description    ?? "",
+          });
+          setPublished(data.published !== false);
+          setSizes(Array.isArray(data.sizes) ? data.sizes : []);
+          setSizesStock(
+            data.sizes_stock && typeof data.sizes_stock === "object"
+              ? Object.fromEntries(Object.entries(data.sizes_stock).map(([k, v]) => [k, String(v)]))
+              : {}
+          );
+          setColors(
+            Array.isArray(data.colors)
+              ? data.colors.map((c: any) => ({ ...c, stock: String(c.stock ?? 0) }))
+              : []
+          );
+        }
+        setLoading(false);
+      })
+      .catch(() => setLoading(false));
   }, [id, isNew]);
+
+  // ✅ Auto-save brouillon toutes les 10s si changement
+  useEffect(() => {
+    if (!form.name && !form.price_ttc) return;
+    const t = setTimeout(() => {
+      try {
+        localStorage.setItem(draftKey, JSON.stringify(form));
+        setAutoSaved(true);
+        setLastSaved(new Date());
+        setTimeout(() => setAutoSaved(false), 2000);
+      } catch {}
+    }, 10000);
+    return () => clearTimeout(t);
+  }, [form, draftKey]);
 
   function set(k: string, v: string) {
     setForm(f => {
@@ -194,13 +258,19 @@ export default function ProduitForm() {
   }
 
   const totalFromSizes  = sizes.length > 0 && Object.keys(sizesStock).length > 0
-    ? sizes.reduce((s, t) => s + (parseInt(sizesStock[t] ?? "0") || 0), 0) : null;
+    ? sizes.reduce((s, t) => s + (parseInt(sizesStock[t] ?? "0") || 0), 0)
+    : null;
   const totalFromColors = colors.length > 0
-    ? colors.reduce((s, c) => s + (parseInt(c.stock) || 0), 0) : null;
+    ? colors.reduce((s, c) => s + (parseInt(c.stock) || 0), 0)
+    : null;
   const computedStock   = totalFromSizes ?? totalFromColors;
 
-  function addColor() { setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0" }]); }
-  function removeColor(i: number) { setColors(p => p.filter((_, idx) => idx !== i)); }
+  function addColor() {
+    setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0" }]);
+  }
+  function removeColor(i: number) {
+    setColors(p => p.filter((_, idx) => idx !== i));
+  }
   function updateColor(i: number, k: "name" | "hex" | "stock", v: string) {
     setColors(p => p.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
   }
@@ -210,7 +280,8 @@ export default function ProduitForm() {
     setPublishing(true);
     const newPublished = !published;
     const res = await fetch("/api/admin/products", {
-      method: "PUT", headers: { "Content-Type": "application/json" },
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, published: newPublished }),
     });
     if (res.ok) {
@@ -224,16 +295,16 @@ export default function ProduitForm() {
   async function handleSave() {
     setSaving(true); setError(""); setSuccess("");
     try {
-      if (!form.name.trim()) throw new Error("Le nom est obligatoire");
-      if (!form.price_ttc)   throw new Error("Le prix est obligatoire");
+      if (!form.name.trim())  throw new Error("Le nom est obligatoire");
+      if (!form.price_ttc)    throw new Error("Le prix est obligatoire");
 
       const body = {
         ...form,
         published,
         price_ttc:        parseFloat(form.price_ttc),
         promo_price:      form.promo_price ? parseFloat(form.promo_price) : null,
-        promo_start:      form.promo_start || null,
-        promo_end:        form.promo_end   || null,
+        promo_start:      form.promo_start  || null,
+        promo_end:        form.promo_end    || null,
         stock:            computedStock !== null ? computedStock : (parseInt(form.stock) || 0),
         main_image_index: parseInt(form.main_image_index) || 0,
         label:            form.label     || null,
@@ -243,7 +314,9 @@ export default function ProduitForm() {
         seo_title:        form.seo_title        || null,
         seo_description:  form.seo_description  || null,
         sizes,
-        sizes_stock: Object.fromEntries(sizes.map(t => [t, parseInt(sizesStock[t] ?? "0") || 0])),
+        sizes_stock: Object.fromEntries(
+          sizes.map(t => [t, parseInt(sizesStock[t] ?? "0") || 0])
+        ),
         colors: colors.map(c => ({ ...c, stock: parseInt(c.stock) || 0 })),
       };
 
@@ -254,19 +327,29 @@ export default function ProduitForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur serveur");
+
+      // Supprimer le brouillon local après sauvegarde
+      try { localStorage.removeItem(draftKey); } catch {}
+
       setSuccess(isNew ? "✅ Produit créé !" : "✅ Enregistré !");
+      setLastSaved(new Date());
       if (isNew) router.push("/admin/produits");
+
     } catch (e: any) {
       setError(e.message);
-    } finally { setSaving(false); }
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleDelete() {
-    if (!confirm(`Supprimer "${form.name}" ?`)) return;
+    if (!confirm(`Supprimer "${form.name}" définitivement ?`)) return;
     await fetch("/api/admin/products", {
-      method: "DELETE", headers: { "Content-Type": "application/json" },
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
+    try { localStorage.removeItem(draftKey); } catch {}
     router.push("/admin/produits");
   }
 
@@ -274,42 +357,39 @@ export default function ProduitForm() {
   const photoLabels = ["Photo 1", "Photo 2", "Photo 3", "Photo 4"];
   const hasPromo    = !!form.promo_price;
 
-  if (loading) return <div style={{ padding: 60, opacity: 0.4, fontSize: 16 }}>Chargement...</div>;
+  if (loading) {
+    return <div style={{ padding: 60, opacity: 0.4, fontSize: 16 }}>Chargement...</div>;
+  }
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 820 }}>
 
-      {/* ── En-tête + Bouton Publier ── */}
+      {/* ── En-tête ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
-        <button onClick={() => router.push("/admin/produits")}
-          style={{ padding: "10px 16px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 800 }}>
+        <button
+          onClick={() => router.push("/admin/produits")}
+          style={{ padding: "10px 16px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 800 }}
+        >
           ← Retour
         </button>
-        <h1 style={{ margin: 0, fontSize: 26, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410", flex: 1 }}>
+        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410", flex: 1 }}>
           {isNew ? "Nouveau produit" : `Modifier : ${form.name || "..."}`}
         </h1>
 
-        {/* ✅ Voyant + bouton publier */}
+        {/* ✅ Voyant + Bouton publier */}
         {!isNew && (
           <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-            {/* Voyant */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 99, background: published ? "rgba(22,163,74,0.1)" : "rgba(107,114,128,0.1)", border: `1px solid ${published ? "rgba(22,163,74,0.3)" : "rgba(107,114,128,0.2)"}` }}>
               <div style={{ width: 10, height: 10, borderRadius: "50%", background: published ? "#16a34a" : "#9ca3af", boxShadow: published ? "0 0 8px rgba(22,163,74,0.6)" : "none" }} />
               <span style={{ fontSize: 13, fontWeight: 800, color: published ? "#16a34a" : "#9ca3af" }}>
                 {published ? "En ligne" : "Hors ligne"}
               </span>
             </div>
-
-            {/* Bouton publier/dépublier */}
-            <button onClick={togglePublish} disabled={publishing}
-              style={{
-                padding: "12px 22px", borderRadius: 12, border: "none",
-                fontWeight: 900, fontSize: 14, cursor: "pointer",
-                background: published ? "#fee2e2" : "#1a1410",
-                color:      published ? "#b91c1c" : "#c49a4a",
-                opacity: publishing ? 0.6 : 1,
-                boxShadow: published ? "none" : "0 4px 16px rgba(0,0,0,0.2)",
-              }}>
+            <button
+              onClick={togglePublish}
+              disabled={publishing}
+              style={{ padding: "12px 22px", borderRadius: 12, border: "none", fontWeight: 900, fontSize: 14, cursor: publishing ? "not-allowed" : "pointer", background: published ? "#fee2e2" : "#1a1410", color: published ? "#b91c1c" : "#c49a4a", opacity: publishing ? 0.6 : 1, boxShadow: published ? "none" : "0 4px 16px rgba(0,0,0,0.2)" }}
+            >
               {publishing ? "..." : published ? "⏸ Dépublier" : "🚀 Publier en ligne"}
             </button>
           </div>
@@ -321,15 +401,21 @@ export default function ProduitForm() {
         {/* ── 1. GÉNÉRAL ── */}
         <div style={SECTION}>
           <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410" }}>Informations générales</div>
+
           <Field label="Nom" fieldKey="name" placeholder="Ex : Body Bambou Ivoire" value={form.name} onChange={set} />
           <Field label="Slug (URL)" fieldKey="slug" placeholder="body-bambou-ivoire" value={form.slug} onChange={set}
             hint="Généré automatiquement. Ne pas modifier après publication." />
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <Field label="Prix TTC (€)" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
-            <Field label="Stock total" fieldKey="stock" type="number" placeholder="0"
-              value={computedStock !== null ? String(computedStock) : form.stock} onChange={set}
-              hint={computedStock !== null ? "Calculé depuis les tailles/couleurs" : undefined} />
+            <Field
+              label="Stock total" fieldKey="stock" type="number" placeholder="0"
+              value={computedStock !== null ? String(computedStock) : form.stock}
+              onChange={set}
+              hint={computedStock !== null ? "Calculé depuis les tailles/couleurs" : undefined}
+            />
           </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ display: "grid", gap: 6 }}>
               <label style={LS}>Catégorie</label>
@@ -344,6 +430,7 @@ export default function ProduitForm() {
               </select>
             </div>
           </div>
+
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
             <div style={{ display: "grid", gap: 6 }}>
               <label style={LS}>Mise en avant homepage</label>
@@ -354,12 +441,18 @@ export default function ProduitForm() {
             <Field label="Position catalogue" fieldKey="position" type="number" placeholder="0" value={form.position} onChange={set}
               hint="0 = affiché en premier" />
           </div>
+
           <Field label="Poids (grammes)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />
+
           <div style={{ display: "grid", gap: 6 }}>
             <label style={LS}>Description</label>
-            <textarea value={form.description} onChange={e => set("description", e.target.value)}
-              placeholder="Description affichée sur la page produit..." rows={3}
-              style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
+            <textarea
+              value={form.description}
+              onChange={e => set("description", e.target.value)}
+              placeholder="Description affichée sur la page produit..."
+              rows={3}
+              style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
+            />
           </div>
         </div>
 
@@ -370,45 +463,44 @@ export default function ProduitForm() {
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Coche ⭐ pour définir la photo principale</div>
           </div>
           {photoKeys.map((key, i) => (
-            <PhotoField key={key} label={photoLabels[i]} fieldKey={key} value={form[key]}
+            <PhotoField
+              key={key}
+              label={photoLabels[i]}
+              fieldKey={key}
+              value={form[key]}
               isMain={parseInt(form.main_image_index) === i}
               onSetMain={() => set("main_image_index", String(i))}
-              onChange={set} />
+              onChange={set}
+            />
           ))}
         </div>
 
-        {/* ── 3. TAILLES + STOCK PAR TAILLE ── */}
+        {/* ── 3. TAILLES ── */}
         <div style={SECTION}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Tailles disponibles</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Coche les tailles proposées et définis le stock par taille</div>
+            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Coche les tailles et définis le stock par taille</div>
           </div>
 
           <div style={{ display: "grid", gap: 10 }}>
             {TAILLES_DISPO.map(t => {
-              const checked   = sizes.includes(t);
-              const stockVal  = parseInt(sizesStock[t] ?? "0") || 0;
-              const maxStock  = 50;
+              const checked  = sizes.includes(t);
+              const stockVal = parseInt(sizesStock[t] ?? "0") || 0;
               return (
                 <div key={t} style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 12, alignItems: "center", padding: "14px 18px", borderRadius: 12, border: checked ? "2px solid #1a1410" : "2px solid rgba(0,0,0,0.08)", background: checked ? "#f5f0e8" : "#fafafa", transition: "all 0.15s" }}>
-
-                  {/* Checkbox + label */}
                   <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", minWidth: 140 }}>
-                    <input type="checkbox" checked={checked} onChange={() => toggleSize(t)}
-                      style={{ width: 20, height: 20, accentColor: "#1a1410", cursor: "pointer" }} />
+                    <input
+                      type="checkbox" checked={checked}
+                      onChange={() => toggleSize(t)}
+                      style={{ width: 20, height: 20, accentColor: "#1a1410", cursor: "pointer" }}
+                    />
                     <span style={{ fontWeight: 800, fontSize: 15, color: checked ? "#1a1410" : "rgba(26,20,16,0.4)" }}>{t}</span>
                   </label>
 
-                  {/* Barre progression */}
                   {checked ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                       <div style={{ flex: 1, height: 8, background: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
-                        <div style={{
-                          height: "100%", borderRadius: 99,
-                          background: stockVal === 0 ? "#9ca3af" : stockVal <= 3 ? "#f59e0b" : "#c49a4a",
-                          width: `${Math.min(100, (stockVal / maxStock) * 100)}%`,
-                          transition: "width 0.3s ease",
-                        }} />
+                        <div style={{ height: "100%", borderRadius: 99, background: stockVal === 0 ? "#9ca3af" : stockVal <= 3 ? "#f59e0b" : "#c49a4a", width: `${Math.min(100, (stockVal / 50) * 100)}%`, transition: "width 0.3s ease" }} />
                       </div>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.4)", whiteSpace: "nowrap" }}>
                         {stockVal === 0 ? "Épuisé" : stockVal <= 3 ? `⚠️ ${stockVal} restants` : `${stockVal} en stock`}
@@ -418,11 +510,12 @@ export default function ProduitForm() {
                     <span style={{ fontSize: 13, color: "rgba(26,20,16,0.25)", fontWeight: 600 }}>Non disponible</span>
                   )}
 
-                  {/* Input stock */}
                   {checked ? (
                     <div style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
                       <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 700 }}>Stock :</span>
-                      <input type="number" min="0" value={sizesStock[t] ?? "0"}
+                      <input
+                        type="number" min="0"
+                        value={sizesStock[t] ?? "0"}
                         onChange={e => setSizeStock(t, e.target.value)}
                         style={{ width: 72, padding: "8px 10px", borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", fontSize: 16, fontWeight: 900, textAlign: "center", outline: "none", background: "#fff" }}
                       />
@@ -450,15 +543,17 @@ export default function ProduitForm() {
               <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Couleurs disponibles</div>
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Stock par couleur</div>
             </div>
-            <button onClick={addColor}
-              style={{ padding: "10px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
+            <button
+              onClick={addColor}
+              style={{ padding: "10px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}
+            >
               + Ajouter une couleur
             </button>
           </div>
 
           {colors.length === 0 && (
             <div style={{ padding: 20, borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
-              Aucune couleur définie
+              Aucune couleur — le stock global sera utilisé
             </div>
           )}
 
@@ -466,21 +561,34 @@ export default function ProduitForm() {
             <div key={i} style={{ padding: 16, borderRadius: 12, background: "#fafafa", border: "1px solid rgba(0,0,0,0.08)", display: "grid", gap: 10 }}>
               <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 120px auto", gap: 10, alignItems: "center" }}>
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                  <input type="color" value={color.hex} onChange={e => updateColor(i, "hex", e.target.value)}
-                    style={{ width: 44, height: 44, borderRadius: 10, border: "2px solid rgba(0,0,0,0.1)", cursor: "pointer", padding: 2 }} />
+                  <input
+                    type="color" value={color.hex}
+                    onChange={e => updateColor(i, "hex", e.target.value)}
+                    style={{ width: 44, height: 44, borderRadius: 10, border: "2px solid rgba(0,0,0,0.1)", cursor: "pointer", padding: 2 }}
+                  />
                   <span style={{ fontSize: 9, fontFamily: "monospace", opacity: 0.4 }}>{color.hex}</span>
                 </div>
                 <div style={{ display: "grid", gap: 4 }}>
                   <label style={LS}>Nom couleur</label>
-                  <input type="text" value={color.name} onChange={e => updateColor(i, "name", e.target.value)}
-                    placeholder="Ex : Blanc cassé, Camel..." style={IS} />
+                  <input
+                    type="text" value={color.name}
+                    onChange={e => updateColor(i, "name", e.target.value)}
+                    placeholder="Ex : Blanc cassé, Camel..."
+                    style={IS}
+                  />
                 </div>
                 <div style={{ display: "grid", gap: 4 }}>
                   <label style={LS}>Stock</label>
-                  <input type="number" value={color.stock} min="0" onChange={e => updateColor(i, "stock", e.target.value)} style={IS} />
+                  <input
+                    type="number" value={color.stock} min="0"
+                    onChange={e => updateColor(i, "stock", e.target.value)}
+                    style={IS}
+                  />
                 </div>
-                <button onClick={() => removeColor(i)}
-                  style={{ padding: "10px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer", marginTop: 18 }}>
+                <button
+                  onClick={() => removeColor(i)}
+                  style={{ padding: "10px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer", marginTop: 18 }}
+                >
                   🗑
                 </button>
               </div>
@@ -511,8 +619,10 @@ export default function ProduitForm() {
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>S'applique automatiquement entre les dates</div>
             </div>
             {hasPromo && (
-              <button onClick={() => setForm(f => ({ ...f, promo_price: "", promo_start: "", promo_end: "" }))}
-                style={{ padding: "9px 18px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
+              <button
+                onClick={() => setForm(f => ({ ...f, promo_price: "", promo_start: "", promo_end: "" }))}
+                style={{ padding: "9px 18px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}
+              >
                 Supprimer la promo
               </button>
             )}
@@ -530,14 +640,21 @@ export default function ProduitForm() {
             <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>SEO — Référencement Google</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le nom et la description sont utilisés</div>
           </div>
-          <Field label="Titre SEO" fieldKey="seo_title" placeholder="Ex : Body Bambou Ivoire nourrisson — M!LK"
+          <Field
+            label="Titre SEO" fieldKey="seo_title"
+            placeholder="Ex : Body Bambou Ivoire nourrisson — M!LK"
             value={form.seo_title} onChange={set}
-            hint={`${form.seo_title.length}/60 caractères`} />
+            hint={`${form.seo_title.length}/60 caractères`}
+          />
           <div style={{ display: "grid", gap: 6 }}>
             <label style={LS}>Description SEO</label>
-            <textarea value={form.seo_description} onChange={e => set("seo_description", e.target.value)}
+            <textarea
+              value={form.seo_description}
+              onChange={e => set("seo_description", e.target.value)}
               placeholder="Ex : Body nourrisson en bambou certifié OEKO-TEX..."
-              rows={2} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
+              rows={2}
+              style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
+            />
             <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>{form.seo_description.length}/155 caractères</div>
           </div>
           {(form.seo_title || form.name) && (
@@ -553,15 +670,30 @@ export default function ProduitForm() {
         {error   && <div style={{ padding: "14px 18px", borderRadius: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 15, fontWeight: 700 }}>❌ {error}</div>}
         {success && <div style={{ padding: "14px 18px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontSize: 15, fontWeight: 700 }}>{success}</div>}
 
+        {/* ✅ Indicateur auto-save */}
+        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
+          <div style={{ width: 6, height: 6, borderRadius: 99, background: autoSaved ? "#22c55e" : "rgba(26,20,16,0.2)", transition: "background 0.3s", flexShrink: 0 }} />
+          {autoSaved
+            ? "Brouillon sauvegardé automatiquement"
+            : lastSaved
+              ? `Dernier enregistrement : ${lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
+              : "Modifications non enregistrées"}
+        </div>
+
         {/* ── Actions sticky ── */}
         <div style={{ display: "flex", gap: 12, position: "sticky", bottom: 20 }}>
-          <button onClick={handleSave} disabled={saving}
-            style={{ flex: 1, padding: "16px", borderRadius: 14, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1, boxShadow: "0 4px 20px rgba(0,0,0,0.2)" }}>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            style={{ flex: 1, padding: "16px", borderRadius: 14, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1, boxShadow: "0 4px 20px rgba(0,0,0,0.2)" }}
+          >
             {saving ? "Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
           </button>
           {!isNew && (
-            <button onClick={handleDelete}
-              style={{ padding: "16px 22px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
+            <button
+              onClick={handleDelete}
+              style={{ padding: "16px 22px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}
+            >
               🗑 Supprimer
             </button>
           )}

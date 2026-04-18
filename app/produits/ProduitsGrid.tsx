@@ -24,33 +24,39 @@ function DiagonalBadge({ label, outOfStock }: { label?: string; outOfStock: bool
   if (outOfStock) {
     return (
       <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
-        <div style={{ position: "absolute", top: 20, right: -30, background: "#6b7280", color: "#fff", fontSize: 10, fontWeight: 900, letterSpacing: 1, padding: "7px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(0,0,0,0.4)" }}>
+        <div style={{ position: "absolute", top: 20, right: -30, background: "#6b7280", color: "#fff", fontSize: 10, fontWeight: 900, letterSpacing: 1, padding: "7px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
           Épuisé
         </div>
       </div>
     );
   }
-
   const config: Record<string, string> = {
-    nouveau:       "Nouveau",
-    bestseller:    "Best seller",
-    exclusif:      "Exclusif",
-    last:          "Dernières pièces",
-    bientot:       "Bientôt dispo",
-    promo:         "Promo",
-    coup_de_coeur: "Coup de cœur",
+    nouveau: "Nouveau", bestseller: "Best seller", exclusif: "Exclusif",
+    last: "Dernières pièces", bientot: "Bientôt dispo", promo: "Promo", coup_de_coeur: "Coup de cœur",
   };
-
   const text = (label && label !== "") ? config[label] : null;
   if (!text) return null;
-
   return (
     <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 22, right: -32, background: "#c49a4a", color: "#1a1410", fontSize: 10, fontWeight: 900, letterSpacing: 0.5, padding: "8px 46px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 3px 12px rgba(0,0,0,0.35)" }}>
+      <div style={{ position: "absolute", top: 22, right: -32, background: "#c49a4a", color: "#1a1410", fontSize: 10, fontWeight: 900, letterSpacing: 0.5, padding: "8px 46px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
         {text}
       </div>
     </div>
   );
+}
+
+// ✅ Icônes SVG au trait
+function IconLeaf() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke="#c49a4a" strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 22V9" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
+}
+function IconTruck() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M1 3h13v13H1z" stroke="#c49a4a" strokeWidth="1.8" strokeLinejoin="round"/><path d="M14 8h4l3 3v5h-7V8z" stroke="#c49a4a" strokeWidth="1.8" strokeLinejoin="round"/><circle cx="5.5" cy="18.5" r="2.5" stroke="#c49a4a" strokeWidth="1.8"/><circle cx="18.5" cy="18.5" r="2.5" stroke="#c49a4a" strokeWidth="1.8"/></svg>;
+}
+function IconReturn() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><path d="M9 14H4V9" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 14a9 9 0 1 0 1.5-5" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
+}
+function IconLock() {
+  return <svg width="28" height="28" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="#c49a4a" strokeWidth="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
 }
 
 function ProductCard({ p }: { p: Product }) {
@@ -68,8 +74,7 @@ function ProductCard({ p }: { p: Product }) {
 
         <div style={{ position: "relative", aspectRatio: "3/4", background: "#2d2419", overflow: "hidden" }}>
           {p.image_url ? (
-            <Image
-              src={p.image_url} alt={p.name} fill
+            <Image src={p.image_url} alt={p.name} fill
               sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
               style={{ objectFit: "cover", transition: "transform 0.5s ease" }}
               className="product-card-img"
@@ -82,7 +87,7 @@ function ProductCard({ p }: { p: Product }) {
 
           {lowStock && (
             <div style={{ position: "absolute", bottom: 10, left: 10, zIndex: 5 }}>
-              <span style={{ padding: "4px 10px", borderRadius: 99, background: "rgba(0,0,0,0.7)", color: "#f59e0b", fontSize: 10, fontWeight: 800 }}>
+              <span style={{ padding: "5px 10px", borderRadius: 99, background: "rgba(0,0,0,0.7)", color: "#f59e0b", fontSize: 11, fontWeight: 800 }}>
                 Plus que {p.stock}
               </span>
             </div>
@@ -90,7 +95,7 @@ function ProductCard({ p }: { p: Product }) {
 
           {outOfStock && (
             <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.45)", display: "grid", placeItems: "center", zIndex: 5 }}>
-              <span style={{ padding: "10px 20px", borderRadius: 12, background: "rgba(0,0,0,0.7)", color: "#f2ede6", fontSize: 13, fontWeight: 800 }}>
+              <span style={{ padding: "10px 20px", borderRadius: 12, background: "rgba(0,0,0,0.7)", color: "#f2ede6", fontSize: 14, fontWeight: 800 }}>
                 Rupture de stock
               </span>
             </div>
@@ -98,17 +103,17 @@ function ProductCard({ p }: { p: Product }) {
         </div>
 
         <div style={{ padding: "16px 18px 20px" }}>
-          <div style={{ fontWeight: 900, fontSize: 16, color: "#f2ede6", marginBottom: 6, letterSpacing: -0.3, lineHeight: 1.3 }}>
+          <div style={{ fontWeight: 900, fontSize: 17, color: "#f2ede6", marginBottom: 6, letterSpacing: -0.3, lineHeight: 1.3 }}>
             {p.name}
           </div>
           {p.description && (
-            <div style={{ fontSize: 12, color: "rgba(242,237,230,0.4)", marginBottom: 10, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
+            <div style={{ fontSize: 13, color: "rgba(242,237,230,0.4)", marginBottom: 10, lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>
               {p.description}
             </div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontWeight: 950, fontSize: 20, color: promo ? "#c49a4a" : "#f2ede6" }}>
+              <span style={{ fontWeight: 950, fontSize: 21, color: promo ? "#c49a4a" : "#f2ede6" }}>
                 {Number(price).toFixed(2)} €
               </span>
               {promo && (
@@ -120,7 +125,7 @@ function ProductCard({ p }: { p: Product }) {
             {!outOfStock && (
               <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
                 <div style={{ width: 7, height: 7, borderRadius: "50%", background: p.stock <= 5 ? "#f59e0b" : "#22c55e", boxShadow: `0 0 6px ${p.stock <= 5 ? "rgba(245,158,11,0.5)" : "rgba(34,197,94,0.5)"}` }} />
-                <span style={{ fontSize: 11, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>
+                <span style={{ fontSize: 12, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>
                   {p.stock <= 5 ? `Plus que ${p.stock}` : "En stock"}
                 </span>
               </div>
@@ -150,10 +155,7 @@ const SORTS = [
 ];
 
 export default function ProduitsGrid({
-  products,
-  title,
-  subtitle,
-  defaultCategory,
+  products, title, subtitle, defaultCategory,
 }: {
   products: Product[];
   title: string;
@@ -204,64 +206,52 @@ export default function ProduitsGrid({
 
       <div className="produits-outer" style={{ maxWidth: 1200, margin: "0 auto", padding: "0 32px" }}>
 
+        {/* En-tête */}
         <div style={{ marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 12 }}>
+          <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 14 }}>
             Collection M!LK
           </div>
-          <h1 style={{ margin: "0 0 12px", fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 950, letterSpacing: -2, color: "#f2ede6", lineHeight: 1 }}>
+          <h1 style={{ margin: "0 0 14px", fontSize: "clamp(36px, 5vw, 56px)", fontWeight: 950, letterSpacing: -2, color: "#f2ede6", lineHeight: 1 }}>
             {title}
           </h1>
           {subtitle && (
-            <p style={{ margin: 0, fontSize: 16, color: "rgba(242,237,230,0.45)", lineHeight: 1.6 }}>
+            <p style={{ margin: 0, fontSize: 17, color: "rgba(242,237,230,0.5)", lineHeight: 1.6 }}>
               {subtitle}
             </p>
           )}
         </div>
 
+        {/* Filtres */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 16, marginBottom: 36 }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {CATEGORIES.map(cat => (
-              <button
-                key={cat.slug}
-                onClick={() => setActiveCategory(cat.slug)}
-                style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: activeCategory === cat.slug ? "#f2ede6" : "rgba(242,237,230,0.08)", color: activeCategory === cat.slug ? "#1a1410" : "rgba(242,237,230,0.6)", fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}
-              >
+              <button key={cat.slug} onClick={() => setActiveCategory(cat.slug)}
+                style={{ padding: "10px 20px", borderRadius: 99, border: "none", cursor: "pointer", background: activeCategory === cat.slug ? "#f2ede6" : "rgba(242,237,230,0.08)", color: activeCategory === cat.slug ? "#1a1410" : "rgba(242,237,230,0.6)", fontWeight: 800, fontSize: 14, transition: "all 0.15s" }}>
                 {cat.label}
               </button>
             ))}
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <input
-              type="search" value={search}
-              onChange={e => setSearch(e.target.value)}
+            <input type="search" value={search} onChange={e => setSearch(e.target.value)}
               placeholder="Rechercher..."
-              style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.1)", background: "rgba(242,237,230,0.06)", color: "#f2ede6", fontSize: 13, outline: "none", width: 160 }}
-            />
-            <select
-              value={sortValue}
-              onChange={e => setSortValue(e.target.value)}
-              style={{ padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.1)", background: "#221c16", color: "rgba(242,237,230,0.7)", fontSize: 13, outline: "none", cursor: "pointer" }}
-            >
-              {SORTS.map(item => (
-                <option key={item.value} value={item.value}>{item.label}</option>
-              ))}
+              style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.1)", background: "rgba(242,237,230,0.06)", color: "#f2ede6", fontSize: 14, outline: "none", width: 170 }} />
+            <select value={sortValue} onChange={e => setSortValue(e.target.value)}
+              style={{ padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.1)", background: "#221c16", color: "rgba(242,237,230,0.7)", fontSize: 14, outline: "none", cursor: "pointer" }}>
+              {SORTS.map(item => <option key={item.value} value={item.value}>{item.label}</option>)}
             </select>
           </div>
         </div>
 
-        <div style={{ fontSize: 13, color: "rgba(242,237,230,0.35)", fontWeight: 600, marginBottom: 24 }}>
+        <div style={{ fontSize: 14, color: "rgba(242,237,230,0.35)", fontWeight: 600, marginBottom: 24 }}>
           <span style={{ color: "#c49a4a", fontWeight: 900 }}>{sorted.length}</span>{" "}
           produit{sorted.length > 1 ? "s" : ""}
         </div>
 
         {sorted.length === 0 ? (
           <div style={{ textAlign: "center", padding: "80px 40px" }}>
-            <div style={{ fontSize: 48, marginBottom: 16 }}>🔍</div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#f2ede6", marginBottom: 10 }}>Aucun produit trouvé</div>
-            <button
-              onClick={() => { setActiveCategory(""); setSearch(""); }}
-              style={{ padding: "13px 28px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: "pointer" }}
-            >
+            <div style={{ fontSize: 22, fontWeight: 900, color: "#f2ede6", marginBottom: 14 }}>Aucun produit trouvé</div>
+            <button onClick={() => { setActiveCategory(""); setSearch(""); }}
+              style={{ padding: "14px 28px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}>
               Voir tout
             </button>
           </div>
@@ -271,17 +261,20 @@ export default function ProduitsGrid({
           </div>
         )}
 
+        {/* ✅ Réassurance avec icônes SVG au trait */}
         <div style={{ marginTop: 80, display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 20 }}>
           {[
-            { icon: "🌿", label: "100% Bambou",      desc: "Certifié OEKO-TEX" },
-            { icon: "🚚", label: "Livraison offerte", desc: "Dès 60€ d'achat"   },
-            { icon: "↩️", label: "Retour gratuit",    desc: "Sous 30 jours"     },
-            { icon: "🔒", label: "Paiement sécurisé", desc: "Via Stripe"        },
+            { Icon: IconLeaf,   label: "100% Bambou",       desc: "Certifié OEKO-TEX" },
+            { Icon: IconTruck,  label: "Livraison offerte",  desc: "Dès 60€ d'achat"   },
+            { Icon: IconReturn, label: "Retour gratuit",     desc: "Sous 30 jours"     },
+            { Icon: IconLock,   label: "Paiement sécurisé",  desc: "Via Stripe"        },
           ].map(r => (
-            <div key={r.label} style={{ padding: "20px 24px", borderRadius: 16, background: "#221c16", border: "1px solid rgba(242,237,230,0.06)", textAlign: "center" }}>
-              <div style={{ fontSize: 28, marginBottom: 8 }}>{r.icon}</div>
-              <div style={{ fontWeight: 900, fontSize: 14, color: "#f2ede6", marginBottom: 4 }}>{r.label}</div>
-              <div style={{ fontSize: 12, color: "rgba(242,237,230,0.4)" }}>{r.desc}</div>
+            <div key={r.label} style={{ padding: "24px", borderRadius: 16, background: "#221c16", border: "1px solid rgba(242,237,230,0.06)", textAlign: "center" }}>
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
+                <r.Icon />
+              </div>
+              <div style={{ fontWeight: 900, fontSize: 15, color: "#f2ede6", marginBottom: 5 }}>{r.label}</div>
+              <div style={{ fontSize: 13, color: "rgba(242,237,230,0.4)" }}>{r.desc}</div>
             </div>
           ))}
         </div>

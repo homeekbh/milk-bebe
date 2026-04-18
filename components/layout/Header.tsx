@@ -35,48 +35,17 @@ function SearchIcon({ size = 20, color = "#fff" }: { size?: number; color?: stri
   );
 }
 
-function ChevronIcon({ size = 12, color = "#fff", rotate = false }: { size?: number; color?: string; rotate?: boolean }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true"
-      style={{ transition: "transform 0.2s", transform: rotate ? "rotate(180deg)" : "none" }}>
-      <path d="M6 9l6 6 6-6" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
-}
-
 function BodiesIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M12 3c-1.5 0-2.5.8-2.5 2v1H7L5 8v4h2v8h10v-8h2V8l-2-2h-2.5V5c0-1.2-1-2-2.5-2Z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M12 3c-1.5 0-2.5.8-2.5 2v1H7L5 8v4h2v8h10v-8h2V8l-2-2h-2.5V5c0-1.2-1-2-2.5-2Z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" /></svg>;
 }
-
 function PyjamaIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M8 3h8M8 3C6 3 5 4.5 5 6v16h14V6c0-1.5-1-3-3-3" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M9 3v4l3 2 3-2V3" stroke={color} strokeWidth="1.6" strokeLinejoin="round" />
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M8 3h8M8 3C6 3 5 4.5 5 6v16h14V6c0-1.5-1-3-3-3" stroke={color} strokeWidth="1.6" strokeLinecap="round" /><path d="M9 3v4l3 2 3-2V3" stroke={color} strokeWidth="1.6" strokeLinejoin="round" /></svg>;
 }
-
 function GigoteuseIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M12 3c-3.5 0-6 2-6 5v8c0 2.5 2.5 5 6 5s6-2.5 6-5V8c0-3-2.5-5-6-5Z" stroke={color} strokeWidth="1.6" />
-      <path d="M9 3.5c0-1 1.3-1.5 3-1.5s3 .5 3 1.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M12 3c-3.5 0-6 2-6 5v8c0 2.5 2.5 5 6 5s6-2.5 6-5V8c0-3-2.5-5-6-5Z" stroke={color} strokeWidth="1.6" /><path d="M9 3.5c0-1 1.3-1.5 3-1.5s3 .5 3 1.5" stroke={color} strokeWidth="1.6" strokeLinecap="round" /></svg>;
 }
-
 function AccessoiresIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none">
-      <path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={color} strokeWidth="1.6" />
-      <path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={color} strokeWidth="1.6" />
-    </svg>
-  );
+  return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={color} strokeWidth="1.6" /><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={color} strokeWidth="1.6" /></svg>;
 }
 
 // ─── Détection thème ──────────────────────────────────────────────────────────
@@ -100,7 +69,6 @@ function findThemeAtHeaderPoint(headerEl: HTMLElement | null): "dark" | "light" 
   }
 }
 
-// ─── Données ──────────────────────────────────────────────────────────────────
 const CATS = [
   { label: "Bodies",      href: "/categorie/bodies",      desc: "L'essentiel du quotidien",      Icon: BodiesIcon      },
   { label: "Pyjamas",     href: "/categorie/pyjamas",     desc: "Pour des nuits sereines",       Icon: PyjamaIcon      },
@@ -115,23 +83,22 @@ const LANGS = [
   { code: "hu" as const, label: "HU" },
 ];
 
-// ─── Menu utilisateur — ✅ clés et hrefs uniques ───────────────────────────────
 const USER_MENU = [
-  { key: "menu-profil",    label: "Mon profil",    href: "/profil"    },
-  { key: "menu-commandes", label: "Mes commandes", href: "/profil"    },
+  { key: "menu-profil",    label: "Mon profil",    href: "/profil" },
+  { key: "menu-commandes", label: "Mes commandes", href: "/profil" },
 ];
 
-// ─── LangSwitcher ─────────────────────────────────────────────────────────────
 function LangSwitcher({ textColor }: { textColor: string }) {
   const { locale, setLocale } = useLang();
   const [open, setOpen]       = useState(false);
-
   return (
     <div style={{ position: "relative" }}>
       <button onClick={() => setOpen(v => !v)}
         style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.2)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: textColor, display: "flex", alignItems: "center", gap: 4 }}>
         {locale.toUpperCase()}
-        <ChevronIcon size={10} color={textColor} rotate={open} />
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}>
+          <path d="M6 9l6 6 6-6" stroke={textColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
       </button>
       {open && (
         <div style={{ position: "absolute", top: 44, right: 0, background: "rgba(22,18,14,0.98)", border: "1px solid rgba(242,237,230,0.1)", borderRadius: 12, padding: 6, minWidth: 90, boxShadow: "0 20px 40px rgba(0,0,0,0.4)", zIndex: 100 }}>
@@ -150,7 +117,7 @@ function LangSwitcher({ textColor }: { textColor: string }) {
 function MobileLangButtons({ onClose }: { onClose: () => void }) {
   const { locale, setLocale } = useLang();
   return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap", padding: "4px 0" }}>
+    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
       {LANGS.map(lang => (
         <button key={lang.code} onClick={() => { setLocale(lang.code); onClose(); }}
           style={{ padding: "10px 16px", borderRadius: 10, background: lang.code === locale ? "rgba(196,154,74,0.15)" : "rgba(242,237,230,0.06)", border: lang.code === locale ? "1px solid rgba(196,154,74,0.3)" : "1px solid rgba(242,237,230,0.08)", fontSize: 14, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.6)", cursor: "pointer" }}>
@@ -161,12 +128,11 @@ function MobileLangButtons({ onClose }: { onClose: () => void }) {
   );
 }
 
-// ─── Header ───────────────────────────────────────────────────────────────────
 export default function Header() {
-  const pathname             = usePathname();
-  const router               = useRouter();
-  const { items }            = useCart();
-  const { user, signOut }    = useAuth();
+  const pathname          = usePathname();
+  const router            = useRouter();
+  const { items }         = useCart();
+  const { user, signOut } = useAuth();
 
   const [scrolled,   setScrolled]   = useState(false);
   const [openUser,   setOpenUser]   = useState(false);
@@ -210,14 +176,11 @@ export default function Header() {
 
   function cancel(ref: React.MutableRefObject<any>) { clearTimeout(ref.current); }
   function delay(fn: () => void, ref: React.MutableRefObject<any>, ms = 180) {
-    clearTimeout(ref.current);
-    ref.current = setTimeout(fn, ms);
+    clearTimeout(ref.current); ref.current = setTimeout(fn, ms);
   }
 
   async function handleSignOut() {
-    await signOut();
-    setOpenUser(false);
-    router.push("/");
+    await signOut(); setOpenUser(false); router.push("/");
   }
 
   if (pathname.startsWith("/admin")) return null;
@@ -241,12 +204,12 @@ export default function Header() {
       >
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
-          {/* Logo */}
+          {/* ✅ Logo M!LK — fond sombre fixe pour lisibilité sur tous les fonds */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }} aria-label="M!LK">
-            <div style={{ display: "flex", alignItems: "baseline" }}>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
-              <span style={{ color: C.amber, fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
+            <div style={{ display: "flex", alignItems: "baseline", background: "#1a1410", borderRadius: 10, padding: "6px 14px", border: "1px solid rgba(196,154,74,0.25)" }}>
+              <span style={{ color: "#f2ede6", fontWeight: 950, fontSize: 19, letterSpacing: -1, lineHeight: 1 }}>M</span>
+              <span style={{ color: "#c49a4a", fontWeight: 950, fontSize: 25, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
+              <span style={{ color: "#f2ede6", fontWeight: 950, fontSize: 19, letterSpacing: -1, lineHeight: 1 }}>LK</span>
             </div>
           </Link>
 
@@ -280,16 +243,14 @@ export default function Header() {
             <Link href="/recherche" aria-label="Recherche"
               style={{ width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
-            >
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}>
               <SearchIcon color={C.text} size={20} />
             </Link>
 
             <Link href="/panier" aria-label="Panier"
               style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
-            >
+              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}>
               <CartIcon color={C.text} size={22} />
               {totalItems > 0 && (
                 <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>
@@ -323,32 +284,25 @@ export default function Header() {
                         <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{user.email}</div>
                       </div>
                       <div style={{ height: 1, background: "rgba(128,128,128,0.1)" }} />
-
-                      {/* ✅ key unique sur chaque item */}
                       {USER_MENU.map(item => (
                         <Link key={item.key} href={item.href} onClick={() => setOpenUser(false)}
                           style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 15, fontWeight: 700, color: C.text }}
                           onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.08)"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
-                        >
+                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}>
                           {item.label}
                         </Link>
                       ))}
-
                       <div style={{ height: 1, background: "rgba(128,128,128,0.1)" }} />
                       <button onClick={handleSignOut}
                         style={{ width: "100%", padding: "11px 12px", borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 700, color: "#ef4444", textAlign: "left" }}
                         onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-                      >
+                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
                         Se déconnecter
                       </button>
                     </>
                   ) : (
                     <>
-                      <div style={{ padding: "8px 12px 10px", fontSize: 14, color: C.muted }}>
-                        Connecte-toi pour suivre tes commandes
-                      </div>
+                      <div style={{ padding: "8px 12px 10px", fontSize: 14, color: C.muted }}>Connecte-toi pour suivre tes commandes</div>
                       <Link href="/connexion" onClick={() => setOpenUser(false)}
                         style={{ display: "block", padding: "12px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", textDecoration: "none", fontSize: 15, fontWeight: 900, textAlign: "center" }}>
                         Se connecter
@@ -393,9 +347,7 @@ export default function Header() {
             <MobileLangButtons onClose={() => setMobileOpen(false)} />
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
 
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>
-              Collection
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>Collection</div>
 
             <Link href="/produits" onClick={() => setMobileOpen(false)}
               style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#c49a4a", display: "flex", alignItems: "center", gap: 12 }}>
@@ -414,9 +366,7 @@ export default function Header() {
             ))}
 
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
-            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>
-              La marque
-            </div>
+            <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>La marque</div>
             {[
               { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
               { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
@@ -462,11 +412,7 @@ export default function Header() {
                 <CartIcon color="#c49a4a" size={20} />
                 Mon panier
               </span>
-              {totalItems > 0 && (
-                <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>
-                  {totalItems}
-                </span>
-              )}
+              {totalItems > 0 && <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>}
             </Link>
           </div>
         </div>

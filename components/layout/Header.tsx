@@ -7,7 +7,6 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useLang } from "@/context/LangContext";
 
-// ─── Icônes ───────────────────────────────────────────────────────────────────
 function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -48,24 +47,48 @@ function AccessoiresIcon({ size = 20, color = "#fff" }: { size?: number; color?:
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={color} strokeWidth="1.6" /><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={color} strokeWidth="1.6" /></svg>;
 }
 
-// ─── Détection thème ──────────────────────────────────────────────────────────
+// ✅ Détection thème par luminosité réelle du fond — default DARK
 function findThemeAtHeaderPoint(headerEl: HTMLElement | null): "dark" | "light" {
   try {
     const x   = Math.floor(window.innerWidth / 2);
     const y   = 90;
     const els = document.elementsFromPoint(x, y) as HTMLElement[];
+
     const target = els.find(el => {
-      if (!el) return false;
-      if (!headerEl) return true;
-      return !headerEl.contains(el);
+      if (!el || !el.tagName) return false;
+      if (headerEl && headerEl.contains(el)) return false;
+      return true;
     });
-    if (!target) return "light";
+
+    if (!target) return "dark";
+
+    // 1. Cherche data-theme en remontant le DOM
     const themed = target.closest("[data-theme]") as HTMLElement | null;
     const t      = themed?.getAttribute("data-theme");
     if (t === "dark" || t === "light") return t;
-    return "light";
+
+    // 2. Pas de data-theme → analyse la couleur de fond réelle
+    let el: HTMLElement | null = target;
+    while (el && el !== document.body) {
+      const bg = window.getComputedStyle(el).backgroundColor;
+      if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
+        const m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+        if (m) {
+          const r   = Number(m[1]);
+          const g   = Number(m[2]);
+          const b   = Number(m[3]);
+          // Luminance perçue (formule WCAG)
+          const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+          return lum < 0.45 ? "dark" : "light";
+        }
+      }
+      el = el.parentElement;
+    }
+
+    // 3. Défaut DARK (M!LK est majoritairement sombre)
+    return "dark";
   } catch {
-    return "light";
+    return "dark";
   }
 }
 
@@ -90,7 +113,7 @@ const USER_MENU = [
 
 function LangSwitcher({ textColor }: { textColor: string }) {
   const { locale, setLocale } = useLang();
-  const [open, setOpen]       = useState(false);
+  const [open, setOpen] = useState(false);
   return (
     <div style={{ position: "relative" }}>
       <button onClick={() => setOpen(v => !v)}
@@ -149,16 +172,22 @@ export default function Header() {
     const compute = () => {
       const y = window.scrollY;
       setScrolled(y > 10);
+      // Pages avec fond sombre au départ
       const forceDark = ["/", "/qui-sommes-nous", "/pourquoi-bambou"];
       if (forceDark.includes(pathname) && y < 320) { setTheme("dark"); return; }
       setTheme(findThemeAtHeaderPoint(headerRef.current));
     };
     compute();
     const raf = requestAnimationFrame(compute);
-    const t   = window.setTimeout(compute, 120);
+    const t   = window.setTimeout(compute, 150);
     window.addEventListener("scroll", compute, { passive: true });
     window.addEventListener("resize", compute);
-    return () => { cancelAnimationFrame(raf); window.clearTimeout(t); window.removeEventListener("scroll", compute); window.removeEventListener("resize", compute); };
+    return () => {
+      cancelAnimationFrame(raf);
+      window.clearTimeout(t);
+      window.removeEventListener("scroll", compute);
+      window.removeEventListener("resize", compute);
+    };
   }, [pathname]);
 
   const C = useMemo(() => {
@@ -200,11 +229,16 @@ export default function Header() {
 
       <header
         ref={el => { headerRef.current = el; }}
-        style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s ease, border-color 0.25s ease" }}
+        style={{
+          position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999,
+          background: C.bg, borderBottom: C.border,
+          backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none",
+          transition: "background 0.25s ease, border-color 0.25s ease",
+        }}
       >
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
-          {/* ✅ Logo M!LK — fond sombre fixe pour lisibilité sur tous les fonds */}
+          {/* ✅ Logo — fond sombre fixe, toujours lisible */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }} aria-label="M!LK">
             <div style={{ display: "flex", alignItems: "baseline", background: "#1a1410", borderRadius: 10, padding: "6px 14px", border: "1px solid rgba(196,154,74,0.25)" }}>
               <span style={{ color: "#f2ede6", fontWeight: 950, fontSize: 19, letterSpacing: -1, lineHeight: 1 }}>M</span>
@@ -259,7 +293,6 @@ export default function Header() {
               )}
             </Link>
 
-            {/* Menu profil */}
             <div style={{ position: "relative" }}
               onMouseEnter={() => { cancel(userTimer); setOpenUser(true); }}
               onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}
@@ -343,20 +376,14 @@ export default function Header() {
       {mobileOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: "calc(100vh - 80px)" }}>
-
             <MobileLangButtons onClose={() => setMobileOpen(false)} />
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
-
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>Collection</div>
-
             <Link href="/produits" onClick={() => setMobileOpen(false)}
               style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#c49a4a", display: "flex", alignItems: "center", gap: 12 }}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <path d="M3 6h18M3 12h18M3 18h18" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round" />
-              </svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round" /></svg>
               Tous les produits
             </Link>
-
             {CATS.map(cat => (
               <Link key={cat.href} href={cat.href} onClick={() => setMobileOpen(false)}
                 style={{ padding: "14px 18px", borderRadius: 14, background: "rgba(242,237,230,0.06)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#f2ede6", display: "flex", alignItems: "center", gap: 12 }}>
@@ -364,7 +391,6 @@ export default function Header() {
                 {cat.label}
               </Link>
             ))}
-
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>La marque</div>
             {[
@@ -376,9 +402,7 @@ export default function Header() {
                 {l.label}
               </Link>
             ))}
-
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
-
             {user ? (
               <>
                 <div style={{ padding: "12px 18px", fontSize: 13, color: "rgba(242,237,230,0.45)", background: "rgba(242,237,230,0.03)", borderRadius: 12 }}>
@@ -405,7 +429,6 @@ export default function Header() {
                 </Link>
               </>
             )}
-
             <Link href="/panier" onClick={() => setMobileOpen(false)}
               style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>

@@ -1,182 +1,234 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 export default function IntroScreen() {
   const pathname = usePathname();
-  const [show,     setShow]     = useState(false);
-  const [phase,    setPhase]    = useState(0);
-  // phase 0 = rien
-  // phase 1 = M L K s'allument comme une ampoule (flicker)
-  // phase 2 = ! tombe d'en haut avec rebond
-  // phase 3 = tout visible + tagline
-  // phase 4 = fade out
+  const [show,   setShow]   = useState(false);
+  const [phase,  setPhase]  = useState(0);
+  const [fadeOut, setFadeOut] = useState(false);
+  const timers = useRef<any[]>([]);
+
+  // phase 0 = caché
+  // phase 1 = M L K allument (flicker ampoule)
+  // phase 2 = ! tombe lentement avec rebond
+  // phase 3 = tagline + bouton apparaissent
+
+  function dismiss() {
+    setFadeOut(true);
+    setTimeout(() => {
+      setShow(false);
+      // Retire le CSS qui cache le header
+      const s = document.getElementById("intro-hide-header");
+      if (s) s.remove();
+      sessionStorage.setItem("milk_intro_done", "true");
+    }, 700);
+  }
 
   useEffect(() => {
     const noIntroPages = ["/admin", "/success", "/connexion", "/inscription", "/profil", "/panier"];
     if (noIntroPages.some(p => pathname.startsWith(p))) return;
+    if (sessionStorage.getItem("milk_intro_done")) return;
+    if (localStorage.getItem("milk_intro_done"))   return;
 
-    const introDone     = sessionStorage.getItem("milk_intro_done");
-    const introDonePerm = localStorage.getItem("milk_intro_done");
-    if (introDone || introDonePerm) return;
+    // ✅ Injecte CSS pour cacher le header pendant l'intro
+    const style = document.createElement("style");
+    style.id      = "intro-hide-header";
+    style.textContent = "header { display: none !important; }";
+    document.head.appendChild(style);
 
     setShow(true);
-    setPhase(1);
+    setPhase(0);
 
-    const t2 = setTimeout(() => setPhase(2), 700);   // ! tombe
-    const t3 = setTimeout(() => setPhase(3), 1200);  // tagline
-    const t4 = setTimeout(() => setPhase(4), 3000);  // fade out start
-    const t5 = setTimeout(() => {                    // disparaît
-      setShow(false);
-      sessionStorage.setItem("milk_intro_done", "true");
-    }, 3600);
+    const t1 = setTimeout(() => setPhase(1), 80);    // M L K commencent à flickerer
+    const t2 = setTimeout(() => setPhase(2), 1000);  // ! commence à tomber
+    const t3 = setTimeout(() => setPhase(3), 3400);  // tagline + bouton
+    const t4 = setTimeout(() => dismiss(),   10000); // auto-dismiss après 10s
 
-    return () => { clearTimeout(t2); clearTimeout(t3); clearTimeout(t4); clearTimeout(t5); };
+    timers.current = [t1, t2, t3, t4];
+    return () => {
+      timers.current.forEach(clearTimeout);
+      const s = document.getElementById("intro-hide-header");
+      if (s) s.remove();
+    };
   }, [pathname]);
 
   if (!show) return null;
 
-  // Jaune plus lumineux
-  const AMBER = "#f0b429";
+  const AMBER = "#f5c030"; // Jaune lumineux
 
   return (
     <div style={{
-      position: "fixed", inset: 0, zIndex: 99999,
+      position: "fixed", inset: 0, zIndex: 999999,
       background: "#1a1410",
-      display: "flex", alignItems: "center", justifyContent: "center",
-      opacity: phase === 4 ? 0 : 1,
-      transition: phase === 4 ? "opacity 0.6s ease" : "none",
+      display: "flex", flexDirection: "column",
+      alignItems: "center", justifyContent: "center",
+      opacity: fadeOut ? 0 : 1,
+      transition: fadeOut ? "opacity 0.7s ease" : "none",
     }}>
       <style>{`
         /* ── Ampoule flicker pour M L K ── */
-        @keyframes flicker-in {
-          0%   { opacity: 0; text-shadow: none; }
-          10%  { opacity: 0.9; text-shadow: 0 0 40px rgba(240,180,41,0.6); }
-          15%  { opacity: 0.3; text-shadow: none; }
-          25%  { opacity: 1;   text-shadow: 0 0 60px rgba(240,180,41,0.4), 0 0 120px rgba(240,180,41,0.2); }
-          30%  { opacity: 0.6; text-shadow: 0 0 20px rgba(240,180,41,0.3); }
-          40%  { opacity: 1;   text-shadow: 0 0 80px rgba(240,180,41,0.35), 0 0 160px rgba(240,180,41,0.15); }
-          100% { opacity: 1;   text-shadow: 0 0 40px rgba(240,180,41,0.25); }
+        @keyframes bulb-on {
+          0%   { opacity: 0;   text-shadow: none; }
+          7%   { opacity: 0.9; text-shadow: 0 0 80px rgba(245,192,48,0.9), 0 0 160px rgba(245,192,48,0.4); }
+          13%  { opacity: 0.1; text-shadow: none; }
+          22%  { opacity: 1;   text-shadow: 0 0 100px rgba(245,192,48,0.7), 0 0 200px rgba(245,192,48,0.3); }
+          28%  { opacity: 0.4; text-shadow: none; }
+          38%  { opacity: 1;   text-shadow: 0 0 80px rgba(245,192,48,0.5); }
+          44%  { opacity: 0.8; }
+          55%  { opacity: 1;   text-shadow: 0 0 60px rgba(245,192,48,0.4); }
+          70%  { opacity: 1;   text-shadow: 0 0 40px rgba(245,192,48,0.3); }
+          100% { opacity: 1;   text-shadow: 0 0 30px rgba(245,192,48,0.15); }
         }
 
-        /* ── ! tombe avec rebond ── */
+        /* ── ! tombe lentement avec rebond très visible ── */
         @keyframes drop-bounce {
-          0%   { transform: translateY(-180px) scaleY(0.6); opacity: 0; }
-          55%  { transform: translateY(18px)   scaleY(1.1); opacity: 1; }
-          70%  { transform: translateY(-10px)  scaleY(0.95); opacity: 1; }
-          82%  { transform: translateY(6px)    scaleY(1.04); opacity: 1; }
-          91%  { transform: translateY(-3px)   scaleY(0.98); opacity: 1; }
-          97%  { transform: translateY(1px)    scaleY(1.01); opacity: 1; }
-          100% { transform: translateY(0)      scaleY(1);    opacity: 1; }
+          0%   { transform: translateY(-420px); opacity: 0; }
+          12%  { opacity: 1; }
+          50%  { transform: translateY(32px);   opacity: 1; }
+          62%  { transform: translateY(-26px);  }
+          72%  { transform: translateY(18px);   }
+          80%  { transform: translateY(-12px);  }
+          87%  { transform: translateY(8px);    }
+          92%  { transform: translateY(-5px);   }
+          96%  { transform: translateY(3px);    }
+          99%  { transform: translateY(-1px);   }
+          100% { transform: translateY(0);      }
         }
 
-        /* ── tagline apparaît ── */
+        /* ── tagline et bouton ── */
         @keyframes fade-up {
-          from { opacity: 0; transform: translateY(10px); }
+          from { opacity: 0; transform: translateY(14px); }
           to   { opacity: 1; transform: translateY(0); }
         }
 
-        .mlk-letter {
-          display: inline-block;
-          color: #f2ede6;
-          opacity: 0;
-        }
-        .mlk-letter.lit {
-          animation: flicker-in 0.7s ease forwards;
-        }
-        .mlk-letter.m  { animation-delay: 0s; }
-        .mlk-letter.l  { animation-delay: 0.08s; }
-        .mlk-letter.k  { animation-delay: 0.16s; }
-
-        .mlk-bang {
-          display: inline-block;
-          opacity: 0;
-          transform: translateY(-180px);
-        }
-        .mlk-bang.falling {
-          animation: drop-bounce 0.55s cubic-bezier(.22,.61,.36,1) forwards;
-        }
-
-        .mlk-tagline {
-          opacity: 0;
-        }
-        .mlk-tagline.visible {
-          animation: fade-up 0.5s ease forwards;
+        /* ── Bouton pulse ── */
+        @keyframes pulse-glow {
+          0%, 100% { box-shadow: 0 0 0 0 rgba(245,192,48,0.5); }
+          50%      { box-shadow: 0 0 0 12px rgba(245,192,48,0); }
         }
       `}</style>
 
-      <div style={{ textAlign: "center" }}>
-
-        {/* Logo */}
-        <div style={{
-          fontSize: "clamp(64px, 14vw, 140px)",
+      {/* ── Logo animé ── */}
+      <div style={{
+        display: "flex",
+        alignItems: "flex-end",  // ✅ Aligne les bases au bas = même niveau
+        justifyContent: "center",
+        gap: 0,
+        lineHeight: 1,
+        marginBottom: 32,
+      }}>
+        {/* M */}
+        <span style={{
+          fontSize: "clamp(72px, 16vw, 160px)",
           fontWeight: 950,
+          color: "#f2ede6",
           letterSpacing: -4,
           lineHeight: 1,
-          display: "flex",
-          alignItems: "flex-start",
-          justifyContent: "center",
-          gap: 0,
-        }}>
-          <span className={`mlk-letter m ${phase >= 1 ? "lit" : ""}`}
-            style={{ animationDelay: "0s" }}>
-            M
-          </span>
+          display: "inline-block",
+          opacity: phase >= 1 ? undefined : 0,
+          animation: phase >= 1 ? "bulb-on 1.1s ease forwards" : "none",
+          animationDelay: "0s",
+        }}>M</span>
 
-          {/* ✅ ! tombe d'en haut avec rebond */}
-          <span
-            className={`mlk-bang ${phase >= 2 ? "falling" : ""}`}
-            style={{
-              color: AMBER,
-              fontSize: "1.25em",
-              lineHeight: 1,
-              display: "inline-block",
-              transform: phase >= 2 ? undefined : "translateY(-180px)",
-              // glow ambré une fois posé
-              filter: phase >= 3 ? `drop-shadow(0 0 20px ${AMBER}99)` : "none",
-              transition: "filter 0.3s ease",
-            }}
-          >
-            !
-          </span>
+        {/* ✅ ! — même niveau que les lettres, plus grand, tombe lentement */}
+        <span style={{
+          fontSize: "clamp(90px, 20vw, 200px)", // Plus grand que les lettres
+          fontWeight: 950,
+          color: AMBER,
+          letterSpacing: 0,
+          lineHeight: 1,
+          display: "inline-block",
+          opacity: phase >= 2 ? undefined : 0,
+          animation: phase >= 2 ? "drop-bounce 2.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards" : "none",
+          filter: phase >= 3 ? `drop-shadow(0 0 24px ${AMBER}cc)` : "none",
+          transition: "filter 0.4s ease",
+          marginBottom: "0.06em", // ✅ Légère correction pour aligner à la baseline des autres
+        }}>!</span>
 
-          <span className={`mlk-letter l ${phase >= 1 ? "lit" : ""}`}
-            style={{ animationDelay: "0.08s" }}>
-            L
-          </span>
-          <span className={`mlk-letter k ${phase >= 1 ? "lit" : ""}`}
-            style={{ animationDelay: "0.16s" }}>
-            K
-          </span>
-        </div>
+        {/* L */}
+        <span style={{
+          fontSize: "clamp(72px, 16vw, 160px)",
+          fontWeight: 950,
+          color: "#f2ede6",
+          letterSpacing: -4,
+          lineHeight: 1,
+          display: "inline-block",
+          opacity: phase >= 1 ? undefined : 0,
+          animation: phase >= 1 ? "bulb-on 1.1s ease forwards" : "none",
+          animationDelay: "0.1s",
+        }}>L</span>
 
-        {/* Tagline */}
-        <div
-          className={`mlk-tagline ${phase >= 3 ? "visible" : ""}`}
+        {/* K */}
+        <span style={{
+          fontSize: "clamp(72px, 16vw, 160px)",
+          fontWeight: 950,
+          color: "#f2ede6",
+          letterSpacing: -4,
+          lineHeight: 1,
+          display: "inline-block",
+          opacity: phase >= 1 ? undefined : 0,
+          animation: phase >= 1 ? "bulb-on 1.1s ease forwards" : "none",
+          animationDelay: "0.2s",
+        }}>K</span>
+      </div>
+
+      {/* ── Tagline ── */}
+      <div style={{
+        fontSize: "clamp(12px, 1.6vw, 16px)",
+        fontWeight: 700,
+        letterSpacing: 5,
+        textTransform: "uppercase",
+        color: "rgba(242,237,230,0.4)",
+        opacity: phase >= 3 ? undefined : 0,
+        animation: phase >= 3 ? "fade-up 0.6s ease forwards" : "none",
+        marginBottom: 60,
+      }}>
+        Essentiels bébé bambou
+      </div>
+
+      {/* ✅ Bouton "Entrez vous détendre" en jaune tout en bas */}
+      <div style={{
+        position: "absolute",
+        bottom: 48,
+        left: "50%",
+        transform: "translateX(-50%)",
+        opacity: phase >= 3 ? undefined : 0,
+        animation: phase >= 3 ? "fade-up 0.6s ease 0.2s forwards" : "none",
+        animationFillMode: "both",
+      }}>
+        <button
+          onClick={dismiss}
           style={{
-            marginTop: 20,
-            fontSize: "clamp(11px, 1.5vw, 15px)",
-            fontWeight: 700,
-            letterSpacing: 5,
-            textTransform: "uppercase",
-            color: "rgba(242,237,230,0.45)",
+            padding: "16px 40px",
+            borderRadius: 99,
+            background: "transparent",
+            border: `2px solid ${AMBER}`,
+            color: AMBER,
+            fontWeight: 900,
+            fontSize: "clamp(14px, 1.8vw, 17px)",
+            letterSpacing: 1.5,
+            cursor: "pointer",
+            animation: "pulse-glow 2s ease infinite",
+            whiteSpace: "nowrap",
           }}
         >
-          Essentiels bébé bambou
-        </div>
-
-        {/* Barre de chargement discrète */}
-        <div style={{ marginTop: 40, width: 48, height: 2, background: "rgba(242,237,230,0.1)", borderRadius: 99, overflow: "hidden", margin: "36px auto 0" }}>
-          <div style={{
-            height: "100%",
-            background: AMBER,
-            borderRadius: 99,
-            width: phase >= 3 ? "100%" : phase >= 2 ? "60%" : phase >= 1 ? "30%" : "0%",
-            transition: "width 0.6s ease",
-          }} />
-        </div>
+          Entrez vous détendre →
+        </button>
       </div>
+
+      {/* Barre de progression discrète */}
+      <div style={{
+        position: "absolute",
+        bottom: 0,
+        left: 0,
+        height: 2,
+        background: AMBER,
+        opacity: 0.3,
+        width: phase >= 3 ? "100%" : phase >= 2 ? "60%" : phase >= 1 ? "25%" : "0%",
+        transition: "width 1.2s ease",
+      }} />
     </div>
   );
 }

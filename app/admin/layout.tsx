@@ -43,27 +43,20 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
-    // ✅ onAuthStateChange est FIABLE — pas besoin de getSession
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    // ✅ getSession — lit depuis localStorage, pas de double fire comme onAuthStateChange
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (!session) {
         window.location.href = "/admin/login?redirect=" + encodeURIComponent(pathname);
         return;
       }
-
       const email = session.user.email ?? "";
-
       if (ADMIN_EMAILS.includes(email)) {
         setUserEmail(email);
         setStatus("allowed");
-        return;
+      } else {
+        window.location.href = "/admin/login";
       }
-
-      // Pas admin
-      setStatus("denied");
-      window.location.href = "/admin/login";
     });
-
-    return () => subscription.unsubscribe();
   }, [pathname]);
 
   async function handleSignOut() {
@@ -76,9 +69,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (status === "loading") {
     return (
       <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
-        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16, fontWeight: 600 }}>
-          Chargement...
-        </div>
+        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16, fontWeight: 600 }}>Chargement admin...</div>
       </div>
     );
   }
@@ -99,9 +90,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <nav style={{ flex: 1, padding: "16px 12px" }}>
           {NAV.map(item => {
-            const active = item.href === "/admin"
-              ? pathname === "/admin"
-              : pathname.startsWith(item.href);
+            const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
             return (
               <Link key={item.href} href={item.href}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderRadius: 12, marginBottom: 4, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14, transition: "all 0.15s" }}>
@@ -114,7 +103,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
         <div style={{ padding: "16px 12px", borderTop: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 6 }}>
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(242,237,230,0.06)" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(242,237,230,0.4)", marginBottom: 2 }}>Admin connecté</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(242,237,230,0.4)", marginBottom: 2 }}>Admin</div>
             <div style={{ fontSize: 11, color: "rgba(242,237,230,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
           </div>
           <Link href="/" target="_blank"
@@ -170,7 +159,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ↗ Site
             </Link>
             <div style={{ width: 32, height: 32, borderRadius: 99, background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 950, color: "#1a1410" }}>
-              {userEmail.slice(0, 1).toUpperCase()}
+              {userEmail.slice(0, 1).toUpperCase() || "A"}
             </div>
           </div>
         </header>

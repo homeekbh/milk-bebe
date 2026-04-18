@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, Suspense } from "react";
-import { useSearchParams }    from "next/navigation";
-import { supabase }           from "@/lib/supabase-client";
+import { useEffect, useState, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
+import { supabase } from "@/lib/supabase-client";
+
+const ADMIN_EMAILS = ["home.ekbh@gmail.com", "erika.koztandi@gmail.com"];
 
 function AdminLoginContent() {
   const searchParams = useSearchParams();
@@ -11,14 +13,43 @@ function AdminLoginContent() {
   const [email,    setEmail]    = useState("");
   const [password, setPassword] = useState("");
   const [loading,  setLoading]  = useState(false);
+  const [checking, setChecking] = useState(true);
   const [error,    setError]    = useState("");
+
+  // ✅ Au chargement — si déjà connecté admin, rediriger directement
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      if (session?.user) {
+        // Vérifier par email (plus simple et fiable)
+        if (ADMIN_EMAILS.includes(session.user.email ?? "")) {
+          window.location.href = redirect;
+          return;
+        }
+        // Ou vérifier is_admin dans profiles
+        supabase
+          .from("profiles")
+          .select("is_admin")
+          .eq("id", session.user.id)
+          .single()
+          .then(({ data }) => {
+            if (data?.is_admin) {
+              window.location.href = redirect;
+            } else {
+              setChecking(false);
+            }
+          })
+          .catch(() => setChecking(false));
+      } else {
+        setChecking(false);
+      }
+    });
+  }, [redirect]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
-    // Connexion Supabase
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
     if (authError || !data.user) {
@@ -27,22 +58,37 @@ function AdminLoginContent() {
       return;
     }
 
-    // Vérifier is_admin directement dans profiles
+    // Vérifier par email OU is_admin
+    const isAdminEmail = ADMIN_EMAILS.includes(data.user.email ?? "");
+    
+    if (isAdminEmail) {
+      window.location.href = redirect;
+      return;
+    }
+
     const { data: profile } = await supabase
       .from("profiles")
       .select("is_admin")
       .eq("id", data.user.id)
       .single();
 
-    if (!profile?.is_admin) {
-      await supabase.auth.signOut();
-      setError("Accès non autorisé.");
-      setLoading(false);
+    if (profile?.is_admin) {
+      window.location.href = redirect;
       return;
     }
 
-    // ✅ Connecté et admin — redirection
-    window.location.href = redirect;
+    await supabase.auth.signOut();
+    setError("Accès non autorisé.");
+    setLoading(false);
+  }
+
+  // Vérification session en cours
+  if (checking) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
+        <div style={{ color: "#c49a4a", fontSize: 16, fontWeight: 700 }}>Vérification session...</div>
+      </div>
+    );
   }
 
   return (
@@ -114,7 +160,11 @@ function AdminLoginContent() {
 
 export default function AdminLogin() {
   return (
-    <Suspense fallback={<div style={{ minHeight: "100vh", background: "#1a1410" }} />}>
+    <Suspense fallback={
+      <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
+        <div style={{ color: "#c49a4a" }}>Chargement...</div>
+      </div>
+    }>
       <AdminLoginContent />
     </Suspense>
   );

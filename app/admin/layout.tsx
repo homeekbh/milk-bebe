@@ -6,8 +6,6 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import SearchGlobal from "@/components/admin/SearchGlobal";
 
-const ADMIN_EMAILS = ["home.ekbh@gmail.com", "erika.koztandi@gmail.com"];
-
 const NAV = [
   { href: "/admin",              label: "Dashboard",    icon: "▦"  },
   { href: "/admin/produits",     label: "Produits",     icon: "🏷" },
@@ -23,11 +21,9 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-
-  const [status,    setStatus]    = useState<"loading" | "allowed" | "denied">("loading");
-  const [userEmail, setUserEmail] = useState("");
   const [mobile,    setMobile]    = useState(false);
   const [open,      setOpen]      = useState(false);
+  const [userEmail, setUserEmail] = useState("");
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 768);
@@ -37,49 +33,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-    // Page login — toujours accessible
-    if (pathname === "/admin/login") {
-      setStatus("allowed");
-      return;
-    }
-
-    // ✅ getSession — lit depuis localStorage, pas de double fire comme onAuthStateChange
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (!session) {
-        window.location.href = "/admin/login?redirect=" + encodeURIComponent(pathname);
-        return;
-      }
-      const email = session.user.email ?? "";
-      if (ADMIN_EMAILS.includes(email)) {
-        setUserEmail(email);
-        setStatus("allowed");
-      } else {
-        window.location.href = "/admin/login";
-      }
+      if (session?.user?.email) setUserEmail(session.user.email);
     });
-  }, [pathname]);
+  }, []);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
     window.location.href = "/";
   }
 
+  // Page login — pas de layout
   if (pathname === "/admin/login") return <>{children}</>;
-
-  if (status === "loading") {
-    return (
-      <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
-        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16, fontWeight: 600 }}>Chargement admin...</div>
-      </div>
-    );
-  }
-
-  if (status === "denied") return null;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f0e8" }}>
 
-      {/* Sidebar desktop */}
       <aside style={{ width: 240, flexShrink: 0, background: "#1a1410", display: mobile ? "none" : "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, overflowY: "auto", zIndex: 100 }}>
         <div style={{ padding: "24px 20px", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>
           <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
@@ -102,10 +71,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div style={{ padding: "16px 12px", borderTop: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 6 }}>
-          <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(242,237,230,0.06)" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(242,237,230,0.4)", marginBottom: 2 }}>Admin</div>
-            <div style={{ fontSize: 11, color: "rgba(242,237,230,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
-          </div>
+          {userEmail && (
+            <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(242,237,230,0.06)" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(242,237,230,0.4)", marginBottom: 2 }}>Admin</div>
+              <div style={{ fontSize: 11, color: "rgba(242,237,230,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
+            </div>
+          )}
           <Link href="/" target="_blank"
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, textDecoration: "none", color: "rgba(242,237,230,0.35)", fontSize: 13, fontWeight: 700 }}>
             ↗ Voir le site
@@ -117,10 +88,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Drawer mobile */}
       {mobile && open && (
-        <div onClick={() => setOpen(false)}
-          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200 }}>
+        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200 }}>
           <div onClick={e => e.stopPropagation()}
             style={{ width: 260, height: "100%", background: "#1a1410", padding: "24px 12px", display: "flex", flexDirection: "column", overflowY: "auto" }}>
             <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", marginBottom: 20 }}>
@@ -143,7 +112,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* Contenu */}
       <div style={{ flex: 1, marginLeft: mobile ? 0 : 240, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
         <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid rgba(26,20,16,0.08)", padding: "0 24px", height: 60, display: "flex", alignItems: "center", gap: 16 }}>
           {mobile && (

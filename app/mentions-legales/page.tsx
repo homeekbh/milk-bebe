@@ -1,121 +1,52 @@
-import type { Metadata } from "next";
-import Link from "next/link";
-
-export const metadata: Metadata = {
-  title: "Mentions Légales | M!LK",
-  description: "Mentions légales de M!LK — boutique de vêtements bébé en bambou premium.",
-};
-
-export default function MentionsLegalesPage() {
+export default function MentionsLegales() {
   return (
-    <div style={{ background: "#f6f4f1", minHeight: "100vh", paddingTop: 100, paddingBottom: 100 }}>
-      <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 32px" }}>
+    <div style={{ background: "#f5f0e8", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
+      <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
+        <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410", marginBottom: 8 }}>
+          Mentions légales
+        </h1>
+        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Conformément à la loi n°2004-575 du 21 juin 2004</p>
 
-        <div style={{ marginBottom: 56 }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 3, textTransform: "uppercase", opacity: 0.35, marginBottom: 16 }}>
-            Informations légales
+        {[
+          {
+            title: "Éditeur du site",
+            content: `Raison sociale : M!LK — Essentiels Bébé Bambou
+SIRET : En cours d'obtention
+Adresse : À compléter
+Email : bonjour@milkbebe.fr
+Téléphone : 07 45 27 21 34
+Directeur de publication : BHK — Design & Graphisme`,
+          },
+          {
+            title: "Hébergement",
+            content: `Vercel Inc.
+340 Pine Street, Suite 900
+San Francisco, CA 94104
+États-Unis
+Site : vercel.com`,
+          },
+          {
+            title: "Propriété intellectuelle",
+            content: "L'ensemble du contenu du site milkbebe.fr (textes, images, graphismes, logo, icônes, etc.) est la propriété exclusive de M!LK. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.",
+          },
+          {
+            title: "Données personnelles",
+            content: "Le site milkbebe.fr collecte des données personnelles dans le cadre du traitement des commandes et de l'amélioration des services. Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits : bonjour@milkbebe.fr",
+          },
+          {
+            title: "Cookies",
+            content: "Le site utilise des cookies techniques nécessaires au bon fonctionnement du service (panier, session). Aucun cookie publicitaire n'est utilisé. Vous pouvez gérer vos préférences cookies via le bandeau dédié.",
+          },
+          {
+            title: "Responsabilité",
+            content: "M!LK s'efforce d'assurer l'exactitude des informations publiées. Cependant, M!LK ne saurait être tenu responsable des erreurs, omissions ou indisponibilités du site. L'utilisation du site se fait sous la seule responsabilité de l'utilisateur.",
+          },
+        ].map(section => (
+          <div key={section.title} style={{ marginBottom: 28, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>
+            <h2 style={{ margin: "0 0 14px", fontSize: 20, fontWeight: 900, color: "#1a1410" }}>{section.title}</h2>
+            <p style={{ margin: 0, fontSize: 15, color: "rgba(26,20,16,0.7)", lineHeight: 1.8, whiteSpace: "pre-line" }}>{section.content}</p>
           </div>
-          <h1 style={{ margin: "0 0 16px", fontSize: "clamp(32px, 5vw, 52px)", fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.1 }}>
-            Mentions légales
-          </h1>
-          <div style={{ fontSize: 14, opacity: 0.5 }}>
-            Dernière mise à jour : {new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}
-          </div>
-        </div>
-
-        <div style={{ display: "grid", gap: 16 }}>
-
-          {/* Éditeur */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Éditeur du site</h2>
-            <div style={{ display: "grid", gap: 8, fontSize: 14, lineHeight: 1.7, opacity: 0.7 }}>
-              <div><strong>Dénomination sociale :</strong> M!LK</div>
-              <div><strong>Forme juridique :</strong> À compléter</div>
-              <div><strong>Siège social :</strong> À compléter</div>
-              <div><strong>SIRET :</strong> À compléter</div>
-              <div><strong>Capital social :</strong> À compléter</div>
-              <div><strong>Email :</strong> contact@milk-bebe.fr</div>
-              <div><strong>Directeur de la publication :</strong> À compléter</div>
-            </div>
-          </div>
-
-          {/* Hébergement */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Hébergement</h2>
-            <div style={{ display: "grid", gap: 8, fontSize: 14, lineHeight: 1.7, opacity: 0.7 }}>
-              <div><strong>Hébergeur :</strong> Vercel Inc.</div>
-              <div><strong>Adresse :</strong> 340 Pine Street, Suite 701, San Francisco, CA 94104, USA</div>
-              <div><strong>Site :</strong> vercel.com</div>
-            </div>
-          </div>
-
-          {/* Propriété intellectuelle */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Propriété intellectuelle</h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              L'ensemble du contenu de ce site (textes, images, logos, visuels, structure) est la propriété exclusive de M!LK et est protégé par les lois françaises et internationales relatives à la propriété intellectuelle. Toute reproduction, représentation, modification ou exploitation, même partielle, sans autorisation préalable écrite est strictement interdite.
-            </p>
-          </div>
-
-          {/* Données personnelles */}
-          <div id="donnees-personnelles" style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Données personnelles (RGPD)</h2>
-            <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              Les données personnelles collectées sur ce site (nom, prénom, email, adresse de livraison) sont traitées par M!LK dans le cadre de la gestion des commandes et, avec votre consentement, de l'envoi de communications commerciales.
-            </p>
-            <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez des droits suivants :
-            </p>
-            <ul style={{ margin: "0 0 12px", paddingLeft: 20, fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              <li>Droit d'accès à vos données</li>
-              <li>Droit de rectification</li>
-              <li>Droit à l'effacement (« droit à l'oubli »)</li>
-              <li>Droit à la limitation du traitement</li>
-              <li>Droit à la portabilité</li>
-              <li>Droit d'opposition</li>
-            </ul>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              Pour exercer ces droits, contactez-nous à : <strong>contact@milk-bebe.fr</strong>
-            </p>
-          </div>
-
-          {/* Cookies */}
-          <div id="cookies" style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Politique de cookies</h2>
-            <p style={{ margin: "0 0 12px", fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              Ce site utilise des cookies techniques nécessaires à son fonctionnement (gestion du panier, session utilisateur) et des cookies analytiques pour mesurer l'audience.
-            </p>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              Vous pouvez à tout moment désactiver les cookies dans les paramètres de votre navigateur. La désactivation des cookies techniques peut altérer le fonctionnement du site.
-            </p>
-          </div>
-
-          {/* Responsabilité */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Limitation de responsabilité</h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              M!LK ne saurait être tenu responsable des dommages directs ou indirects résultant de l'utilisation du site. Les informations présentes sur le site sont fournies à titre indicatif et peuvent être modifiées à tout moment. M!LK se réserve le droit de modifier, suspendre ou interrompre l'accès au site à tout moment.
-            </p>
-          </div>
-
-          {/* Droit applicable */}
-          <div style={{ background: "#fff", borderRadius: "4px 4px 16px 16px", border: "1px solid rgba(0,0,0,0.07)", padding: "28px 32px" }}>
-            <h2 style={{ margin: "0 0 16px", fontSize: 17, fontWeight: 900 }}>Droit applicable</h2>
-            <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, opacity: 0.7 }}>
-              Le présent site et ses mentions légales sont soumis au droit français. En cas de litige, les tribunaux français seront seuls compétents.
-            </p>
-          </div>
-
-        </div>
-
-        <div style={{ marginTop: 48, display: "flex", gap: 14, flexWrap: "wrap" }}>
-          <Link href="/cgv" style={{ padding: "12px 24px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", fontWeight: 700, fontSize: 14, textDecoration: "none", color: "#111" }}>
-            Voir les CGV →
-          </Link>
-          <Link href="/" style={{ padding: "12px 24px", borderRadius: 12, background: "#111", color: "#fff", fontWeight: 700, fontSize: 14, textDecoration: "none" }}>
-            Retour à l'accueil
-          </Link>
-        </div>
+        ))}
       </div>
     </div>
   );

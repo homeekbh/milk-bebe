@@ -1,15 +1,16 @@
 ﻿import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-import Header          from "@/components/layout/Header";
-import Footer          from "@/components/layout/Footer";
-import ChatWidget      from "@/components/bot/ChatWidget";
+import Header         from "@/components/layout/Header";
+import Footer         from "@/components/layout/Footer";
+import ChatWidget     from "@/components/bot/ChatWidget";
 import { IntroProvider }  from "@/context/IntroContext";
-import IntroScreen     from "@/components/intro/IntroScreen";
+import IntroScreen    from "@/components/intro/IntroScreen";
 import { CartProvider }   from "@/context/CartContext";
 import { LangProvider }   from "@/context/LangContext";
 import { AuthProvider }   from "@/context/AuthContext";
-import PopupBienvenue  from "@/components/PopupBienvenue";
+import PopupBienvenue from "@/components/PopupBienvenue";
+import CookieBanner   from "@/components/CookieBanner";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
 
@@ -107,14 +108,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <CartProvider>
             <LangProvider>
               <IntroProvider>
-                {/* ✅ Intro screen — désactivée dans /admin via usePathname */}
                 <IntroScreen />
-                {/* ✅ Pop-up bienvenue — s'affiche à la 1ère visite */}
                 <PopupBienvenue />
                 <Header />
                 <main>{children}</main>
                 <Footer />
                 <ChatWidget />
+                {/* ✅ Bannière cookies RGPD */}
+                <CookieBanner />
               </IntroProvider>
             </LangProvider>
           </CartProvider>

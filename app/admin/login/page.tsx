@@ -17,33 +17,21 @@ function AdminLoginContent() {
   const [error,    setError]    = useState("");
 
   useEffect(() => {
-    async function checkSession() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        if (!session) { setChecking(false); return; }
-
-        const sessionEmail = session.user.email ?? "";
-        if (ADMIN_EMAILS.includes(sessionEmail)) {
-          window.location.href = redirect;
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", session.user.id)
-          .single();
-
-        if (profile?.is_admin) {
-          window.location.href = redirect;
-        } else {
-          setChecking(false);
-        }
-      } catch {
+    // ✅ onAuthStateChange — détecte la session immédiatement même depuis localStorage
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        setChecking(false);
+        return;
+      }
+      const email = session.user.email ?? "";
+      if (ADMIN_EMAILS.includes(email)) {
+        window.location.href = redirect;
+      } else {
         setChecking(false);
       }
-    }
-    checkSession();
+    });
+
+    return () => subscription.unsubscribe();
   }, [redirect]);
 
   async function handleLogin(e: React.FormEvent) {
@@ -60,26 +48,15 @@ function AdminLoginContent() {
         return;
       }
 
-      const userEmail = data.user.email ?? "";
-
-      if (ADMIN_EMAILS.includes(userEmail)) {
+      if (ADMIN_EMAILS.includes(data.user.email ?? "")) {
         window.location.href = redirect;
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("is_admin")
-        .eq("id", data.user.id)
-        .single();
+      await supabase.auth.signOut();
+      setError("Accès non autorisé.");
+      setLoading(false);
 
-      if (profile?.is_admin) {
-        window.location.href = redirect;
-      } else {
-        await supabase.auth.signOut();
-        setError("Accès non autorisé.");
-        setLoading(false);
-      }
     } catch {
       setError("Erreur de connexion.");
       setLoading(false);
@@ -89,7 +66,9 @@ function AdminLoginContent() {
   if (checking) {
     return (
       <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
-        <div style={{ color: "#c49a4a", fontSize: 16, fontWeight: 700 }}>Vérification session...</div>
+        <div style={{ color: "#c49a4a", fontSize: 16, fontWeight: 700 }}>
+          Vérification...
+        </div>
       </div>
     );
   }
@@ -116,8 +95,7 @@ function AdminLoginContent() {
               <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(242,237,230,0.45)" }}>
                 Email admin
               </label>
-              <input
-                type="email" value={email}
+              <input type="email" value={email}
                 onChange={e => setEmail(e.target.value)}
                 required autoComplete="email"
                 placeholder="home.ekbh@gmail.com"
@@ -129,8 +107,7 @@ function AdminLoginContent() {
               <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(242,237,230,0.45)" }}>
                 Mot de passe
               </label>
-              <input
-                type="password" value={password}
+              <input type="password" value={password}
                 onChange={e => setPassword(e.target.value)}
                 required autoComplete="current-password"
                 placeholder="••••••••"

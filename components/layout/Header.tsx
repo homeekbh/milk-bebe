@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useCart }  from "@/context/CartContext";
-import { useAuth }  from "@/context/AuthContext";
-import { useLang }  from "@/context/LangContext";
+import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
+import { useLang } from "@/context/LangContext";
 
-// ─── Icônes SVG au trait ──────────────────────────────────────────────────────
+// ─── Icônes ───────────────────────────────────────────────────────────────────
 function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -79,7 +79,7 @@ function AccessoiresIcon({ size = 20, color = "#fff" }: { size?: number; color?:
   );
 }
 
-// ─── Détection thème selon contenu sous le header ─────────────────────────────
+// ─── Détection thème ──────────────────────────────────────────────────────────
 function findThemeAtHeaderPoint(headerEl: HTMLElement | null): "dark" | "light" {
   try {
     const x   = Math.floor(window.innerWidth / 2);
@@ -100,7 +100,7 @@ function findThemeAtHeaderPoint(headerEl: HTMLElement | null): "dark" | "light" 
   }
 }
 
-// ─── Catégories ───────────────────────────────────────────────────────────────
+// ─── Données ──────────────────────────────────────────────────────────────────
 const CATS = [
   { label: "Bodies",      href: "/categorie/bodies",      desc: "L'essentiel du quotidien",      Icon: BodiesIcon      },
   { label: "Pyjamas",     href: "/categorie/pyjamas",     desc: "Pour des nuits sereines",       Icon: PyjamaIcon      },
@@ -109,23 +109,27 @@ const CATS = [
 ];
 
 const LANGS = [
-  { code: "fr" as const, flag: "FR" },
-  { code: "en" as const, flag: "EN" },
-  { code: "it" as const, flag: "IT" },
-  { code: "hu" as const, flag: "HU" },
+  { code: "fr" as const, label: "FR" },
+  { code: "en" as const, label: "EN" },
+  { code: "it" as const, label: "IT" },
+  { code: "hu" as const, label: "HU" },
 ];
 
-// ─── Sélecteur de langue ──────────────────────────────────────────────────────
+// ─── Menu utilisateur — ✅ clés et hrefs uniques ───────────────────────────────
+const USER_MENU = [
+  { key: "menu-profil",    label: "Mon profil",    href: "/profil"    },
+  { key: "menu-commandes", label: "Mes commandes", href: "/profil"    },
+];
+
+// ─── LangSwitcher ─────────────────────────────────────────────────────────────
 function LangSwitcher({ textColor }: { textColor: string }) {
   const { locale, setLocale } = useLang();
   const [open, setOpen]       = useState(false);
 
   return (
     <div style={{ position: "relative" }}>
-      <button
-        onClick={() => setOpen(v => !v)}
-        style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.2)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: textColor, display: "flex", alignItems: "center", gap: 4 }}
-      >
+      <button onClick={() => setOpen(v => !v)}
+        style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.2)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: textColor, display: "flex", alignItems: "center", gap: 4 }}>
         {locale.toUpperCase()}
         <ChevronIcon size={10} color={textColor} rotate={open} />
       </button>
@@ -134,7 +138,7 @@ function LangSwitcher({ textColor }: { textColor: string }) {
           {LANGS.map(lang => (
             <button key={lang.code} onClick={() => { setLocale(lang.code); setOpen(false); }}
               style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: lang.code === locale ? "rgba(196,154,74,0.15)" : "transparent", cursor: "pointer", fontSize: 13, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.7)", textAlign: "left" }}>
-              {lang.flag}
+              {lang.label}
             </button>
           ))}
         </div>
@@ -150,19 +154,19 @@ function MobileLangButtons({ onClose }: { onClose: () => void }) {
       {LANGS.map(lang => (
         <button key={lang.code} onClick={() => { setLocale(lang.code); onClose(); }}
           style={{ padding: "10px 16px", borderRadius: 10, background: lang.code === locale ? "rgba(196,154,74,0.15)" : "rgba(242,237,230,0.06)", border: lang.code === locale ? "1px solid rgba(196,154,74,0.3)" : "1px solid rgba(242,237,230,0.08)", fontSize: 14, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.6)", cursor: "pointer" }}>
-          {lang.flag}
+          {lang.label}
         </button>
       ))}
     </div>
   );
 }
 
-// ─── Header principal ─────────────────────────────────────────────────────────
+// ─── Header ───────────────────────────────────────────────────────────────────
 export default function Header() {
-  const pathname = usePathname();
-  const router   = useRouter();
-  const { items }         = useCart();
-  const { user, signOut } = useAuth();
+  const pathname             = usePathname();
+  const router               = useRouter();
+  const { items }            = useCart();
+  const { user, signOut }    = useAuth();
 
   const [scrolled,   setScrolled]   = useState(false);
   const [openUser,   setOpenUser]   = useState(false);
@@ -171,22 +175,16 @@ export default function Header() {
 
   const userTimer = useRef<any>(null);
   const headerRef = useRef<HTMLElement | null>(null);
-
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
     const compute = () => {
-      const y      = window.scrollY;
+      const y = window.scrollY;
       setScrolled(y > 10);
-      const isHome = pathname === "/";
-      // Pages avec header toujours sombre au début
-      const forceDarkStart = ["/qui-sommes-nous", "/pourquoi-bambou"];
-      if ((isHome || forceDarkStart.includes(pathname)) && y < 320) {
-        setTheme("dark");
-        return;
-      }
+      const forceDark = ["/", "/qui-sommes-nous", "/pourquoi-bambou"];
+      if (forceDark.includes(pathname) && y < 320) { setTheme("dark"); return; }
       setTheme(findThemeAtHeaderPoint(headerRef.current));
     };
     compute();
@@ -194,12 +192,7 @@ export default function Header() {
     const t   = window.setTimeout(compute, 120);
     window.addEventListener("scroll", compute, { passive: true });
     window.addEventListener("resize", compute);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(t);
-      window.removeEventListener("scroll", compute);
-      window.removeEventListener("resize", compute);
-    };
+    return () => { cancelAnimationFrame(raf); window.clearTimeout(t); window.removeEventListener("scroll", compute); window.removeEventListener("resize", compute); };
   }, [pathname]);
 
   const C = useMemo(() => {
@@ -229,12 +222,6 @@ export default function Header() {
 
   if (pathname.startsWith("/admin")) return null;
 
-  // Menu utilisateur connecté — clés uniques
-  const userMenuItems = [
-    { label: "Mon profil",    href: "/profil",            key: "profil"    },
-    { label: "Mes commandes", href: "/profil#commandes",  key: "commandes" },
-  ];
-
   return (
     <>
       <style>{`
@@ -246,40 +233,25 @@ export default function Header() {
           .milk-desktop { display: none !important; }
           .milk-burger  { display: flex !important; }
         }
-        .header-link:hover { opacity: 1 !important; background: rgba(128,128,128,0.1) !important; }
-        .drop-item:hover { background: rgba(128,128,128,0.08) !important; }
       `}</style>
 
       <header
         ref={el => { headerRef.current = el; }}
-        style={{
-          position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999,
-          background: C.bg, borderBottom: C.border,
-          backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none",
-          transition: "background 0.25s ease, border-color 0.25s ease",
-        }}
+        style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s ease, border-color 0.25s ease" }}
       >
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
-          {/* ── Logo ── */}
+          {/* Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }} aria-label="M!LK">
-            <div style={{ display: "flex", alignItems: "baseline", gap: 0 }}>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1, fontFamily: "inherit" }}>
-                M
-              </span>
-              <span style={{ color: C.amber, fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, fontFamily: "inherit", display: "inline-block", transform: "translateY(-3px)" }}>
-                !
-              </span>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1, fontFamily: "inherit" }}>
-                LK
-              </span>
+            <div style={{ display: "flex", alignItems: "baseline" }}>
+              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
+              <span style={{ color: C.amber, fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
+              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
             </div>
           </Link>
 
-          {/* ── Nav desktop ── */}
+          {/* Nav desktop */}
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
-
-            {/* ✅ Notre collection → direct /produits sans sous-menu */}
             <Link href="/produits"
               style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 16, padding: "8px 16px", borderRadius: 10, opacity: pathname.startsWith("/produits") || pathname.startsWith("/categorie") ? 1 : 0.85, borderBottom: pathname.startsWith("/produits") || pathname.startsWith("/categorie") ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; (e.currentTarget as HTMLAnchorElement).style.opacity = "1"; }}
@@ -287,7 +259,6 @@ export default function Header() {
             >
               Notre collection
             </Link>
-
             {[
               { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
               { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
@@ -302,7 +273,7 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* ── Actions droite desktop ── */}
+          {/* Actions droite desktop */}
           <div className="milk-desktop" style={{ alignItems: "center", gap: 8, flexShrink: 0 }}>
             <LangSwitcher textColor={C.text} />
 
@@ -332,9 +303,7 @@ export default function Header() {
               onMouseEnter={() => { cancel(userTimer); setOpenUser(true); }}
               onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}
             >
-              <button
-                style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}
-              >
+              <button style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
                 {user
                   ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span>
                   : <ProfileIcon color={C.text} size={22} />
@@ -355,14 +324,14 @@ export default function Header() {
                       </div>
                       <div style={{ height: 1, background: "rgba(128,128,128,0.1)" }} />
 
-                      {/* ✅ Keys uniques */}
-                      {userMenuItems.map(l => (
-                        <Link key={l.key} href={l.href} onClick={() => setOpenUser(false)}
-                          style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 15, fontWeight: 700, color: C.text, transition: "background 0.15s" }}
+                      {/* ✅ key unique sur chaque item */}
+                      {USER_MENU.map(item => (
+                        <Link key={item.key} href={item.href} onClick={() => setOpenUser(false)}
+                          style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 15, fontWeight: 700, color: C.text }}
                           onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.08)"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}
                         >
-                          {l.label}
+                          {item.label}
                         </Link>
                       ))}
 
@@ -395,7 +364,7 @@ export default function Header() {
             </div>
           </div>
 
-          {/* ── Actions mobile (panier + burger) ── */}
+          {/* Actions mobile */}
           <div className="milk-burger" style={{ alignItems: "center", gap: 6, flexShrink: 0 }}>
             <Link href="/panier" aria-label="Panier"
               style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}>
@@ -416,7 +385,7 @@ export default function Header() {
         </div>
       </header>
 
-      {/* ── Menu mobile fullscreen ── */}
+      {/* Menu mobile */}
       {mobileOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: "calc(100vh - 80px)" }}>
@@ -424,12 +393,10 @@ export default function Header() {
             <MobileLangButtons onClose={() => setMobileOpen(false)} />
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
 
-            {/* Collection */}
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>
               Collection
             </div>
 
-            {/* ✅ Tous les produits en premier — direct sans sous-menu */}
             <Link href="/produits" onClick={() => setMobileOpen(false)}
               style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#c49a4a", display: "flex", alignItems: "center", gap: 12 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
@@ -447,8 +414,6 @@ export default function Header() {
             ))}
 
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
-
-            {/* La marque */}
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>
               La marque
             </div>
@@ -464,10 +429,9 @@ export default function Header() {
 
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
 
-            {/* Compte */}
             {user ? (
               <>
-                <div style={{ padding: "12px 18px", fontSize: 14, color: "rgba(242,237,230,0.45)", background: "rgba(242,237,230,0.03)", borderRadius: 12 }}>
+                <div style={{ padding: "12px 18px", fontSize: 13, color: "rgba(242,237,230,0.45)", background: "rgba(242,237,230,0.03)", borderRadius: 12 }}>
                   Connecté : <strong style={{ color: "#f2ede6" }}>{user.email}</strong>
                 </div>
                 <Link href="/profil" onClick={() => setMobileOpen(false)}
@@ -492,7 +456,6 @@ export default function Header() {
               </>
             )}
 
-            {/* Panier */}
             <Link href="/panier" onClick={() => setMobileOpen(false)}
               style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -505,7 +468,6 @@ export default function Header() {
                 </span>
               )}
             </Link>
-
           </div>
         </div>
       )}

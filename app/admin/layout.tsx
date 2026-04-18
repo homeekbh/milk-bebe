@@ -24,8 +24,7 @@ const NAV = [
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
 
-  const [checking,  setChecking]  = useState(true);
-  const [allowed,   setAllowed]   = useState(false);
+  const [status,    setStatus]    = useState<"loading" | "allowed" | "denied">("loading");
   const [userEmail, setUserEmail] = useState("");
   const [mobile,    setMobile]    = useState(false);
   const [open,      setOpen]      = useState(false);
@@ -38,51 +37,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
+    // Page login — toujours accessible
     if (pathname === "/admin/login") {
-      setChecking(false);
-      setAllowed(true);
+      setStatus("allowed");
       return;
     }
 
-    async function verify() {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-
-        if (!session) {
-          window.location.href = "/admin/login?redirect=" + encodeURIComponent(pathname);
-          return;
-        }
-
-        const email = session.user.email ?? "";
-
-        // ✅ Vérification par email — fiable sans RLS
-        if (ADMIN_EMAILS.includes(email)) {
-          setUserEmail(email);
-          setAllowed(true);
-          setChecking(false);
-          return;
-        }
-
-        // Fallback — vérifier is_admin dans profiles
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("is_admin")
-          .eq("id", session.user.id)
-          .single();
-
-        if (profile?.is_admin) {
-          setUserEmail(email);
-          setAllowed(true);
-          setChecking(false);
-        } else {
-          window.location.href = "/admin/login";
-        }
-      } catch {
-        window.location.href = "/admin/login";
+    // ✅ onAuthStateChange est FIABLE — pas besoin de getSession
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        window.location.href = "/admin/login?redirect=" + encodeURIComponent(pathname);
+        return;
       }
-    }
 
-    verify();
+      const email = session.user.email ?? "";
+
+      if (ADMIN_EMAILS.includes(email)) {
+        setUserEmail(email);
+        setStatus("allowed");
+        return;
+      }
+
+      // Pas admin
+      setStatus("denied");
+      window.location.href = "/admin/login";
+    });
+
+    return () => subscription.unsubscribe();
   }, [pathname]);
 
   async function handleSignOut() {
@@ -92,15 +73,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   if (pathname === "/admin/login") return <>{children}</>;
 
-  if (checking) {
+  if (status === "loading") {
     return (
       <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
-        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16 }}>Vérification...</div>
+        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16, fontWeight: 600 }}>
+          Chargement...
+        </div>
       </div>
     );
   }
 
-  if (!allowed) return null;
+  if (status === "denied") return null;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f0e8" }}>

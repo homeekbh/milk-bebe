@@ -15,12 +15,12 @@ interface Review {
 }
 
 export default function AdminAvis() {
-  const [reviews,  setReviews]  = useState<Review[]>([]);
-  const [loading,  setLoading]  = useState(true);
-  const [filter,   setFilter]   = useState<"all" | "pending" | "approved">("all");
-  const [replyId,  setReplyId]  = useState<string | null>(null);
+  const [reviews,   setReviews]   = useState<Review[]>([]);
+  const [loading,   setLoading]   = useState(true);
+  const [filter,    setFilter]    = useState<"all" | "pending" | "approved">("all");
+  const [replyId,   setReplyId]   = useState<string | null>(null);
   const [replyText, setReplyText] = useState("");
-  const [saving,   setSaving]   = useState(false);
+  const [saving,    setSaving]    = useState(false);
 
   async function load() {
     setLoading(true);
@@ -70,8 +70,8 @@ export default function AdminAvis() {
     return true;
   });
 
-  const pending  = reviews.filter(r => !r.approved).length;
-  const approved = reviews.filter(r =>  r.approved).length;
+  const pending   = reviews.filter(r => !r.approved).length;
+  const approved  = reviews.filter(r =>  r.approved).length;
   const avgRating = reviews.length > 0
     ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
     : "—";
@@ -79,7 +79,7 @@ export default function AdminAvis() {
   function Stars({ n }: { n: number }) {
     return (
       <span>
-        {[1,2,3,4,5].map(i => (
+        {[1, 2, 3, 4, 5].map(i => (
           <span key={i} style={{ color: i <= n ? "#c49a4a" : "#e5e7eb", fontSize: 16 }}>★</span>
         ))}
       </span>
@@ -99,9 +99,9 @@ export default function AdminAvis() {
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
         {[
-          { label: "Total",     value: reviews.length,  color: "#1a1410" },
-          { label: "En attente",value: pending,          color: "#92400e" },
-          { label: "Publiés",   value: approved,         color: "#166534" },
+          { label: "Total",      value: reviews.length, color: "#1a1410" },
+          { label: "En attente", value: pending,         color: "#92400e" },
+          { label: "Publiés",    value: approved,        color: "#166534" },
         ].map(s => (
           <div key={s.label} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", padding: "18px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 28, fontWeight: 950, color: s.color, lineHeight: 1 }}>{s.value}</div>
@@ -110,11 +110,23 @@ export default function AdminAvis() {
         ))}
       </div>
 
-      {/* Filtres */}
+      {/* ✅ Filtres — plus de border en double */}
       <div style={{ display: "flex", gap: 8, marginBottom: 20 }}>
         {(["all", "pending", "approved"] as const).map(f => (
-          <button key={f} onClick={() => setFilter(f)}
-            style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 13, background: filter === f ? "#1a1410" : "#fff", color: filter === f ? "#f2ede6" : "rgba(26,20,16,0.6)", border: filter === f ? "none" : "1px solid rgba(0,0,0,0.1)" as any }}>
+          <button
+            key={f}
+            onClick={() => setFilter(f)}
+            style={{
+              padding: "9px 18px",
+              borderRadius: 99,
+              cursor: "pointer",
+              fontWeight: 800,
+              fontSize: 13,
+              background: filter === f ? "#1a1410" : "#fff",
+              color:      filter === f ? "#f2ede6" : "rgba(26,20,16,0.6)",
+              border:     filter === f ? "2px solid #1a1410" : "1px solid rgba(0,0,0,0.1)",
+            }}
+          >
             {f === "all" ? "Tous" : f === "pending" ? `En attente (${pending})` : `Publiés (${approved})`}
           </button>
         ))}
@@ -139,24 +151,33 @@ export default function AdminAvis() {
                     <span style={{ fontWeight: 900, fontSize: 16, color: "#1a1410" }}>{r.customer_name}</span>
                     <Stars n={r.rating} />
                     {!r.approved && (
-                      <span style={{ padding: "3px 10px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 800 }}>En attente</span>
+                      <span style={{ padding: "3px 10px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 11, fontWeight: 800 }}>
+                        En attente
+                      </span>
                     )}
                   </div>
                   <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>
                     {r.customer_email} · {r.products?.name ?? "Produit"} · {new Date(r.created_at).toLocaleDateString("fr-FR")}
                   </div>
                 </div>
+
                 <div style={{ display: "flex", gap: 8 }}>
-                  <button onClick={() => toggleApprove(r.id, r.approved)}
-                    style={{ padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 13, background: r.approved ? "#fee2e2" : "#dcfce7", color: r.approved ? "#b91c1c" : "#166534" }}>
+                  <button
+                    onClick={() => toggleApprove(r.id, r.approved)}
+                    style={{ padding: "8px 14px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 13, background: r.approved ? "#fee2e2" : "#dcfce7", color: r.approved ? "#b91c1c" : "#166534" }}
+                  >
                     {r.approved ? "Dépublier" : "Publier"}
                   </button>
-                  <button onClick={() => { setReplyId(r.id); setReplyText(r.reply ?? ""); }}
-                    style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", fontWeight: 800, fontSize: 13, background: "#f5f0e8", color: "#1a1410" }}>
+                  <button
+                    onClick={() => { setReplyId(r.id); setReplyText(r.reply ?? ""); }}
+                    style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", fontWeight: 800, fontSize: 13, background: "#f5f0e8", color: "#1a1410" }}
+                  >
                     Répondre
                   </button>
-                  <button onClick={() => deleteReview(r.id)}
-                    style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14 }}>
+                  <button
+                    onClick={() => deleteReview(r.id)}
+                    style={{ padding: "8px 12px", borderRadius: 10, border: "none", cursor: "pointer", background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14 }}
+                  >
                     ✕
                   </button>
                 </div>
@@ -170,7 +191,9 @@ export default function AdminAvis() {
 
               {r.reply && (
                 <div style={{ marginTop: 10, padding: "12px 16px", background: "#fffbf0", borderRadius: 10, border: "1px solid rgba(196,154,74,0.2)" }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>Réponse M!LK</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>
+                    Réponse M!LK
+                  </div>
                   <div style={{ fontSize: 14, color: "#1a1410", lineHeight: 1.6 }}>{r.reply}</div>
                 </div>
               )}
@@ -185,12 +208,17 @@ export default function AdminAvis() {
                     style={{ padding: "12px 14px", borderRadius: 10, border: "2px solid #c49a4a", fontSize: 14, fontWeight: 600, outline: "none", resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }}
                   />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <button onClick={() => saveReply(r.id)} disabled={saving}
-                      style={{ padding: "10px 20px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
+                    <button
+                      onClick={() => saveReply(r.id)}
+                      disabled={saving}
+                      style={{ padding: "10px 20px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}
+                    >
                       {saving ? "..." : "Publier la réponse"}
                     </button>
-                    <button onClick={() => { setReplyId(null); setReplyText(""); }}
-                      style={{ padding: "10px 16px", borderRadius: 10, background: "#f5f0e8", color: "#1a1410", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}>
+                    <button
+                      onClick={() => { setReplyId(null); setReplyText(""); }}
+                      style={{ padding: "10px 16px", borderRadius: 10, background: "#f5f0e8", color: "#1a1410", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
+                    >
                       Annuler
                     </button>
                   </div>

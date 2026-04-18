@@ -1,6 +1,11 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
+import type { NextRequest } from "next/server";
 
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -17,12 +22,13 @@ export async function GET(req: Request) {
   return Response.json(data ?? []);
 }
 
-export async function POST(req: Request) {
-  const body = await req.json();
+export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
 
+  const body  = await req.json();
   const clean: Record<string, any> = { ...body };
 
-  // ✅ Sanitize uniquement si les champs sont présents
   if ("price_ttc"   in body) clean.price_ttc   = isNaN(Number(body.price_ttc))   ? 0    : Number(body.price_ttc);
   if ("promo_price" in body) clean.promo_price  = (!body.promo_price || isNaN(Number(body.promo_price))) ? null : Number(body.promo_price);
   if ("stock"       in body) clean.stock        = isNaN(Number(body.stock))       ? 0    : Number(body.stock);
@@ -37,13 +43,14 @@ export async function POST(req: Request) {
   return Response.json(data);
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { id, ...rest } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const clean: Record<string, any> = { ...rest };
-
-  // ✅ Sanitize uniquement les champs présents — évite d'écraser avec 0 lors d'une MAJ partielle
   if ("price_ttc"   in rest) clean.price_ttc   = isNaN(Number(rest.price_ttc))   ? 0    : Number(rest.price_ttc);
   if ("promo_price" in rest) clean.promo_price  = (!rest.promo_price || isNaN(Number(rest.promo_price))) ? null : Number(rest.promo_price);
   if ("stock"       in rest) clean.stock        = isNaN(Number(rest.stock))       ? 0    : Number(rest.stock);
@@ -58,14 +65,15 @@ export async function PUT(req: Request) {
   return Response.json(data);
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const { data: product } = await supabaseServer
-    .from("products")
-    .select("image_url, image_url_2, image_url_3, image_url_4")
-    .eq("id", id).single();
+    .from("products").select("image_url, image_url_2, image_url_3, image_url_4").eq("id", id).single();
 
   if (product) {
     const urls = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4]

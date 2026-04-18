@@ -1,40 +1,67 @@
 ﻿"use client";
 
-import { useCart } from "@/context/CartContext";
-import { useAuth } from "@/context/AuthContext";
-import { useState, useEffect, useRef } from "react";
-import Link from "next/link";
+import { useCart }  from "@/context/CartContext";
+import { useAuth }  from "@/context/AuthContext";
+import { useState, useEffect, useCallback } from "react";
+import Link         from "next/link";
 import { useRouter } from "next/navigation";
 
 const FREE_SHIPPING_THRESHOLD = 60;
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
-  const { user } = useAuth();
-  const router = useRouter();
+  const { user }  = useAuth();
+  const router    = useRouter();
 
-  const [loading,      setLoading]      = useState(false);
-  const [promoCode,    setPromoCode]    = useState("");
-  const [promoData,    setPromoData]    = useState<any>(null);
-  const [promoError,   setPromoError]   = useState("");
-  const [promoLoading, setPromoLoading] = useState(false);
+  const [loading,       setLoading]       = useState(false);
+  const [promoCode,     setPromoCode]     = useState("");
+  const [promoData,     setPromoData]     = useState<any>(null);
+  const [promoError,    setPromoError]    = useState("");
+  const [promoLoading,  setPromoLoading]  = useState(false);
 
-  const subtotal  = items.reduce((s, i) => s + i.price * i.quantity, 0);
-  const discount  = promoData?.discount ?? 0;
-  const freeShip  = promoData?.free_shipping ?? false;
-  const shipping  = (subtotal - discount >= FREE_SHIPPING_THRESHOLD || freeShip) ? 0 : 4.9;
-  const total     = Math.max(0, subtotal - discount) + shipping;
-  const remaining = Math.max(0, FREE_SHIPPING_THRESHOLD - (subtotal - discount));
-  const pct       = Math.min(100, ((subtotal - discount) / FREE_SHIPPING_THRESHOLD) * 100);
+  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  // ✅ Sauvegarde panier abandonné si connecté
+  // ✅ Recalcul automatique de la réduction quand le panier change
+  const recalcPromo = useCallback(async (currentSubtotal: number) => {
+    if (!promoData?.code) return;
+    try {
+      const res  = await fetch("/api/promo/validate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ code: promoData.code, order_total: currentSubtotal }),
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setPromoData(data);
+      } else {
+        // Code plus valide (ex: montant min non atteint)
+        setPromoData(null);
+        setPromoError(data.error ?? "Code promo non applicable");
+      }
+    } catch {}
+  }, [promoData?.code]);
+
+  useEffect(() => {
+    if (promoData?.code) {
+      recalcPromo(subtotal);
+    }
+  }, [subtotal]); // ✅ Se déclenche à chaque changement de sous-total
+
+  const discount    = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
+  const freeShip    = promoData?.free_shipping ?? false;
+  const shipping    = (subtotal - discount >= FREE_SHIPPING_THRESHOLD || freeShip) ? 0 : 4.9;
+  const total       = Math.max(0, subtotal - discount) + shipping;
+  const remaining   = Math.max(0, FREE_SHIPPING_THRESHOLD - (subtotal - discount));
+  const pct         = Math.min(100, ((subtotal - discount) / FREE_SHIPPING_THRESHOLD) * 100);
+
+  // Sauvegarde panier abandonné
   useEffect(() => {
     if (!user || items.length === 0) return;
     const timeout = setTimeout(() => {
       fetch("/api/cart/save", {
-        method: "POST",
+        method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email, prenom: user.email?.split("@")[0], items, total: subtotal }),
+        body:    JSON.stringify({ email: user.email, prenom: user.email?.split("@")[0] ?? "", items, total: subtotal }),
       }).catch(() => {});
     }, 3000);
     return () => clearTimeout(timeout);
@@ -44,9 +71,10 @@ export default function CartPage() {
     if (!promoCode.trim()) return;
     setPromoLoading(true); setPromoError(""); setPromoData(null);
     try {
-      const res = await fetch("/api/promo/validate", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: promoCode.trim(), order_total: subtotal }),
+      const res  = await fetch("/api/promo/validate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ code: promoCode.trim(), order_total: subtotal }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Code invalide");
@@ -60,17 +88,12 @@ export default function CartPage() {
 
   async function handleCheckout() {
     if (items.length === 0) return;
-
-    // ✅ Vérification connexion obligatoire
-    if (!user) {
-      router.push("/connexion?redirect=/panier");
-      return;
-    }
-
+    if (!user) { router.push("/connexion?redirect=/panier"); return; }
     setLoading(true);
-    const res = await fetch("/api/checkout/create-session", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    const res  = await fetch("/api/checkout/create-session", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
         items,
         promo_code:    promoData?.code    ?? null,
         discount:      promoData?.discount ?? 0,
@@ -81,14 +104,13 @@ export default function CartPage() {
     if (data.url) {
       window.location.href = data.url;
     } else {
-      alert("Erreur lors de la création du paiement");
+      alert("Erreur lors du paiement. Réessaie.");
       setLoading(false);
     }
   }
 
   return (
     <div style={{ background: "#f5f0e8", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
-
       <style>{`
         .cart-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
         .cart-sticky  { position: sticky; top: 100px; }
@@ -101,7 +123,6 @@ export default function CartPage() {
       `}</style>
 
       <div style={{ maxWidth: 900, margin: "0 auto" }} className="cart-outer">
-
         <h1 style={{ margin: "0 0 32px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>
           Mon panier
         </h1>
@@ -114,7 +135,6 @@ export default function CartPage() {
               Voir les produits →
             </Link>
           </div>
-
         ) : (
           <div className="cart-layout">
 
@@ -124,26 +144,28 @@ export default function CartPage() {
               {/* Barre livraison gratuite */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                 {freeShip ? (
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>✅ Livraison offerte avec ton code promo !</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
+                    ✓ Livraison offerte avec ton code promo !
+                  </div>
                 ) : remaining > 0 ? (
                   <>
-                    <div style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
-                      Plus que <strong>{remaining.toFixed(2)} €</strong> pour la livraison offerte 🚚
+                    <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
+                      Plus que <strong>{remaining.toFixed(2)} €</strong> pour la livraison offerte
                     </div>
                     <div style={{ height: 6, background: "#ede8df", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: "#c49a4a", borderRadius: 99, transition: "width 0.4s ease" }} />
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 13, fontWeight: 800, color: "#16a34a" }}>✅ Livraison offerte sur votre commande !</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>✓ Livraison offerte !</div>
                 )}
               </div>
 
-              {/* ✅ Bandeau connexion obligatoire */}
+              {/* Bandeau connexion si non connecté */}
               {!user && (
                 <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)" }}>
                   <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 6 }}>
-                    🔐 Connexion requise pour commander
+                    Connexion requise pour commander
                   </div>
                   <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 16, lineHeight: 1.6 }}>
                     Crée ton compte M!LK pour finaliser ta commande et suivre tes livraisons.
@@ -161,7 +183,7 @@ export default function CartPage() {
                 </div>
               )}
 
-              {/* Articles */}
+              {/* Liste articles */}
               {items.map(item => (
                 <div key={item.id} style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 120 }}>
@@ -176,13 +198,15 @@ export default function CartPage() {
                   <div style={{ fontWeight: 950, fontSize: 18, color: "#1a1410", minWidth: 70, textAlign: "right", flexShrink: 0 }}>
                     {(item.price * item.quantity).toFixed(2)} €
                   </div>
-                  <button onClick={() => removeFromCart(item.id)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>✕</button>
+                  <button onClick={() => removeFromCart(item.id)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+                    ✕
+                  </button>
                 </div>
               ))}
 
               {/* Code promo */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>🏷 Code promo</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>Code promo</div>
                 {promoData ? (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 12, background: "#dcfce7", border: "1px solid #86efac" }}>
                     <div>
@@ -191,7 +215,10 @@ export default function CartPage() {
                         {promoData.free_shipping ? "Livraison offerte" : `− ${promoData.discount.toFixed(2)} €`}
                       </span>
                     </div>
-                    <button onClick={() => { setPromoData(null); setPromoCode(""); }} style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>Supprimer</button>
+                    <button onClick={() => { setPromoData(null); setPromoCode(""); setPromoError(""); }}
+                      style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>
+                      Supprimer
+                    </button>
                   </div>
                 ) : (
                   <div style={{ display: "flex", gap: 10 }}>
@@ -207,7 +234,9 @@ export default function CartPage() {
                     </button>
                   </div>
                 )}
-                {promoError && <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>❌ {promoError}</div>}
+                {promoError && (
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>❌ {promoError}</div>
+                )}
               </div>
             </div>
 
@@ -218,12 +247,19 @@ export default function CartPage() {
 
                 <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
-                    <span>Sous-total</span><span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} €</span>
+                    <span>Sous-total</span>
+                    <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} €</span>
                   </div>
-                  {promoData && (
+                  {promoData && !promoData.free_shipping && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
                       <span style={{ fontWeight: 700 }}>Code {promoData.code}</span>
-                      <span style={{ fontWeight: 800 }}>{promoData.free_shipping ? "Livraison offerte" : `− ${discount.toFixed(2)} €`}</span>
+                      <span style={{ fontWeight: 800 }}>− {discount.toFixed(2)} €</span>
+                    </div>
+                  )}
+                  {promoData?.free_shipping && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
+                      <span style={{ fontWeight: 700 }}>Code {promoData.code}</span>
+                      <span style={{ fontWeight: 800 }}>Livraison offerte</span>
                     </div>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
@@ -234,22 +270,14 @@ export default function CartPage() {
                   </div>
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
-                    <span>Total TTC</span><span>{total.toFixed(2)} €</span>
+                    <span>Total TTC</span>
+                    <span>{total.toFixed(2)} €</span>
                   </div>
                 </div>
 
-                {/* ✅ Bouton paiement — avec message si non connecté */}
-                <button
-                  onClick={handleCheckout}
-                  disabled={loading}
-                  style={{
-                    width: "100%", padding: "16px", borderRadius: 14,
-                    background: loading ? "#d1cdc8" : !user ? "#c49a4a" : "#1a1410",
-                    color: !user ? "#1a1410" : "#f2ede6",
-                    fontWeight: 900, fontSize: 16, border: "none",
-                    cursor: loading ? "not-allowed" : "pointer", marginBottom: 12,
-                  }}>
-                  {loading ? "Redirection..." : !user ? "🔐 Se connecter pour commander" : "Passer au paiement →"}
+                <button onClick={handleCheckout} disabled={loading}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: loading ? "#d1cdc8" : !user ? "#c49a4a" : "#1a1410", color: !user ? "#1a1410" : "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: loading ? "not-allowed" : "pointer", marginBottom: 12 }}>
+                  {loading ? "Redirection..." : !user ? "Se connecter pour commander" : "Passer au paiement →"}
                 </button>
 
                 <button onClick={clearCart}
@@ -258,13 +286,12 @@ export default function CartPage() {
                 </button>
 
                 <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-                  {["🔒 Paiement sécurisé Stripe", "🌿 100% Bambou OEKO-TEX", "↩️ Retour gratuit 30 jours"].map(r => (
+                  {["Paiement sécurisé Stripe", "100% Bambou OEKO-TEX", "Retour gratuit 30 jours"].map(r => (
                     <div key={r} style={{ fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.45)", textAlign: "center" }}>{r}</div>
                   ))}
                 </div>
               </div>
             </div>
-
           </div>
         )}
       </div>

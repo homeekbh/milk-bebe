@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
-import { supabase } from "@/lib/supabase-client";
-import { Suspense } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams }    from "next/navigation";
+import { supabase }                      from "@/lib/supabase-client";
 
 function AdminLoginContent() {
   const router       = useRouter();
@@ -15,13 +14,17 @@ function AdminLoginContent() {
   const [loading,  setLoading]  = useState(false);
   const [error,    setError]    = useState("");
 
-  // Si déjà connecté et admin → rediriger
   useEffect(() => {
+    // Vérifier si déjà connecté admin
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session) return;
-      const { data: profile } = await supabase
-        .from("profiles").select("is_admin").eq("id", session.user.id).single();
-      if (profile?.is_admin) router.replace(redirect);
+      if (!session?.access_token) return;
+      const res = await fetch("/api/auth/check-admin", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ access_token: session.access_token }),
+      });
+      const data = await res.json();
+      if (data.is_admin) router.replace(redirect);
     });
   }, [redirect, router]);
 
@@ -32,17 +35,21 @@ function AdminLoginContent() {
 
     const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (authError || !data.user) {
+    if (authError || !data.user || !data.session) {
       setError("Email ou mot de passe incorrect.");
       setLoading(false);
       return;
     }
 
-    // Vérifier is_admin
-    const { data: profile } = await supabase
-      .from("profiles").select("is_admin").eq("id", data.user.id).single();
+    // Vérifier is_admin via API serveur
+    const res  = await fetch("/api/auth/check-admin", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ access_token: data.session.access_token }),
+    });
+    const result = await res.json();
 
-    if (!profile?.is_admin) {
+    if (!result.is_admin) {
       await supabase.auth.signOut();
       setError("Accès non autorisé. Ce compte n'est pas administrateur.");
       setLoading(false);
@@ -56,18 +63,18 @@ function AdminLoginContent() {
     <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center", padding: 24 }}>
       <div style={{ width: "100%", maxWidth: 420 }}>
 
-        {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 40 }}>
           <div style={{ display: "inline-block", background: "#c49a4a", borderRadius: 16, padding: "14px 28px", marginBottom: 16 }}>
-            <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 28, letterSpacing: -1.5 }}>M!LK</span>
+            <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 28, letterSpacing: -1.5 }}>
+              M<span style={{ fontSize: 34, display: "inline-block", transform: "translateY(-3px)" }}>!</span>LK
+            </span>
           </div>
-          <div style={{ fontSize: 14, color: "rgba(242,237,230,0.4)", fontWeight: 600, letterSpacing: 2, textTransform: "uppercase" }}>
+          <div style={{ fontSize: 13, color: "rgba(242,237,230,0.4)", fontWeight: 600, letterSpacing: 3, textTransform: "uppercase" }}>
             Accès administration
           </div>
         </div>
 
         <div style={{ background: "#221c16", borderRadius: 24, border: "1px solid rgba(242,237,230,0.08)", padding: 36 }}>
-
           <form onSubmit={handleLogin} style={{ display: "grid", gap: 18 }}>
 
             <div style={{ display: "grid", gap: 8 }}>
@@ -75,12 +82,10 @@ function AdminLoginContent() {
                 Email admin
               </label>
               <input
-                type="email"
-                value={email}
+                type="email" value={email}
                 onChange={e => setEmail(e.target.value)}
-                required
+                required autoComplete="email"
                 placeholder="admin@milkbebe.fr"
-                autoComplete="email"
                 style={{ padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(242,237,230,0.12)", fontSize: 15, outline: "none", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontWeight: 600, width: "100%", boxSizing: "border-box" }}
               />
             </div>
@@ -90,12 +95,10 @@ function AdminLoginContent() {
                 Mot de passe
               </label>
               <input
-                type="password"
-                value={password}
+                type="password" value={password}
                 onChange={e => setPassword(e.target.value)}
-                required
-                placeholder="••••••••••"
-                autoComplete="current-password"
+                required autoComplete="current-password"
+                placeholder="••••••••"
                 style={{ padding: "13px 16px", borderRadius: 12, border: "1px solid rgba(242,237,230,0.12)", fontSize: 15, outline: "none", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontWeight: 600, width: "100%", boxSizing: "border-box" }}
               />
             </div>
@@ -107,13 +110,11 @@ function AdminLoginContent() {
             )}
 
             <button
-              type="submit"
-              disabled={loading}
+              type="submit" disabled={loading}
               style={{ padding: "15px", borderRadius: 12, background: loading ? "rgba(196,154,74,0.4)" : "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 16, border: "none", cursor: loading ? "not-allowed" : "pointer", marginTop: 4, transition: "all 0.2s" }}
             >
               {loading ? "Connexion..." : "Accéder à l'admin →"}
             </button>
-
           </form>
 
           <div style={{ marginTop: 24, paddingTop: 20, borderTop: "1px solid rgba(242,237,230,0.06)", textAlign: "center" }}>

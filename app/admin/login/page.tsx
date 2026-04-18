@@ -16,33 +16,34 @@ function AdminLoginContent() {
   const [checking, setChecking] = useState(true);
   const [error,    setError]    = useState("");
 
-  // ✅ Au chargement — si déjà connecté admin, rediriger directement
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        // Vérifier par email (plus simple et fiable)
-        if (ADMIN_EMAILS.includes(session.user.email ?? "")) {
+    async function checkSession() {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) { setChecking(false); return; }
+
+        const sessionEmail = session.user.email ?? "";
+        if (ADMIN_EMAILS.includes(sessionEmail)) {
           window.location.href = redirect;
           return;
         }
-        // Ou vérifier is_admin dans profiles
-        supabase
+
+        const { data: profile } = await supabase
           .from("profiles")
           .select("is_admin")
           .eq("id", session.user.id)
-          .single()
-          .then(({ data }) => {
-            if (data?.is_admin) {
-              window.location.href = redirect;
-            } else {
-              setChecking(false);
-            }
-          })
-          .catch(() => setChecking(false));
-      } else {
+          .single();
+
+        if (profile?.is_admin) {
+          window.location.href = redirect;
+        } else {
+          setChecking(false);
+        }
+      } catch {
         setChecking(false);
       }
-    });
+    }
+    checkSession();
   }, [redirect]);
 
   async function handleLogin(e: React.FormEvent) {
@@ -50,39 +51,41 @@ function AdminLoginContent() {
     setLoading(true);
     setError("");
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (authError || !data.user) {
-      setError("Email ou mot de passe incorrect.");
+      if (authError || !data.user) {
+        setError("Email ou mot de passe incorrect.");
+        setLoading(false);
+        return;
+      }
+
+      const userEmail = data.user.email ?? "";
+
+      if (ADMIN_EMAILS.includes(userEmail)) {
+        window.location.href = redirect;
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", data.user.id)
+        .single();
+
+      if (profile?.is_admin) {
+        window.location.href = redirect;
+      } else {
+        await supabase.auth.signOut();
+        setError("Accès non autorisé.");
+        setLoading(false);
+      }
+    } catch {
+      setError("Erreur de connexion.");
       setLoading(false);
-      return;
     }
-
-    // Vérifier par email OU is_admin
-    const isAdminEmail = ADMIN_EMAILS.includes(data.user.email ?? "");
-    
-    if (isAdminEmail) {
-      window.location.href = redirect;
-      return;
-    }
-
-    const { data: profile } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", data.user.id)
-      .single();
-
-    if (profile?.is_admin) {
-      window.location.href = redirect;
-      return;
-    }
-
-    await supabase.auth.signOut();
-    setError("Accès non autorisé.");
-    setLoading(false);
   }
 
-  // Vérification session en cours
   if (checking) {
     return (
       <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>

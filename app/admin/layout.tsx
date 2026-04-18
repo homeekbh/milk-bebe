@@ -1,9 +1,9 @@
 ﻿"use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import Link from "next/link";
+import Link         from "next/link";
 import { useEffect, useState } from "react";
-import { useAuth } from "@/context/AuthContext";
+import { supabase } from "@/lib/supabase-client";
 import SearchGlobal from "@/components/admin/SearchGlobal";
 
 const NAV = [
@@ -12,6 +12,7 @@ const NAV = [
   { href: "/admin/commandes",    label: "Commandes",    icon: "📦" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
   { href: "/admin/codes-promos", label: "Codes promos", icon: "🎟" },
+  { href: "/admin/avis",         label: "Avis",         icon: "★"  },
   { href: "/admin/popups",       label: "Pop-ups",      icon: "💬" },
   { href: "/admin/newsletter",   label: "Newsletter",   icon: "📧" },
   { href: "/admin/comptabilite", label: "Comptabilité", icon: "📊" },
@@ -19,11 +20,14 @@ const NAV = [
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname       = usePathname();
-  const router         = useRouter();
-  const { user, isAdmin, loading, signOut } = useAuth();
-  const [mobile, setMobile] = useState(false);
-  const [open,   setOpen]   = useState(false);
+  const pathname = usePathname();
+  const router   = useRouter();
+
+  const [checking, setChecking] = useState(true);
+  const [allowed,  setAllowed]  = useState(false);
+  const [email,    setEmail]    = useState("");
+  const [mobile,   setMobile]   = useState(false);
+  const [open,     setOpen]     = useState(false);
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 768);
@@ -32,28 +36,59 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Ne pas bloquer la page de login admin
+  useEffect(() => {
+    if (pathname === "/admin/login") {
+      setChecking(false);
+      setAllowed(true);
+      return;
+    }
+
+    async function verify() {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        window.location.href = "/admin/login?redirect=" + encodeURIComponent(pathname);
+        return;
+      }
+
+      // Vérifier is_admin
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", session.user.id)
+        .single();
+
+      if (!profile?.is_admin) {
+        window.location.href = "/admin/login";
+        return;
+      }
+
+      setEmail(session.user.email ?? "");
+      setAllowed(true);
+      setChecking(false);
+    }
+
+    verify();
+  }, [pathname]);
+
+  async function handleSignOut() {
+    await supabase.auth.signOut();
+    window.location.href = "/";
+  }
+
+  // Page login — pas de layout
   if (pathname === "/admin/login") return <>{children}</>;
 
-  // Pendant le chargement
-  if (loading) {
+  // Vérification en cours
+  if (checking) {
     return (
       <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
-        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16 }}>Chargement...</div>
+        <div style={{ color: "rgba(242,237,230,0.4)", fontSize: 16 }}>Vérification...</div>
       </div>
     );
   }
 
-  // Pas connecté ou pas admin → le middleware s'en charge, mais sécurité côté client aussi
-  if (!user || !isAdmin) {
-    router.replace("/admin/login");
-    return null;
-  }
-
-  async function handleSignOut() {
-    await signOut();
-    router.push("/");
-  }
+  if (!allowed) return null;
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f0e8" }}>
@@ -61,7 +96,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ── Sidebar desktop ── */}
       <aside style={{ width: 240, flexShrink: 0, background: "#1a1410", display: mobile ? "none" : "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, overflowY: "auto", zIndex: 100 }}>
 
-        {/* Logo */}
         <div style={{ padding: "24px 20px", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>
           <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
             <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22, letterSpacing: -1 }}>M!LK</span>
@@ -69,7 +103,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        {/* Nav */}
         <nav style={{ flex: 1, padding: "16px 12px" }}>
           {NAV.map(item => {
             const active = item.href === "/admin"
@@ -85,34 +118,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           })}
         </nav>
 
-        {/* Footer sidebar */}
         <div style={{ padding: "16px 12px", borderTop: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 6 }}>
-
-          {/* Profil admin */}
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(242,237,230,0.06)" }}>
-            <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(242,237,230,0.6)", marginBottom: 2 }}>Admin connecté</div>
-            <div style={{ fontSize: 12, color: "rgba(242,237,230,0.35)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-              {user.email}
-            </div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(242,237,230,0.4)", marginBottom: 2 }}>Admin connecté</div>
+            <div style={{ fontSize: 11, color: "rgba(242,237,230,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{email}</div>
           </div>
-
           <Link href="/" target="_blank"
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, textDecoration: "none", color: "rgba(242,237,230,0.35)", fontSize: 13, fontWeight: 700 }}>
-            <span>↗</span> Voir le site
+            ↗ Voir le site
           </Link>
-
-          <button
-            onClick={handleSignOut}
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)", color: "#f87171", fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}
-          >
-            <span>⇥</span> Déconnexion
+          <button onClick={handleSignOut}
+            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)", color: "#f87171", fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}>
+            ⇥ Déconnexion
           </button>
         </div>
       </aside>
 
       {/* ── Drawer mobile ── */}
       {mobile && open && (
-        <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200 }}>
+        <div onClick={() => setOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200 }}>
           <div onClick={e => e.stopPropagation()}
             style={{ width: 260, height: "100%", background: "#1a1410", padding: "24px 12px", display: "flex", flexDirection: "column", overflowY: "auto" }}>
             <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 10 }}>
@@ -130,12 +155,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               );
             })}
             <div style={{ marginTop: "auto", paddingTop: 16, borderTop: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 8 }}>
-              <Link href="/" target="_blank" onClick={() => setOpen(false)}
-                style={{ padding: "10px 14px", borderRadius: 10, textDecoration: "none", color: "rgba(242,237,230,0.35)", fontSize: 13, fontWeight: 700, display: "block" }}>
-                ↗ Voir le site
-              </Link>
-              <button
-                onClick={handleSignOut}
+              <button onClick={handleSignOut}
                 style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(220,38,38,0.1)", border: "none", color: "#f87171", fontSize: 13, fontWeight: 700, cursor: "pointer", textAlign: "left" }}>
                 ⇥ Déconnexion
               </button>
@@ -147,7 +167,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ── Contenu ── */}
       <div style={{ flex: 1, marginLeft: mobile ? 0 : 240, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
-        {/* Header */}
         <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.95)", backdropFilter: "blur(8px)", borderBottom: "1px solid rgba(26,20,16,0.08)", padding: "0 24px", height: 60, display: "flex", alignItems: "center", gap: 16 }}>
           {mobile && (
             <button onClick={() => setOpen(true)}
@@ -155,22 +174,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               ☰
             </button>
           )}
-
           <SearchGlobal />
-
           <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
-            {/* Lien vers le site en tant que client */}
             <Link href="/produits" target="_blank"
               style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(26,20,16,0.08)", color: "rgba(26,20,16,0.6)", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
-              👁 Voir site
+              ↗ Voir site
             </Link>
             <div style={{ width: 32, height: 32, borderRadius: 99, background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 950, color: "#1a1410" }}>
-              {user.email?.slice(0, 1).toUpperCase()}
+              {email.slice(0, 1).toUpperCase()}
             </div>
           </div>
         </header>
 
-        {/* Page */}
         <main style={{ flex: 1, overflowY: "auto" }}>
           {children}
         </main>

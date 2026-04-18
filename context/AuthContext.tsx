@@ -27,12 +27,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   async function checkAdmin(userId: string) {
-    const { data } = await supabase
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", userId)
-      .single();
-    setIsAdmin(data?.is_admin === true);
+    try {
+      const { data } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", userId)
+        .single();
+      setIsAdmin(data?.is_admin === true);
+    } catch {
+      setIsAdmin(false);
+    }
   }
 
   useEffect(() => {
@@ -59,6 +63,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function signOut() {
     await supabase.auth.signOut();
     setIsAdmin(false);
+    setUser(null);
+    setSession(null);
   }
 
   return (

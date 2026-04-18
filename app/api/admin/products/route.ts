@@ -1,11 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -23,9 +19,6 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
   const body  = await req.json();
   const clean: Record<string, any> = { ...body };
 
@@ -44,9 +37,6 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
   const { id, ...rest } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
@@ -66,14 +56,13 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
   const { id } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const { data: product } = await supabaseServer
-    .from("products").select("image_url, image_url_2, image_url_3, image_url_4").eq("id", id).single();
+    .from("products")
+    .select("image_url, image_url_2, image_url_3, image_url_4")
+    .eq("id", id).single();
 
   if (product) {
     const urls = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4]
@@ -81,9 +70,7 @@ export async function DELETE(req: NextRequest) {
       .filter((url: string) => url.includes("supabase"))
       .map((url: string) => url.split("/product-images/")[1])
       .filter(Boolean);
-    if (urls.length > 0) {
-      await supabaseServer.storage.from("product-images").remove(urls);
-    }
+    if (urls.length > 0) await supabaseServer.storage.from("product-images").remove(urls);
   }
 
   const { error } = await supabaseServer.from("products").delete().eq("id", id);

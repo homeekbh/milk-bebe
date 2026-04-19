@@ -20,14 +20,6 @@ function getMotifDetails(slug: string) {
   return null;
 }
 
-function getProductSubtitle(category: string): string {
-  if (category === "pyjamas")     return "Double zip + moufles intégrées = fin des batailles quotidiennes.";
-  if (category === "bodies")      return "Habillage en deux gestes. Mains protégées. Sans accessoires.";
-  if (category === "gigoteuses")  return "Change express. Zéro boutons. Zéro galère à 3h du matin.";
-  if (category === "accessoires") return "Le sommeil avant le style.";
-  return "";
-}
-
 function getProductFeatures(category: string): string[] {
   if (category === "bodies") return [
     "Col enveloppe élargi : passe sur la tête sans forcer, zéro pression sur la fontanelle",
@@ -289,7 +281,6 @@ export default function ProductPage() {
   const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
   const outTaille      = taille ? Number(sizesStock[taille] ?? product.stock ?? 0) <= 0 : out;
   const cartCount      = items.reduce((s, i) => s + i.quantity, 0);
-  const subtitle       = getProductSubtitle(product.category_slug ?? "");
   const features       = getProductFeatures(product.category_slug ?? "");
   const whyResult      = getWhyResult(product.category_slug ?? "");
   const philosophy     = getPhilosophy(product.category_slug ?? "");
@@ -314,17 +305,18 @@ export default function ProductPage() {
         .photo-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .photo-item { position: relative; aspect-ratio: 3/4; border-radius: 14px; overflow: hidden; background: #ede8df; cursor: zoom-in; }
         .photo-item.single { grid-column: 1 / -1; aspect-ratio: 4/5; }
-        .care-stack { display: grid; grid-template-columns: 1fr; gap: 14px; }
+        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
         @media (max-width: 900px) {
           .pl-outer { grid-template-columns: 1fr !important; }
           .pl-left  { padding: 12px 4vw 24px !important; }
           .pl-right { position: static !important; max-height: none !important; padding: 0 4vw 120px !important; overflow: visible !important; }
           .photo-row { gap: 6px; margin-bottom: 6px; }
+          .bottom-grid { grid-template-columns: 1fr !important; }
         }
       `}</style>
 
       {/* Breadcrumb */}
-      <div style={{ paddingTop: 84, maxWidth: 1800, margin: "0 auto", padding: "84px 4vw 0" }}>
+      <div style={{ maxWidth: 1800, margin: "0 auto", padding: "84px 4vw 0" }}>
         <div style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(26,20,16,0.4)", flexWrap: "wrap", paddingBottom: 8 }}>
           <Link href="/"         style={{ textDecoration: "none", color: "inherit" }}>Accueil</Link>
           <span>/</span>
@@ -372,21 +364,24 @@ export default function ProductPage() {
         {/* ─── DROITE : panneau achat ─── */}
         <div className="pl-right">
 
+          {/* Catégorie */}
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a" }}>
             {product.category_slug ?? "M!LK"} · Bambou OEKO-TEX
           </div>
 
+          {/* Titre */}
           <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: "#1a1410" }}>
             {product.name}
           </h1>
 
+          {/* Prix */}
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>{Number(displayPrice).toFixed(2)} €</span>
             {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
           </div>
 
-          {/* ── FEATURES — carte sous titre/prix ── */}
+          {/* ── FEATURES (coches) sous titre/prix ── */}
           {features.length > 0 && (
             <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column", gap: 11 }}>
               {features.map((feat, i) => {
@@ -414,24 +409,6 @@ export default function ProductPage() {
               <span style={{ color: "#c49a4a", fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
             </div>
           )}
-
-          {/* Pourquoi le bambou */}
-          <details style={{ background: "rgba(196,154,74,0.07)", borderRadius: 12, border: "1px solid rgba(196,154,74,0.15)", overflow: "hidden" }}>
-            <summary style={{ padding: "11px 14px", cursor: "pointer", fontWeight: 800, fontSize: 13, color: "#c49a4a", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              Pourquoi le bambou M!LK ?
-              <span style={{ fontSize: 16, fontWeight: 300 }}>+</span>
-            </summary>
-            <div style={{ padding: "0 14px 14px", fontSize: 13, lineHeight: 1.8, color: "rgba(26,20,16,0.6)" }}>
-              Le bambou n'est pas juste "tendance", il est surtout fonctionnel. Naturellement doux et respectueux des peaux sensibles. Respirant — limite la surchauffe. Thermorégulateur — frais l'été, chaud l'hiver. Absorbe l'humidité pour un confort optimal, jour et nuit.{" "}
-              <strong style={{ color: "#1a1410" }}>Un seul vêtement, toute l'année. Pas besoin d'en faire des tonnes.</strong>
-            </div>
-          </details>
-
-          <div style={{ padding: "10px 14px", borderRadius: 10, background: "#2a2018", display: "flex", gap: 14, flexWrap: "wrap" }}>
-            <div style={{ fontSize: 12, color: "rgba(242,237,230,0.7)" }}>
-              <strong style={{ color: "#c49a4a" }}>Composition :</strong> 95 % viscose de bambou · 5 % élasthanne
-            </div>
-          </div>
 
           {/* Couleurs */}
           {couleursDispos.length > 0 && (
@@ -498,7 +475,7 @@ export default function ProductPage() {
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 280 }}>
                     <thead>
                       <tr style={{ background: "#f9f6f2" }}>
-                        {["Taille","Poids","Poitrine (pyjama)","Longueur (pyjama)"].map(h => (
+                        {["Taille","Poids","Poitrine","Longueur"].map(h => (
                           <th key={h} style={{ padding: "8px 10px", textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
                       </tr>
@@ -514,7 +491,7 @@ export default function ProductPage() {
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "#f9f6f2" }}>En cas de doute, prenez la taille supérieure. Mesures relevées à plat sur le vêtement.</div>
+                  <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "#f9f6f2" }}>En cas de doute, prenez la taille supérieure.</div>
                 </div>
               )}
             </div>
@@ -557,53 +534,40 @@ export default function ProductPage() {
             ))}
           </div>
 
-          {/* Composition + Entretien */}
-          <div className="care-stack">
-            <div style={{ padding: "18px 20px", borderRadius: 16, background: "#2a2018", color: "#f2ede6" }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950 }}>Composition</h3>
-              {[
-                { label: "Matière",    value: "95 % viscose de bambou · 5 % élasthanne"            },
-                { label: "Cert.",      value: "OEKO-TEX Standard 100"                               },
-                { label: "Douceur",    value: "3× plus doux que le coton"                           },
-                { label: "Propriétés", value: "Thermorégulateur · Antibactérien · Hypoallergénique" },
-              ].map(row => (
-                <div key={row.label} style={{ display: "flex", justifyContent: "space-between", gap: 8, paddingBottom: 7, borderBottom: "1px solid rgba(242,237,230,0.06)", marginBottom: 7 }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", flexShrink: 0, paddingTop: 1 }}>{row.label}</span>
-                  <span style={{ fontSize: "clamp(11px,1vw,13px)", color: "rgba(242,237,230,0.65)", textAlign: "right" }}>{row.value}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-              <h3 style={{ margin: "0 0 12px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
-              {[
-                { Icon: IconThermometer, text: "Lavage 40°C, cycle délicat"       },
-                { Icon: IconBan,         text: "Sans adoucissant ni javel"         },
-                { Icon: IconFlat,        text: "Séchage à l'air libre recommandé" },
-                { Icon: IconHeat,        text: "Sèche-linge basse température"     },
-              ].map(item => (
-                <div key={item.text} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
-                  <div style={{ flexShrink: 0 }}><item.Icon /></div>
-                  <span style={{ fontSize: "clamp(12px,1vw,13px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.4 }}>{item.text}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* ── LA VRAIE RAISON + CE QUE TU OBTIENS — sous entretien ── */}
+          {/* ── LA VRAIE RAISON ── */}
           {whyResult && (
-            <>
-              <div style={{ padding: "20px 22px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>La vraie raison</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Pourquoi ce produit existe</div>
-                <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8 }}>{whyResult.why}</p>
-              </div>
-              <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.18)" }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>Ce que tu obtiens</div>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Le résultat</div>
-                <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8, fontWeight: 600 }}>{whyResult.result}</p>
-              </div>
-            </>
+            <div style={{ padding: "20px 22px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>La vraie raison</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Pourquoi ce produit existe</div>
+              <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8 }}>{whyResult.why}</p>
+            </div>
           )}
+
+          {/* ── CE QUE TU OBTIENS ── */}
+          {whyResult && (
+            <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.18)" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>Ce que tu obtiens</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Le résultat</div>
+              <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8, fontWeight: 600 }}>{whyResult.result}</p>
+            </div>
+          )}
+
+          {/* ── CONSEILS D'ENTRETIEN ── */}
+          <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
+            <h3 style={{ margin: "0 0 12px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
+            <div style={{ marginBottom: 10, fontSize: 12, color: "rgba(26,20,16,0.45)", fontWeight: 600 }}>95 % viscose de bambou · 5 % élasthanne · OEKO-TEX Standard 100</div>
+            {[
+              { Icon: IconThermometer, text: "Lavage 40°C, cycle délicat"       },
+              { Icon: IconBan,         text: "Sans adoucissant ni javel"         },
+              { Icon: IconFlat,        text: "Séchage à l'air libre recommandé" },
+              { Icon: IconHeat,        text: "Sèche-linge basse température"     },
+            ].map(item => (
+              <div key={item.text} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
+                <div style={{ flexShrink: 0 }}><item.Icon /></div>
+                <span style={{ fontSize: "clamp(12px,1vw,13px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.4 }}>{item.text}</span>
+              </div>
+            ))}
+          </div>
 
         </div>
       </div>
@@ -611,47 +575,55 @@ export default function ProductPage() {
       {/* ── BAS DE PAGE ── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
 
-        {related.length > 0 && (
-          <div style={{ marginBottom: 48 }}>
-            <div style={{ marginBottom: 22 }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>Complétez votre collection</div>
-              <h2 style={{ margin: 0, fontSize: "clamp(20px,2.5vw,28px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Les clients ont aussi acheté</h2>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 16 }}>
-              {related.map((p: any) => (
-                <Link key={p.id} href={`/produits/${p.slug}`}
-                  style={{ textDecoration: "none", color: "inherit", borderRadius: 16, overflow: "hidden", background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "block", transition: "transform 0.2s, box-shadow 0.2s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-4px)"; (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 12px 32px rgba(0,0,0,0.1)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.transform = ""; (e.currentTarget as HTMLAnchorElement).style.boxShadow = ""; }}>
-                  <div style={{ position: "relative", aspectRatio: "3/4", background: "#ede8df" }}>
-                    {p.image_url ? <Image src={p.image_url} alt={p.name} fill sizes="240px" style={{ objectFit: "cover" }} /> : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 22, fontWeight: 950, color: "#c8bfb2" }}>M!LK</div>}
-                  </div>
-                  <div style={{ padding: "12px 14px" }}>
-                    <div style={{ fontWeight: 800, fontSize: "clamp(13px,1.1vw,15px)", marginBottom: 4, color: "#1a1410", lineHeight: 1.3 }}>{p.name}</div>
-                    <div style={{ fontWeight: 950, fontSize: "clamp(15px,1.4vw,17px)", color: "#1a1410" }}>{Number(p.price_ttc).toFixed(2)} €</div>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* ── CLIENTS + PHILOSOPHIE côte à côte ── */}
+        <div className="bottom-grid" style={{ marginBottom: 24 }}>
 
-        {/* ── PHILOSOPHIE M!LK ── */}
-        {philosophy && (
-          <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018", marginBottom: 24 }}>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
-            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Comment ça réduit ta charge mentale</div>
-            <p style={{ margin: 0, fontSize: "clamp(13px,1.2vw,15px)", color: "rgba(242,237,230,0.7)", lineHeight: 1.85, whiteSpace: "pre-line" }}>{philosophy}</p>
-          </div>
-        )}
+          {/* Clients ont aussi acheté */}
+          {related.length > 0 && (
+            <div>
+              <div style={{ marginBottom: 20 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>Complétez votre collection</div>
+                <h2 style={{ margin: 0, fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Les clients ont aussi acheté</h2>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+                {related.map((p: any) => (
+                  <Link key={p.id} href={`/produits/${p.slug}`}
+                    style={{ textDecoration: "none", color: "inherit", borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "block", transition: "transform 0.2s, box-shadow 0.2s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-4px)"; (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 12px 32px rgba(0,0,0,0.1)"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.transform = ""; (e.currentTarget as HTMLAnchorElement).style.boxShadow = ""; }}>
+                    <div style={{ position: "relative", aspectRatio: "3/4", background: "#ede8df" }}>
+                      {p.image_url ? <Image src={p.image_url} alt={p.name} fill sizes="200px" style={{ objectFit: "cover" }} /> : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 20, fontWeight: 950, color: "#c8bfb2" }}>M!LK</div>}
+                    </div>
+                    <div style={{ padding: "10px 12px" }}>
+                      <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4, color: "#1a1410", lineHeight: 1.3 }}>{p.name}</div>
+                      <div style={{ fontWeight: 950, fontSize: 15, color: "#1a1410" }}>{Number(p.price_ttc).toFixed(2)} €</div>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Philosophie M!LK */}
+          {philosophy && (
+            <div style={{ padding: "24px 26px", borderRadius: 20, background: "#2a2018", height: "fit-content" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Comment ça réduit ta charge mentale</div>
+              <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(242,237,230,0.7)", lineHeight: 1.85, whiteSpace: "pre-line" }}>{philosophy}</p>
+            </div>
+          )}
+
+        </div>
 
         {/* ── FAQ ── */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018" }}>
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: "#f2ede6" }}>Questions fréquentes</h3>
           {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
         </div>
+
       </div>
 
+      {/* Mobile CTA fixe */}
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: "rgba(245,240,232,0.97)", backdropFilter: "blur(8px)", borderTop: "1px solid rgba(26,20,16,0.1)" }}>
         <button onClick={handleAddToCart} disabled={outTaille}
           style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "#d1cdc8" : "#1a1410", color: "#f2ede6" }}>

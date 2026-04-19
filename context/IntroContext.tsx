@@ -4,15 +4,14 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 
 type IntroState = {
   isOpen: boolean;
-  open: () => void;
-  close: () => void;
+  open:   () => void;
+  close:  () => void;
   markSeen: () => void;
 };
 
 const IntroCtx = createContext<IntroState | null>(null);
 
 export function IntroProvider({ children }: { children: React.ReactNode }) {
-  // ✅ true au montage = l'intro s'affiche à chaque visite / refresh
   const [isOpen, setIsOpen] = useState(true);
 
   const value = useMemo<IntroState>(() => ({

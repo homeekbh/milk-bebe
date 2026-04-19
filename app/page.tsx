@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useRef, useState, useMemo } from "react";
+import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import Link  from "next/link";
 
@@ -57,7 +57,6 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
-// ✅ SVG Icons — sans emoji
 function IconLeaf({ s=26,c=C.amber }:{s?:number;c?:string}) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 22V9" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>;
 }
@@ -83,7 +82,6 @@ function IconAccessoires({ s=32,c=C.amber }:{s?:number;c?:string}) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={c} strokeWidth="1.6"/></svg>;
 }
 
-// ✅ Ticker — 15 jours + tagline Erika
 const TICKER_ITEMS = [
   "✦ Bambou certifié OEKO-TEX",
   "✦ 3× plus doux que le coton",
@@ -188,20 +186,30 @@ export default function HomePage() {
         .pcard:hover   { transform:translateY(-6px); box-shadow:0 32px 60px rgba(0,0,0,0.4); border-color:rgba(196,154,74,0.4)!important; }
         .pcard:hover .pcard-img { transform:scale(1.06)!important; }
         .cat-card:hover { background:rgba(196,154,74,0.08)!important; border-color:rgba(196,154,74,0.25)!important; transform:translateY(-4px)!important; }
+        .tension-card:hover { border-color:rgba(196,154,74,0.3)!important; transform:translateY(-4px); }
 
         .pgrid    { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
         .catgrid  { grid-template-columns: repeat(4, 1fr); }
         .rgrid    { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
         .kpigrid  { grid-template-columns: repeat(4, 1fr); }
         .reassgrid{ grid-template-columns: repeat(4, 1fr); }
+        .tgrid    { grid-template-columns: repeat(3, 1fr); }
+        .pillars  { grid-template-columns: repeat(4, 1fr); }
+        .comptable{ grid-template-columns: 1.4fr 1fr 1fr; }
 
-        @media (max-width: 1024px) { .catgrid { grid-template-columns: repeat(2, 1fr) !important; } }
+        @media (max-width: 1024px) {
+          .catgrid  { grid-template-columns: repeat(2, 1fr) !important; }
+          .pillars  { grid-template-columns: repeat(2, 1fr) !important; }
+        }
         @media (max-width: 768px) {
           .pgrid    { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
           .catgrid  { grid-template-columns: repeat(2, 1fr) !important; gap: 10px !important; }
           .rgrid    { grid-template-columns: 1fr !important; }
           .kpigrid  { grid-template-columns: 1fr 1fr !important; }
           .reassgrid{ grid-template-columns: 1fr 1fr !important; }
+          .tgrid    { grid-template-columns: 1fr !important; }
+          .pillars  { grid-template-columns: 1fr 1fr !important; }
+          .comptable{ grid-template-columns: 1fr 1fr 1fr !important; font-size: 11px !important; }
           .hero-btns{ flex-direction: column !important; }
           .hero-btns a { text-align: center !important; width: 100%; box-sizing: border-box; }
           .badge-svg { display: none !important; }
@@ -226,7 +234,6 @@ export default function HomePage() {
             L'essentiel.<br /><span style={{ color: C.amber }}>Sans compromis.</span>
           </h1>
 
-          {/* Badge rotatif */}
           <div className="badge-svg" style={{ position: "absolute", top: "50%", right: "6%", transform: "translateY(-50%)", zIndex: 3 }}>
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation: "badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -55,0 a 55,55 0 1,1 110,0 a 55,55 0 1,1 -110,0" fill="none"/>
@@ -273,15 +280,12 @@ export default function HomePage() {
 
       {/* ── SECTION SCROLLANTE ── */}
       <div ref={scrollSection.ref} style={{ background: C.bg }}>
-
-        {/* Texte scrollant haut */}
         <div style={{ overflow: "hidden", paddingTop: 48 }}>
           <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(100vw)", opacity: scrollSection.visible ? 1 : 0, transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease" }}>
             M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN
           </div>
         </div>
 
-        {/* Produits vedettes */}
         {products.length > 0 && (
           <div style={{ padding: "40px 5vw 48px" }}>
             <Reveal>
@@ -330,7 +334,6 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* Catégories */}
         <div style={{ padding: "0 5vw 40px" }}>
           <div className="catgrid" style={{ display: "grid", gap: 14 }}>
             {CATS.map((cat, i) => (
@@ -348,7 +351,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Texte scrollant bas */}
         <div style={{ overflow: "hidden", paddingBottom: 48 }}>
           <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(-100vw)", opacity: scrollSection.visible ? 1 : 0, transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease" }}>
             MOINS D'IRRITATIONS. PLUS DE CALME.
@@ -356,22 +358,32 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ✅ BANDEAU NOIR — signature Erika */}
-      <div style={{ background: "#0f0c09", padding: "44px 5vw" }}>
+      {/* ── BANDEAU CHAUD — textes page 2 + signature ── */}
+      <div style={{ background: "#2d1e10", padding: "56px 5vw" }}>
         <Reveal>
-          <p style={{ margin: 0, fontSize: "clamp(18px,3.5vw,48px)", fontWeight: 800, lineHeight: 1.2, color: "#f2ede6", letterSpacing: -0.5 }}>
+          <p style={{ margin: "0 0 6px", fontSize: "clamp(20px,4vw,52px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
+            Parce que les parents n'ont pas besoin de plus de "mignon",
+          </p>
+          <p style={{ margin: "0 0 28px", fontSize: "clamp(20px,4vw,52px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
+            mais de moins de charge mentale.
+          </p>
+          <p style={{ margin: "0 0 40px", fontSize: "clamp(14px,1.6vw,19px)", color: C.muted, maxWidth: 640, lineHeight: 1.75 }}>
+            M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.
+          </p>
+          <div style={{ width: 60, height: 2, background: C.amber, marginBottom: 32, borderRadius: 2 }} />
+          <p style={{ margin: "0 0 8px", fontSize: "clamp(16px,2.5vw,32px)", fontWeight: 800, lineHeight: 1.2, color: C.warm, letterSpacing: -0.5 }}>
             M!LK n'est pas une marque de vêtements.
           </p>
-          <p style={{ margin: "8px 0 16px", fontSize: "clamp(18px,3.5vw,48px)", fontWeight: 800, lineHeight: 1.2, color: C.amber, letterSpacing: -0.5 }}>
+          <p style={{ margin: "0 0 16px", fontSize: "clamp(16px,2.5vw,32px)", fontWeight: 800, lineHeight: 1.2, color: C.amber, letterSpacing: -0.5 }}>
             C'est une réponse aux petites galères répétées.
           </p>
-          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: "rgba(242,237,230,0.45)", lineHeight: 1.7, maxWidth: 560 }}>
+          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: "rgba(242,237,230,0.4)", lineHeight: 1.7, maxWidth: 520 }}>
             Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
           </p>
         </Reveal>
       </div>
 
-      {/* Bambou */}
+      {/* ── BAMBOU ── */}
       <div ref={bambouRef} style={{ position: "relative", backgroundImage: "url('/matiere/bambou-02.png')", backgroundSize: "cover", backgroundPosition: "center" }}>
         <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.85)" }} />
         <div style={{ position: "relative", zIndex: 2, padding: "56px 5vw" }}>
@@ -382,10 +394,10 @@ export default function HomePage() {
           </Reveal>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 18 }}>
             {[
-              { t: "Pensé pour la vraie vie",       d: "Un body doit accompagner les mouvements, pas les contraindre. Pas de boutons à aligner à 3h du matin.",   delay: 0   },
-              { t: "Respirant, naturellement",       d: "Moins de chaleur. Moins d'humidité. Moins d'irritation. Moins de réveils nocturnes.",                      delay: 0.1 },
-              { t: "Un seul vêtement, toute l'année",d: "Le bambou thermorégule. Frais en été, chaud en hiver. Pas besoin d'en faire des tonnes.",                 delay: 0.2 },
-              { t: "Essentiels durables",            d: "Moins acheter. Mieux choisir. Chaque pièce compte.",                                                       delay: 0.3 },
+              { t: "Pensé pour la vraie vie",        d: "Un body doit accompagner les mouvements, pas les contraindre. Pas de boutons à aligner à 3h du matin.",   delay: 0   },
+              { t: "Respirant, naturellement",        d: "Moins de chaleur. Moins d'humidité. Moins d'irritation. Moins de réveils nocturnes.",                      delay: 0.1 },
+              { t: "Un seul vêtement, toute l'année", d: "Le bambou thermorégule. Frais en été, chaud en hiver. Pas besoin d'en faire des tonnes.",                 delay: 0.2 },
+              { t: "Essentiels durables",             d: "Moins acheter. Mieux choisir. Chaque pièce compte.",                                                       delay: 0.3 },
             ].map(card => (
               <Reveal key={card.t} delay={card.delay}>
                 <div style={{ padding: "24px", borderRadius: 16, background: "rgba(255,255,255,0.97)", boxShadow: "0 10px 36px rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.04)" }}>
@@ -398,7 +410,121 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* Réassurance — SVG + 15j */}
+      {/* ── LA VÉRITÉ DES PARENTS — page 6 ── */}
+      <div style={{ padding: "64px 5vw", background: C.bg }}>
+        <Reveal>
+          <div style={{ marginBottom: 48 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Ce que vivent vraiment les parents</div>
+            <h2 style={{ margin: 0, fontSize: "clamp(28px,4.5vw,56px)", fontWeight: 950, letterSpacing: -2, color: C.warm, lineHeight: 1.0 }}>
+              La vérité des parents
+            </h2>
+          </div>
+        </Reveal>
+        <div className="tgrid" style={{ display: "grid", gap: 20 }}>
+          {[
+            {
+              label: "Nuits pourries",
+              tension: "Se lever 5 fois, changer une couche dans le noir, rendormir un bébé hurlant.",
+              benefice: "Des vêtements pensés pour changer vite sans tout défaire.",
+            },
+            {
+              label: "Habillage combat",
+              tension: "Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",
+              benefice: "Des ouvertures intelligentes, 3 gestes max, c'est fait.",
+            },
+            {
+              label: "Sommeil fragile",
+              tension: "Un bébé qui sursaute, se réveille, pleure. Un emmaillotage qui se défait.",
+              benefice: "Un swaddle qui tient et calme le réflexe de Moro.",
+            },
+          ].map((card, i) => (
+            <Reveal key={card.label} delay={i * 0.1}>
+              <div className="tension-card" style={{ borderRadius: 20, background: C.bg2, border: `1px solid ${C.faint}`, overflow: "hidden", transition: "all 0.25s ease" }}>
+                <div style={{ padding: "22px 24px 18px" }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "rgba(242,237,230,0.25)", marginBottom: 10 }}>La tension</div>
+                  <div style={{ fontSize: "clamp(20px,2.2vw,26px)", fontWeight: 950, color: C.warm, letterSpacing: -0.8, marginBottom: 12, lineHeight: 1.1 }}>{card.label}</div>
+                  <p style={{ margin: 0, fontSize: "clamp(13px,1.2vw,15px)", color: C.muted, lineHeight: 1.7 }}>{card.tension}</p>
+                </div>
+                <div style={{ padding: "16px 24px 22px", background: "rgba(196,154,74,0.07)", borderTop: `1px solid rgba(196,154,74,0.15)` }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Le bénéfice M!LK</div>
+                  <p style={{ margin: 0, fontSize: "clamp(14px,1.4vw,17px)", color: C.warm, lineHeight: 1.6, fontWeight: 800 }}>{card.benefice}</p>
+                </div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+      </div>
+
+      {/* ── COMMENT ON CONÇOIT — page 7 ── */}
+      <div style={{ padding: "64px 5vw", background: C.bg2 }}>
+        <Reveal>
+          <div style={{ marginBottom: 40 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Notre approche</div>
+            <h2 style={{ margin: 0, fontSize: "clamp(24px,3.5vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm, lineHeight: 1.05 }}>
+              Comment on conçoit nos essentiels
+            </h2>
+          </div>
+        </Reveal>
+
+        {/* 4 pilliers */}
+        <div className="pillars" style={{ display: "grid", gap: 14, marginBottom: 48 }}>
+          {[
+            "Chaque seconde compte à 3h du mat'",
+            "Zéro compromis sur la sécurité",
+            "Matières douces et certifiées",
+            "Testés par de vrais parents fatigués",
+          ].map((pillar, i) => (
+            <Reveal key={pillar} delay={i * 0.08}>
+              <div style={{ padding: "18px 20px", borderRadius: 16, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.15)", display: "flex", gap: 14, alignItems: "flex-start" }}>
+                <div style={{ width: 30, height: 30, borderRadius: "50%", background: C.amber, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                  <span style={{ color: "#1a1410", fontWeight: 900, fontSize: 13 }}>{i + 1}</span>
+                </div>
+                <div style={{ fontWeight: 800, fontSize: "clamp(13px,1.3vw,15px)", color: C.warm, lineHeight: 1.45 }}>{pillar}</div>
+              </div>
+            </Reveal>
+          ))}
+        </div>
+
+        {/* Tableau comparaison */}
+        <Reveal>
+          <div style={{ marginBottom: 16 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 14 }}>La différence</div>
+          </div>
+          <div style={{ borderRadius: 20, overflow: "hidden", border: `1px solid ${C.faint}`, marginBottom: 32 }}>
+            <div className="comptable" style={{ display: "grid", background: "#1a1410" }}>
+              <div style={{ padding: "14px 20px", fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.25)", textTransform: "uppercase", letterSpacing: 1 }}>Situation</div>
+              <div style={{ padding: "14px 20px", fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.25)", textTransform: "uppercase", letterSpacing: 1, borderLeft: `1px solid ${C.faint}` }}>Classique</div>
+              <div style={{ padding: "14px 20px", fontSize: 12, fontWeight: 900, color: C.amber, textTransform: "uppercase", letterSpacing: 1, borderLeft: `1px solid ${C.faint}` }}>M!LK</div>
+            </div>
+            {[
+              { s: "Change de nuit",   c: "Défaire tout le pyjama",  m: "Zip inversé, 30 sec"    },
+              { s: "Boutons-pression", c: "8 à 12 à aligner",        m: "3 max, bien placés"     },
+              { s: "Emmaillotage",     c: "Se défait, bébé sursaute", m: "Tient toute la nuit"   },
+              { s: "Habillage",        c: "Combat quotidien",         m: "2-3 gestes, c'est fait" },
+              { s: "Conception",       c: "Pour faire joli",          m: "Pour simplifier"        },
+            ].map((row, i) => (
+              <div key={row.s} className="comptable" style={{ display: "grid", borderTop: `1px solid ${C.faint}`, background: i % 2 === 0 ? C.bg2 : C.bg }}>
+                <div style={{ padding: "14px 20px", fontWeight: 700, color: C.warm, fontSize: "clamp(12px,1.2vw,14px)" }}>{row.s}</div>
+                <div style={{ padding: "14px 20px", color: "rgba(242,237,230,0.3)", fontSize: "clamp(11px,1.1vw,13px)", borderLeft: `1px solid ${C.faint}`, textDecoration: "line-through" }}>{row.c}</div>
+                <div style={{ padding: "14px 20px", color: C.amber, fontWeight: 800, fontSize: "clamp(11px,1.1vw,13px)", borderLeft: `1px solid ${C.faint}` }}>{row.m}</div>
+              </div>
+            ))}
+          </div>
+        </Reveal>
+
+        {/* Quote Marie */}
+        <Reveal>
+          <div style={{ padding: "28px 32px", borderRadius: 20, background: "rgba(196,154,74,0.06)", border: "1px solid rgba(196,154,74,0.15)" }}>
+            <div style={{ fontSize: 48, color: C.amber, lineHeight: 0.8, marginBottom: 14, fontFamily: "Georgia, serif", fontWeight: 900 }}>"</div>
+            <p style={{ margin: "0 0 14px", fontSize: "clamp(17px,2.2vw,26px)", color: C.warm, fontWeight: 800, fontStyle: "italic", lineHeight: 1.45, letterSpacing: -0.3 }}>
+              Premier pyjama où je n'ai pas eu envie de pleurer à 4h du mat'.
+            </p>
+            <div style={{ fontSize: 14, color: C.muted, fontWeight: 600 }}>— Marie, maman de Léo</div>
+          </div>
+        </Reveal>
+      </div>
+
+      {/* ── RÉASSURANCE ── */}
       <div style={{ background: C.bg2, borderTop: `1px solid ${C.faint}`, borderBottom: `1px solid ${C.faint}` }}>
         <div className="reassgrid" style={{ display: "grid", padding: "0 5vw" }}>
           {[
@@ -416,7 +542,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* KPIs — 15j */}
+      {/* ── KPIs ── */}
       <div style={{ background: C.bg }}>
         <div className="kpigrid" style={{ display: "grid", padding: "0 5vw" }}>
           {[
@@ -433,7 +559,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ✅ Avis — voix d'Erika */}
+      {/* ── AVIS ── */}
       <div style={{ padding: "56px 5vw" }}>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: 36 }}>
@@ -443,8 +569,8 @@ export default function HomePage() {
         </Reveal>
         <div className="rgrid" style={{ display: "grid", gap: 14 }}>
           {[
-            { name: "Sophie M.", role: "Maman de Léo, 2 mois",     text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La différence est immédiate dès la première nuit." },
-            { name: "Thomas R.", role: "Papa de Zoé, nouveau-né",   text: "La qualité est évidente. Le bambou est incroyablement doux. Et surtout — les routines du soir sont tellement plus simples. Moins de lutte, plus de moments." },
+            { name: "Thomas R.", role: "Papa de Luna",              text: "La robe de nuit nouée a sauvé nos premières semaines. Pas d'exagération." },
+            { name: "Sarah K.",  role: "Maman de Noah",             text: "Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée." },
             { name: "Amina B.",  role: "Maman de Samy, 3 mois",    text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Moins de galères, plus de sommeil pour tout le monde." },
             { name: "Julie D.",  role: "Maman d'Emma, née en juin", text: "Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis. Lavage après lavage, c'est toujours aussi bien." },
           ].map((r, i) => (
@@ -460,20 +586,20 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* CTA final — tagline Erika */}
+      {/* ── CTA FINAL ── */}
       <section style={{ padding: "60px 5vw", textAlign: "center", background: C.bg }}>
         <Reveal>
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 16 }}>Prêt à en finir avec les galères ?</div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 16 }}>Prêts pour moins de galères au quotidien ?</div>
             <h2 style={{ margin: "0 0 16px", fontSize: "clamp(26px,4.5vw,52px)", fontWeight: 950, letterSpacing: -2, color: C.warm, lineHeight: 1.05 }}>
-              Moins de galères.<br /><span style={{ color: C.amber }}>Plus de moments.</span>
+              Des essentiels conçus pour les vraies nuits,<br /><span style={{ color: C.amber }}>les vrais matins, la vraie vie de parent.</span>
             </h2>
             <p style={{ margin: "0 0 28px", fontSize: "clamp(14px,1.5vw,17px)", color: C.muted, lineHeight: 1.7 }}>
               Des essentiels bébé. Sans le superflu.
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/produits" style={{ padding: "17px 38px", borderRadius: 14, background: C.warm, color: "#1a1410", fontWeight: 900, fontSize: "clamp(15px,1.6vw,18px)", textDecoration: "none", display: "inline-block" }}>
-                Voir la collection →
+                Shopper les essentiels →
               </Link>
               <Link href="/qui-sommes-nous" style={{ padding: "17px 38px", borderRadius: 14, border: `1px solid ${C.faint}`, color: C.muted, fontWeight: 700, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none", display: "inline-block" }}>
                 Notre histoire

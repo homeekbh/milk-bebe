@@ -1,4 +1,4 @@
-Ôªø"use client";
+"use client";
 
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
@@ -21,7 +21,7 @@ export default function CartPage() {
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
-  // ‚úÖ Recalcul automatique de la r√©duction quand le panier change
+  // ? Recalcul automatique de la rÈduction quand le panier change
   const recalcPromo = useCallback(async (currentSubtotal: number) => {
     if (!promoData?.code) return;
     try {
@@ -45,7 +45,7 @@ export default function CartPage() {
     if (promoData?.code) {
       recalcPromo(subtotal);
     }
-  }, [subtotal]); // ‚úÖ Se d√©clenche √† chaque changement de sous-total
+  }, [subtotal]); // ? Se dÈclenche ‡ chaque changement de sous-total
 
   const discount    = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
   const freeShip    = promoData?.free_shipping ?? false;
@@ -54,7 +54,7 @@ export default function CartPage() {
   const remaining   = Math.max(0, FREE_SHIPPING_THRESHOLD - (subtotal - discount));
   const pct         = Math.min(100, ((subtotal - discount) / FREE_SHIPPING_THRESHOLD) * 100);
 
-  // Sauvegarde panier abandonn√©
+  // Sauvegarde panier abandonnÈ
   useEffect(() => {
     if (!user || items.length === 0) return;
     const timeout = setTimeout(() => {
@@ -104,7 +104,7 @@ export default function CartPage() {
     if (data.url) {
       window.location.href = data.url;
     } else {
-      alert("Erreur lors du paiement. R√©essaie.");
+      alert("Erreur lors du paiement. RÈessaie.");
       setLoading(false);
     }
   }
@@ -130,45 +130,45 @@ export default function CartPage() {
         {items.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 20, padding: 60, textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>Votre panier est vide</div>
-            <p style={{ opacity: 0.5, marginBottom: 28 }}>D√©couvrez nos essentiels en bambou pour nourrisson.</p>
+            <p style={{ opacity: 0.5, marginBottom: 28 }}>DÈcouvrez nos essentiels en bambou pour nourrisson.</p>
             <Link href="/produits" style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 15, textDecoration: "none" }}>
-              Voir les produits ‚Üí
+              Voir les produits ?
             </Link>
           </div>
         ) : (
           <div className="cart-layout">
 
-            {/* ‚îÄ‚îÄ Articles ‚îÄ‚îÄ */}
+            {/* -- Articles -- */}
             <div style={{ display: "grid", gap: 12 }}>
 
               {/* Barre livraison gratuite */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                 {freeShip ? (
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
-                    ‚úì Livraison offerte avec ton code promo !
+                    ? Livraison offerte avec ton code promo !
                   </div>
                 ) : remaining > 0 ? (
                   <>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
-                      Plus que <strong>{remaining.toFixed(2)} ‚Ç¨</strong> pour la livraison offerte
+                      Plus que <strong>{remaining.toFixed(2)} Ä</strong> pour la livraison offerte
                     </div>
                     <div style={{ height: 6, background: "#ede8df", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: "#c49a4a", borderRadius: 99, transition: "width 0.4s ease" }} />
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>‚úì Livraison offerte !</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>? Livraison offerte !</div>
                 )}
               </div>
 
-              {/* Bandeau connexion si non connect√© */}
+              {/* Bandeau connexion si non connectÈ */}
               {!user && (
                 <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)" }}>
                   <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 6 }}>
                     Connexion requise pour commander
                   </div>
                   <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 16, lineHeight: 1.6 }}>
-                    Cr√©e ton compte M!LK pour finaliser ta commande et suivre tes livraisons.
+                    CrÈe ton compte M!LK pour finaliser ta commande et suivre tes livraisons.
                   </div>
                   <div style={{ display: "flex", gap: 10 }}>
                     <Link href="/connexion?redirect=/panier"
@@ -177,7 +177,7 @@ export default function CartPage() {
                     </Link>
                     <Link href="/inscription?redirect=/panier"
                       style={{ flex: 1, padding: "12px", borderRadius: 10, background: "transparent", color: "#f2ede6", fontWeight: 800, fontSize: 14, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.2)" }}>
-                      Cr√©er un compte
+                      CrÈer un compte
                     </Link>
                   </div>
                 </div>
@@ -188,18 +188,18 @@ export default function CartPage() {
                 <div key={item.id} style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>{item.name}</div>
-                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} ‚Ç¨ / unit√©</div>
+                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} Ä / unitÈ</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", background: "#f5f0e8", borderRadius: 10, padding: 4, flexShrink: 0 }}>
-                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>‚àí</button>
+                    <button onClick={() => updateQuantity(item.id, item.quantity - 1)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>-</button>
                     <span style={{ width: 34, textAlign: "center", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{item.quantity}</span>
                     <button onClick={() => updateQuantity(item.id, item.quantity + 1)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>+</button>
                   </div>
                   <div style={{ fontWeight: 950, fontSize: 18, color: "#1a1410", minWidth: 70, textAlign: "right", flexShrink: 0 }}>
-                    {(item.price * item.quantity).toFixed(2)} ‚Ç¨
+                    {(item.price * item.quantity).toFixed(2)} Ä
                   </div>
                   <button onClick={() => removeFromCart(item.id)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
-                    ‚úï
+                    ?
                   </button>
                 </div>
               ))}
@@ -212,7 +212,7 @@ export default function CartPage() {
                     <div>
                       <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15 }}>{promoData.code}</span>
                       <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 700, color: "#16a34a" }}>
-                        {promoData.free_shipping ? "Livraison offerte" : `‚àí ${promoData.discount.toFixed(2)} ‚Ç¨`}
+                        {promoData.free_shipping ? "Livraison offerte" : `- ${promoData.discount.toFixed(2)} Ä`}
                       </span>
                     </div>
                     <button onClick={() => { setPromoData(null); setPromoCode(""); setPromoError(""); }}
@@ -235,25 +235,25 @@ export default function CartPage() {
                   </div>
                 )}
                 {promoError && (
-                  <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>‚ùå {promoError}</div>
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>? {promoError}</div>
                 )}
               </div>
             </div>
 
-            {/* ‚îÄ‚îÄ R√©capitulatif ‚îÄ‚îÄ */}
+            {/* -- RÈcapitulatif -- */}
             <div className="cart-sticky">
               <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 20, color: "#1a1410" }}>R√©capitulatif</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 20, color: "#1a1410" }}>RÈcapitulatif</div>
 
                 <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
                     <span>Sous-total</span>
-                    <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} ‚Ç¨</span>
+                    <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} Ä</span>
                   </div>
                   {promoData && !promoData.free_shipping && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
                       <span style={{ fontWeight: 700 }}>Code {promoData.code}</span>
-                      <span style={{ fontWeight: 800 }}>‚àí {discount.toFixed(2)} ‚Ç¨</span>
+                      <span style={{ fontWeight: 800 }}>- {discount.toFixed(2)} Ä</span>
                     </div>
                   )}
                   {promoData?.free_shipping && (
@@ -265,19 +265,19 @@ export default function CartPage() {
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
                     <span>Livraison</span>
                     <span style={{ fontWeight: 700, color: shipping === 0 ? "#16a34a" : undefined }}>
-                      {shipping === 0 ? "Offerte" : `${shipping.toFixed(2)} ‚Ç¨`}
+                      {shipping === 0 ? "Offerte" : `${shipping.toFixed(2)} Ä`}
                     </span>
                   </div>
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
                     <span>Total TTC</span>
-                    <span>{total.toFixed(2)} ‚Ç¨</span>
+                    <span>{total.toFixed(2)} Ä</span>
                   </div>
                 </div>
 
                 <button onClick={handleCheckout} disabled={loading}
                   style={{ width: "100%", padding: "16px", borderRadius: 14, background: loading ? "#d1cdc8" : !user ? "#c49a4a" : "#1a1410", color: !user ? "#1a1410" : "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: loading ? "not-allowed" : "pointer", marginBottom: 12 }}>
-                  {loading ? "Redirection..." : !user ? "Se connecter pour commander" : "Passer au paiement ‚Üí"}
+                  {loading ? "Redirection..." : !user ? "Se connecter pour commander" : "Passer au paiement ?"}
                 </button>
 
                 <button onClick={clearCart}
@@ -286,7 +286,7 @@ export default function CartPage() {
                 </button>
 
                 <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-                  {["Paiement s√©curis√© Stripe", "100% Bambou OEKO-TEX", "Retour gratuit 30 jours"].map(r => (
+                  {["Paiement sÈcurisÈ Stripe", "100% Bambou OEKO-TEX", "Retour gratuit 15 jours"].map(r => (
                     <div key={r} style={{ fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.45)", textAlign: "center" }}>{r}</div>
                   ))}
                 </div>

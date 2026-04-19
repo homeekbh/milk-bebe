@@ -1,4 +1,4 @@
-ï»¿"use client";
+"use client";
 
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
@@ -14,7 +14,7 @@ const C = {
   amber: "#c49a4a",
 };
 
-/* â”€â”€ Hooks â”€â”€ */
+/* -- Hooks -- */
 function useScrollReveal(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(false);
@@ -58,7 +58,7 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
-/* â”€â”€ SVG icons â”€â”€ */
+/* -- SVG icons -- */
 function IconLeaf({ s = 28, c = C.amber }: { s?: number; c?: string }) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 22V9" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>;
 }
@@ -84,7 +84,7 @@ function IconAccessoires({ s = 34, c = C.amber }: { s?: number; c?: string }) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={c} strokeWidth="1.6"/></svg>;
 }
 
-const TICKER = ["âœ¦ Bambou certifiÃ© OEKO-TEX","âœ¦ 3Ã— plus doux que le coton","âœ¦ ThermorÃ©gulateur naturel","âœ¦ Livraison offerte dÃ¨s 60â‚¬","âœ¦ Retour gratuit 30 jours","âœ¦ AntibactÃ©rien naturel","âœ¦ Peaux sensibles & eczÃ©ma","âœ¦ Bodies Â· Pyjamas Â· Gigoteuses"];
+const TICKER = ["? Bambou certifié OEKO-TEX","? 3× plus doux que le coton","? Thermorégulateur naturel","? Livraison offerte dès 60€","? Retour gratuit 15 jours","? Antibactérien naturel","? Peaux sensibles & eczéma","? Bodies · Pyjamas · Gigoteuses"];
 
 function Ticker() {
   const str = TICKER.join("   ");
@@ -97,15 +97,15 @@ function Ticker() {
 }
 
 const HIGHLIGHT_LABELS: Record<string, string> = {
-  meilleure_vente: "Meilleures ventes", selection: "SÃ©lection du moment",
-  nouveaute: "NouveautÃ©s", default: "Nos essentiels du moment",
+  meilleure_vente: "Meilleures ventes", selection: "Sélection du moment",
+  nouveaute: "Nouveautés", default: "Nos essentiels du moment",
 };
 
 const CATS = [
   { label: "Bodies",      desc: "L'essentiel du quotidien",      href: "/categorie/bodies",     Icon: IconBodies      },
   { label: "Pyjamas",     desc: "Pour des nuits sereines",       href: "/categorie/pyjamas",    Icon: IconPyjama      },
-  { label: "Gigoteuses",  desc: "Sommeil sÃ©curisÃ©",              href: "/categorie/gigoteuses", Icon: IconGigoteuse   },
-  { label: "Accessoires", desc: "Les dÃ©tails qui changent tout", href: "/categorie/accessoires",Icon: IconAccessoires },
+  { label: "Gigoteuses",  desc: "Sommeil sécurisé",              href: "/categorie/gigoteuses", Icon: IconGigoteuse   },
+  { label: "Accessoires", desc: "Les détails qui changent tout", href: "/categorie/accessoires",Icon: IconAccessoires },
 ];
 
 export default function HomePage() {
@@ -152,7 +152,7 @@ export default function HomePage() {
         .pcard:hover .pcard-img { transform: scale(1.06) !important; }
         .cat-card:hover { background: rgba(196,154,74,0.08) !important; border-color: rgba(196,154,74,0.25) !important; transform: translateY(-4px) !important; }
 
-        /* âœ… Responsive â€” aucun vide latÃ©ral */
+        /* ? Responsive — aucun vide latéral */
         .pgrid     { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
         .catgrid   { grid-template-columns: repeat(4, 1fr); }
         .reassgrid { grid-template-columns: repeat(4, 1fr); }
@@ -169,7 +169,7 @@ export default function HomePage() {
         }
       `}</style>
 
-      {/* â”€â”€ HERO â”€â”€ */}
+      {/* -- HERO -- */}
       <section data-theme="dark" style={{ position: "relative", minHeight: "100vh", display: "flex", alignItems: "center", overflow: "hidden" }}>
         <div ref={heroRef} style={{ position: "absolute", inset: "-20% 0 -20% 0", willChange: "transform" }}>
           <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit: "cover", objectPosition: "center 60%" }} />
@@ -177,7 +177,7 @@ export default function HomePage() {
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(135deg, rgba(13,11,9,0.88) 0%, rgba(13,11,9,0.5) 50%, rgba(13,11,9,0.75) 100%)" }} />
         <div className="hero-content" style={{ position: "relative", zIndex: 2, padding: "clamp(110px, 15vh, 180px) 5vw 80px", width: "100%", boxSizing: "border-box" }}>
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 24 }}>
-            {["Nouveau-nÃ©", "0-3 mois", "3-6 mois"].map(tag => (
+            {["Nouveau-né", "0-3 mois", "3-6 mois"].map(tag => (
               <span key={tag} style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${C.amber}`, color: C.amber, fontSize: 12, fontWeight: 800 }}>{tag}</span>
             ))}
           </div>
@@ -188,15 +188,15 @@ export default function HomePage() {
           <div style={{ position: "absolute", top: "50%", right: "6%", transform: "translateY(-50%)", zIndex: 3, display: "block" }} className="badge-svg">
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation: "badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -55,0 a 55,55 0 1,1 110,0 a 55,55 0 1,1 -110,0" fill="none"/>
-              <text fontSize="12" fontWeight="700" letterSpacing="2.5" fill={C.amber}><textPath href="#bc">BAMBOU OEKO-TEX Â· PREMIUM Â· NOURRISSON Â·</textPath></text>
+              <text fontSize="12" fontWeight="700" letterSpacing="2.5" fill={C.amber}><textPath href="#bc">BAMBOU OEKO-TEX · PREMIUM · NOURRISSON ·</textPath></text>
             </svg>
           </div>
           <p style={{ margin: "0 0 32px", fontSize: "clamp(14px, 1.8vw, 19px)", color: C.muted, maxWidth: 520, lineHeight: 1.75, fontWeight: 500 }}>
-            VÃªtements nourrisson en bambou certifiÃ© OEKO-TEX. Ultra-doux, thermorÃ©gulateur, antibactÃ©rien â€” pensÃ© pour les peaux les plus fragiles.
+            Vêtements nourrisson en bambou certifié OEKO-TEX. Ultra-doux, thermorégulateur, antibactérien — pensé pour les peaux les plus fragiles.
           </p>
           <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Link href="/produits" style={{ padding: "16px 30px", borderRadius: 14, background: C.warm, color: "#1a1410", fontWeight: 900, fontSize: "clamp(14px, 1.6vw, 17px)", textDecoration: "none", display: "inline-block" }}>
-              DÃ©couvrir la collection â†’
+              Découvrir la collection ?
             </Link>
             <Link href="/pourquoi-bambou" style={{ padding: "16px 30px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.2)", color: C.warm, fontWeight: 700, fontSize: "clamp(14px, 1.6vw, 17px)", textDecoration: "none", display: "inline-block" }}>
               Pourquoi le bambou ?
@@ -216,7 +216,7 @@ export default function HomePage() {
           </div>
         </div>
         <div style={{ position: "absolute", bottom: 24, left: "50%", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: 0.35, zIndex: 3, transform: "translateX(-50%)" }}>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.warm }}>DÃ©couvrir</div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.warm }}>Découvrir</div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: "bounce-arr 2s ease infinite" }}>
             <path d="M12 5v14M5 12l7 7 7-7" stroke={C.warm} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -225,10 +225,10 @@ export default function HomePage() {
 
       <Ticker />
 
-      {/* â”€â”€ SECTION PRINCIPALE â”€â”€ */}
+      {/* -- SECTION PRINCIPALE -- */}
       <div ref={scrollSection.ref} style={{ background: C.bg }}>
 
-        {/* âœ… Texte scrollant â€” s'adapte exactement Ã  la largeur, pas de vide */}
+        {/* ? Texte scrollant — s'adapte exactement à la largeur, pas de vide */}
         <div style={{ overflow: "hidden" }}>
           <div style={{
             display: "block", width: "100%", boxSizing: "border-box",
@@ -243,7 +243,7 @@ export default function HomePage() {
             transform: scrollSection.visible ? "translateX(0)" : "translateX(100vw)",
             transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease",
           }}>
-            M!LK RÃ‰DUIT LES GALÃˆRES DU QUOTIDIEN
+            M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN
           </div>
         </div>
 
@@ -253,10 +253,10 @@ export default function HomePage() {
             <Reveal>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 8 }}>SÃ©lection</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 8 }}>Sélection</div>
                   <h2 style={{ margin: 0, fontSize: "clamp(24px, 3.5vw, 40px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm, lineHeight: 1 }}>{sectionLabel}</h2>
                 </div>
-                <Link href="/produits" style={{ fontSize: 15, fontWeight: 800, color: C.amber, textDecoration: "none", whiteSpace: "nowrap" }}>Voir tout â†’</Link>
+                <Link href="/produits" style={{ fontSize: 15, fontWeight: 800, color: C.amber, textDecoration: "none", whiteSpace: "nowrap" }}>Voir tout ?</Link>
               </div>
             </Reveal>
             <div className="pgrid" style={{ display: "grid", gap: 16 }}>
@@ -283,8 +283,8 @@ export default function HomePage() {
                         <div style={{ padding: "12px 14px 16px" }}>
                           <div style={{ fontWeight: 900, fontSize: "clamp(13px, 1.4vw, 16px)", color: C.warm, marginBottom: 4, lineHeight: 1.3 }}>{p.name}</div>
                           <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-                            <span style={{ fontWeight: 950, fontSize: "clamp(16px, 1.8vw, 19px)", color: promo ? C.amber : C.warm }}>{Number(price).toFixed(2)} â‚¬</span>
-                            {promo && <span style={{ fontSize: 13, textDecoration: "line-through", color: "rgba(242,237,230,0.3)" }}>{Number(p.price_ttc).toFixed(2)} â‚¬</span>}
+                            <span style={{ fontWeight: 950, fontSize: "clamp(16px, 1.8vw, 19px)", color: promo ? C.amber : C.warm }}>{Number(price).toFixed(2)} €</span>
+                            {promo && <span style={{ fontSize: 13, textDecoration: "line-through", color: "rgba(242,237,230,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
                           </div>
                         </div>
                       </div>
@@ -296,7 +296,7 @@ export default function HomePage() {
           </div>
         )}
 
-        {/* CatÃ©gories */}
+        {/* Catégories */}
         <div style={{ padding: "0 5vw 40px" }}>
           <div className="catgrid" style={{ display: "grid", gap: 14 }}>
             {CATS.map((cat, i) => (
@@ -306,7 +306,7 @@ export default function HomePage() {
                     <cat.Icon />
                     <div style={{ fontWeight: 900, fontSize: "clamp(15px, 1.6vw, 18px)", color: C.warm, marginBottom: 5, marginTop: 12 }}>{cat.label}</div>
                     <div style={{ fontSize: "clamp(12px, 1.2vw, 14px)", color: C.muted, marginBottom: 14, lineHeight: 1.5 }}>{cat.desc}</div>
-                    <div style={{ fontSize: 13, fontWeight: 800, color: C.amber }}>Voir â†’</div>
+                    <div style={{ fontSize: 13, fontWeight: 800, color: C.amber }}>Voir ?</div>
                   </div>
                 </Link>
               </div>
@@ -314,7 +314,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* âœ… Texte scrollant bas */}
+        {/* ? Texte scrollant bas */}
         <div style={{ overflow: "hidden" }}>
           <div style={{
             display: "block", width: "100%", boxSizing: "border-box",
@@ -334,14 +334,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* âœ… Bandeau noir â€” une ligne blanche + une ligne jaune */}
+      {/* ? Bandeau noir — une ligne blanche + une ligne jaune */}
       <div style={{ background: "#0f0c09", padding: "36px 5vw" }}>
         <Reveal>
           <p style={{ margin: 0, fontSize: "clamp(18px, 3.5vw, 48px)", fontWeight: 800, lineHeight: 1.2, color: "#f2ede6", letterSpacing: -0.5, whiteSpace: "nowrap", overflow: "hidden" }}>
-            M!LK n'est pas une marque de vÃªtements.
+            M!LK n'est pas une marque de vêtements.
           </p>
           <p style={{ margin: "6px 0 0", fontSize: "clamp(18px, 3.5vw, 48px)", fontWeight: 800, lineHeight: 1.2, color: C.amber, letterSpacing: -0.5, whiteSpace: "nowrap", overflow: "hidden" }}>
-            C'est une rÃ©ponse aux petites galÃ¨res rÃ©pÃ©tÃ©es.
+            C'est une réponse aux petites galères répétées.
           </p>
         </Reveal>
       </div>
@@ -355,9 +355,9 @@ export default function HomePage() {
           </Reveal>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 18 }}>
             {[
-              { t: "PensÃ© pour la vraie vie",  d: "Un body doit accompagner les mouvements, pas les contraindre.",  delay: 0   },
-              { t: "Respirant, naturellement", d: "Moins de chaleur. Moins d'humiditÃ©. Moins d'irritation.",        delay: 0.1 },
-              { t: "Coupe maÃ®trisÃ©e",          d: "Ni trop large. Ni trop serrÃ©e. Juste ajustÃ©e.",                  delay: 0.2 },
+              { t: "Pensé pour la vraie vie",  d: "Un body doit accompagner les mouvements, pas les contraindre.",  delay: 0   },
+              { t: "Respirant, naturellement", d: "Moins de chaleur. Moins d'humidité. Moins d'irritation.",        delay: 0.1 },
+              { t: "Coupe maîtrisée",          d: "Ni trop large. Ni trop serrée. Juste ajustée.",                  delay: 0.2 },
               { t: "Essentiels durables",      d: "Moins acheter. Mieux choisir.",                                  delay: 0.3 },
             ].map(card => (
               <Reveal key={card.t} delay={card.delay}>
@@ -371,14 +371,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* âœ… RÃ©assurance â€” sans vide latÃ©ral */}
+      {/* ? Réassurance — sans vide latéral */}
       <div style={{ background: C.bg2, borderTop: `1px solid ${C.faint}`, borderBottom: `1px solid ${C.faint}` }}>
         <div className="reassgrid" style={{ display: "grid", padding: "0 5vw" }}>
           {[
-            { Icon: IconTruck,  label: "Livraison offerte",  desc: "DÃ¨s 60â‚¬ d'achat"          },
-            { Icon: IconReturn, label: "Retour gratuit",     desc: "Sous 30 jours"             },
-            { Icon: IconLeaf,   label: "Bambou OEKO-TEX",   desc: "CertifiÃ©, testÃ©, sÃ©curisÃ©" },
-            { Icon: IconLock,   label: "Paiement sÃ©curisÃ©", desc: "Via Stripe"                },
+            { Icon: IconTruck,  label: "Livraison offerte",  desc: "Dès 60€ d'achat"          },
+            { Icon: IconReturn, label: "Retour gratuit",     desc: "Sous 15 jours"             },
+            { Icon: IconLeaf,   label: "Bambou OEKO-TEX",   desc: "Certifié, testé, sécurisé" },
+            { Icon: IconLock,   label: "Paiement sécurisé", desc: "Via Stripe"                },
           ].map((r, i) => (
             <div key={r.label} style={{ padding: "22px 12px", textAlign: "center", borderRight: i < 3 ? `1px solid ${C.faint}` : "none" }}>
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 8 }}><r.Icon s={24} /></div>
@@ -389,14 +389,14 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* âœ… KPIs grands â€” sans vide */}
+      {/* ? KPIs grands — sans vide */}
       <div style={{ background: C.bg }}>
         <div className="kpigrid" style={{ display: "grid", padding: "0 5vw" }}>
           {[
-            { valeur: "100%", label: "Bambou certifiÃ© OEKO-TEX" },
+            { valeur: "100%", label: "Bambou certifié OEKO-TEX" },
             { valeur: "0",    label: "Substance nocive"          },
-            { valeur: "3Ã—",   label: "Plus doux que le coton"   },
-            { valeur: "30j",  label: "Retour gratuit"            },
+            { valeur: "3×",   label: "Plus doux que le coton"   },
+            { valeur: "15j",  label: "Retour gratuit"            },
           ].map((k, i) => (
             <div key={k.label} style={{ padding: "30px 12px", textAlign: "center", borderRight: i < 3 ? `1px solid ${C.faint}` : "none" }}>
               <div style={{ fontSize: "clamp(36px, 5.5vw, 70px)", fontWeight: 950, letterSpacing: -2, color: C.amber, lineHeight: 1 }}>{k.valeur}</div>
@@ -416,14 +416,14 @@ export default function HomePage() {
         </Reveal>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
           {[
-            { name: "Sophie M.", role: "Maman de LÃ©o, 2 mois",     text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La diffÃ©rence est immÃ©diate dÃ¨s la premiÃ¨re nuit." },
-            { name: "Thomas R.", role: "Papa de ZoÃ©, nouveau-nÃ©",   text: "On a reÃ§u le coffret pour la naissance. La qualitÃ© est Ã©vidente, le bambou est incroyablement doux." },
-            { name: "Amina B.",  role: "Maman de Samy, 3 mois",    text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se rÃ©veille moins. Le bambou thermorÃ©gulateur, Ã§a marche vraiment." },
-            { name: "Julie D.",  role: "Maman d'Emma, nÃ©e en juin", text: "Cadeau de naissance parfait. Les matiÃ¨res sont premium, les finitions soignÃ©es." },
+            { name: "Sophie M.", role: "Maman de Léo, 2 mois",     text: "Mon fils avait des irritations avec tous les bodies en coton. Depuis M!LK, plus rien. La différence est immédiate dès la première nuit." },
+            { name: "Thomas R.", role: "Papa de Zoé, nouveau-né",   text: "On a reçu le coffret pour la naissance. La qualité est évidente, le bambou est incroyablement doux." },
+            { name: "Amina B.",  role: "Maman de Samy, 3 mois",    text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Le bambou thermorégulateur, ça marche vraiment." },
+            { name: "Julie D.",  role: "Maman d'Emma, née en juin", text: "Cadeau de naissance parfait. Les matières sont premium, les finitions soignées." },
           ].map((r, i) => (
             <Reveal key={r.name} delay={i * 0.07}>
               <div style={{ padding: "22px 20px", borderRadius: 16, background: C.bg2, border: `1px solid ${C.faint}`, height: "100%", boxSizing: "border-box" }}>
-                <div style={{ display: "flex", marginBottom: 10 }}>{[...Array(5)].map((_, j) => <span key={j} style={{ color: C.amber, fontSize: 14 }}>â˜…</span>)}</div>
+                <div style={{ display: "flex", marginBottom: 10 }}>{[...Array(5)].map((_, j) => <span key={j} style={{ color: C.amber, fontSize: 14 }}>?</span>)}</div>
                 <p style={{ margin: "0 0 12px", fontSize: "clamp(13px, 1.3vw, 15px)", color: C.muted, lineHeight: 1.7, fontStyle: "italic" }}>&ldquo;{r.text}&rdquo;</p>
                 <div style={{ fontWeight: 800, fontSize: 14, color: C.warm }}>{r.name}</div>
                 <div style={{ fontSize: 12, color: "rgba(242,237,230,0.3)", marginTop: 2 }}>{r.role}</div>
@@ -437,16 +437,16 @@ export default function HomePage() {
       <section style={{ padding: "60px 5vw", textAlign: "center", background: C.bg }}>
         <Reveal>
           <div style={{ maxWidth: 640, margin: "0 auto" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 16 }}>PrÃªt Ã  chouchouter bÃ©bÃ© ?</div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 16 }}>Prêt à chouchouter bébé ?</div>
             <h2 style={{ margin: "0 0 16px", fontSize: "clamp(26px, 4.5vw, 52px)", fontWeight: 950, letterSpacing: -2, color: C.warm, lineHeight: 1.05 }}>
-              La douceur du bambou.<br /><span style={{ color: C.amber }}>DÃ¨s maintenant.</span>
+              La douceur du bambou.<br /><span style={{ color: C.amber }}>Dès maintenant.</span>
             </h2>
             <p style={{ margin: "0 0 28px", fontSize: "clamp(14px, 1.5vw, 17px)", color: C.muted, lineHeight: 1.7 }}>
-              Rejoins les familles qui ont choisi M!LK pour les premiÃ¨res semaines de vie de leur bÃ©bÃ©.
+              Rejoins les familles qui ont choisi M!LK pour les premières semaines de vie de leur bébé.
             </p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/produits" style={{ padding: "17px 38px", borderRadius: 14, background: C.warm, color: "#1a1410", fontWeight: 900, fontSize: "clamp(15px, 1.6vw, 18px)", textDecoration: "none", display: "inline-block" }}>
-                Voir la collection â†’
+                Voir la collection ?
               </Link>
               <Link href="/qui-sommes-nous" style={{ padding: "17px 38px", borderRadius: 14, border: `1px solid ${C.faint}`, color: C.muted, fontWeight: 700, fontSize: "clamp(14px, 1.5vw, 17px)", textDecoration: "none", display: "inline-block" }}>
                 Notre histoire

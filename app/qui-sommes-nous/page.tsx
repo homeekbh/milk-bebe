@@ -100,7 +100,7 @@ export default function QuiSommesNousPage() {
               { valeur: "100%", label: "Bambou certifié OEKO-TEX" },
               { valeur: "0",    label: "Substance nocive"          },
               { valeur: "3×",   label: "Plus doux que le coton"   },
-              { valeur: "30j",  label: "Retour gratuit"            },
+              { valeur: "15j",  label: "Retour gratuit"            },
             ].map((c, i) => (
               <div key={c.label} style={{ padding: "36px 12px", textAlign: "center", borderRight: i < 3 ? "1px solid rgba(242,237,230,0.08)" : "none" }}>
                 <div style={{ fontSize: "clamp(40px, 5vw, 64px)", fontWeight: 950, letterSpacing: -2, color: "#c49a4a", lineHeight: 1 }}>{c.valeur}</div>

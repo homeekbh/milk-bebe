@@ -46,7 +46,7 @@ Téléphone : 07 45 27 21 34`,
           },
           {
             title: "9. Retours et remboursements",
-            content: "Pour effectuer un retour, contactez-nous à bonjour@milkbebe.fr dans les 30 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Le remboursement sera effectué dans les 14 jours suivant la réception du retour.",
+            content: "Pour effectuer un retour, contactez-nous à bonjour@milkbebe.fr dans les 15 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Le remboursement sera effectué dans les 14 jours suivant la réception du retour.",
           },
           {
             title: "10. Garanties",

@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import Link from "next/link";
@@ -9,7 +9,7 @@ type Msg = {
   typing?: boolean;
 };
 
-// ─── Visage bébé animé SVG ────────────────────────────────────────────────────
+// --- Visage b�b� anim� SVG ----------------------------------------------------
 function BabyFace({ talking = false, happy = false }: { talking?: boolean; happy?: boolean }) {
   return (
     <div style={{ width: 36, height: 36, flexShrink: 0 }}>
@@ -38,7 +38,7 @@ function BabyFace({ talking = false, happy = false }: { talking?: boolean; happy
       <svg viewBox="0 0 36 36" className="baby-face">
         {/* Lueur */}
         <circle cx="18" cy="18" r="17" fill="rgba(196,154,74,0.08)" className="baby-glow" />
-        {/* Tête */}
+        {/* T�te */}
         <circle cx="18" cy="18" r="15" fill="#2d2419" stroke="rgba(196,154,74,0.4)" strokeWidth="1" />
         {/* Joues roses */}
         <circle cx="11" cy="21" r="3.5" fill="rgba(255,150,120,0.25)" />
@@ -60,14 +60,14 @@ function BabyFace({ talking = false, happy = false }: { talking?: boolean; happy
         ) : (
           <path d="M13 22 Q18 24 23 22" stroke="#c49a4a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
         )}
-        {/* Petite mèche */}
+        {/* Petite m�che */}
         <path d="M18 3 Q16 1 15 4" stroke="#c49a4a" strokeWidth="1.5" fill="none" strokeLinecap="round" />
       </svg>
     </div>
   );
 }
 
-// ─── Indicateur de frappe ─────────────────────────────────────────────────────
+// --- Indicateur de frappe -----------------------------------------------------
 function TypingDots() {
   return (
     <div style={{ display: "flex", gap: 4, alignItems: "center", padding: "4px 0" }}>
@@ -87,67 +87,67 @@ function TypingDots() {
   );
 }
 
-// ─── Base de connaissance M!LK ────────────────────────────────────────────────
+// --- Base de connaissance M!LK ------------------------------------------------
 const KNOWLEDGE = [
   {
-    keys: ["livraison", "expédition", "délai", "délais", "envoi", "frais", "port"],
-    answer: "La livraison est **offerte dès 60€** d'achat 🚚 En dessous, elle coûte 4,90€. Délai de livraison : 2 à 4 jours ouvrés après expédition (préparation 1-2 jours). On livre en France, Belgique, Suisse, Luxembourg et Monaco.",
+    keys: ["livraison", "exp�dition", "d�lai", "d�lais", "envoi", "frais", "port"],
+    answer: "La livraison est **offerte d�s 60�** d'achat ?? En dessous, elle co�te 4,90�. D�lai de livraison : 2 � 4 jours ouvr�s apr�s exp�dition (pr�paration 1-2 jours). On livre en France, Belgique, Suisse, Luxembourg et Monaco.",
   },
   {
-    keys: ["retour", "rembours", "échang", "renvoi", "renvoyer"],
-    answer: "Tu as **30 jours** pour retourner un article non utilisé, dans son emballage d'origine 📦 Le retour est **entièrement gratuit**. Le remboursement est effectué sous 5 à 14 jours ouvrés après réception.",
+    keys: ["retour", "rembours", "�chang", "renvoi", "renvoyer"],
+    answer: "Tu as **15 jours** pour retourner un article non utilis�, dans son emballage d'origine ?? Le retour est **enti�rement gratuit**. Le remboursement est effectu� sous 5 � 14 jours ouvr�s apr�s r�ception.",
   },
   {
     keys: ["taille", "tailles", "taille choisir", "grand", "petit", "mesure"],
-    answer: "Nos vêtements sont disponibles en **Nouveau-né, 0 à 3 mois et 3 à 6 mois** 👶 En cas de doute entre deux tailles, prends la plus grande — le bambou est légèrement extensible et bébé grandit vite ! Le **poids** est plus fiable que l'âge.",
+    answer: "Nos v�tements sont disponibles en **Nouveau-n�, 0 � 3 mois et 3 � 6 mois** ?? En cas de doute entre deux tailles, prends la plus grande � le bambou est l�g�rement extensible et b�b� grandit vite ! Le **poids** est plus fiable que l'�ge.",
   },
   {
-    keys: ["bambou", "matière", "matiere", "tissu", "fibre", "composition"],
-    answer: "Nos vêtements sont fabriqués en **95% bambou viscose + 5% spandex**, certifié OEKO-TEX Standard 100 🌿 Le bambou est 3× plus doux que le coton, naturellement thermorégulateur et antibactérien — idéal pour la peau fragile des nourrissons.",
+    keys: ["bambou", "mati�re", "matiere", "tissu", "fibre", "composition"],
+    answer: "Nos v�tements sont fabriqu�s en **95% bambou viscose + 5% spandex**, certifi� OEKO-TEX Standard 100 ?? Le bambou est 3� plus doux que le coton, naturellement thermor�gulateur et antibact�rien � id�al pour la peau fragile des nourrissons.",
   },
   {
-    keys: ["oeko", "certification", "certifi", "bio", "naturel", "sécurité"],
-    answer: "Tous nos produits sont certifiés **OEKO-TEX Standard 100** ✅ C'est la certification la plus exigeante pour les textiles bébé — plus de 100 substances nocives testées. Zéro compromis sur la sécurité de ton nourrisson.",
+    keys: ["oeko", "certification", "certifi", "bio", "naturel", "s�curit�"],
+    answer: "Tous nos produits sont certifi�s **OEKO-TEX Standard 100** ? C'est la certification la plus exigeante pour les textiles b�b� � plus de 100 substances nocives test�es. Z�ro compromis sur la s�curit� de ton nourrisson.",
   },
   {
-    keys: ["entretien", "laver", "lavage", "machine", "séchage", "repasser"],
-    answer: "Entretien du bambou 👕 Lavage en machine à **30°C, cycle délicat**. Pas d'adoucissant (ça altère les propriétés du bambou). Séchage à plat recommandé. Repassage basse température si besoin. Pas de javel !",
+    keys: ["entretien", "laver", "lavage", "machine", "s�chage", "repasser"],
+    answer: "Entretien du bambou ?? Lavage en machine � **30�C, cycle d�licat**. Pas d'adoucissant (�a alt�re les propri�t�s du bambou). S�chage � plat recommand�. Repassage basse temp�rature si besoin. Pas de javel !",
   },
   {
-    keys: ["promo", "promotion", "réduction", "code", "coupon", "offre", "solde"],
-    answer: "Tu peux entrer ton **code promo** directement dans le panier 🏷️ La réduction s'applique automatiquement. Tu peux recevoir nos offres exclusives en t'inscrivant à la newsletter M!LK depuis le footer.",
+    keys: ["promo", "promotion", "r�duction", "code", "coupon", "offre", "solde"],
+    answer: "Tu peux entrer ton **code promo** directement dans le panier ??? La r�duction s'applique automatiquement. Tu peux recevoir nos offres exclusives en t'inscrivant � la newsletter M!LK depuis le footer.",
   },
   {
-    keys: ["paiement", "payer", "carte", "stripe", "sécurisé", "virement"],
-    answer: "Le paiement est sécurisé via **Stripe** 🔒 On accepte les cartes Visa, Mastercard et American Express. Aucune donnée bancaire n'est stockée sur notre site.",
+    keys: ["paiement", "payer", "carte", "stripe", "s�curis�", "virement"],
+    answer: "Le paiement est s�curis� via **Stripe** ?? On accepte les cartes Visa, Mastercard et American Express. Aucune donn�e bancaire n'est stock�e sur notre site.",
   },
   {
     keys: ["body", "bodies"],
-    answer: "Nos **bodies** sont l'essentiel du quotidien pour les nourrissons 👶 Disponibles en bambou certifié OEKO-TEX, avec pressions sous la couche pour les changes faciles. Tailles : Nouveau-né, 0-3 mois, 3-6 mois.",
+    answer: "Nos **bodies** sont l'essentiel du quotidien pour les nourrissons ?? Disponibles en bambou certifi� OEKO-TEX, avec pressions sous la couche pour les changes faciles. Tailles : Nouveau-n�, 0-3 mois, 3-6 mois.",
   },
   {
-    keys: ["pyjama", "pyjamas", "grenouillère", "dors-bien", "nuit"],
-    answer: "Nos **pyjamas** en bambou sont parfaits pour des nuits sereines 🌙 Fermeture zip pour les changes nocturnes faciles. Le bambou thermorégule naturellement — moins de surchauffe, moins de réveils.",
+    keys: ["pyjama", "pyjamas", "grenouill�re", "dors-bien", "nuit"],
+    answer: "Nos **pyjamas** en bambou sont parfaits pour des nuits sereines ?? Fermeture zip pour les changes nocturnes faciles. Le bambou thermor�gule naturellement � moins de surchauffe, moins de r�veils.",
   },
   {
     keys: ["gigoteuse", "turbulette", "sac de couchage", "sac nid"],
-    answer: "Nos **gigoteuses** assurent un sommeil sécurisé ✦ En bambou thermorégulateur, elles remplacent la couverture qui ne peut pas être utilisée avant 12 mois. Disponibles pour Nouveau-né, 0-3 mois et 3-6 mois.",
+    answer: "Nos **gigoteuses** assurent un sommeil s�curis� ? En bambou thermor�gulateur, elles remplacent la couverture qui ne peut pas �tre utilis�e avant 12 mois. Disponibles pour Nouveau-n�, 0-3 mois et 3-6 mois.",
   },
   {
     keys: ["cadeau", "offrir", "naissance", "baby shower", "liste"],
-    answer: "M!LK est un **cadeau de naissance** idéal 🎁 Tous nos produits en bambou certifié OEKO-TEX sont parfaits pour les listes de naissance et baby showers. Livraison offerte dès 60€. N'hésite pas à regarder notre catalogue !",
+    answer: "M!LK est un **cadeau de naissance** id�al ?? Tous nos produits en bambou certifi� OEKO-TEX sont parfaits pour les listes de naissance et baby showers. Livraison offerte d�s 60�. N'h�site pas � regarder notre catalogue !",
   },
   {
-    keys: ["stock", "disponible", "rupture", "épuisé"],
-    answer: "Si un article est **épuisé**, il est indiqué sur la page produit. Tu peux t'inscrire à la newsletter pour être prévenu des restocks. Notre catalogue se met à jour en temps réel.",
+    keys: ["stock", "disponible", "rupture", "�puis�"],
+    answer: "Si un article est **�puis�**, il est indiqu� sur la page produit. Tu peux t'inscrire � la newsletter pour �tre pr�venu des restocks. Notre catalogue se met � jour en temps r�el.",
   },
   {
-    keys: ["contact", "aide", "support", "question", "problème", "joindre"],
-    answer: "Pour nous contacter : 📧 **contact@milk-bebe.fr** — On répond dans les 24h ouvrées. Tu peux aussi consulter nos pages Livraison et CGV pour les infos pratiques.",
+    keys: ["contact", "aide", "support", "question", "probl�me", "joindre"],
+    answer: "Pour nous contacter : ?? **contact@milk-bebe.fr** � On r�pond dans les 24h ouvr�es. Tu peux aussi consulter nos pages Livraison et CGV pour les infos pratiques.",
   },
   {
-    keys: ["prix", "coût", "cher", "combien"],
-    answer: "Nos prix vont de **29,90€ à 49,90€** pour les essentiels nourrisson en bambou premium. Livraison offerte dès 60€. La qualité bambou OEKO-TEX justifie le prix — des vêtements qui protègent vraiment la peau de ton nourrisson.",
+    keys: ["prix", "co�t", "cher", "combien"],
+    answer: "Nos prix vont de **29,90� � 49,90�** pour les essentiels nourrisson en bambou premium. Livraison offerte d�s 60�. La qualit� bambou OEKO-TEX justifie le prix � des v�tements qui prot�gent vraiment la peau de ton nourrisson.",
   },
 ];
 
@@ -158,14 +158,14 @@ function getBotResponse(input: string): string {
       return entry.answer;
     }
   }
-  // Réponse générique intelligente
+  // R�ponse g�n�rique intelligente
   if (q.includes("bonjour") || q.includes("salut") || q.includes("hello")) {
-    return "Bonjour ! 👋 Je suis l'assistant M!LK. Pose-moi tes questions sur la **livraison**, les **tailles**, le **bambou**, nos **produits** ou les **retours** — je suis là pour t'aider !";
+    return "Bonjour ! ?? Je suis l'assistant M!LK. Pose-moi tes questions sur la **livraison**, les **tailles**, le **bambou**, nos **produits** ou les **retours** � je suis l� pour t'aider !";
   }
   if (q.includes("merci")) {
-    return "Avec plaisir ! 😊 Si tu as d'autres questions, n'hésite pas. Et si tu veux découvrir notre collection, c'est par ici ➡️ /produits";
+    return "Avec plaisir ! ?? Si tu as d'autres questions, n'h�site pas. Et si tu veux d�couvrir notre collection, c'est par ici ?? /produits";
   }
-  return `Je n'ai pas de réponse précise pour "${input}" 🤔 Mais je peux t'aider sur la **livraison**, les **tailles**, le **bambou**, les **retours**, les **paiements** ou nos **produits**. Tu peux aussi écrire à contact@milk-bebe.fr !`;
+  return `Je n'ai pas de r�ponse pr�cise pour "${input}" ?? Mais je peux t'aider sur la **livraison**, les **tailles**, le **bambou**, les **retours**, les **paiements** ou nos **produits**. Tu peux aussi �crire � contact@milk-bebe.fr !`;
 }
 
 // Convertit le markdown basique en JSX
@@ -175,14 +175,14 @@ function renderText(text: string) {
     if (part.startsWith("**") && part.endsWith("**")) {
       return <strong key={i}>{part.slice(2, -2)}</strong>;
     }
-    if (part.includes("➡️")) {
-      const [before, link] = part.split("➡️");
+    if (part.includes("??")) {
+      const [before, link] = part.split("??");
       const href = link?.trim();
       return (
         <span key={i}>
           {before}
           <Link href={href} style={{ color: "#c49a4a", fontWeight: 800 }}>
-            Voir les produits →
+            Voir les produits ?
           </Link>
         </span>
       );
@@ -191,18 +191,18 @@ function renderText(text: string) {
   });
 }
 
-// ─── Suggestions rapides ──────────────────────────────────────────────────────
+// --- Suggestions rapides ------------------------------------------------------
 const QUICK = [
-  { label: "📦 Livraison",  q: "Quels sont les délais de livraison ?" },
-  { label: "📏 Tailles",    q: "Comment choisir la bonne taille ?" },
-  { label: "🌿 Bambou",     q: "Pourquoi choisir le bambou ?" },
-  { label: "↩️ Retours",    q: "Comment faire un retour ?" },
+  { label: "?? Livraison",  q: "Quels sont les d�lais de livraison ?" },
+  { label: "?? Tailles",    q: "Comment choisir la bonne taille ?" },
+  { label: "?? Bambou",     q: "Pourquoi choisir le bambou ?" },
+  { label: "?? Retours",    q: "Comment faire un retour ?" },
 ];
 
-// ─── ChatWindow ───────────────────────────────────────────────────────────────
+// --- ChatWindow ---------------------------------------------------------------
 export default function ChatWindow({ onClose }: { onClose: () => void }) {
   const [messages, setMessages] = useState<Msg[]>([
-    { role: "bot", text: "Bonjour ! 👋 Je suis l'assistant M!LK. Comment puis-je t'aider aujourd'hui ?" },
+    { role: "bot", text: "Bonjour ! ?? Je suis l'assistant M!LK. Comment puis-je t'aider aujourd'hui ?" },
   ]);
   const [input,    setInput]    = useState("");
   const [talking,  setTalking]  = useState(false);
@@ -250,22 +250,22 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
       maxHeight: "min(560px, calc(100vh - 120px))",
     }}>
 
-      {/* ── Header ── */}
+      {/* -- Header -- */}
       <div style={{ padding: "16px 18px", borderBottom: "1px solid rgba(242,237,230,0.08)", display: "flex", alignItems: "center", gap: 12, background: "#221c16" }}>
         <BabyFace talking={talking} happy={happy} />
         <div style={{ flex: 1 }}>
           <div style={{ fontWeight: 900, fontSize: 15, color: "#f2ede6" }}>Assistant M!LK</div>
           <div style={{ fontSize: 12, color: talking ? "#c49a4a" : "#22c55e", fontWeight: 700, display: "flex", alignItems: "center", gap: 5 }}>
             <div style={{ width: 6, height: 6, borderRadius: "50%", background: talking ? "#c49a4a" : "#22c55e", animation: "pulse 1.5s ease infinite" }} />
-            {talking ? "En train de répondre..." : "En ligne"}
+            {talking ? "En train de r�pondre..." : "En ligne"}
           </div>
         </div>
         <button onClick={onClose} style={{ width: 30, height: 30, borderRadius: 8, border: "1px solid rgba(242,237,230,0.12)", background: "none", cursor: "pointer", color: "rgba(242,237,230,0.5)", fontSize: 16, display: "grid", placeItems: "center", fontWeight: 900 }}>
-          ×
+          �
         </button>
       </div>
 
-      {/* ── Messages ── */}
+      {/* -- Messages -- */}
       <div style={{ flex: 1, overflowY: "auto", padding: "16px 14px", display: "flex", flexDirection: "column", gap: 10 }}>
         {messages.map((m, i) => (
           <div key={i} style={{ display: "flex", flexDirection: m.role === "user" ? "row-reverse" : "row", gap: 8, alignItems: "flex-end" }}>
@@ -292,7 +292,7 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
         <div ref={bottomRef} />
       </div>
 
-      {/* ── Suggestions rapides ── */}
+      {/* -- Suggestions rapides -- */}
       {messages.length <= 2 && (
         <div style={{ padding: "8px 14px", display: "flex", gap: 6, flexWrap: "wrap", borderTop: "1px solid rgba(242,237,230,0.06)" }}>
           {QUICK.map(q => (
@@ -309,7 +309,7 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
         </div>
       )}
 
-      {/* ── Input ── */}
+      {/* -- Input -- */}
       <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(242,237,230,0.08)", display: "flex", gap: 8, background: "#221c16" }}>
         <input
           value={input}
@@ -323,7 +323,7 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
           disabled={!input.trim()}
           style={{ padding: "11px 16px", borderRadius: 12, background: input.trim() ? "#c49a4a" : "rgba(242,237,230,0.08)", border: "none", cursor: input.trim() ? "pointer" : "not-allowed", color: input.trim() ? "#fff" : "rgba(242,237,230,0.3)", fontWeight: 900, fontSize: 14, transition: "all 0.15s" }}
         >
-          →
+          ?
         </button>
       </div>
 

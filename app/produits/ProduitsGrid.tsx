@@ -221,7 +221,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           {[
             { Icon: IconLeaf,   label: "100% Bambou",       desc: "Certifié OEKO-TEX" },
             { Icon: IconTruck,  label: "Livraison offerte",  desc: "Dès 60€ d'achat"  },
-            { Icon: IconReturn, label: "Retour gratuit",     desc: "Sous 30 jours"    },
+            { Icon: IconReturn, label: "Retour gratuit",     desc: "Sous 15 jours"    },
             { Icon: IconLock,   label: "Paiement sécurisé",  desc: "Via Stripe"       },
           ].map(r => (
             <div key={r.label} style={{ padding: "20px 22px", borderRadius: 16, background: "#2e2016", border: "1px solid rgba(242,237,230,0.06)", textAlign: "center" }}>

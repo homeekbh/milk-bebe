@@ -20,42 +20,75 @@ function getMotifDetails(slug: string) {
   return null;
 }
 
-function getProductDescription(product: any): string {
-  const cat   = product.category_slug ?? "";
-  const motif = getMotifDetails(product.slug ?? "");
-  const motifLine = motif ? `\n\nMotif ${motif.motif} : ${motif.desc}.` : "";
+function getProductSubtitle(category: string): string {
+  if (category === "pyjamas")     return "Double zip + moufles intégrées = fin des batailles quotidiennes.";
+  if (category === "bodies")      return "Habillage en deux gestes. Mains protégées. Sans accessoires.";
+  if (category === "gigoteuses")  return "Change express. Zéro boutons. Zéro galère à 3h du matin.";
+  if (category === "accessoires") return "Le sommeil avant le style.";
+  return "";
+}
 
-  if (cat === "pyjamas") {
-    return `Double zip + moufles intégrées = fin des batailles quotidiennes.
+function getProductFeatures(category: string): string[] {
+  if (category === "bodies") return [
+    "Col enveloppe élargi : passe sur la tête sans forcer, zéro pression sur la fontanelle",
+    "3 pressions seulement : pas 7, pas 12. Juste 3.",
+    "Moufles pliables intégrées : tu replies, tu déplies. Toujours là.",
+    "Bambou hypoallergénique : zéro irritation, même sur peau atopique",
+    "Extensible 4 sens : suit tous les mouvements, ne comprime pas",
+    "Coutures plates : zéro frottement, zéro marques",
+  ];
+  if (category === "pyjamas") return [
+    "Double zip inversé : change par le bas, habille par le haut",
+    "Zéro bouton : rien à aligner, rien à rater. Jamais.",
+    "Pieds pliables : chauds quand il faut, libres quand c'est mieux",
+    "Moufles pliables intégrées : tu replies, tu déplies. Fini les moufles perdues.",
+    "Bambou stretch 95% : suit tous les mouvements sans tirer",
+    "Silencieux : zéro scratch, zéro bruit qui réveille",
+  ];
+  if (category === "gigoteuses") return [
+    "Bas nouable : ouvre/ferme d'une main, sans regarder, dans le noir",
+    "Zéro bouton, zéro zip : rien à aligner, rien à coincer",
+    "Moufles pliables intégrées : tu replies, tu déplies. Toujours là.",
+    "Bambou ultra-souple : glisse sans frotter, ne réveille pas",
+    "Coupe ample : bébé bouge librement, zéro compression",
+    "Thermorégulant : chaud sans surchauffer. Été comme hiver.",
+  ];
+  if (category === "accessoires") return [
+    "Taille XXL (120×120 cm) : assez grand pour un emmaillotage qui tient vraiment",
+    "Mousseline respirante : régule la température, zéro surchauffe",
+    "Reproduit la pression du ventre maternel : effet calmant immédiat",
+    "Grip intégré : reste en place même quand bébé se débat",
+    "Devient plus doux à chaque lavage",
+    "Multi-usage : swaddle, couverture, drap d'allaitement, protection poussette",
+  ];
+  return [];
+}
 
-→ Double zip inversé : change par le bas, habille par le haut
-→ Pieds pliables selon la température
-→ Moufles pliables intégrées : fini les moufles perdues, anti-griffures toujours là
-→ Moins de manipulations = moins de protestations${motifLine}`;
-  }
-  if (cat === "bodies") {
-    return `Habillage en deux gestes et mains protégées sans accessoires.
-
-Col enveloppe élargi. 3 pressions max. Et les moufles pliables intégrées sont là quand t'en as besoin : tu replies, tu déplies, anti-griffures toujours dispo sans rien à perdre.${motifLine}`;
-  }
-  if (cat === "gigoteuses") {
-    return `Change express, zéro boutons, zéro galère à 3h du matin.
-
-Un nœud en bas. Ouvre, change, referme. 30 secondes chrono. Dans le noir si tu veux. Et les moufles pliables intégrées sont là quand t'en as besoin : tu replies, tu déplies, anti-griffures toujours dispo sans rien à perdre.${motifLine}`;
-  }
-  if (cat === "accessoires") {
-    return `Le sommeil avant le style.
-
-Mousseline grand format. Reproduit la sensation du ventre maternel. Reste en place même quand bébé gigote.${motifLine}`;
-  }
-  return product.description ?? "";
+function getWhyResult(category: string): { why: string; result: string } | null {
+  if (category === "bodies") return {
+    why: "Habiller un nouveau-né, c'est stressant. La tête est fragile, le cou ne tient pas, il pleure dès que tu approches un vêtement de son visage. Et une fois habillé ? Il se griffe le visage parce que t'as oublié les moufles. Ce body existe pour simplifier : un col qui glisse sans forcer, des moufles pliables intégrées déjà là, trois pressions et c'est fini.",
+    result: "Habillage en moins de 30 secondes. Pas de cris. Pas de stress sur la tête fragile. Mains protégées H24 sans accessoire à perdre. Tu passes à autre chose.",
+  };
+  if (category === "pyjamas") return {
+    why: "L'habillage d'un bébé peut virer au cauchemar. Il gigote, il pleure, tu t'énerves. Les boutons-pression ? 15 à aligner pendant qu'il se débat. Les moufles séparées ? Elles disparaissent toujours au mauvais moment. Résultat : friction, tension, tout le monde finit épuisé. On a conçu ce pyjama pour supprimer le combat : un double zip qui simplifie tout + des moufles pliables intégrées pour éviter les griffures sans jamais avoir à les chercher. Un zip. Deux gestes. C'est fait.",
+    result: "Habillage en moins d'une minute. Change de couche sans déshabiller. Zéro friction entre toi et ton bébé. Pas de moufles à retrouver au fond du salon : elles sont intégrées au poignet, prêtes quand tu veux protéger son visage. Les routines deviennent fluides, pas stressantes.",
+  };
+  if (category === "gigoteuses") return {
+    why: "Tu te lèves pour la 4e fois. Il est 3h du mat'. T'as les yeux à moitié fermés. Tu dois changer une couche dans la pénombre sans réveiller complètement le bébé — ni toi-même. Les boutons-pression ? Impossible à aligner. Le zip ? Trop bruyant. Les moufles séparées ? Perdues quelque part dans le lit. Cette gigoteuse à nouer existe pour ça : un vêtement qu'on ouvre et ferme sans réfléchir, sans regarder, sans bataille.",
+    result: "Change de couche en 30 secondes. Bébé reste calme, à moitié endormi. Mains protégées sans accessoire à retrouver. Tu retournes te coucher plus vite. Les réveils sont écourtés. Les nuits deviennent un peu moins chaotiques.",
+  };
+  if (category === "accessoires") return {
+    why: "Ton bébé sursaute, se réveille, pleure. Le réflexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essayé d'emmailloter avec une couverture classique — ça se défait au premier mouvement. Les swaddles à velcro ? Bruyants. Trop serrés. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton bébé plus vite et lui permettre de dormir plus longtemps. Et toi avec.",
+    result: "Bébé calmé en quelques minutes. Réflexe de Moro contenu. Moins de réveils en sursaut. Des plages de sommeil plus longues — pour lui et pour toi. Tu récupères un peu.",
+  };
+  return null;
 }
 
 function getProductFAQ(category: string): { q: string; r: string }[] {
   if (category === "bodies") return [
     { q: "Le col enveloppe, ça passe vraiment sans forcer ?",   r: "Oui. Conçu pour glisser sur la tête sans appuyer sur la fontanelle. Même sur un nouveau-né de quelques jours." },
     { q: "Les moufles pliables, ça sert à quoi ?",              r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là quand tu en as besoin." },
-    { q: "Est-ce que les moufles sont incluses ?",              r: "Oui, elles sont intégrées directement au poignet. Tu ne les perds jamais. Tu les replies quand tu veux, tu les déplies quand bébé a besoin de protection anti-griffures." },
+    { q: "Est-ce que les moufles sont incluses ?",              r: "Oui, elles sont intégrées directement au poignet. Tu ne les perds jamais. Tu les replies quand tu veux, tu les déplies quand bébé a besoin de protection." },
     { q: "3 pressions c'est assez pour tenir ?",                r: "Largement. Bien positionnées à l'entrejambe, elles maintiennent parfaitement. Plus de pressions = plus de galère." },
     { q: "C'est adapté aux peaux sensibles ?",                  r: "Bambou hypoallergénique + coutures plates. Zéro frottement, zéro irritation. Même sur peau atopique." },
     { q: "Jusqu'à quel âge ?",                                  r: "De la naissance à 12 mois. 5 tailles disponibles. Le stretch permet une bonne marge dans chaque taille." },
@@ -71,7 +104,7 @@ function getProductFAQ(category: string): { q: string; r: string }[] {
   ];
   if (category === "gigoteuses") return [
     { q: "C'est quoi une gigoteuse à nouer exactement ?",       r: "Une gigoteuse nouée en bas. Pas de boutons, pas de zip. Tu défais le nœud, tu changes, tu renoues. 30 secondes. Même dans le noir." },
-    { q: "Les moufles pliables, ça sert à quoi ?",              r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là quand tu en as besoin — même à 3h du mat'." },
+    { q: "Les moufles pliables, ça sert à quoi ?",              r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là — même à 3h du mat'." },
     { q: "Le nœud ne se défait pas tout seul ?",                r: "Non. Le tissu bambou a du grip. Une fois noué, ça tient toute la nuit. Et ça se défait facilement quand tu le veux." },
     { q: "Jusqu'à quel âge ça fonctionne ?",                    r: "De la naissance à 6 mois environ. Après, bébé bouge trop et on passe au pyjama zip." },
     { q: "C'est vraiment mieux que les boutons-pression ?",     r: "La nuit, à moitié endormi, aligner 12 pressions dans le noir ? Non. Le nœud se fait d'une main, sans regarder." },
@@ -93,110 +126,12 @@ function getProductFAQ(category: string): { q: string; r: string }[] {
   ];
 }
 
-function EditorialSections({ category }: { category: string }) {
-  type Section = { why: string; result: string; features: string[]; philosophy: string };
-  const content: Record<string, Section> = {
-    bodies: {
-      why: "Habiller un nouveau-né, c'est stressant. La tête est fragile, le cou ne tient pas, il pleure dès que tu approches un vêtement de son visage. Et une fois habillé ? Il se griffe le visage parce que t'as oublié les moufles. Ce body existe pour simplifier : un col qui glisse sans forcer, des moufles pliables intégrées déjà là, trois pressions et c'est fini.",
-      result: "Habillage en moins de 30 secondes. Pas de cris. Pas de stress sur la tête fragile. Mains protégées H24 sans accessoire à perdre. Tu passes à autre chose.",
-      features: [
-        "Col enveloppe élargi : passe sur la tête sans forcer, sans pression sur la fontanelle",
-        "3 pressions seulement : pas 7, pas 12, juste 3 bien placées",
-        "Moufles pliables intégrées : tu replies, tu déplies, fini les moufles perdues ; anti-griffures toujours dispo, sans accessoire à part",
-        "Bambou hypoallergénique : zéro irritation sur peau de nouveau-né",
-        "Extensible 4 sens : suit les mouvements, ne comprime pas",
-        "Coutures plates : pas de frottement, pas de marques",
-      ],
-      philosophy: "Les bodies à col rond ? Bataille pour passer la tête, bébé hurle. Les bodies à boutons sur l'épaule ? 6 pressions à aligner. Les moufles séparées ? Perdues en 24h. Le body express combine col facile + pressions minimum + moufles pliables intégrées.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.",
-    },
-    pyjamas: {
-      why: "L'habillage d'un bébé peut virer au cauchemar. Il gigote, il pleure, tu t'énerves. Les boutons-pression ? 15 à aligner pendant qu'il se débat. Les moufles séparées ? Elles disparaissent toujours au mauvais moment. Résultat : friction, tension, tout le monde finit épuisé. On a conçu ce pyjama pour supprimer le combat : un double zip qui simplifie tout + des moufles pliables intégrées pour éviter les griffures sans jamais avoir à les chercher. Un zip. Deux gestes. C'est fait.",
-      result: "Habillage en moins d'une minute. Change de couche sans déshabiller. Zéro friction entre toi et ton bébé. Pas de moufles à retrouver au fond du salon : elles sont intégrées au poignet, prêtes quand tu veux protéger son visage. Les routines deviennent fluides, pas stressantes.",
-      features: [
-        "Double zip inversé : ouvre par le bas pour changer, par le haut pour habiller",
-        "Zéro bouton : rien à aligner, rien à rater",
-        "Pieds pliables : protège les pieds du froid OU laisse-les libres",
-        "Moufles pliables intégrées : tu replies, tu déplies, fini les moufles perdues ; anti-griffures toujours dispo, sans accessoire à part",
-        "Bambou stretch 95% : suit tous les mouvements sans tirer",
-        "Silencieux : pas de scratch, pas de bruit qui réveille",
-      ],
-      philosophy: "Les pyjamas à boutons ? Combat garanti à chaque change. Les combinaisons sans zip inversé ? Tu dois tout défaire pour une couche. Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin. Ici : double zip inversé + bambou stretch + moufles pliables intégrées = moins de gestes, moins de lutte, moins d'objets à gérer.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.",
-    },
-    gigoteuses: {
-      why: "Tu te lèves pour la 4e fois. Il est 3h du mat'. T'as les yeux à moitié fermés. Tu dois changer une couche dans la pénombre sans réveiller complètement le bébé — ni toi-même. Les boutons-pression ? Impossible à aligner. Le zip ? Trop bruyant. Les moufles séparées ? Perdues quelque part dans le lit. Cette gigoteuse à nouer existe pour ça : un vêtement qu'on ouvre et ferme sans réfléchir, sans regarder, sans bataille — avec moufles pliables intégrées pour éviter les griffures sans chercher.",
-      result: "Change de couche en 30 secondes. Bébé reste calme, à moitié endormi. Mains protégées sans accessoire à retrouver. Tu retournes te coucher plus vite. Les réveils sont écourtés. Les nuits deviennent un peu moins chaotiques.",
-      features: [
-        "Bas nouable : ouvre/ferme d'une main, sans regarder",
-        "Zéro bouton, zéro zip : rien à aligner, rien à coincer",
-        "Moufles pliables intégrées : tu replies, tu déplies, fini les moufles perdues ; anti-griffures toujours dispo, sans accessoire à part",
-        "Tissu bambou ultra-souple : glisse sans frotter, ne réveille pas",
-        "Coupe ample : bébé bouge librement, pas de compression",
-        "Thermorégulant : chaud sans surchauffer, même en été",
-      ],
-      philosophy: "Les grenouillères à boutons ? 12 pressions à aligner dans le noir — t'abandonnes au 3e essai. Les pyjamas zip ? Le bruit réveille le bébé. Les gigoteuses classiques ? Pas d'accès direct à la couche. Les moufles séparées ? Perdues dans le lit à 3h du mat'. La gigoteuse à nouer résout tout : accès immédiat, fermeture silencieuse, zéro manipulation complexe, moufles pliables intégrées.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.",
-    },
-    accessoires: {
-      why: "Ton bébé sursaute, se réveille, pleure. Le réflexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essayé d'emmailloter avec une couverture classique — ça se défait au premier mouvement. Les swaddles à velcro ? Bruyants. Trop serrés. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton bébé plus vite et lui permettre de dormir plus longtemps. Et toi avec.",
-      result: "Bébé calmé en quelques minutes. Réflexe de Moro contenu. Moins de réveils en sursaut. Des plages de sommeil plus longues — pour lui et pour toi. Tu récupères un peu.",
-      features: [
-        "Taille XXL (120×120 cm) : assez grand pour un emmaillotage qui tient vraiment",
-        "Mousseline respirante : régule la température, pas de surchauffe",
-        "Reproduit la pression du ventre maternel : effet calmant immédiat",
-        "Tissu avec grip : reste en place même quand bébé se débat",
-        "Devient plus doux à chaque lavage",
-        "Multi-usage : swaddle, couverture, drap d'allaitement, protection poussette",
-      ],
-      philosophy: "Les swaddles à velcro ? Le scratch réveille le bébé quand tu l'ouvres. Les couvertures classiques ? Trop petites, se défont. Les gigoteuses ? Pas adaptées aux nouveau-nés qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.",
-    },
-  };
-
-  const c = content[category];
-  if (!c) return null;
-
-  return (
-    <div style={{ display: "grid", gap: 24, marginBottom: 32 }}>
-      <div style={{ padding: "24px 28px", borderRadius: 20, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>La vraie raison</div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Pourquoi ce produit existe</div>
-        <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", color: "rgba(26,20,16,0.75)", lineHeight: 1.8 }}>{c.why}</p>
-      </div>
-
-      <div style={{ padding: "24px 28px", borderRadius: 20, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.18)" }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Ce que tu obtiens</div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Le résultat</div>
-        <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", color: "rgba(26,20,16,0.75)", lineHeight: 1.8, fontWeight: 600 }}>{c.result}</p>
-      </div>
-
-      <div style={{ padding: "24px 28px", borderRadius: 20, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Concrètement</div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 18 }}>Les preuves</div>
-        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          {c.features.map((feat, i) => {
-            const colonIdx = feat.indexOf(" : ");
-            const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
-            const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
-            return (
-              <div key={i} style={{ display: "flex", gap: 12, alignItems: "flex-start" }}>
-                <div style={{ width: 22, height: 22, borderRadius: "50%", background: "rgba(196,154,74,0.12)", border: "1px solid rgba(196,154,74,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                  <svg width="10" height="8" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                </div>
-                <div>
-                  <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.2vw,15px)", color: "#1a1410" }}>{label}</span>
-                  {desc && <span style={{ fontWeight: 400, fontSize: "clamp(12px,1.1vw,14px)", color: "rgba(26,20,16,0.55)" }}> : {desc}</span>}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018" }}>
-        <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
-        <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Comment ça réduit ta charge mentale</div>
-        <p style={{ margin: 0, fontSize: "clamp(13px,1.2vw,15px)", color: "rgba(242,237,230,0.7)", lineHeight: 1.85, whiteSpace: "pre-line" }}>{c.philosophy}</p>
-      </div>
-    </div>
-  );
+function getPhilosophy(category: string): string {
+  if (category === "bodies")      return "Les bodies à col rond ? Bataille pour passer la tête, bébé hurle. Les bodies à boutons sur l'épaule ? 6 pressions à aligner. Les moufles séparées ? Perdues en 24h. Le body express combine col facile + pressions minimum + moufles pliables intégrées.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  if (category === "pyjamas")     return "Les pyjamas à boutons ? Combat garanti à chaque change. Les combinaisons sans zip inversé ? Tu dois tout défaire pour une couche. Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin. Ici : double zip inversé + bambou stretch + moufles pliables intégrées = moins de gestes, moins de lutte, moins d'objets à gérer.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  if (category === "gigoteuses")  return "Les grenouillères à boutons ? 12 pressions à aligner dans le noir — t'abandonnes au 3e essai. Les pyjamas zip ? Le bruit réveille le bébé. Les gigoteuses classiques ? Pas d'accès direct à la couche. Les moufles séparées ? Perdues dans le lit à 3h du mat'. La gigoteuse à nouer résout tout : accès immédiat, fermeture silencieuse, zéro manipulation complexe.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  if (category === "accessoires") return "Les swaddles à velcro ? Le scratch réveille le bébé quand tu l'ouvres. Les couvertures classiques ? Trop petites, se défont. Les gigoteuses ? Pas adaptées aux nouveau-nés qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  return "";
 }
 
 const TAILLES_ORDER = ["Nouveau-né","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120×120 cm"];
@@ -343,19 +278,23 @@ export default function ProductPage() {
     </div>
   );
 
-  const promo         = isPromoActive(product);
-  const out           = Number(product.stock ?? 0) <= 0;
-  const lowStock      = !out && Number(product.stock ?? 0) <= 5;
-  const displayPrice  = promo ? product.promo_price : product.price_ttc;
-  const badgeLabel    = out ? undefined : (product.label || (promo ? "promo" : undefined));
-  const allImages     = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4].filter(Boolean) as string[];
-  const taillesDispos : string[]              = Array.isArray(product.sizes)  ? product.sizes  : [];
-  const sizesStock    : Record<string,number> = product.sizes_stock ?? {};
-  const couleursDispos: any[]                 = Array.isArray(product.colors) ? product.colors : [];
-  const outTaille     = taille ? Number(sizesStock[taille] ?? product.stock ?? 0) <= 0 : out;
-  const cartCount     = items.reduce((s, i) => s + i.quantity, 0);
-  const description   = getProductDescription(product);
-  const FAQ           = getProductFAQ(product.category_slug ?? "");
+  const promo          = isPromoActive(product);
+  const out            = Number(product.stock ?? 0) <= 0;
+  const lowStock       = !out && Number(product.stock ?? 0) <= 5;
+  const displayPrice   = promo ? product.promo_price : product.price_ttc;
+  const badgeLabel     = out ? undefined : (product.label || (promo ? "promo" : undefined));
+  const allImages      = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4].filter(Boolean) as string[];
+  const taillesDispos  : string[]              = Array.isArray(product.sizes)  ? product.sizes  : [];
+  const sizesStock     : Record<string,number> = product.sizes_stock ?? {};
+  const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
+  const outTaille      = taille ? Number(sizesStock[taille] ?? product.stock ?? 0) <= 0 : out;
+  const cartCount      = items.reduce((s, i) => s + i.quantity, 0);
+  const subtitle       = getProductSubtitle(product.category_slug ?? "");
+  const features       = getProductFeatures(product.category_slug ?? "");
+  const whyResult      = getWhyResult(product.category_slug ?? "");
+  const philosophy     = getPhilosophy(product.category_slug ?? "");
+  const FAQ            = getProductFAQ(product.category_slug ?? "");
+  const motif          = getMotifDetails(product.slug ?? "");
 
   const photoRows: string[][] = [];
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }
@@ -384,6 +323,7 @@ export default function ProductPage() {
         }
       `}</style>
 
+      {/* Breadcrumb */}
       <div style={{ paddingTop: 84, maxWidth: 1800, margin: "0 auto", padding: "84px 4vw 0" }}>
         <div style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(26,20,16,0.4)", flexWrap: "wrap", paddingBottom: 8 }}>
           <Link href="/"         style={{ textDecoration: "none", color: "inherit" }}>Accueil</Link>
@@ -431,20 +371,51 @@ export default function ProductPage() {
 
         {/* ─── DROITE : panneau achat ─── */}
         <div className="pl-right">
+
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a" }}>
             {product.category_slug ?? "M!LK"} · Bambou OEKO-TEX
           </div>
+
           <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: "#1a1410" }}>
             {product.name}
           </h1>
+
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>{Number(displayPrice).toFixed(2)} €</span>
             {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
           </div>
-          {description && (
-            <div style={{ fontSize: "clamp(13px,1.1vw,15px)", lineHeight: 1.85, color: "rgba(26,20,16,0.65)", whiteSpace: "pre-line" }}>{description}</div>
+
+          {/* ── FEATURES — carte sous titre/prix ── */}
+          {features.length > 0 && (
+            <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column", gap: 11 }}>
+              {features.map((feat, i) => {
+                const colonIdx = feat.indexOf(" : ");
+                const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
+                const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
+                return (
+                  <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(196,154,74,0.12)", border: "1px solid rgba(196,154,74,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <svg width="9" height="7" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    </div>
+                    <div>
+                      <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.1vw,14px)", color: "#1a1410" }}>{label}</span>
+                      {desc && <span style={{ fontWeight: 400, fontSize: "clamp(12px,1vw,13px)", color: "rgba(26,20,16,0.5)" }}> : {desc}</span>}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           )}
+
+          {/* ── MOTIF — plus gros ── */}
+          {motif && (
+            <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: "#1a1410", lineHeight: 1.5 }}>
+              <span style={{ color: "#c49a4a", fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
+            </div>
+          )}
+
+          {/* Pourquoi le bambou */}
           <details style={{ background: "rgba(196,154,74,0.07)", borderRadius: 12, border: "1px solid rgba(196,154,74,0.15)", overflow: "hidden" }}>
             <summary style={{ padding: "11px 14px", cursor: "pointer", fontWeight: 800, fontSize: 13, color: "#c49a4a", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               Pourquoi le bambou M!LK ?
@@ -455,11 +426,14 @@ export default function ProductPage() {
               <strong style={{ color: "#1a1410" }}>Un seul vêtement, toute l'année. Pas besoin d'en faire des tonnes.</strong>
             </div>
           </details>
+
           <div style={{ padding: "10px 14px", borderRadius: 10, background: "#2a2018", display: "flex", gap: 14, flexWrap: "wrap" }}>
             <div style={{ fontSize: 12, color: "rgba(242,237,230,0.7)" }}>
               <strong style={{ color: "#c49a4a" }}>Composition :</strong> 95 % viscose de bambou · 5 % élasthanne
             </div>
           </div>
+
+          {/* Couleurs */}
           {couleursDispos.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
@@ -480,6 +454,8 @@ export default function ProductPage() {
               </div>
             </div>
           )}
+
+          {/* Tailles */}
           {taillesDispos.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
@@ -506,6 +482,8 @@ export default function ProductPage() {
               </div>
             </div>
           )}
+
+          {/* Guide des tailles */}
           {taillesDispos.length > 0 && (
             <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(26,20,16,0.1)" }}>
               <button onClick={() => setGuideOpen(v => !v)} style={{ width: "100%", padding: "11px 14px", background: guideOpen ? "#1a1410" : "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -541,6 +519,8 @@ export default function ProductPage() {
               )}
             </div>
           )}
+
+          {/* Quantité */}
           <div style={{ display: "grid", gap: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>Quantité</span>
             <div style={{ display: "flex", alignItems: "center", background: "#fff", borderRadius: 12, padding: 4, width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
@@ -549,6 +529,8 @@ export default function ProductPage() {
               <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: "#1a1410" }}>+</button>
             </div>
           </div>
+
+          {/* CTA */}
           <div style={{ display: "grid", gap: 10 }}>
             <button onClick={handleAddToCart} disabled={outTaille}
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "#d1cdc8" : "#1a1410", color: added ? "#fff" : outTaille ? "#9ca3af" : "#f2ede6", transition: "all 0.2s" }}>
@@ -560,6 +542,8 @@ export default function ProductPage() {
               </Link>
             )}
           </div>
+
+          {/* Réassurance */}
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[
               { Icon: IconLeaf,   label: "100% Bambou OEKO-TEX"     },
@@ -572,6 +556,8 @@ export default function ProductPage() {
               </div>
             ))}
           </div>
+
+          {/* Composition + Entretien */}
           <div className="care-stack">
             <div style={{ padding: "18px 20px", borderRadius: 16, background: "#2a2018", color: "#f2ede6" }}>
               <h3 style={{ margin: "0 0 12px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950 }}>Composition</h3>
@@ -602,11 +588,29 @@ export default function ProductPage() {
               ))}
             </div>
           </div>
+
+          {/* ── LA VRAIE RAISON + CE QUE TU OBTIENS — sous entretien ── */}
+          {whyResult && (
+            <>
+              <div style={{ padding: "20px 22px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>La vraie raison</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Pourquoi ce produit existe</div>
+                <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8 }}>{whyResult.why}</p>
+              </div>
+              <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.18)" }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>Ce que tu obtiens</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Le résultat</div>
+                <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8, fontWeight: 600 }}>{whyResult.result}</p>
+              </div>
+            </>
+          )}
+
         </div>
       </div>
 
       {/* ── BAS DE PAGE ── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
+
         {related.length > 0 && (
           <div style={{ marginBottom: 48 }}>
             <div style={{ marginBottom: 22 }}>
@@ -632,8 +636,14 @@ export default function ProductPage() {
           </div>
         )}
 
-        {/* ── SECTIONS ÉDITORIALES ERIKA ── */}
-        <EditorialSections category={product.category_slug ?? ""} />
+        {/* ── PHILOSOPHIE M!LK ── */}
+        {philosophy && (
+          <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018", marginBottom: 24 }}>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Comment ça réduit ta charge mentale</div>
+            <p style={{ margin: 0, fontSize: "clamp(13px,1.2vw,15px)", color: "rgba(242,237,230,0.7)", lineHeight: 1.85, whiteSpace: "pre-line" }}>{philosophy}</p>
+          </div>
+        )}
 
         {/* ── FAQ ── */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018" }}>

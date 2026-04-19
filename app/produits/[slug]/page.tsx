@@ -126,6 +126,80 @@ function getPhilosophy(category: string): string {
   return "";
 }
 
+// ── Card Philosophie avec mise en forme impactante ──
+function PhilosophyCard({ text }: { text: string }) {
+  const [main, conclusion] = text.split("\n\n");
+
+  // Parse sentences from main paragraph
+  const sentences: string[] = [];
+  let buf = "";
+  for (let i = 0; i < main.length; i++) {
+    buf += main[i];
+    if (main[i] === "." && (i + 1 >= main.length || main[i + 1] === " ")) {
+      sentences.push(buf.trim());
+      buf = "";
+    }
+  }
+  if (buf.trim()) sentences.push(buf.trim());
+
+  // Build blocks: { q, a } or { hero }
+  const blocks: Array<{ q?: string; a: string; hero?: boolean }> = [];
+  sentences.forEach(s => {
+    const qi = s.indexOf("?");
+    if (qi > -1) {
+      blocks.push({ q: s.slice(0, qi + 1).trim(), a: s.slice(qi + 1).trim() });
+    } else if (s.startsWith("Ici") || s.startsWith("La ") || s.startsWith("Le ")) {
+      blocks.push({ a: s, hero: true });
+    } else {
+      blocks.push({ a: s });
+    }
+  });
+
+  // Conclusion sentences
+  const cLines = conclusion
+    ? conclusion.replace(/\. /g, ".|").split("|").map(s => s.trim()).filter(Boolean)
+    : [];
+
+  return (
+    <div style={{ padding: "26px 26px", borderRadius: 20, background: "#2a2018", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>Philosophie M!LK</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 22 }}>Comment ça réduit ta charge mentale</div>
+
+      <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
+        {blocks.map((block, i) =>
+          block.hero ? (
+            <div key={i} style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.22)" }}>
+              <div style={{ fontSize: "clamp(13px,1.1vw,15px)", color: "#f2ede6", fontWeight: 800, lineHeight: 1.5 }}>{block.a}</div>
+            </div>
+          ) : (
+            <div key={i} style={{ borderLeft: "2px solid rgba(196,154,74,0.25)", paddingLeft: 14 }}>
+              {block.q && (
+                <div style={{ fontSize: "clamp(11px,0.9vw,12px)", color: "#c49a4a", fontWeight: 800, letterSpacing: 0.4, marginBottom: 3 }}>{block.q}</div>
+              )}
+              <div style={{ fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(242,237,230,0.8)", fontWeight: 700, lineHeight: 1.45 }}>{block.a}</div>
+            </div>
+          )
+        )}
+      </div>
+
+      {cLines.length > 0 && (
+        <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(242,237,230,0.08)", display: "flex", flexDirection: "column", gap: 4 }}>
+          {cLines.map((line, i) => (
+            <div key={i} style={{
+              fontSize: i === cLines.length - 1 ? "clamp(14px,1.2vw,16px)" : "clamp(11px,0.9vw,12px)",
+              fontWeight: i === cLines.length - 1 ? 900 : 500,
+              color: i === cLines.length - 1 ? "#f2ede6" : "rgba(242,237,230,0.35)",
+              lineHeight: 1.5,
+            }}>
+              {line}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 const TAILLES_ORDER = ["Nouveau-né","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120×120 cm"];
 
 const GUIDE_TAILLES = [
@@ -305,7 +379,7 @@ export default function ProductPage() {
         .photo-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
         .photo-item { position: relative; aspect-ratio: 3/4; border-radius: 14px; overflow: hidden; background: #ede8df; cursor: zoom-in; }
         .photo-item.single { grid-column: 1 / -1; aspect-ratio: 4/5; }
-        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
         @media (max-width: 900px) {
           .pl-outer { grid-template-columns: 1fr !important; }
           .pl-left  { padding: 12px 4vw 24px !important; }
@@ -364,24 +438,21 @@ export default function ProductPage() {
         {/* ─── DROITE : panneau achat ─── */}
         <div className="pl-right">
 
-          {/* Catégorie */}
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a" }}>
             {product.category_slug ?? "M!LK"} · Bambou OEKO-TEX
           </div>
 
-          {/* Titre */}
           <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: "#1a1410" }}>
             {product.name}
           </h1>
 
-          {/* Prix */}
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>{Number(displayPrice).toFixed(2)} €</span>
             {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
           </div>
 
-          {/* ── FEATURES (coches) sous titre/prix ── */}
+          {/* Features */}
           {features.length > 0 && (
             <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column", gap: 11 }}>
               {features.map((feat, i) => {
@@ -403,7 +474,7 @@ export default function ProductPage() {
             </div>
           )}
 
-          {/* ── MOTIF — plus gros ── */}
+          {/* Motif */}
           {motif && (
             <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: "#1a1410", lineHeight: 1.5 }}>
               <span style={{ color: "#c49a4a", fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
@@ -534,7 +605,7 @@ export default function ProductPage() {
             ))}
           </div>
 
-          {/* ── LA VRAIE RAISON ── */}
+          {/* La vraie raison */}
           {whyResult && (
             <div style={{ padding: "20px 22px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>La vraie raison</div>
@@ -543,7 +614,7 @@ export default function ProductPage() {
             </div>
           )}
 
-          {/* ── CE QUE TU OBTIENS ── */}
+          {/* Ce que tu obtiens */}
           {whyResult && (
             <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.18)" }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>Ce que tu obtiens</div>
@@ -552,10 +623,10 @@ export default function ProductPage() {
             </div>
           )}
 
-          {/* ── CONSEILS D'ENTRETIEN ── */}
+          {/* Conseils d'entretien */}
           <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-            <h3 style={{ margin: "0 0 12px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
-            <div style={{ marginBottom: 10, fontSize: 12, color: "rgba(26,20,16,0.45)", fontWeight: 600 }}>95 % viscose de bambou · 5 % élasthanne · OEKO-TEX Standard 100</div>
+            <h3 style={{ margin: "0 0 8px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
+            <div style={{ marginBottom: 12, fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>95 % viscose de bambou · 5 % élasthanne · OEKO-TEX Standard 100</div>
             {[
               { Icon: IconThermometer, text: "Lavage 40°C, cycle délicat"       },
               { Icon: IconBan,         text: "Sans adoucissant ni javel"         },
@@ -575,17 +646,17 @@ export default function ProductPage() {
       {/* ── BAS DE PAGE ── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
 
-        {/* ── CLIENTS + PHILOSOPHIE côte à côte ── */}
+        {/* ── Produits + Philosophie côte à côte — même hauteur ── */}
         <div className="bottom-grid" style={{ marginBottom: 24 }}>
 
-          {/* Clients ont aussi acheté */}
-          {related.length > 0 && (
-            <div>
+          {/* Gauche : clients ont aussi acheté */}
+          {related.length > 0 ? (
+            <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ marginBottom: 20 }}>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>Complétez votre collection</div>
                 <h2 style={{ margin: 0, fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Les clients ont aussi acheté</h2>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14, flex: 1 }}>
                 {related.map((p: any) => (
                   <Link key={p.id} href={`/produits/${p.slug}`}
                     style={{ textDecoration: "none", color: "inherit", borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "block", transition: "transform 0.2s, box-shadow 0.2s" }}
@@ -602,20 +673,14 @@ export default function ProductPage() {
                 ))}
               </div>
             </div>
-          )}
+          ) : <div />}
 
-          {/* Philosophie M!LK */}
-          {philosophy && (
-            <div style={{ padding: "24px 26px", borderRadius: 20, background: "#2a2018", height: "fit-content" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Comment ça réduit ta charge mentale</div>
-              <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(242,237,230,0.7)", lineHeight: 1.85, whiteSpace: "pre-line" }}>{philosophy}</p>
-            </div>
-          )}
+          {/* Droite : Philosophie M!LK — même hauteur que la colonne gauche */}
+          {philosophy && <PhilosophyCard text={philosophy} />}
 
         </div>
 
-        {/* ── FAQ ── */}
+        {/* FAQ */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018" }}>
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: "#f2ede6" }}>Questions fréquentes</h3>
           {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
@@ -623,7 +688,7 @@ export default function ProductPage() {
 
       </div>
 
-      {/* Mobile CTA fixe */}
+      {/* Mobile CTA */}
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: "rgba(245,240,232,0.97)", backdropFilter: "blur(8px)", borderTop: "1px solid rgba(26,20,16,0.1)" }}>
         <button onClick={handleAddToCart} disabled={outTaille}
           style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "#d1cdc8" : "#1a1410", color: "#f2ede6" }}>

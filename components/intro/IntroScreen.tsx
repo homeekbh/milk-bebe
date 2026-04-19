@@ -4,15 +4,15 @@ import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation";
 
 const NO_INTRO = ["/admin", "/success", "/connexion", "/inscription", "/profil", "/panier"];
-const AMBER    = "#f7cc38";        // Jaune légèrement plus clair
-const BEIGE    = "rgba(228,205,148,0.55)"; // Beige chaud pour le bouton
+const AMBER    = "#f7cc38";
+const BEIGE    = "rgba(228,205,148,0.55)";
 
 export default function IntroScreen() {
   const pathname = usePathname();
 
-  // ✅ Démarre à TRUE → overlay sombre immédiat dès le 1er rendu → plus de flash
+  // ✅ show=true par défaut → overlay sombre immédiat, plus de flash
   const [show,    setShow]    = useState(true);
-  const [ready,   setReady]   = useState(false); // animation active
+  const [ready,   setReady]   = useState(false);
   const [phase,   setPhase]   = useState(0);
   const [fadeOut, setFadeOut] = useState(false);
   const timers = useRef<NodeJS.Timeout[]>([]);
@@ -28,7 +28,6 @@ export default function IntroScreen() {
   }
 
   useEffect(() => {
-    // ✅ Pas d'intro sur ces pages → masque immédiatement (overlay déjà sombre → invisible)
     if (
       NO_INTRO.some(p => pathname.startsWith(p)) ||
       sessionStorage.getItem("milk_intro_done")  ||
@@ -38,18 +37,17 @@ export default function IntroScreen() {
       return;
     }
 
-    // ✅ Cache le header pendant toute la durée de l'intro
-    const style = document.createElement("style");
-    style.id = "intro-hide-header";
+    // ✅ Cache le header pendant l'intro
+    const style       = document.createElement("style");
+    style.id          = "intro-hide-header";
     style.textContent = "header { display: none !important; }";
     document.head.appendChild(style);
 
-    // Lance les phases
     setReady(true);
     const t1 = setTimeout(() => setPhase(1), 100);   // M L K s'allument
     const t2 = setTimeout(() => setPhase(2), 1050);  // ! tombe
     const t3 = setTimeout(() => setPhase(3), 2800);  // tagline + bouton
-    const t4 = setTimeout(() => dismiss(),   11000); // auto-dismiss (+1s)
+    const t4 = setTimeout(() => dismiss(),   11000); // auto-dismiss
 
     timers.current = [t1, t2, t3, t4];
     return () => {
@@ -71,20 +69,19 @@ export default function IntroScreen() {
       transition: fadeOut ? "opacity 0.7s ease" : "none",
     }}>
 
-      {/* ── CSS animations ── */}
       {ready && (
         <style>{`
-          /* ✅ Ampoule qui monte en intensité — aucun clignotement */
+          /* ── M L K : montée en intensité comme une ampoule — sans clignotement ── */
           @keyframes bulb-warmup {
-            0%   { opacity: 0;   filter: brightness(0.15); text-shadow: none; }
-            30%  { opacity: 0.55; filter: brightness(0.6);  text-shadow: 0 0 50px rgba(255,235,180,0.25); }
-            60%  { opacity: 0.9; filter: brightness(1.1);  text-shadow: 0 0 90px rgba(255,235,180,0.45), 0 0 180px rgba(255,210,100,0.2); }
-            78%  { opacity: 1;   filter: brightness(1.3);  text-shadow: 0 0 110px rgba(255,235,180,0.6), 0 0 220px rgba(255,210,100,0.25); }
-            90%  { opacity: 1;   filter: brightness(1.1);  text-shadow: 0 0 80px rgba(255,235,180,0.4); }
-            100% { opacity: 1;   filter: brightness(1);    text-shadow: 0 0 50px rgba(255,235,180,0.2); }
+            0%   { opacity: 0;    filter: brightness(0.15); text-shadow: none; }
+            30%  { opacity: 0.55; filter: brightness(0.6);  text-shadow: 0 0 50px rgba(255,235,180,0.2); }
+            60%  { opacity: 0.9;  filter: brightness(1.1);  text-shadow: 0 0 90px rgba(255,235,180,0.38), 0 0 180px rgba(255,210,100,0.16); }
+            78%  { opacity: 1;    filter: brightness(1.25); text-shadow: 0 0 110px rgba(255,235,180,0.48), 0 0 220px rgba(255,210,100,0.2); }
+            90%  { opacity: 1;    filter: brightness(1.08); text-shadow: 0 0 80px rgba(255,235,180,0.32); }
+            100% { opacity: 1;    filter: brightness(1);    text-shadow: 0 0 50px rgba(255,235,180,0.16); }
           }
 
-          /* ✅ ! tombe avec rebond bien visible — 1.5s (pas trop lent) */
+          /* ── ! tombe avec rebond bien visible ── */
           @keyframes drop-bounce {
             0%   { transform: translateY(-360px); opacity: 0; }
             14%  { opacity: 1; }
@@ -104,8 +101,8 @@ export default function IntroScreen() {
           }
 
           @keyframes blink-border {
-            0%, 100% { border-color: rgba(228,205,148,0.25); }
-            50%      { border-color: rgba(228,205,148,0.5); }
+            0%, 100% { border-color: rgba(228,205,148,0.22); }
+            50%      { border-color: rgba(228,205,148,0.45); }
           }
         `}</style>
       )}
@@ -114,7 +111,7 @@ export default function IntroScreen() {
       {ready && (
         <div style={{
           display: "flex",
-          alignItems: "flex-end",  // ✅ Base des lettres alignée en bas
+          alignItems: "flex-end",  // ✅ dot du ! aligné avec le bas de M L K
           justifyContent: "center",
           lineHeight: 1,
           marginBottom: 30,
@@ -130,12 +127,13 @@ export default function IntroScreen() {
             lineHeight: 1,
             display: "inline-block",
             opacity: phase >= 1 ? undefined : 0,
-            animation: phase >= 1 ? "bulb-warmup 1.4s ease forwards 0s" : "none",
+            animation: phase >= 1 ? "bulb-warmup 1.4s ease forwards" : "none",
+            animationDelay: "0s",
           }}>M</span>
 
-          {/* ✅ ! — plus grand que les lettres, dot aligné en bas, tige dépasse en haut */}
+          {/* ✅ ! — plus grand que les lettres, halo réduit */}
           <span style={{
-            fontSize: "clamp(82px, 17.5vw, 178px)", // ≈ 1.25× les lettres
+            fontSize: "clamp(82px, 17.5vw, 178px)",
             fontWeight: 950,
             color: AMBER,
             lineHeight: 1,
@@ -143,11 +141,11 @@ export default function IntroScreen() {
             letterSpacing: 0,
             opacity: phase >= 2 ? undefined : 0,
             animation: phase >= 2 ? "drop-bounce 1.5s cubic-bezier(0.22,0.61,0.36,1) forwards" : "none",
-            // ✅ Halo arrondi via text-shadow (pas filter: drop-shadow rectangulaire)
+            // ✅ Halo plus doux — réduit de ~50% par rapport à avant
             textShadow: phase >= 3
-              ? `0 0 18px ${AMBER}ff, 0 0 36px ${AMBER}dd, 0 0 70px ${AMBER}99, 0 0 120px ${AMBER}55, 0 0 180px ${AMBER}22`
+              ? `0 0 12px ${AMBER}88, 0 0 28px ${AMBER}55, 0 0 55px ${AMBER}33, 0 0 90px ${AMBER}18`
               : "none",
-            transition: "text-shadow 0.5s ease",
+            transition: "text-shadow 0.6s ease",
           }}>!</span>
 
           {/* L */}
@@ -159,7 +157,8 @@ export default function IntroScreen() {
             lineHeight: 1,
             display: "inline-block",
             opacity: phase >= 1 ? undefined : 0,
-            animation: phase >= 1 ? "bulb-warmup 1.4s ease forwards 0.1s" : "none",
+            animation: phase >= 1 ? "bulb-warmup 1.4s ease forwards" : "none",
+            animationDelay: "0.1s",
           }}>L</span>
 
           {/* K */}
@@ -171,7 +170,8 @@ export default function IntroScreen() {
             lineHeight: 1,
             display: "inline-block",
             opacity: phase >= 1 ? undefined : 0,
-            animation: phase >= 1 ? "bulb-warmup 1.4s ease forwards 0.2s" : "none",
+            animation: phase >= 1 ? "bulb-warmup 1.4s ease forwards" : "none",
+            animationDelay: "0.2s",
           }}>K</span>
         </div>
       )}
@@ -232,7 +232,7 @@ export default function IntroScreen() {
           bottom: 0, left: 0,
           height: 2,
           background: AMBER,
-          opacity: 0.22,
+          opacity: 0.2,
           width: phase >= 3 ? "100%" : phase >= 2 ? "55%" : phase >= 1 ? "20%" : "0%",
           transition: "width 1.3s ease",
         }} />

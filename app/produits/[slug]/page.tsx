@@ -20,7 +20,45 @@ function getMotifDetails(slug: string) {
   return null;
 }
 
-function getProductFeatures(category: string): string[] {
+// ── Sous-titre court ──
+function getProductSubtitle(category: string, slug: string): string {
+  if (slug.includes("bonnet"))    return "La vraie alternative au bonnet d'hôpital qu'on oublie dès la sortie.";
+  if (slug.includes("lange"))     return "Le sommeil avant le style.";
+  if (category === "pyjamas")     return "Double zip + moufles intégrées = fin des batailles quotidiennes.";
+  if (category === "bodies")      return "Habillage en deux gestes. Mains protégées. Sans accessoires.";
+  if (category === "gigoteuses")  return "Change express. Zéro boutons. Zéro galère à 3h du matin.";
+  return "";
+}
+
+// ── Description additionnelle (bonnet uniquement) ──
+function getProductDesc(slug: string): string {
+  if (slug.includes("bonnet")) return "Premier contact avec la tête fragile de votre nouveau-né, ce bonnet a été pensé pour être aussi doux que rassurant. Confectionné en bambou, il est naturellement respirant, souple et adapté aux peaux les plus sensibles. Il garde la chaleur sans jamais étouffer — exactement ce qu'il faut dans les premières heures de vie.";
+  return "";
+}
+
+// ── Coloris (bonnet) ──
+function getColoris(slug: string): string | null {
+  if (slug.includes("bonnet")) return "Terre cuite — brun chaud aux nuances naturelles, à la fois doux et affirmé.";
+  return null;
+}
+
+// ── Features (coches) ──
+function getProductFeatures(category: string, slug: string): string[] {
+  if (slug.includes("bonnet")) return [
+    "Ultra doux dès le premier contact",
+    "Respirant : idéal pour réguler la température",
+    "Respectueux des peaux sensibles",
+    "Coupe minimaliste : maintien parfait sans comprimer",
+    "Tailles disponibles : Naissance à 6 mois",
+  ];
+  if (slug.includes("lange")) return [
+    "Taille XXL (120×120 cm) : assez grand pour un emmaillotage qui tient vraiment",
+    "Bambou respirant : régule la température, pas de surchauffe",
+    "Reproduit la pression du ventre maternel : effet calmant immédiat",
+    "Tissu avec grip : reste en place même quand bébé se débat",
+    "Devient plus doux à chaque lavage",
+    "Multi-usage : swaddle, couverture, drap d'allaitement, protection poussette",
+  ];
   if (category === "bodies") return [
     "Col enveloppe élargi : passe sur la tête sans forcer, zéro pression sur la fontanelle",
     "3 pressions seulement : pas 7, pas 12. Juste 3.",
@@ -45,18 +83,19 @@ function getProductFeatures(category: string): string[] {
     "Coupe ample : bébé bouge librement, zéro compression",
     "Thermorégulant : chaud sans surchauffer. Été comme hiver.",
   ];
-  if (category === "accessoires") return [
-    "Taille XXL (120×120 cm) : assez grand pour un emmaillotage qui tient vraiment",
-    "Mousseline respirante : régule la température, zéro surchauffe",
-    "Reproduit la pression du ventre maternel : effet calmant immédiat",
-    "Grip intégré : reste en place même quand bébé se débat",
-    "Devient plus doux à chaque lavage",
-    "Multi-usage : swaddle, couverture, drap d'allaitement, protection poussette",
-  ];
   return [];
 }
 
-function getWhyResult(category: string): { why: string; result: string } | null {
+// ── La vraie raison + Ce que tu obtiens ──
+function getWhyResult(category: string, slug: string): { why: string; result: string } | null {
+  if (slug.includes("bonnet")) return {
+    why: "Premier contact avec la tête fragile de votre nouveau-né, ce bonnet a été pensé pour être aussi doux que rassurant. Confectionné en bambou, il est naturellement respirant, souple et adapté aux peaux les plus sensibles. Il garde la chaleur sans jamais étouffer, exactement ce qu'il faut dans les premières heures de vie.",
+    result: "Sa coupe minimaliste assure un maintien parfait sans comprimer. Votre bébé est au chaud, à l'aise, sans pression inutile — dès les premières minutes.",
+  };
+  if (slug.includes("lange")) return {
+    why: "Ton bébé sursaute, se réveille, pleure. Le réflexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essayé d'emmailloter avec une couverture classique — ça se défait au premier mouvement. Les swaddles à velcro ? Bruyants. Trop serrés. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton bébé plus vite et lui permettre de dormir plus longtemps. Et toi avec.",
+    result: "Bébé calmé en quelques minutes. Réflexe de Moro contenu. Moins de réveils en sursaut. Des plages de sommeil plus longues — pour lui et pour toi. Tu récupères un peu.",
+  };
   if (category === "bodies") return {
     why: "Habiller un nouveau-né, c'est stressant. La tête est fragile, le cou ne tient pas, il pleure dès que tu approches un vêtement de son visage. Et une fois habillé ? Il se griffe le visage parce que t'as oublié les moufles. Ce body existe pour simplifier : un col qui glisse sans forcer, des moufles pliables intégrées déjà là, trois pressions et c'est fini.",
     result: "Habillage en moins de 30 secondes. Pas de cris. Pas de stress sur la tête fragile. Mains protégées H24 sans accessoire à perdre. Tu passes à autre chose.",
@@ -69,80 +108,102 @@ function getWhyResult(category: string): { why: string; result: string } | null 
     why: "Tu te lèves pour la 4e fois. Il est 3h du mat'. T'as les yeux à moitié fermés. Tu dois changer une couche dans la pénombre sans réveiller complètement le bébé — ni toi-même. Les boutons-pression ? Impossible à aligner. Le zip ? Trop bruyant. Les moufles séparées ? Perdues quelque part dans le lit. Cette gigoteuse à nouer existe pour ça : un vêtement qu'on ouvre et ferme sans réfléchir, sans regarder, sans bataille.",
     result: "Change de couche en 30 secondes. Bébé reste calme, à moitié endormi. Mains protégées sans accessoire à retrouver. Tu retournes te coucher plus vite. Les réveils sont écourtés. Les nuits deviennent un peu moins chaotiques.",
   };
-  if (category === "accessoires") return {
-    why: "Ton bébé sursaute, se réveille, pleure. Le réflexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essayé d'emmailloter avec une couverture classique — ça se défait au premier mouvement. Les swaddles à velcro ? Bruyants. Trop serrés. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton bébé plus vite et lui permettre de dormir plus longtemps. Et toi avec.",
-    result: "Bébé calmé en quelques minutes. Réflexe de Moro contenu. Moins de réveils en sursaut. Des plages de sommeil plus longues — pour lui et pour toi. Tu récupères un peu.",
-  };
   return null;
 }
 
-function getProductFAQ(category: string): { q: string; r: string }[] {
-  if (category === "bodies") return [
-    { q: "Le col enveloppe, ça passe vraiment sans forcer ?",   r: "Oui. Conçu pour glisser sur la tête sans appuyer sur la fontanelle. Même sur un nouveau-né de quelques jours." },
-    { q: "Les moufles pliables, ça sert à quoi ?",              r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là quand tu en as besoin." },
-    { q: "Est-ce que les moufles sont incluses ?",              r: "Oui, elles sont intégrées directement au poignet. Tu ne les perds jamais. Tu les replies quand tu veux, tu les déplies quand bébé a besoin de protection." },
-    { q: "3 pressions c'est assez pour tenir ?",                r: "Largement. Bien positionnées à l'entrejambe, elles maintiennent parfaitement. Plus de pressions = plus de galère." },
-    { q: "C'est adapté aux peaux sensibles ?",                  r: "Bambou hypoallergénique + coutures plates. Zéro frottement, zéro irritation. Même sur peau atopique." },
-    { q: "Jusqu'à quel âge ?",                                  r: "De la naissance à 12 mois. 5 tailles disponibles. Le stretch permet une bonne marge dans chaque taille." },
-    { q: "Les moufles c'est pas trop chaud en été ?",           r: "Tu peux les laisser dépliées quand il fait chaud. Le bambou régule la température de toute façon." },
-  ];
-  if (category === "pyjamas") return [
-    { q: "C'est quoi le double zip inversé ?",                  r: "Un zip qui s'ouvre par le bas pour changer la couche sans tout enlever, et par le haut pour habiller facilement." },
-    { q: "Les moufles pliables, ça sert à quoi ?",              r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là quand tu en as besoin." },
-    { q: "Mon bébé déteste être habillé. Ça change quoi ?",     r: "Moins de gestes, moins de manipulations, pas de boutons à gérer : l'habillage est plus rapide, donc moins de cris et moins de tension." },
-    { q: "Le zip ne risque pas de le blesser ?",                r: "Non. Le zip est protégé, il ne touche pas directement la peau de bébé." },
-    { q: "Pourquoi le bambou plutôt que le coton ?",            r: "Parce qu'il est ultra doux, stretch, respirant et agréable sur la peau, surtout quand bébé bouge beaucoup." },
-    { q: "Ça taille comment ?",                                 r: "Le pyjama taille normalement, avec un tissu stretch qui suit bien les mouvements. Si tu hésites entre deux tailles, prends la plus grande pour prolonger l'usage." },
-  ];
-  if (category === "gigoteuses") return [
-    { q: "C'est quoi une gigoteuse à nouer exactement ?",       r: "Une gigoteuse nouée en bas. Pas de boutons, pas de zip. Tu défais le nœud, tu changes, tu renoues. 30 secondes. Même dans le noir." },
-    { q: "Les moufles pliables, ça sert à quoi ?",              r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là — même à 3h du mat'." },
-    { q: "Le nœud ne se défait pas tout seul ?",                r: "Non. Le tissu bambou a du grip. Une fois noué, ça tient toute la nuit. Et ça se défait facilement quand tu le veux." },
-    { q: "Jusqu'à quel âge ça fonctionne ?",                    r: "De la naissance à 6 mois environ. Après, bébé bouge trop et on passe au pyjama zip." },
-    { q: "C'est vraiment mieux que les boutons-pression ?",     r: "La nuit, à moitié endormi, aligner 12 pressions dans le noir ? Non. Le nœud se fait d'une main, sans regarder." },
-    { q: "Le tissu est assez chaud ?",                          r: "Bambou thermorégulant. Chaud en hiver, respirant en été. Pas de surchauffe, pas de sueur." },
-    { q: "Machine lavable ?",                                   r: "Oui. 40°C, cycle délicat. Devient plus doux à chaque lavage." },
-  ];
-  if (category === "accessoires") return [
-    { q: "Ça marche vraiment pour calmer un bébé ?",            r: "Oui. L'emmaillotage exerce une pression douce qui rappelle les sensations in utero. Le bambou, naturellement souple et fluide, accentue cet effet enveloppant. Résultat : un bébé plus apaisé, surtout chez les nouveau-nés." },
-    { q: "Mon bébé se débat beaucoup. Ça va tenir ?",           r: "Oui, si c'est bien fait. Le tissu en bambou est à la fois doux et légèrement extensible, ce qui permet un bon maintien sans rigidité. La taille généreuse (XL/XXL) facilite un emmaillotage sûr, même avec un bébé agité." },
-    { q: "C'est pas dangereux la surchauffe ?",                 r: "Non. Le bambou est thermorégulateur et très respirant. Il aide à évacuer l'humidité et à maintenir une température corporelle stable. Aucun risque de surchauffe tant que le bébé n'est pas sur-couvert." },
-    { q: "Jusqu'à quel âge on emmaillote ?",                    r: "En général jusqu'à 3–4 mois, ou dès que bébé commence à se retourner. Ensuite, le lange en bambou reste parfaitement utilisable comme couverture légère, drap d'appoint ou protection pour les sorties." },
-    { q: "C'est compliqué la technique d'emmaillotage ?",       r: "Non. Pli en diamant, bras le long du corps, deux rabats bien ajustés. Le bambou est souple et indulgent, donc plus facile à manipuler. Compte 30 secondes une fois le geste acquis." },
-    { q: "Pourquoi pas un swaddle à velcro ?",                  r: "Parce que ça fait du bruit, ça s'use, et ça réveille un bébé endormi au mauvais moment. Un lange en bambou est silencieux, durable et s'adapte à la morphologie du bébé, pas l'inverse." },
-  ];
-  return [
-    { q: "Comment entretenir ce vêtement ?",  r: "Lavage machine 40°C, cycle délicat. Lessive douce, sans javel ni adoucissant. Séchage à l'air libre ou machine basse température." },
-    { q: "Ça taille comment ?",               r: "Le bambou est naturellement très extensible. En cas de doute entre deux tailles, prenez la plus grande." },
-    { q: "Retour possible ?",                 r: "Oui, 15 jours après réception. Retour entièrement gratuit pour les articles non utilisés. contact@milkbebe.fr" },
-  ];
-}
-
-function getPhilosophy(category: string): string {
+// ── Philosophie M!LK ──
+function getPhilosophy(category: string, slug: string): string {
+  if (slug.includes("bonnet"))    return "Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.\n\nLe bonnet en bambou, c'est exactement ça : ni trop, ni pas assez. Juste la bonne matière, la bonne coupe, pour les premières heures qui comptent vraiment.";
+  if (slug.includes("lange"))     return "Les swaddles à velcro ? Le scratch réveille le bébé quand tu l'ouvres. Les couvertures classiques ? Trop petites, se défont. Les gigoteuses ? Pas adaptées aux nouveau-nés qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
   if (category === "bodies")      return "Les bodies à col rond ? Bataille pour passer la tête, bébé hurle. Les bodies à boutons sur l'épaule ? 6 pressions à aligner. Les moufles séparées ? Perdues en 24h. Le body express combine col facile + pressions minimum + moufles pliables intégrées.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
   if (category === "pyjamas")     return "Les pyjamas à boutons ? Combat garanti à chaque change. Les combinaisons sans zip inversé ? Tu dois tout défaire pour une couche. Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin. Ici : double zip inversé + bambou stretch + moufles pliables intégrées = moins de gestes, moins de lutte, moins d'objets à gérer.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
   if (category === "gigoteuses")  return "Les grenouillères à boutons ? 12 pressions à aligner dans le noir — t'abandonnes au 3e essai. Les pyjamas zip ? Le bruit réveille le bébé. Les gigoteuses classiques ? Pas d'accès direct à la couche. Les moufles séparées ? Perdues dans le lit à 3h du mat'. La gigoteuse à nouer résout tout : accès immédiat, fermeture silencieuse, zéro manipulation complexe.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
-  if (category === "accessoires") return "Les swaddles à velcro ? Le scratch réveille le bébé quand tu l'ouvres. Les couvertures classiques ? Trop petites, se défont. Les gigoteuses ? Pas adaptées aux nouveau-nés qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.\n\nChaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
   return "";
 }
 
-// ── Card Philosophie avec mise en forme impactante ──
+// ── FAQ ──
+function getProductFAQ(category: string, slug: string): { q: string; r: string }[] {
+  if (slug.includes("bonnet")) return [
+    { q: "C'est adapté aux nouveau-nés très fragiles ?",        r: "Oui. Le bambou est hypoallergénique et naturellement doux. La coupe minimaliste évite toute compression sur la tête fragile du nouveau-né." },
+    { q: "Quelle taille choisir ?",                            r: "Le bonnet est disponible de la naissance à 6 mois. En cas de doute, le bambou est légèrement extensible — il s'adapte bien à la morphologie." },
+    { q: "Comment l'entretenir ?",                             r: "Lavage en cycle délicat avec des couleurs similaires. Séchage à plat ou sur cintre. Éviter le sèche-linge pour préserver la matière." },
+    { q: "Pourquoi le bambou plutôt que le coton ?",           r: "Le bambou est naturellement respirant, thermorégulateur et 3× plus doux que le coton. Idéal pour la peau ultra-sensible d'un nouveau-né." },
+    { q: "Le bonnet tient bien sur la tête ?",                 r: "Oui. La coupe minimaliste assure un maintien parfait sans comprimer. Il ne glisse pas et ne serre pas." },
+  ];
+  if (slug.includes("lange")) return [
+    { q: "Ça marche vraiment pour calmer un bébé ?",           r: "Oui. L'emmaillotage exerce une pression douce qui rappelle les sensations in utero. Le bambou, naturellement souple et fluide, accentue cet effet enveloppant. Résultat : un bébé plus apaisé, surtout chez les nouveau-nés." },
+    { q: "Mon bébé se débat beaucoup. Ça va tenir ?",          r: "Oui, si c'est bien fait. Le tissu en bambou est à la fois doux et légèrement extensible, ce qui permet un bon maintien sans rigidité. La taille généreuse (XL/XXL) facilite un emmaillotage sûr, même avec un bébé agité." },
+    { q: "C'est pas dangereux la surchauffe ?",                r: "Non. Le bambou est thermorégulateur et très respirant. Il aide à évacuer l'humidité et à maintenir une température corporelle stable. Aucun risque de surchauffe tant que le bébé n'est pas sur-couvert." },
+    { q: "Jusqu'à quel âge on emmaillote ?",                   r: "En général jusqu'à 3–4 mois, ou dès que bébé commence à se retourner. Ensuite, le lange en bambou reste parfaitement utilisable comme couverture légère, drap d'appoint ou protection pour les sorties." },
+    { q: "C'est compliqué la technique d'emmaillotage ?",      r: "Non. Pli en diamant, bras le long du corps, deux rabats bien ajustés. Le bambou est souple et indulgent, donc plus facile à manipuler. Compte 30 secondes une fois le geste acquis." },
+    { q: "Pourquoi pas un swaddle à velcro ?",                 r: "Parce que ça fait du bruit, ça s'use, et ça réveille un bébé endormi au mauvais moment. Un lange en bambou est silencieux, durable et s'adapte à la morphologie du bébé, pas l'inverse." },
+  ];
+  if (category === "bodies") return [
+    { q: "Le col enveloppe, ça passe vraiment sans forcer ?",  r: "Oui. Conçu pour glisser sur la tête sans appuyer sur la fontanelle. Même sur un nouveau-né de quelques jours." },
+    { q: "Les moufles pliables, ça sert à quoi ?",             r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là quand tu en as besoin." },
+    { q: "Est-ce que les moufles sont incluses ?",             r: "Oui, elles sont intégrées directement au poignet. Tu ne les perds jamais. Tu les replies quand tu veux, tu les déplies quand bébé a besoin de protection." },
+    { q: "3 pressions c'est assez pour tenir ?",               r: "Largement. Bien positionnées à l'entrejambe, elles maintiennent parfaitement. Plus de pressions = plus de galère." },
+    { q: "C'est adapté aux peaux sensibles ?",                 r: "Bambou hypoallergénique + coutures plates. Zéro frottement, zéro irritation. Même sur peau atopique." },
+    { q: "Jusqu'à quel âge ?",                                 r: "De la naissance à 12 mois. 5 tailles disponibles. Le stretch permet une bonne marge dans chaque taille." },
+    { q: "Les moufles c'est pas trop chaud en été ?",          r: "Tu peux les laisser dépliées quand il fait chaud. Le bambou régule la température de toute façon." },
+  ];
+  if (category === "pyjamas") return [
+    { q: "C'est quoi le double zip inversé ?",                 r: "Un zip qui s'ouvre par le bas pour changer la couche sans tout enlever, et par le haut pour habiller facilement." },
+    { q: "Les moufles pliables, ça sert à quoi ?",             r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là quand tu en as besoin." },
+    { q: "Mon bébé déteste être habillé. Ça change quoi ?",    r: "Moins de gestes, moins de manipulations, pas de boutons à gérer : l'habillage est plus rapide, donc moins de cris et moins de tension." },
+    { q: "Le zip ne risque pas de le blesser ?",               r: "Non. Le zip est protégé, il ne touche pas directement la peau de bébé." },
+    { q: "Pourquoi le bambou plutôt que le coton ?",           r: "Parce qu'il est ultra doux, stretch, respirant et agréable sur la peau, surtout quand bébé bouge beaucoup." },
+    { q: "Ça taille comment ?",                                r: "Le pyjama taille normalement, avec un tissu stretch qui suit bien les mouvements. Si tu hésites entre deux tailles, prends la plus grande pour prolonger l'usage." },
+  ];
+  if (category === "gigoteuses") return [
+    { q: "C'est quoi une gigoteuse à nouer exactement ?",      r: "Une gigoteuse nouée en bas. Pas de boutons, pas de zip. Tu défais le nœud, tu changes, tu renoues. 30 secondes. Même dans le noir." },
+    { q: "Les moufles pliables, ça sert à quoi ?",             r: "À éviter les griffures sans les moufles perdues partout. Elles sont intégrées au poignet : tu replies, tu déplies, elles sont toujours là — même à 3h du mat'." },
+    { q: "Le nœud ne se défait pas tout seul ?",               r: "Non. Le tissu bambou a du grip. Une fois noué, ça tient toute la nuit. Et ça se défait facilement quand tu le veux." },
+    { q: "Jusqu'à quel âge ça fonctionne ?",                   r: "De la naissance à 6 mois environ. Après, bébé bouge trop et on passe au pyjama zip." },
+    { q: "C'est vraiment mieux que les boutons-pression ?",    r: "La nuit, à moitié endormi, aligner 12 pressions dans le noir ? Non. Le nœud se fait d'une main, sans regarder." },
+    { q: "Le tissu est assez chaud ?",                         r: "Bambou thermorégulant. Chaud en hiver, respirant en été. Pas de surchauffe, pas de sueur." },
+    { q: "Machine lavable ?",                                  r: "Oui. 40°C, cycle délicat. Devient plus doux à chaque lavage." },
+  ];
+  return [
+    { q: "Comment entretenir ce vêtement ?", r: "Lavage machine 40°C, cycle délicat. Lessive douce, sans javel ni adoucissant. Séchage à l'air libre." },
+    { q: "Ça taille comment ?",              r: "Le bambou est naturellement très extensible. En cas de doute entre deux tailles, prenez la plus grande." },
+  ];
+}
+
+// ── Conseils d'entretien dynamiques ──
+function getProductEntretien(slug: string): { Icon: () => JSX.Element; text: string }[] {
+  const IconTherm  = IconThermometer;
+  const IconNo     = IconBan;
+  const IconAir    = IconFlat;
+  const IconDry    = IconHeat;
+
+  if (slug.includes("bonnet")) return [
+    { Icon: IconNo,   text: "Lavage en cycle délicat avec des couleurs similaires" },
+    { Icon: IconAir,  text: "Séchage à plat ou sur cintre"                         },
+    { Icon: IconDry,  text: "Éviter le sèche-linge pour préserver la matière"      },
+  ];
+  return [
+    { Icon: IconTherm, text: "Lavage 40°C, cycle délicat"       },
+    { Icon: IconNo,    text: "Sans adoucissant ni javel"         },
+    { Icon: IconAir,   text: "Séchage à l'air libre recommandé" },
+    { Icon: IconDry,   text: "Sèche-linge basse température"     },
+  ];
+}
+
+// ── Composant Philosophie avec Q&A punchy ──
 function PhilosophyCard({ text }: { text: string }) {
   const [main, conclusion] = text.split("\n\n");
 
-  // Parse sentences from main paragraph
   const sentences: string[] = [];
   let buf = "";
   for (let i = 0; i < main.length; i++) {
     buf += main[i];
     if (main[i] === "." && (i + 1 >= main.length || main[i + 1] === " ")) {
-      sentences.push(buf.trim());
-      buf = "";
+      sentences.push(buf.trim()); buf = "";
     }
   }
   if (buf.trim()) sentences.push(buf.trim());
 
-  // Build blocks: { q, a } or { hero }
   const blocks: Array<{ q?: string; a: string; hero?: boolean }> = [];
   sentences.forEach(s => {
     const qi = s.indexOf("?");
@@ -155,7 +216,6 @@ function PhilosophyCard({ text }: { text: string }) {
     }
   });
 
-  // Conclusion sentences
   const cLines = conclusion
     ? conclusion.replace(/\. /g, ".|").split("|").map(s => s.trim()).filter(Boolean)
     : [];
@@ -164,7 +224,6 @@ function PhilosophyCard({ text }: { text: string }) {
     <div style={{ padding: "26px 26px", borderRadius: 20, background: "#2a2018", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>Philosophie M!LK</div>
       <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 22 }}>Comment ça réduit ta charge mentale</div>
-
       <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
         {blocks.map((block, i) =>
           block.hero ? (
@@ -173,24 +232,16 @@ function PhilosophyCard({ text }: { text: string }) {
             </div>
           ) : (
             <div key={i} style={{ borderLeft: "2px solid rgba(196,154,74,0.25)", paddingLeft: 14 }}>
-              {block.q && (
-                <div style={{ fontSize: "clamp(11px,0.9vw,12px)", color: "#c49a4a", fontWeight: 800, letterSpacing: 0.4, marginBottom: 3 }}>{block.q}</div>
-              )}
+              {block.q && <div style={{ fontSize: "clamp(11px,0.9vw,12px)", color: "#c49a4a", fontWeight: 800, letterSpacing: 0.4, marginBottom: 3 }}>{block.q}</div>}
               <div style={{ fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(242,237,230,0.8)", fontWeight: 700, lineHeight: 1.45 }}>{block.a}</div>
             </div>
           )
         )}
       </div>
-
       {cLines.length > 0 && (
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(242,237,230,0.08)", display: "flex", flexDirection: "column", gap: 4 }}>
           {cLines.map((line, i) => (
-            <div key={i} style={{
-              fontSize: i === cLines.length - 1 ? "clamp(14px,1.2vw,16px)" : "clamp(11px,0.9vw,12px)",
-              fontWeight: i === cLines.length - 1 ? 900 : 500,
-              color: i === cLines.length - 1 ? "#f2ede6" : "rgba(242,237,230,0.35)",
-              lineHeight: 1.5,
-            }}>
+            <div key={i} style={{ fontSize: i === cLines.length - 1 ? "clamp(14px,1.2vw,16px)" : "clamp(11px,0.9vw,12px)", fontWeight: i === cLines.length - 1 ? 900 : 500, color: i === cLines.length - 1 ? "#f2ede6" : "rgba(242,237,230,0.35)", lineHeight: 1.5 }}>
               {line}
             </div>
           ))}
@@ -355,11 +406,18 @@ export default function ProductPage() {
   const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
   const outTaille      = taille ? Number(sizesStock[taille] ?? product.stock ?? 0) <= 0 : out;
   const cartCount      = items.reduce((s, i) => s + i.quantity, 0);
-  const features       = getProductFeatures(product.category_slug ?? "");
-  const whyResult      = getWhyResult(product.category_slug ?? "");
-  const philosophy     = getPhilosophy(product.category_slug ?? "");
-  const FAQ            = getProductFAQ(product.category_slug ?? "");
-  const motif          = getMotifDetails(product.slug ?? "");
+
+  const productSlug   = product.slug ?? "";
+  const productCat    = product.category_slug ?? "";
+  const subtitle      = getProductSubtitle(productCat, productSlug);
+  const extraDesc     = getProductDesc(productSlug);
+  const coloris       = getColoris(productSlug);
+  const features      = getProductFeatures(productCat, productSlug);
+  const whyResult     = getWhyResult(productCat, productSlug);
+  const philosophy    = getPhilosophy(productCat, productSlug);
+  const FAQ           = getProductFAQ(productCat, productSlug);
+  const entretien     = getProductEntretien(productSlug);
+  const motif         = getMotifDetails(productSlug);
 
   const photoRows: string[][] = [];
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }
@@ -438,21 +496,38 @@ export default function ProductPage() {
         {/* ─── DROITE : panneau achat ─── */}
         <div className="pl-right">
 
+          {/* Catégorie */}
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a" }}>
-            {product.category_slug ?? "M!LK"} · Bambou OEKO-TEX
+            {productCat || "M!LK"} · Bambou OEKO-TEX
           </div>
 
+          {/* Titre */}
           <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: "#1a1410" }}>
             {product.name}
           </h1>
 
+          {/* Prix */}
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
             <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>{Number(displayPrice).toFixed(2)} €</span>
             {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
           </div>
 
-          {/* Features */}
+          {/* Sous-titre */}
+          {subtitle && (
+            <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", fontWeight: 700, color: "rgba(26,20,16,0.7)", lineHeight: 1.5 }}>
+              {subtitle}
+            </p>
+          )}
+
+          {/* Description additionnelle (bonnet) */}
+          {extraDesc && (
+            <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.8 }}>
+              {extraDesc}
+            </p>
+          )}
+
+          {/* Features (coches) */}
           {features.length > 0 && (
             <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column", gap: 11 }}>
               {features.map((feat, i) => {
@@ -474,8 +549,15 @@ export default function ProductPage() {
             </div>
           )}
 
-          {/* Motif */}
-          {motif && (
+          {/* Coloris (bonnet) */}
+          {coloris && (
+            <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: "#1a1410", lineHeight: 1.5 }}>
+              <span style={{ color: "#c49a4a", fontWeight: 900 }}>Coloris</span> — {coloris}
+            </div>
+          )}
+
+          {/* Motif (pyjamas/bodies) */}
+          {!coloris && motif && (
             <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: "#1a1410", lineHeight: 1.5 }}>
               <span style={{ color: "#c49a4a", fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
             </div>
@@ -532,7 +614,7 @@ export default function ProductPage() {
           )}
 
           {/* Guide des tailles */}
-          {taillesDispos.length > 0 && (
+          {taillesDispos.length > 0 && !productSlug.includes("bonnet") && (
             <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(26,20,16,0.1)" }}>
               <button onClick={() => setGuideOpen(v => !v)} style={{ width: "100%", padding: "11px 14px", background: guideOpen ? "#1a1410" : "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -623,16 +705,17 @@ export default function ProductPage() {
             </div>
           )}
 
-          {/* Conseils d'entretien */}
+          {/* Conseils d'entretien — dynamique selon produit */}
           <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
             <h3 style={{ margin: "0 0 8px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
-            <div style={{ marginBottom: 12, fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>95 % viscose de bambou · 5 % élasthanne · OEKO-TEX Standard 100</div>
-            {[
-              { Icon: IconThermometer, text: "Lavage 40°C, cycle délicat"       },
-              { Icon: IconBan,         text: "Sans adoucissant ni javel"         },
-              { Icon: IconFlat,        text: "Séchage à l'air libre recommandé" },
-              { Icon: IconHeat,        text: "Sèche-linge basse température"     },
-            ].map(item => (
+            <div style={{ marginBottom: 12, fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
+              {productSlug.includes("bonnet")
+                ? "95 % viscose de bambou · 5 % élasthanne"
+                : productSlug.includes("lange")
+                  ? "100 % coton mousseline double épaisseur"
+                  : "95 % viscose de bambou · 5 % élasthanne · OEKO-TEX Standard 100"}
+            </div>
+            {entretien.map(item => (
               <div key={item.text} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
                 <div style={{ flexShrink: 0 }}><item.Icon /></div>
                 <span style={{ fontSize: "clamp(12px,1vw,13px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.4 }}>{item.text}</span>
@@ -646,10 +729,9 @@ export default function ProductPage() {
       {/* ── BAS DE PAGE ── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
 
-        {/* ── Produits + Philosophie côte à côte — même hauteur ── */}
+        {/* Produits + Philosophie côte à côte */}
         <div className="bottom-grid" style={{ marginBottom: 24 }}>
 
-          {/* Gauche : clients ont aussi acheté */}
           {related.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ marginBottom: 20 }}>
@@ -675,9 +757,7 @@ export default function ProductPage() {
             </div>
           ) : <div />}
 
-          {/* Droite : Philosophie M!LK — même hauteur que la colonne gauche */}
           {philosophy && <PhilosophyCard text={philosophy} />}
-
         </div>
 
         {/* FAQ */}
@@ -685,7 +765,6 @@ export default function ProductPage() {
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: "#f2ede6" }}>Questions fréquentes</h3>
           {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
         </div>
-
       </div>
 
       {/* Mobile CTA */}

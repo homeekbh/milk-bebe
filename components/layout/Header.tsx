@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
-import { useLang } from "@/context/LangContext";
 
 function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
   return (
@@ -15,7 +14,6 @@ function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string
     </svg>
   );
 }
-
 function ProfileIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -24,7 +22,6 @@ function ProfileIcon({ size = 22, color = "#fff" }: { size?: number; color?: str
     </svg>
   );
 }
-
 function SearchIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
   return (
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden="true">
@@ -33,7 +30,6 @@ function SearchIcon({ size = 20, color = "#fff" }: { size?: number; color?: stri
     </svg>
   );
 }
-
 function BodiesIcon({ size = 20, color = "#fff" }: { size?: number; color?: string }) {
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M12 3c-1.5 0-2.5.8-2.5 2v1H7L5 8v4h2v8h10v-8h2V8l-2-2h-2.5V5c0-1.2-1-2-2.5-2Z" stroke={color} strokeWidth="1.6" strokeLinejoin="round" /></svg>;
 }
@@ -47,109 +43,38 @@ function AccessoiresIcon({ size = 20, color = "#fff" }: { size?: number; color?:
   return <svg width={size} height={size} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={color} strokeWidth="1.6" /><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={color} strokeWidth="1.6" /></svg>;
 }
 
-// ✅ Détection thème par luminosité réelle du fond — default DARK
 function findThemeAtHeaderPoint(headerEl: HTMLElement | null): "dark" | "light" {
   try {
-    const x   = Math.floor(window.innerWidth / 2);
-    const y   = 90;
-    const els = document.elementsFromPoint(x, y) as HTMLElement[];
-
-    const target = els.find(el => {
-      if (!el || !el.tagName) return false;
-      if (headerEl && headerEl.contains(el)) return false;
-      return true;
-    });
-
+    const els    = document.elementsFromPoint(Math.floor(window.innerWidth / 2), 90) as HTMLElement[];
+    const target = els.find(el => el && el.tagName && !(headerEl?.contains(el)));
     if (!target) return "dark";
-
-    // 1. Cherche data-theme en remontant le DOM
     const themed = target.closest("[data-theme]") as HTMLElement | null;
     const t      = themed?.getAttribute("data-theme");
     if (t === "dark" || t === "light") return t;
-
-    // 2. Pas de data-theme → analyse la couleur de fond réelle
     let el: HTMLElement | null = target;
     while (el && el !== document.body) {
       const bg = window.getComputedStyle(el).backgroundColor;
       if (bg && bg !== "rgba(0, 0, 0, 0)" && bg !== "transparent") {
         const m = bg.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
-        if (m) {
-          const r   = Number(m[1]);
-          const g   = Number(m[2]);
-          const b   = Number(m[3]);
-          // Luminance perçue (formule WCAG)
-          const lum = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
-          return lum < 0.45 ? "dark" : "light";
-        }
+        if (m) return (0.299*Number(m[1]) + 0.587*Number(m[2]) + 0.114*Number(m[3]))/255 < 0.45 ? "dark" : "light";
       }
       el = el.parentElement;
     }
-
-    // 3. Défaut DARK (M!LK est majoritairement sombre)
     return "dark";
-  } catch {
-    return "dark";
-  }
+  } catch { return "dark"; }
 }
 
 const CATS = [
-  { label: "Bodies",      href: "/categorie/bodies",      desc: "L'essentiel du quotidien",      Icon: BodiesIcon      },
-  { label: "Pyjamas",     href: "/categorie/pyjamas",     desc: "Pour des nuits sereines",       Icon: PyjamaIcon      },
-  { label: "Gigoteuses",  href: "/categorie/gigoteuses",  desc: "Sommeil sécurisé",              Icon: GigoteuseIcon   },
-  { label: "Accessoires", href: "/categorie/accessoires", desc: "Les détails qui changent tout", Icon: AccessoiresIcon },
-];
-
-const LANGS = [
-  { code: "fr" as const, label: "FR" },
-  { code: "en" as const, label: "EN" },
-  { code: "it" as const, label: "IT" },
-  { code: "hu" as const, label: "HU" },
+  { label: "Bodies",      href: "/categorie/bodies",      Icon: BodiesIcon      },
+  { label: "Pyjamas",     href: "/categorie/pyjamas",     Icon: PyjamaIcon      },
+  { label: "Gigoteuses",  href: "/categorie/gigoteuses",  Icon: GigoteuseIcon   },
+  { label: "Accessoires", href: "/categorie/accessoires", Icon: AccessoiresIcon },
 ];
 
 const USER_MENU = [
   { key: "menu-profil",    label: "Mon profil",    href: "/profil" },
   { key: "menu-commandes", label: "Mes commandes", href: "/profil" },
 ];
-
-function LangSwitcher({ textColor }: { textColor: string }) {
-  const { locale, setLocale } = useLang();
-  const [open, setOpen] = useState(false);
-  return (
-    <div style={{ position: "relative" }}>
-      <button onClick={() => setOpen(v => !v)}
-        style={{ padding: "6px 10px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.2)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: textColor, display: "flex", alignItems: "center", gap: 4 }}>
-        {locale.toUpperCase()}
-        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" style={{ transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "none" }}>
-          <path d="M6 9l6 6 6-6" stroke={textColor} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-      {open && (
-        <div style={{ position: "absolute", top: 44, right: 0, background: "rgba(22,18,14,0.98)", border: "1px solid rgba(242,237,230,0.1)", borderRadius: 12, padding: 6, minWidth: 90, boxShadow: "0 20px 40px rgba(0,0,0,0.4)", zIndex: 100 }}>
-          {LANGS.map(lang => (
-            <button key={lang.code} onClick={() => { setLocale(lang.code); setOpen(false); }}
-              style={{ width: "100%", padding: "8px 12px", borderRadius: 8, border: "none", background: lang.code === locale ? "rgba(196,154,74,0.15)" : "transparent", cursor: "pointer", fontSize: 13, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.7)", textAlign: "left" }}>
-              {lang.label}
-            </button>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-function MobileLangButtons({ onClose }: { onClose: () => void }) {
-  const { locale, setLocale } = useLang();
-  return (
-    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      {LANGS.map(lang => (
-        <button key={lang.code} onClick={() => { setLocale(lang.code); onClose(); }}
-          style={{ padding: "10px 16px", borderRadius: 10, background: lang.code === locale ? "rgba(196,154,74,0.15)" : "rgba(242,237,230,0.06)", border: lang.code === locale ? "1px solid rgba(196,154,74,0.3)" : "1px solid rgba(242,237,230,0.08)", fontSize: 14, fontWeight: 700, color: lang.code === locale ? "#c49a4a" : "rgba(242,237,230,0.6)", cursor: "pointer" }}>
-          {lang.label}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 export default function Header() {
   const pathname          = usePathname();
@@ -159,7 +84,7 @@ export default function Header() {
 
   const [scrolled,   setScrolled]   = useState(false);
   const [openUser,   setOpenUser]   = useState(false);
-  const [theme,      setTheme]      = useState<"dark" | "light">("dark");
+  const [theme,      setTheme]      = useState<"dark"|"light">("dark");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const userTimer = useRef<any>(null);
@@ -172,9 +97,7 @@ export default function Header() {
     const compute = () => {
       const y = window.scrollY;
       setScrolled(y > 10);
-      // Pages avec fond sombre au départ
-      const forceDark = ["/", "/qui-sommes-nous", "/pourquoi-bambou"];
-      if (forceDark.includes(pathname) && y < 320) { setTheme("dark"); return; }
+      if (["/", "/qui-sommes-nous", "/pourquoi-bambou"].includes(pathname) && y < 320) { setTheme("dark"); return; }
       setTheme(findThemeAtHeaderPoint(headerRef.current));
     };
     compute();
@@ -182,35 +105,26 @@ export default function Header() {
     const t   = window.setTimeout(compute, 150);
     window.addEventListener("scroll", compute, { passive: true });
     window.addEventListener("resize", compute);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.clearTimeout(t);
-      window.removeEventListener("scroll", compute);
-      window.removeEventListener("resize", compute);
-    };
+    return () => { cancelAnimationFrame(raf); clearTimeout(t); window.removeEventListener("scroll", compute); window.removeEventListener("resize", compute); };
   }, [pathname]);
 
   const C = useMemo(() => {
     const dark = theme === "dark";
     return {
-      text:    dark ? "#f2ede6" : "#1a1410",
-      muted:   dark ? "rgba(242,237,230,0.6)" : "rgba(26,20,16,0.55)",
-      bg:      scrolled ? (dark ? "rgba(13,11,9,0.92)" : "rgba(245,240,232,0.95)") : "transparent",
-      border:  scrolled ? (dark ? "1px solid rgba(242,237,230,0.08)" : "1px solid rgba(26,20,16,0.08)") : "1px solid transparent",
-      dropBg:  dark ? "rgba(22,18,14,0.98)" : "rgba(253,250,246,0.98)",
-      dropBdr: dark ? "1px solid rgba(242,237,230,0.1)" : "1px solid rgba(26,20,16,0.1)",
-      amber:   "#c49a4a",
+      text:   dark ? "#f2ede6" : "#1a1410",
+      muted:  dark ? "rgba(242,237,230,0.6)" : "rgba(26,20,16,0.55)",
+      bg:     scrolled ? (dark ? "rgba(13,11,9,0.92)" : "rgba(245,240,232,0.95)") : "transparent",
+      border: scrolled ? (dark ? "1px solid rgba(242,237,230,0.08)" : "1px solid rgba(26,20,16,0.08)") : "1px solid transparent",
+      dropBg: dark ? "rgba(22,18,14,0.98)" : "rgba(253,250,246,0.98)",
+      dropBdr:dark ? "1px solid rgba(242,237,230,0.1)" : "1px solid rgba(26,20,16,0.1)",
+      amber:  "#c49a4a",
     };
   }, [theme, scrolled]);
 
   function cancel(ref: React.MutableRefObject<any>) { clearTimeout(ref.current); }
-  function delay(fn: () => void, ref: React.MutableRefObject<any>, ms = 180) {
-    clearTimeout(ref.current); ref.current = setTimeout(fn, ms);
-  }
+  function delay(fn: () => void, ref: React.MutableRefObject<any>, ms = 180) { clearTimeout(ref.current); ref.current = setTimeout(fn, ms); }
 
-  async function handleSignOut() {
-    await signOut(); setOpenUser(false); router.push("/");
-  }
+  async function handleSignOut() { await signOut(); setOpenUser(false); router.push("/"); }
 
   if (pathname.startsWith("/admin")) return null;
 
@@ -227,18 +141,11 @@ export default function Header() {
         }
       `}</style>
 
-      <header
-        ref={el => { headerRef.current = el; }}
-        style={{
-          position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999,
-          background: C.bg, borderBottom: C.border,
-          backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none",
-          transition: "background 0.25s ease, border-color 0.25s ease",
-        }}
-      >
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 20px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
+      <header ref={el => { headerRef.current = el; }}
+        style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s ease, border-color 0.25s ease" }}>
+        <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
-          {/* ✅ Logo — fond sombre fixe, toujours lisible */}
+          {/* ✅ Logo */}
           <Link href="/" style={{ textDecoration: "none", flexShrink: 0 }} aria-label="M!LK">
             <div style={{ display: "flex", alignItems: "baseline", background: "#1a1410", borderRadius: 10, padding: "6px 14px", border: "1px solid rgba(196,154,74,0.25)" }}>
               <span style={{ color: "#f2ede6", fontWeight: 950, fontSize: 19, letterSpacing: -1, lineHeight: 1 }}>M</span>
@@ -249,31 +156,22 @@ export default function Header() {
 
           {/* Nav desktop */}
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
-            <Link href="/produits"
-              style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 16, padding: "8px 16px", borderRadius: 10, opacity: pathname.startsWith("/produits") || pathname.startsWith("/categorie") ? 1 : 0.85, borderBottom: pathname.startsWith("/produits") || pathname.startsWith("/categorie") ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block" }}
-              onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; (e.currentTarget as HTMLAnchorElement).style.opacity = "1"; }}
-              onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.opacity = pathname.startsWith("/produits") || pathname.startsWith("/categorie") ? "1" : "0.85"; }}
-            >
-              Notre collection
-            </Link>
             {[
-              { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
-              { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
+              { label: "Notre collection",  href: "/produits",        active: pathname.startsWith("/produits") || pathname.startsWith("/categorie") },
+              { label: "Qui sommes-nous",   href: "/qui-sommes-nous", active: pathname === "/qui-sommes-nous" },
+              { label: "Pourquoi le bambou",href: "/pourquoi-bambou", active: pathname === "/pourquoi-bambou" },
             ].map(l => (
               <Link key={l.href} href={l.href}
-                style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 16, padding: "8px 16px", borderRadius: 10, opacity: pathname === l.href ? 1 : 0.85, borderBottom: pathname === l.href ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block" }}
+                style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 16, padding: "8px 16px", borderRadius: 10, opacity: l.active ? 1 : 0.85, borderBottom: l.active ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block", whiteSpace: "nowrap" }}
                 onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; (e.currentTarget as HTMLAnchorElement).style.opacity = "1"; }}
-                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.opacity = pathname === l.href ? "1" : "0.85"; }}
-              >
+                onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; (e.currentTarget as HTMLAnchorElement).style.opacity = l.active ? "1" : "0.85"; }}>
                 {l.label}
               </Link>
             ))}
           </nav>
 
-          {/* Actions droite desktop */}
+          {/* ✅ Actions droite — SANS sélecteur de langue */}
           <div className="milk-desktop" style={{ alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <LangSwitcher textColor={C.text} />
-
             <Link href="/recherche" aria-label="Recherche"
               style={{ width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; }}
@@ -286,30 +184,19 @@ export default function Header() {
               onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.1)"; }}
               onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}>
               <CartIcon color={C.text} size={22} />
-              {totalItems > 0 && (
-                <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>
-                  {totalItems}
-                </span>
-              )}
+              {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>{totalItems}</span>}
             </Link>
 
             <div style={{ position: "relative" }}
               onMouseEnter={() => { cancel(userTimer); setOpenUser(true); }}
-              onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}
-            >
+              onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}>
               <button style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
-                {user
-                  ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span>
-                  : <ProfileIcon color={C.text} size={22} />
-                }
+                {user ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span> : <ProfileIcon color={C.text} size={22} />}
               </button>
-
               {openUser && (
-                <div
-                  style={{ position: "absolute", top: 52, right: 0, width: 230, background: C.dropBg, border: C.dropBdr, borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.3)", display: "grid", gap: 4, zIndex: 100 }}
+                <div style={{ position: "absolute", top: 52, right: 0, width: 230, background: C.dropBg, border: C.dropBdr, borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.3)", display: "grid", gap: 4, zIndex: 100 }}
                   onMouseEnter={() => { cancel(userTimer); setOpenUser(true); }}
-                  onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}
-                >
+                  onMouseLeave={() => delay(() => setOpenUser(false), userTimer)}>
                   {user ? (
                     <>
                       <div style={{ padding: "10px 12px", marginBottom: 4 }}>
@@ -351,18 +238,13 @@ export default function Header() {
             </div>
           </div>
 
-          {/* Actions mobile */}
+          {/* Mobile */}
           <div className="milk-burger" style={{ alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <Link href="/panier" aria-label="Panier"
-              style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}>
+            <Link href="/panier" style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}>
               <CartIcon color={C.text} size={22} />
-              {totalItems > 0 && (
-                <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>
-                  {totalItems}
-                </span>
-              )}
+              {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>{totalItems}</span>}
             </Link>
-            <button onClick={() => setMobileOpen(v => !v)} aria-label="Menu"
+            <button onClick={() => setMobileOpen(v => !v)}
               style={{ width: 40, height: 40, borderRadius: 10, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, alignItems: "center", justifyContent: "center" }}>
               <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(45deg) translate(5px, 5px)" : "none" }} />
               <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, opacity: mobileOpen ? 0 : 1, transition: "opacity 0.2s" }} />
@@ -372,12 +254,9 @@ export default function Header() {
         </div>
       </header>
 
-      {/* Menu mobile */}
       {mobileOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: "calc(100vh - 80px)" }}>
-            <MobileLangButtons onClose={() => setMobileOpen(false)} />
-            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "10px 0" }} />
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 6 }}>Collection</div>
             <Link href="/produits" onClick={() => setMobileOpen(false)}
               style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#c49a4a", display: "flex", alignItems: "center", gap: 12 }}>
@@ -431,10 +310,7 @@ export default function Header() {
             )}
             <Link href="/panier" onClick={() => setMobileOpen(false)}
               style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                <CartIcon color="#c49a4a" size={20} />
-                Mon panier
-              </span>
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}><CartIcon color="#c49a4a" size={20} />Mon panier</span>
               {totalItems > 0 && <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>}
             </Link>
           </div>

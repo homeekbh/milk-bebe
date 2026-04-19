@@ -40,26 +40,23 @@ export async function POST(req: Request) {
       const name      = session.customer_details?.name  ?? "";
       const amount    = (session.amount_total ?? 0) / 100;
 
-      // ✅ Adresse de livraison
+      // Adresse de livraison
       const sessionAny   = session as any;
-      const shippingAddr = sessionAny.shipping_details?.address
-        ?? session.customer_details?.address
-        ?? null;
+      const shippingAddr = sessionAny.shipping_details?.address ?? session.customer_details?.address ?? null;
       const shippingName = sessionAny.shipping_details?.name ?? name;
-
       const shippingAddress = shippingAddr ? {
         name:        shippingName,
-        line1:       shippingAddr.line1        ?? "",
-        line2:       shippingAddr.line2        ?? "",
-        city:        shippingAddr.city         ?? "",
-        postal_code: shippingAddr.postal_code  ?? "",
-        country:     shippingAddr.country      ?? "FR",
+        line1:       shippingAddr.line1       ?? "",
+        line2:       shippingAddr.line2       ?? "",
+        city:        shippingAddr.city        ?? "",
+        postal_code: shippingAddr.postal_code ?? "",
+        country:     shippingAddr.country     ?? "FR",
       } : null;
 
-      // ✅ Enregistrer la commande
+      // ✅ Enregistrer la commande (upsert pour éviter doublons)
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
-        .insert([{
+        .upsert([{
           stripe_session_id: session.id,
           items,
           amount_total:      amount,
@@ -70,119 +67,136 @@ export async function POST(req: Request) {
           status:            "paid",
           shipping_status:   "pending",
           shipping_address:  shippingAddress,
-        }])
+        }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
         .select()
         .single();
 
       if (orderError) {
-        if (orderError.message.includes("unique")) {
-          console.log("ℹ️ Order already exists:", session.id);
-        } else {
-          console.error("❌ Order insert error:", orderError.message);
-        }
+        console.error("❌ Order upsert error:", orderError.message);
       } else {
         console.log("✅ Order saved:", orderData?.id);
       }
 
-      // ✅ Décrémenter le stock
+      // ✅ Décrémenter le stock — par slug ET par id pour robustesse
       for (const item of items) {
-        const { data: product } = await supabaseServer
-          .from("products").select("stock").eq("id", item.id).single();
-        if (!product) continue;
-        const newStock = Math.max(0, (product.stock ?? 0) - (item.quantity ?? 1));
-        await supabaseServer.from("products").update({ stock: newStock }).eq("id", item.id);
+        let productData: any = null;
+
+        // Essaie d'abord par id
+        if (item.id) {
+          const { data } = await supabaseServer
+            .from("products").select("id, stock, slug").eq("id", item.id).single();
+          if (data) productData = data;
+        }
+
+        // Fallback par slug si id ne match pas
+        if (!productData && item.slug) {
+          const { data } = await supabaseServer
+            .from("products").select("id, stock, slug").eq("slug", item.slug).single();
+          if (data) productData = data;
+        }
+
+        if (!productData) {
+          console.warn("⚠️ Product not found for item:", item);
+          continue;
+        }
+
+        const newStock = Math.max(0, (productData.stock ?? 0) - (item.quantity ?? 1));
+        const { error: stockError } = await supabaseServer
+          .from("products").update({ stock: newStock }).eq("id", productData.id);
+
+        if (stockError) {
+          console.error("❌ Stock update error:", productData.slug, stockError.message);
+        } else {
+          console.log(`✅ Stock updated: ${productData.slug} → ${newStock}`);
+        }
       }
 
-      // ✅ Incrémenter uses_count code promo
+      // Incrémenter uses_count promo
       if (promoCode) {
         const { data: promo } = await supabaseServer
           .from("promo_codes").select("id, uses_count").eq("code", promoCode).single();
         if (promo) {
-          await supabaseServer.from("promo_codes")
+          await supabaseServer
+            .from("promo_codes")
             .update({ uses_count: (promo.uses_count ?? 0) + 1 })
             .eq("id", promo.id);
         }
       }
 
-      // ✅ Marquer panier abandonné comme converti
+      // Marquer abandoned cart comme converti
       if (email) {
-        await supabaseServer.from("abandoned_carts")
+        await supabaseServer
+          .from("abandoned_carts")
           .update({ converted: true })
           .eq("email", email.toLowerCase().trim());
       }
 
-      // ✅ Email confirmation client
+      // Emails de confirmation
       if (email && orderData) {
-        const prenom = name.split(" ")[0] ?? "";
-        await fetch(`${BASE}/api/emails/confirmation`, {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            email,
-            prenom,
-            items,
-            amount_total:     amount,
-            order_id:         orderData.id,
-            shipping_address: shippingAddress,
-          }),
-        }).catch(e => console.error("❌ Email confirmation error:", e));
-      }
-
-      // ✅ Notification email admins
-      if (orderData && ADMIN_EMAILS.length > 0) {
-        const itemsText = items.map((i: any) =>
-          `• ${i.name} ×${i.quantity} — ${(Number(i.price) * Number(i.quantity)).toFixed(2)} €`
-        ).join("\n");
-
-        const addrText = shippingAddress
-          ? `${shippingAddress.name}\n${shippingAddress.line1}${shippingAddress.line2 ? "\n" + shippingAddress.line2 : ""}\n${shippingAddress.postal_code} ${shippingAddress.city}\n${shippingAddress.country}`
-          : "Non renseignée";
-
-        const html = `
-<!DOCTYPE html>
-<html lang="fr">
-<body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif">
-<div style="max-width:500px;margin:0 auto;padding:40px 20px">
-  <div style="background:#c49a4a;border-radius:12px;padding:14px 20px;margin-bottom:24px;text-align:center">
-    <span style="color:#1a1410;font-weight:950;font-size:22px">M!LK — Nouvelle vente !</span>
-  </div>
-  <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:16px">
-    <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:6px;text-transform:uppercase;letter-spacing:1px">Client</div>
-    <div style="font-size:20px;font-weight:800;color:#f2ede6">${name || "—"}</div>
-    <div style="font-size:14px;color:rgba(242,237,230,0.5);margin-top:4px">${email}</div>
-  </div>
-  <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:16px">
-    <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Articles commandés</div>
-    <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:sans-serif">${itemsText}</pre>
-    <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(196,154,74,0.2);font-size:26px;font-weight:950;color:#c49a4a;text-align:right">
-      ${amount.toFixed(2)} €
-    </div>
-  </div>
-  <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(242,237,230,0.1);padding:24px;margin-bottom:24px">
-    <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:10px;text-transform:uppercase;letter-spacing:1px">Adresse de livraison</div>
-    <pre style="margin:0;color:#f2ede6;font-size:14px;line-height:1.8;white-space:pre-wrap;font-family:sans-serif">${addrText}</pre>
-  </div>
-  <a href="${BASE}/admin/commandes"
-    style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:16px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
-    Voir dans l'admin →
-  </a>
-</div>
-</body>
-</html>`;
-
-        for (const adminEmail of ADMIN_EMAILS) {
-          await resend.emails.send({
-            from:    "M!LK <onboarding@resend.dev>",
-            to:      adminEmail,
-            subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
-            html,
-          }).catch(e => console.error("❌ Admin notification error:", e));
+        try {
+          await fetch(`${BASE}/api/emails/confirmation`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              to:               email,
+              email,
+              customer_name:    name,
+              items,
+              amount_total:     amount,
+              order_id:         orderData.id,
+              shipping_address: shippingAddress,
+              promo_code:       promoCode,
+              discount,
+            }),
+          });
+        } catch (e) {
+          console.error("❌ Confirmation email error:", e);
         }
       }
 
-    } catch (error) {
-      console.error("❌ Webhook processing error:", error);
-      return new Response("Processing failed", { status: 500 });
+      // Notification admin
+      if (orderData && ADMIN_EMAILS.length > 0) {
+        const itemsHtml = items.map((i: any) =>
+          `<div style="font-size:14px;color:rgba(242,237,230,0.65);margin-top:6px">
+            ${i.name ?? i.slug} × ${i.quantity} — ${(Number(i.price) * i.quantity).toFixed(2)} €
+          </div>`
+        ).join("");
+
+        for (const adminEmail of ADMIN_EMAILS) {
+          try {
+            await resend.emails.send({
+              from: "M!LK Notifications <onboarding@resend.dev>",
+              to:   adminEmail,
+              subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
+              html: `
+                <div style="background:#1a1410;font-family:Arial,sans-serif;padding:32px;border-radius:16px;max-width:520px">
+                  <div style="background:#c49a4a;border-radius:12px;padding:14px 20px;margin-bottom:24px;text-align:center">
+                    <span style="color:#1a1410;font-weight:950;font-size:20px">M!LK — Nouvelle commande</span>
+                  </div>
+                  <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
+                    <div style="font-size:15px;font-weight:800;color:#f2ede6">${name || "Client"}</div>
+                    <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${email}</div>
+                    ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${shippingAddress.line1}, ${shippingAddress.city} ${shippingAddress.postal_code}</div>` : ""}
+                  </div>
+                  <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
+                    ${itemsHtml}
+                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(196,154,74,0.2);font-size:22px;font-weight:950;color:#c49a4a;text-align:right">${amount.toFixed(2)} €</div>
+                  </div>
+                  <a href="${BASE}/admin/commandes" style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:14px;border-radius:10px;font-weight:900;font-size:15px;text-decoration:none">
+                    Voir dans l'admin →
+                  </a>
+                </div>
+              `,
+            });
+          } catch (e) {
+            console.error("❌ Admin notification error:", e);
+          }
+        }
+      }
+
+    } catch (err: any) {
+      console.error("❌ Webhook processing error:", err.message);
+      return new Response(`Processing error: ${err.message}`, { status: 500 });
     }
   }
 

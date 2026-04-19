@@ -6,9 +6,6 @@ import Image                           from "next/image";
 import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
 
-/* ─────────────────────────────────────────────────────────────
-   HELPERS
-───────────────────────────────────────────────────────────── */
 function isPromoActive(p: any) {
   if (!p?.promo_price || !p?.promo_start || !p?.promo_end) return false;
   const now = new Date();
@@ -16,29 +13,55 @@ function isPromoActive(p: any) {
 }
 
 function getMotifDetails(slug: string) {
-  if (slug.includes("eclair"))  return { motif: "Flash",  desc: "éclairs blancs minimalistes sur fond gris anthracite",      vibe: "cool kid" };
-  if (slug.includes("smileys")) return { motif: "Smile",  desc: "petits visages souriants, ton beige chaud sur fond caramel", vibe: "cool kid" };
-  if (slug.includes("damier"))  return { motif: "Check",  desc: "damier noir et écru, graphique et intemporel",              vibe: "cool kid" };
-  if (slug.includes("uni"))     return { motif: "Uni",    desc: "côtelé intemporel, minimaliste et doux",                    vibe: "essentiel" };
+  if (slug.includes("eclair"))  return { motif: "Flash",  desc: "éclairs blancs minimalistes sur fond gris anthracite"      };
+  if (slug.includes("smileys")) return { motif: "Smile",  desc: "petits visages souriants, ton beige chaud sur fond caramel" };
+  if (slug.includes("damier"))  return { motif: "Check",  desc: "damier noir et écru, graphique et intemporel"              };
+  if (slug.includes("uni"))     return { motif: "Uni",    desc: "côtelé intemporel, minimaliste et doux"                    };
   return null;
 }
 
+// ✅ Descriptions avec la voix d'Erika
 function getProductDescription(product: any): string {
   const cat   = product.category_slug ?? "";
   const motif = getMotifDetails(product.slug ?? "");
+  const motifLine = motif ? `\n\nMotif ${motif.motif} : ${motif.desc}.` : "";
+
   if (cat === "pyjamas") {
-    return `Conçu dans un bambou d'une douceur exceptionnelle, ce pyjama accompagne votre bébé aussi bien pendant le sommeil que dans ses moments d'éveil. Sa coupe est pensée pour durer et s'adapter au quotidien des parents : poignets rabattables sur les plus petites tailles pour garder les mains bien au chaud, pieds modulables à porter ouverts ou fermés selon les besoins.${motif ? `\n\nMotif ${motif.motif} : ${motif.desc}, vibe "${motif.vibe}".` : ""}\n\nTailles disponibles : Nouveau-né à 6 mois\nComposition : 95 % viscose de bambou · 5 % élasthanne\n\nExclusivité M!LK.`;
+    return `Habillage en moins d'une minute. Change de couche sans tout défaire. Zéro friction entre toi et ton bébé.
+
+Le bambou stretch suit tous les mouvements sans tirer. Silencieux — pas de scratch, pas de bruit qui réveille. Pieds pliables selon la température.${motifLine}
+
+Tailles disponibles : Nouveau-né à 6 mois
+Composition : 95 % viscose de bambou · 5 % élasthanne
+
+Exclusivité M!LK.`;
   }
   if (cat === "bodies") {
-    return `Body nourrisson en bambou certifié OEKO-TEX. Conçu pour le quotidien : ouverture par le bas facile à 3h du matin, pressions solides, tissu qui ne tire pas.${motif ? `\n\nMotif ${motif.motif} : ${motif.desc}, vibe "${motif.vibe}".` : ""}\n\nTailles disponibles : Nouveau-né à 6 mois\nComposition : 95 % viscose de bambou · 5 % élasthanne\n\nExclusivité M!LK.`;
+    return `Le body du quotidien. Celui qu'on met plusieurs fois par jour sans y penser.
+
+Ouverture par le bas facile — même à 3h du matin. Pressions solides. Tissu qui ne tire pas, qui ne rétrécit pas, qui reste doux lavage après lavage.${motifLine}
+
+Tailles disponibles : Nouveau-né à 6 mois
+Composition : 95 % viscose de bambou · 5 % élasthanne
+
+Exclusivité M!LK.`;
   }
   if (cat === "gigoteuses") {
-    return `Gigoteuse à nouer en bambou certifié OEKO-TEX. Maintient bébé bien au chaud sans le contraindre. Le nœud se règle facilement, même en pleine nuit.${motif ? `\n\nMotif ${motif.motif} : ${motif.desc}, vibe "${motif.vibe}".` : ""}\n\nTailles disponibles : Nouveau-né à 6 mois\nComposition : 95 % viscose de bambou · 5 % élasthanne\n\nExclusivité M!LK.`;
+    return `Bébé au chaud. Sans le contraindre. Sans risque de se découvrir la nuit.
+
+Le nœud se règle facilement — même en pleine nuit, les yeux à moitié ouverts. Le bambou thermorégule : chaud quand il fait froid, frais quand il fait chaud.${motifLine}
+
+Tailles disponibles : Nouveau-né à 6 mois
+Composition : 95 % viscose de bambou · 5 % élasthanne
+
+Exclusivité M!LK.`;
+  }
+  if (cat === "accessoires") {
+    return `L'essentiel. Sans le superflu.${motifLine}\n\nComposition : 95 % viscose de bambou · 5 % élasthanne\nExclusivité M!LK.`;
   }
   return product.description ?? "";
 }
 
-/* ── Constantes ── */
 const TAILLES_ORDER = ["Nouveau-né","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120×120 cm"];
 
 const GUIDE_TAILLES = [
@@ -48,7 +71,6 @@ const GUIDE_TAILLES = [
   { taille: "6-12 mois",  poids: "8 – 11 kg",  poitrine: "26 cm", longueur: "62 cm" },
 ];
 
-/* ── SVG Icons ── */
 const IconThermometer = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v10m0 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/><path d="M12 6h2M12 9h1" stroke="#c49a4a" strokeWidth="1.5" strokeLinecap="round"/></svg>;
 const IconBan         = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#c49a4a" strokeWidth="1.8"/><path d="M6 6l12 12" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
 const IconFlat        = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h16M4 8h8M4 16h8" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
@@ -59,24 +81,17 @@ const IconReturn      = () => <svg width="13" height="13" viewBox="0 0 24 24" fi
 const IconLock        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="#c49a4a" strokeWidth="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#c49a4a" strokeWidth="1.8"/></svg>;
 const IconSize        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h10M3 18h6" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round"/></svg>;
 
-/* ─────────────────────────────────────────────────────────────
-   ✅ BANDEAU 5 ICÔNES — reproduction exacte de l'image
-   Labels traduits en français, couleurs M!LK amber
-───────────────────────────────────────────────────────────── */
 function IconBandeau() {
   const C = "#c49a4a";
   const items = [
     {
       label: "Toutes\nSaisons",
       svg: (
-        // Soleil + flocon fusionnés : moitié gauche flocon, moitié droite soleil
         <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
-          {/* ── Flocon côté gauche ── */}
           <line x1="32" y1="6"  x2="32" y2="58" stroke={C} strokeWidth="1.8" strokeLinecap="round"/>
           <line x1="6"  y1="32" x2="32" y2="32" stroke={C} strokeWidth="1.8" strokeLinecap="round"/>
           <line x1="11" y1="11" x2="32" y2="32" stroke={C} strokeWidth="1.8" strokeLinecap="round"/>
           <line x1="11" y1="53" x2="32" y2="32" stroke={C} strokeWidth="1.8" strokeLinecap="round"/>
-          {/* Petites branches flocon */}
           <line x1="32" y1="12" x2="27" y2="17" stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
           <line x1="32" y1="12" x2="37" y2="17" stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
           <line x1="32" y1="52" x2="27" y2="47" stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
@@ -87,13 +102,10 @@ function IconBandeau() {
           <line x1="14" y1="14" x2="14" y2="19" stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
           <line x1="14" y1="50" x2="19" y2="50" stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
           <line x1="14" y1="50" x2="14" y2="45" stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
-          {/* ── Soleil côté droit ── */}
-          {[0, 45, 90, 135, 180].map((deg, i) => {
+          {[0,45,90,135,180].map((deg, i) => {
             const r = (deg * Math.PI) / 180;
-            const cx = 32, cy = 32;
-            return <line key={i} x1={cx + 14*Math.cos(r)} y1={cy + 14*Math.sin(r)} x2={cx + 22*Math.cos(r)} y2={cy + 22*Math.sin(r)} stroke={C} strokeWidth="2" strokeLinecap="round"/>;
+            return <line key={i} x1={32+14*Math.cos(r)} y1={32+14*Math.sin(r)} x2={32+22*Math.cos(r)} y2={32+22*Math.sin(r)} stroke={C} strokeWidth="2" strokeLinecap="round"/>;
           })}
-          {/* Demi-cercle soleil droite */}
           <path d="M32 18 A14 14 0 0 1 32 46 Z" stroke={C} strokeWidth="1.6" fill="none"/>
         </svg>
       ),
@@ -101,21 +113,16 @@ function IconBandeau() {
     {
       label: "Anti-\nbactérien",
       svg: (
-        // Bactérie ovale avec pattes dans un cercle barré
         <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
-          {/* Grand cercle barré */}
           <circle cx="32" cy="32" r="27" stroke={C} strokeWidth="1.8"/>
           <line x1="12" y1="12" x2="52" y2="52" stroke={C} strokeWidth="1.8" strokeLinecap="round"/>
-          {/* Corps bactérie ovale */}
           <ellipse cx="32" cy="32" rx="10" ry="13" stroke={C} strokeWidth="1.8"/>
-          {/* Pattes */}
-          {[-7, -2, 4, 9].map((y, i) => (
+          {[-7,-2,4,9].map((y, i) => (
             <g key={i}>
               <line x1="22" y1={32+y} x2="16" y2={30+y} stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
               <line x1="42" y1={32+y} x2="48" y2={30+y} stroke={C} strokeWidth="1.4" strokeLinecap="round"/>
             </g>
           ))}
-          {/* Points surface bactérie */}
           <circle cx="29" cy="27" r="1.8" fill={C}/>
           <circle cx="36" cy="32" r="1.8" fill={C}/>
           <circle cx="28" cy="37" r="1.8" fill={C}/>
@@ -125,18 +132,13 @@ function IconBandeau() {
     {
       label: "Hypo-\nallergénique",
       svg: (
-        // Branche feuille + goutte d'eau + coche
         <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
-          {/* Feuille principale gauche */}
           <path d="M22 54 C22 54 8 42 10 26 C10 26 22 30 22 42" stroke={C} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
           <path d="M22 54 C22 54 36 42 34 26 C34 26 22 30 22 42" stroke={C} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
           <line x1="22" y1="16" x2="22" y2="54" stroke={C} strokeWidth="1.8" strokeLinecap="round"/>
-          {/* Petite feuille en haut à droite */}
           <path d="M30 16 C36 8 46 12 42 22 C40 26 30 22 30 16Z" stroke={C} strokeWidth="1.5" fill="none"/>
           <line x1="30" y1="16" x2="40" y2="22" stroke={C} strokeWidth="1.2" strokeLinecap="round"/>
-          {/* Goutte eau droite */}
           <path d="M48 40 C48 40 43 32 43 28 C43 25 45 23 48 23 C51 23 53 25 53 28 C53 32 48 40 48 40Z" stroke={C} strokeWidth="1.6" fill="none"/>
-          {/* Grande coche */}
           <path d="M6 34 L14 44 L28 24" stroke={C} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"/>
         </svg>
       ),
@@ -144,44 +146,31 @@ function IconBandeau() {
     {
       label: "Bambou\nBio",
       svg: (
-        // 3 tiges bambou avec nœuds et feuilles
         <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
-          {/* Tige gauche */}
           <line x1="18" y1="58" x2="18" y2="10" stroke={C} strokeWidth="2.2" strokeLinecap="round"/>
           {[48,36,24,14].map((y,i) => <line key={i} x1="15" y1={y} x2="21" y2={y} stroke={C} strokeWidth="2" strokeLinecap="round"/>)}
-          {/* Feuilles tige gauche */}
-          <path d="M18 28 C8 22 4 12 10 10 C14 9 18 18 18 28Z" stroke={C} strokeWidth="1.5" fill="none"/>
-          <path d="M18 40 C8 46 4 54 10 56 C14 57 18 46 18 40Z" stroke={C} strokeWidth="1.5" fill="none"/>
-
-          {/* Tige centrale */}
-          <line x1="32" y1="58" x2="32" y2="8" stroke={C} strokeWidth="2.2" strokeLinecap="round"/>
+          <path d="M18 28 C8 22 4 12 10 10 C14 9 18 18 18 28Z"   stroke={C} strokeWidth="1.5" fill="none"/>
+          <path d="M18 40 C8 46 4 54 10 56 C14 57 18 46 18 40Z"   stroke={C} strokeWidth="1.5" fill="none"/>
+          <line x1="32" y1="58" x2="32" y2="8"  stroke={C} strokeWidth="2.2" strokeLinecap="round"/>
           {[50,38,26,14].map((y,i) => <line key={i} x1="29" y1={y} x2="35" y2={y} stroke={C} strokeWidth="2" strokeLinecap="round"/>)}
-
-          {/* Tige droite */}
           <line x1="46" y1="58" x2="46" y2="10" stroke={C} strokeWidth="2.2" strokeLinecap="round"/>
           {[48,36,24,14].map((y,i) => <line key={i} x1="43" y1={y} x2="49" y2={y} stroke={C} strokeWidth="2" strokeLinecap="round"/>)}
-          {/* Feuilles tige droite */}
-          <path d="M46 22 C56 16 60 8 54 6 C50 5 46 14 46 22Z" stroke={C} strokeWidth="1.5" fill="none"/>
-          <path d="M46 44 C56 50 60 58 54 60 C50 61 46 50 46 44Z" stroke={C} strokeWidth="1.5" fill="none"/>
+          <path d="M46 22 C56 16 60 8 54 6 C50 5 46 14 46 22Z"    stroke={C} strokeWidth="1.5" fill="none"/>
+          <path d="M46 44 C56 50 60 58 54 60 C50 61 46 50 46 44Z"  stroke={C} strokeWidth="1.5" fill="none"/>
         </svg>
       ),
     },
     {
       label: "Ultra\nDoux",
       svg: (
-        // Main paume tendue + libellule
         <svg width="52" height="52" viewBox="0 0 64 64" fill="none">
-          {/* Paume */}
           <path d="M10 44 C10 44 8 40 10 36 C12 32 16 36 16 36 L24 27 C24 27 27 24 30 26 C30 26 32 21 35 22 C35 22 37 18 40 19 C40 19 42 16 45 18 L51 25 C53 28 51 33 48 33 L38 42" stroke={C} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
           <path d="M10 44 L38 44 C38 44 45 46 45 54 L10 54 C10 54 8 50 10 44Z" stroke={C} strokeWidth="1.8" strokeLinecap="round" fill="none"/>
-          {/* Lignes de la paume */}
           <path d="M14 49 Q26 47 38 49" stroke={C} strokeWidth="1.1" strokeLinecap="round" fill="none"/>
-          {/* Corps libellule */}
           <ellipse cx="54" cy="14" rx="2.5" ry="5" stroke={C} strokeWidth="1.5" transform="rotate(-20 54 14)"/>
           <circle cx="54" cy="9" r="2" fill={C}/>
-          {/* Ailes libellule — 4 ailes */}
-          <path d="M52 12 C44 6 38 8 40 14" stroke={C} strokeWidth="1.3" strokeLinecap="round" fill="none"/>
-          <path d="M56 12 C62 5 68 8 66 14" stroke={C} strokeWidth="1.3" strokeLinecap="round" fill="none"/>
+          <path d="M52 12 C44 6 38 8 40 14"  stroke={C} strokeWidth="1.3" strokeLinecap="round" fill="none"/>
+          <path d="M56 12 C62 5 68 8 66 14"  stroke={C} strokeWidth="1.3" strokeLinecap="round" fill="none"/>
           <path d="M52 16 C44 22 40 28 44 30" stroke={C} strokeWidth="1.3" strokeLinecap="round" fill="none"/>
           <path d="M56 16 C62 22 66 26 62 30" stroke={C} strokeWidth="1.3" strokeLinecap="round" fill="none"/>
         </svg>
@@ -205,7 +194,6 @@ function IconBandeau() {
   );
 }
 
-/* ── Badge diagonal ── */
 function DiagonalBadge({ label, out }: { label?: string; out: boolean }) {
   if (out) return (
     <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 30, pointerEvents: "none" }}>
@@ -222,7 +210,6 @@ function DiagonalBadge({ label, out }: { label?: string; out: boolean }) {
   );
 }
 
-/* ── Lightbox ── */
 function Lightbox({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) {
   const containerRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -253,7 +240,6 @@ function Lightbox({ images, startIndex, onClose }: { images: string[]; startInde
   );
 }
 
-/* ── FAQ item ── */
 function FaqItem({ q, r }: { q: string; r: string }) {
   const [open, setOpen] = useState(false);
   return (
@@ -267,9 +253,6 @@ function FaqItem({ q, r }: { q: string; r: string }) {
   );
 }
 
-/* ═══════════════════════════════════════════════════════════
-   PAGE PRINCIPALE
-═══════════════════════════════════════════════════════════ */
 export default function ProductPage() {
   const { slug }             = useParams<{ slug: string }>();
   const { addToCart, items } = useCart();
@@ -330,16 +313,32 @@ export default function ProductPage() {
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }
   else { for (let i = 0; i < allImages.length; i += 2) photoRows.push(allImages.slice(i, i + 2)); }
 
+  // ✅ FAQ avec la voix d'Erika
   const FAQ = [
-    { q: "Comment entretenir ce vêtement ?",  r: "Lavage à froid, cycle délicat. Lessive douce, sans agents agressifs ni javel. Séchage à l'air libre recommandé (le sèche-linge fatigue la matière). Évite les adoucissants, ça encrasse les fibres. Stocke dans un endroit sec. Traite les taches rapidement." },
-    { q: "Quelle taille choisir ?",            r: "En cas de doute, prenez la taille supérieure. Le bambou est extrêmement flexible — votre bébé sera à l'aise même si la taille est légèrement grande." },
-    { q: "Le bambou est-il doux pour bébé ?",  r: "Oui — naturellement doux et respectueux des peaux sensibles. Respirant, il limite la surchauffe. Régule la température : frais en été, chaud en hiver. Absorbe l'humidité pour un confort optimal, jour et nuit." },
-    { q: "Retour possible ?",                  r: "Oui, 15 jours après réception. Retour entièrement gratuit pour les articles non utilisés. contact@milkbebe.fr" },
+    {
+      q: "Comment entretenir ce vêtement ?",
+      r: "Lavage machine 40°C, cycle délicat. Lessive douce, sans javel ni adoucissant — ça encrasse les fibres. Séchage à l'air libre ou machine basse température. Traite les taches rapidement pour éviter qu'elles s'installent.",
+    },
+    {
+      q: "Ça taille comment ?",
+      r: "Le bambou est naturellement très extensible — pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus. Consultez le guide des tailles ci-dessus.",
+    },
+    {
+      q: "Pourquoi le bambou plutôt que le coton ?",
+      r: "Le bambou n'est pas juste tendance, il est surtout fonctionnel. Naturellement thermorégulateur, antibactérien, 3× plus doux que le coton. Frais en été, chaud en hiver. Un seul vêtement, toute l'année.",
+    },
+    {
+      q: "Mon bébé déteste être habillé. Ça change quoi ?",
+      r: "Le bambou stretch suit tous les mouvements sans résistance. Moins de manipulations = moins de protestations. Les routines deviennent fluides, pas stressantes.",
+    },
+    {
+      q: "Retour possible ?",
+      r: "Oui, 15 jours après réception. Retour entièrement gratuit pour les articles non utilisés. contact@milkbebe.fr",
+    },
   ];
 
   return (
     <div style={{ background: "#f5f0e8", minHeight: "100vh" }}>
-
       {lightboxIdx !== null && allImages.length > 0 && (
         <Lightbox images={allImages} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
@@ -405,7 +404,6 @@ export default function ProductPage() {
               </div>
             ))}
           </div>
-          {/* ✅ Bandeau 5 icônes — sous les photos */}
           <IconBandeau />
         </div>
 
@@ -430,14 +428,15 @@ export default function ProductPage() {
             <div style={{ fontSize: "clamp(13px,1.1vw,15px)", lineHeight: 1.85, color: "rgba(26,20,16,0.65)", whiteSpace: "pre-line" }}>{description}</div>
           )}
 
+          {/* Pourquoi le bambou */}
           <details style={{ background: "rgba(196,154,74,0.07)", borderRadius: 12, border: "1px solid rgba(196,154,74,0.15)", overflow: "hidden" }}>
             <summary style={{ padding: "11px 14px", cursor: "pointer", fontWeight: 800, fontSize: 13, color: "#c49a4a", listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               Pourquoi le bambou M!LK ?
               <span style={{ fontSize: 16, fontWeight: 300 }}>+</span>
             </summary>
             <div style={{ padding: "0 14px 14px", fontSize: 13, lineHeight: 1.8, color: "rgba(26,20,16,0.6)" }}>
-              Le bambou n'est pas juste "tendance", il est surtout fonctionnel : naturellement doux et respectueux des peaux sensibles, respirant (limite la surchauffe), thermorégulateur (frais l'été, chaud l'hiver), et absorbe l'humidité pour un confort optimal jour et nuit.{" "}
-              <strong style={{ color: "#1a1410" }}>Un seul pyjama, toute l'année.</strong>
+              Le bambou n'est pas juste "tendance", il est surtout fonctionnel. Naturellement doux et respectueux des peaux sensibles. Respirant — limite la surchauffe. Thermorégulateur — frais l'été, chaud l'hiver. Absorbe l'humidité pour un confort optimal, jour et nuit.{" "}
+              <strong style={{ color: "#1a1410" }}>Un seul vêtement, toute l'année. Pas besoin d'en faire des tonnes.</strong>
             </div>
           </details>
 
@@ -490,15 +489,14 @@ export default function ProductPage() {
                   );
                 })}
               </div>
-
-              {/* Note flexibilité bambou */}
+              {/* ✅ Note flexibilité — voix Erika */}
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.18)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}>
                   <circle cx="12" cy="12" r="9" stroke="#c49a4a" strokeWidth="1.8"/>
                   <path d="M12 8v4M12 16h.01" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round"/>
                 </svg>
                 <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>
-                  Le bambou est extrêmement flexible — pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus.
+                  Le bambou stretch est extrêmement extensible — pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus.
                 </span>
               </div>
             </div>
@@ -600,10 +598,10 @@ export default function ProductPage() {
             <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
               <h3 style={{ margin: "0 0 12px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
               {[
-                { Icon: IconThermometer, text: "Lavage à froid, cycle délicat"    },
+                { Icon: IconThermometer, text: "Lavage 40°C, cycle délicat"       },
                 { Icon: IconBan,         text: "Sans adoucissant ni javel"         },
                 { Icon: IconFlat,        text: "Séchage à l'air libre recommandé" },
-                { Icon: IconHeat,        text: "Sèche-linge déconseillé"           },
+                { Icon: IconHeat,        text: "Sèche-linge basse température"     },
               ].map(item => (
                 <div key={item.text} style={{ display: "flex", gap: 10, alignItems: "center", marginBottom: 10 }}>
                   <div style={{ flexShrink: 0 }}><item.Icon /></div>
@@ -618,6 +616,7 @@ export default function ProductPage() {
 
       {/* ── BAS DE PAGE ── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
+
         {related.length > 0 && (
           <div style={{ marginBottom: 48 }}>
             <div style={{ marginBottom: 22 }}>

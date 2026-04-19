@@ -13,8 +13,12 @@ export default function Footer() {
           <div style={{ fontSize: 26, fontWeight: 950, letterSpacing: -1.5, color: "#f2ede6" }}>
             M<span style={{ color: "#c49a4a" }}>!</span>LK
           </div>
+          {/* ✅ Tagline Erika */}
+          <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#c49a4a", letterSpacing: -0.3 }}>
+            Des essentiels bébé. Sans le superflu.
+          </p>
           <p style={{ margin: 0, fontSize: 14, lineHeight: 1.8, color: "rgba(242,237,230,0.4)", maxWidth: 280 }}>
-            L'exigence premium pour la peau la plus fragile. Bambou certifié OEKO-TEX, conçu pour la vraie vie avec bébé.
+            Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Juste ce qui compte quand t'es épuisé.
           </p>
           <div style={{ display: "flex", gap: 10 }}>
             <a href="https://instagram.com/milk_bebe" target="_blank" rel="noopener noreferrer"
@@ -42,14 +46,14 @@ export default function Footer() {
         <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 2 }}>La marque</div>
           {[
-            { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
-            { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
-            { label: "Notre engagement",   href: "/qui-sommes-nous" },
-          ].map(l => <Link key={l.href + l.label} href={l.href} style={{ fontSize: 14, color: "rgba(242,237,230,0.5)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
+            { label: "Notre histoire",    href: "/qui-sommes-nous" },
+            { label: "Pourquoi le bambou",href: "/pourquoi-bambou" },
+            { label: "Notre engagement",  href: "/qui-sommes-nous" },
+          ].map(l => <Link key={l.href+l.label} href={l.href} style={{ fontSize: 14, color: "rgba(242,237,230,0.5)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
         </div>
 
         <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
-          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 2 }}>Aide & infos</div>
+          <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 2 }}>Support</div>
           {[
             { label: "Mon compte",         href: "/profil" },
             { label: "Livraison & retours",href: "/livraison" },
@@ -77,10 +81,11 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Bas de page */}
+      {/* Bas */}
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: "20px 5vw", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+        {/* ✅ Copyright Erika */}
         <div style={{ fontSize: 12, color: "rgba(242,237,230,0.28)", fontWeight: 500 }}>
-          © {year} M!LK — Tous droits réservés.
+          © {year} M!LK — Moins de galères. Plus de moments.
         </div>
         <div style={{ display: "flex", gap: 18 }}>
           {[
@@ -89,13 +94,11 @@ export default function Footer() {
             { label: "Cookies",          href: "/politique-confidentialite" },
           ].map(l => <Link key={l.href} href={l.href} style={{ fontSize: 12, color: "rgba(242,237,230,0.28)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
         </div>
-        {/* ✅ Pas d'emoji — texte uniquement */}
         <div style={{ fontSize: 12, color: "rgba(242,237,230,0.18)", fontWeight: 500 }}>
-          100% Bambou · OEKO-TEX · Made with care
+          Des essentiels bébé. Sans le superflu.
         </div>
       </div>
 
-      {/* Crédit BHK */}
       <div style={{ borderTop: "1px solid rgba(242,237,230,0.05)", padding: "12px 5vw", display: "flex", justifyContent: "center" }}>
         <span style={{ fontSize: 11, color: "rgba(242,237,230,0.16)", fontWeight: 500 }}>
           Design & création par <strong style={{ color: "rgba(242,237,230,0.28)" }}>BHK — Design & Graphisme</strong>
@@ -103,12 +106,8 @@ export default function Footer() {
       </div>
 
       <style>{`
-        @media (max-width: 768px) {
-          footer > div:first-child { grid-template-columns: 1fr 1fr !important; }
-        }
-        @media (max-width: 480px) {
-          footer > div:first-child { grid-template-columns: 1fr !important; }
-        }
+        @media (max-width: 768px) { footer > div:first-child { grid-template-columns: 1fr 1fr !important; } }
+        @media (max-width: 480px) { footer > div:first-child { grid-template-columns: 1fr !important; } }
       `}</style>
     </footer>
   );

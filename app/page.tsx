@@ -103,11 +103,12 @@ function Ticker() {
   );
 }
 
+// ── TEXTE SCROLLANT adapté à tous les écrans ──
 const bigTextStyle = {
-  fontSize: "clamp(20px, 5.5vw, 96px)",
+  fontSize: "clamp(12px, 3.2vw, 64px)",
   fontWeight: 950,
   letterSpacing: "-0.02em",
-  lineHeight: 1.02,
+  lineHeight: 1.1,
   textTransform: "uppercase" as const,
   color: "rgba(242,237,230,0.15)",
   textShadow: "0 4px 6px rgba(0,0,0,0.3)",
@@ -280,12 +281,15 @@ export default function HomePage() {
 
       {/* ── SECTION SCROLLANTE ── */}
       <div ref={scrollSection.ref} style={{ background: C.bg }}>
+
+        {/* Texte scrollant haut — adapté écran */}
         <div style={{ overflow: "hidden", paddingTop: 48 }}>
           <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(100vw)", opacity: scrollSection.visible ? 1 : 0, transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease" }}>
             M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN
           </div>
         </div>
 
+        {/* Produits vedettes */}
         {products.length > 0 && (
           <div style={{ padding: "40px 5vw 48px" }}>
             <Reveal>
@@ -334,6 +338,7 @@ export default function HomePage() {
           </div>
         )}
 
+        {/* Catégories */}
         <div style={{ padding: "0 5vw 40px" }}>
           <div className="catgrid" style={{ display: "grid", gap: 14 }}>
             {CATS.map((cat, i) => (
@@ -351,6 +356,7 @@ export default function HomePage() {
           </div>
         </div>
 
+        {/* Texte scrollant bas — adapté écran */}
         <div style={{ overflow: "hidden", paddingBottom: 48 }}>
           <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(-100vw)", opacity: scrollSection.visible ? 1 : 0, transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease" }}>
             MOINS D'IRRITATIONS. PLUS DE CALME.
@@ -358,34 +364,53 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── BANDEAU CHAUD — textes page 2 + signature ── */}
+      {/* ── BANDEAU CHAUD — BLOC 1 + séparateur + BLOC 2, même taille, pleine largeur ── */}
       <div style={{ background: "#2d1e10", padding: "56px 5vw" }}>
         <Reveal>
-          <p style={{ margin: "0 0 6px", fontSize: "clamp(20px,4vw,52px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
+          {/* BLOC 1 */}
+          <p style={{ margin: "0 0 6px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
             Parce que les parents n'ont pas besoin de plus de "mignon",
           </p>
-          <p style={{ margin: "0 0 28px", fontSize: "clamp(20px,4vw,52px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
+          <p style={{ margin: "0 0 20px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
             mais de moins de charge mentale.
           </p>
-          <p style={{ margin: "0 0 40px", fontSize: "clamp(14px,1.6vw,19px)", color: C.muted, maxWidth: 640, lineHeight: 1.75 }}>
+          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: C.muted, lineHeight: 1.75 }}>
             M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.
           </p>
-          <div style={{ width: 60, height: 2, background: C.amber, marginBottom: 32, borderRadius: 2 }} />
-          <p style={{ margin: "0 0 8px", fontSize: "clamp(16px,2.5vw,32px)", fontWeight: 800, lineHeight: 1.2, color: C.warm, letterSpacing: -0.5 }}>
+
+          {/* ── SÉPARATEUR : MOINS D'IRRITATIONS dans son style d'origine ── */}
+          <div style={{ margin: "40px 0", overflow: "hidden" }}>
+            <div style={{
+              fontSize: "clamp(12px,3.2vw,64px)",
+              fontWeight: 950,
+              letterSpacing: "-0.02em",
+              lineHeight: 1.1,
+              textTransform: "uppercase" as const,
+              color: "rgba(196,154,74,0.2)",
+              textShadow: "0 4px 6px rgba(0,0,0,0.4)",
+              whiteSpace: "nowrap" as const,
+              overflow: "hidden" as const,
+            }}>
+              MOINS D'IRRITATIONS. PLUS DE CALME.
+            </div>
+          </div>
+
+          {/* BLOC 2 — même taille que BLOC 1 */}
+          <p style={{ margin: "0 0 6px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
             M!LK n'est pas une marque de vêtements.
           </p>
-          <p style={{ margin: "0 0 16px", fontSize: "clamp(16px,2.5vw,32px)", fontWeight: 800, lineHeight: 1.2, color: C.amber, letterSpacing: -0.5 }}>
+          <p style={{ margin: "0 0 20px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
             C'est une réponse aux petites galères répétées.
           </p>
-          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: "rgba(242,237,230,0.4)", lineHeight: 1.7, maxWidth: 520 }}>
+          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: "rgba(242,237,230,0.4)", lineHeight: 1.7 }}>
             Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
           </p>
         </Reveal>
       </div>
 
-      {/* ── BAMBOU ── */}
+      {/* ── BAMBOU — fond beige chaud ── */}
       <div ref={bambouRef} style={{ position: "relative", backgroundImage: "url('/matiere/bambou-02.png')", backgroundSize: "cover", backgroundPosition: "center" }}>
-        <div style={{ position: "absolute", inset: 0, background: "rgba(255,255,255,0.85)" }} />
+        <div style={{ position: "absolute", inset: 0, background: "rgba(240,228,210,0.88)" }} />
         <div style={{ position: "relative", zIndex: 2, padding: "56px 5vw" }}>
           <Reveal>
             <h2 style={{ fontSize: "clamp(22px,3.5vw,38px)", margin: "0 0 36px", fontWeight: 900, letterSpacing: -0.5, color: "#1a1410" }}>
@@ -400,7 +425,7 @@ export default function HomePage() {
               { t: "Essentiels durables",             d: "Moins acheter. Mieux choisir. Chaque pièce compte.",                                                       delay: 0.3 },
             ].map(card => (
               <Reveal key={card.t} delay={card.delay}>
-                <div style={{ padding: "24px", borderRadius: 16, background: "rgba(255,255,255,0.97)", boxShadow: "0 10px 36px rgba(0,0,0,0.07)", border: "1px solid rgba(0,0,0,0.04)" }}>
+                <div style={{ padding: "24px", borderRadius: 16, background: "rgba(250,242,230,0.97)", boxShadow: "0 10px 36px rgba(0,0,0,0.07)", border: "1px solid rgba(180,140,90,0.12)" }}>
                   <div style={{ fontWeight: 900, marginBottom: 8, fontSize: "clamp(15px,1.6vw,18px)", color: "#1a1410" }}>{card.t}</div>
                   <div style={{ opacity: 0.6, lineHeight: 1.7, fontSize: "clamp(13px,1.3vw,15px)", color: "#1a1410" }}>{card.d}</div>
                 </div>
@@ -410,7 +435,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── LA VÉRITÉ DES PARENTS — page 6 ── */}
+      {/* ── LA VÉRITÉ DES PARENTS ── */}
       <div style={{ padding: "64px 5vw", background: C.bg }}>
         <Reveal>
           <div style={{ marginBottom: 48 }}>
@@ -434,8 +459,8 @@ export default function HomePage() {
             },
             {
               label: "Sommeil fragile",
-              tension: "Un bébé qui sursaute, se réveille, pleure. Un emmaillotage qui se défait.",
-              benefice: "Un swaddle qui tient et calme le réflexe de Moro.",
+              tension: "Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait.",
+              benefice: "Un lange qui tient et calme le réflexe de Moro.",
             },
           ].map((card, i) => (
             <Reveal key={card.label} delay={i * 0.1}>
@@ -455,7 +480,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── COMMENT ON CONÇOIT — page 7 ── */}
+      {/* ── COMMENT ON CONÇOIT ── */}
       <div style={{ padding: "64px 5vw", background: C.bg2 }}>
         <Reveal>
           <div style={{ marginBottom: 40 }}>
@@ -466,7 +491,6 @@ export default function HomePage() {
           </div>
         </Reveal>
 
-        {/* 4 pilliers */}
         <div className="pillars" style={{ display: "grid", gap: 14, marginBottom: 48 }}>
           {[
             "Chaque seconde compte à 3h du mat'",
@@ -485,7 +509,6 @@ export default function HomePage() {
           ))}
         </div>
 
-        {/* Tableau comparaison */}
         <Reveal>
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 14 }}>La différence</div>
@@ -512,7 +535,6 @@ export default function HomePage() {
           </div>
         </Reveal>
 
-        {/* Quote Marie */}
         <Reveal>
           <div style={{ padding: "28px 32px", borderRadius: 20, background: "rgba(196,154,74,0.06)", border: "1px solid rgba(196,154,74,0.15)" }}>
             <div style={{ fontSize: 48, color: C.amber, lineHeight: 0.8, marginBottom: 14, fontFamily: "Georgia, serif", fontWeight: 900 }}>"</div>
@@ -569,7 +591,7 @@ export default function HomePage() {
         </Reveal>
         <div className="rgrid" style={{ display: "grid", gap: 14 }}>
           {[
-            { name: "Thomas R.", role: "Papa de Luna",              text: "La robe de nuit nouée a sauvé nos premières semaines. Pas d'exagération." },
+            { name: "Thomas R.", role: "Papa de Luna",              text: "La gigoteuse à nouer a sauvé nos premières semaines. Pas d'exagération." },
             { name: "Sarah K.",  role: "Maman de Noah",             text: "Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée." },
             { name: "Amina B.",  role: "Maman de Samy, 3 mois",    text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Moins de galères, plus de sommeil pour tout le monde." },
             { name: "Julie D.",  role: "Maman d'Emma, née en juin", text: "Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis. Lavage après lavage, c'est toujours aussi bien." },
@@ -589,7 +611,7 @@ export default function HomePage() {
       {/* ── CTA FINAL ── */}
       <section style={{ padding: "60px 5vw", textAlign: "center", background: C.bg }}>
         <Reveal>
-          <div style={{ maxWidth: 640, margin: "0 auto" }}>
+          <div style={{ maxWidth: 800, margin: "0 auto" }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 16 }}>Prêts pour moins de galères au quotidien ?</div>
             <h2 style={{ margin: "0 0 16px", fontSize: "clamp(26px,4.5vw,52px)", fontWeight: 950, letterSpacing: -2, color: C.warm, lineHeight: 1.05 }}>
               Des essentiels conçus pour les vraies nuits,<br /><span style={{ color: C.amber }}>les vrais matins, la vraie vie de parent.</span>

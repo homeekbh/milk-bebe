@@ -57,6 +57,59 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
+// ── GRAND TEXTE DÉFILANT CONTINU — remplace bigTextStyle ──
+function BigTextScroll({ text, speed = 28 }: { text: string; speed?: number }) {
+  // On duplique le texte pour créer un loop infini sur toute la largeur
+  const repeated = `${text}   ✦   ${text}   ✦   `;
+  return (
+    <div style={{ overflow: "hidden", padding: "12px 0", userSelect: "none" }}>
+      <style>{`
+        @keyframes bigtxt { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+        .bts { display: flex; width: max-content; animation: bigtxt ${speed}s linear infinite; white-space: nowrap; }
+      `}</style>
+      <div className="bts">
+        {[...Array(2)].map((_, i) => (
+          <span key={i} style={{
+            fontSize: "clamp(28px, 5.5vw, 80px)",
+            fontWeight: 950,
+            letterSpacing: "-0.02em",
+            color: "rgba(242,237,230,0.13)",
+            textTransform: "uppercase",
+            paddingRight: "4vw",
+            lineHeight: 1.1,
+          }}>
+            {repeated}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// ── VERSION BANDEAU — même défilement mais couleur ambre pour le fond sombre ──
+function BigTextScrollBandeau({ text, speed = 30 }: { text: string; speed?: number }) {
+  const repeated = `${text}   ✦   ${text}   ✦   `;
+  return (
+    <div style={{ overflow: "hidden", padding: "12px 0", userSelect: "none" }}>
+      <div className="bts">
+        {[...Array(2)].map((_, i) => (
+          <span key={i} style={{
+            fontSize: "clamp(28px, 5.5vw, 80px)",
+            fontWeight: 950,
+            letterSpacing: "-0.02em",
+            color: "rgba(196,154,74,0.18)",
+            textTransform: "uppercase",
+            paddingRight: "4vw",
+            lineHeight: 1.1,
+          }}>
+            {repeated}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function IconLeaf({ s=26,c=C.amber }:{s?:number;c?:string}) {
   return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 22V9" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>;
 }
@@ -97,28 +150,16 @@ function Ticker() {
   const str = TICKER_ITEMS.join("   ");
   return (
     <div style={{ overflow: "hidden", background: C.amber, padding: "11px 0" }}>
-      <style>{`@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}} .tk{display:flex;animation:ticker 32s linear infinite;white-space:nowrap;width:max-content;}`}</style>
+      <style>{`
+        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes bigtxt { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        .tk  { display:flex; animation:ticker 32s linear infinite; white-space:nowrap; width:max-content; }
+        .bts { display:flex; white-space:nowrap; width:max-content; }
+      `}</style>
       <div className="tk">{[...Array(2)].map((_, i) => <span key={i} style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: "#1a1410", paddingRight: 60 }}>{str}</span>)}</div>
     </div>
   );
 }
-
-// ── TEXTE SCROLLANT adapté à tous les écrans ──
-const bigTextStyle = {
-  fontSize: "clamp(12px, 3.2vw, 64px)",
-  fontWeight: 950,
-  letterSpacing: "-0.02em",
-  lineHeight: 1.1,
-  textTransform: "uppercase" as const,
-  color: "rgba(242,237,230,0.15)",
-  textShadow: "0 4px 6px rgba(0,0,0,0.3)",
-  display: "block",
-  width: "100%",
-  boxSizing: "border-box" as const,
-  padding: "0 5vw",
-  whiteSpace: "nowrap" as const,
-  overflow: "hidden" as const,
-};
 
 const HIGHLIGHT_LABELS: Record<string, string> = {
   meilleure_vente: "Meilleures ventes",
@@ -210,7 +251,7 @@ export default function HomePage() {
           .reassgrid{ grid-template-columns: 1fr 1fr !important; }
           .tgrid    { grid-template-columns: 1fr !important; }
           .pillars  { grid-template-columns: 1fr 1fr !important; }
-          .comptable{ grid-template-columns: 1fr 1fr 1fr !important; font-size: 11px !important; }
+          .comptable{ grid-template-columns: 1fr 1fr 1fr !important; }
           .hero-btns{ flex-direction: column !important; }
           .hero-btns a { text-align: center !important; width: 100%; box-sizing: border-box; }
           .badge-svg { display: none !important; }
@@ -282,11 +323,9 @@ export default function HomePage() {
       {/* ── SECTION SCROLLANTE ── */}
       <div ref={scrollSection.ref} style={{ background: C.bg }}>
 
-        {/* Texte scrollant haut — adapté écran */}
-        <div style={{ overflow: "hidden", paddingTop: 48 }}>
-          <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(100vw)", opacity: scrollSection.visible ? 1 : 0, transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease" }}>
-            M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN
-          </div>
+        {/* Texte défilant haut — pleine largeur */}
+        <div style={{ paddingTop: 48 }}>
+          <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={28} />
         </div>
 
         {/* Produits vedettes */}
@@ -356,56 +395,47 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Texte scrollant bas — adapté écran */}
-        <div style={{ overflow: "hidden", paddingBottom: 48 }}>
-          <div style={{ ...bigTextStyle, transform: scrollSection.visible ? "translateX(0)" : "translateX(-100vw)", opacity: scrollSection.visible ? 1 : 0, transition: "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease" }}>
-            MOINS D'IRRITATIONS. PLUS DE CALME.
-          </div>
+        {/* Texte défilant bas — pleine largeur */}
+        <div style={{ paddingBottom: 48 }}>
+          <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={32} />
         </div>
       </div>
 
-      {/* ── BANDEAU CHAUD — BLOC 1 + séparateur + BLOC 2, même taille, pleine largeur ── */}
-      <div style={{ background: "#2d1e10", padding: "56px 5vw" }}>
-        <Reveal>
-          {/* BLOC 1 */}
-          <p style={{ margin: "0 0 6px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
-            Parce que les parents n'ont pas besoin de plus de "mignon",
-          </p>
-          <p style={{ margin: "0 0 20px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
-            mais de moins de charge mentale.
-          </p>
-          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: C.muted, lineHeight: 1.75 }}>
-            M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.
-          </p>
+      {/* ── BANDEAU CHAUD ── */}
+      <div style={{ background: "#2d1e10" }}>
 
-          {/* ── SÉPARATEUR : MOINS D'IRRITATIONS dans son style d'origine ── */}
-          <div style={{ margin: "40px 0", overflow: "hidden" }}>
-            <div style={{
-              fontSize: "clamp(12px,3.2vw,64px)",
-              fontWeight: 950,
-              letterSpacing: "-0.02em",
-              lineHeight: 1.1,
-              textTransform: "uppercase" as const,
-              color: "rgba(196,154,74,0.2)",
-              textShadow: "0 4px 6px rgba(0,0,0,0.4)",
-              whiteSpace: "nowrap" as const,
-              overflow: "hidden" as const,
-            }}>
-              MOINS D'IRRITATIONS. PLUS DE CALME.
-            </div>
-          </div>
+        {/* BLOC 1 */}
+        <div style={{ padding: "56px 5vw 32px" }}>
+          <Reveal>
+            <p style={{ margin: "0 0 6px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
+              Parce que les parents n'ont pas besoin de plus de "mignon",
+            </p>
+            <p style={{ margin: "0 0 20px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
+              mais de moins de charge mentale.
+            </p>
+            <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: C.muted, lineHeight: 1.75 }}>
+              M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.
+            </p>
+          </Reveal>
+        </div>
 
-          {/* BLOC 2 — même taille que BLOC 1 */}
-          <p style={{ margin: "0 0 6px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
-            M!LK n'est pas une marque de vêtements.
-          </p>
-          <p style={{ margin: "0 0 20px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
-            C'est une réponse aux petites galères répétées.
-          </p>
-          <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: "rgba(242,237,230,0.4)", lineHeight: 1.7 }}>
-            Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
-          </p>
-        </Reveal>
+        {/* SÉPARATEUR — même texte défilant, couleur ambre fantôme */}
+        <BigTextScrollBandeau text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} />
+
+        {/* BLOC 2 */}
+        <div style={{ padding: "32px 5vw 56px" }}>
+          <Reveal>
+            <p style={{ margin: "0 0 6px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.warm, letterSpacing: -1 }}>
+              M!LK n'est pas une marque de vêtements.
+            </p>
+            <p style={{ margin: "0 0 20px", fontSize: "clamp(18px,3.2vw,48px)", fontWeight: 950, lineHeight: 1.1, color: C.amber, letterSpacing: -1 }}>
+              C'est une réponse aux petites galères répétées.
+            </p>
+            <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,17px)", color: "rgba(242,237,230,0.4)", lineHeight: 1.7 }}>
+              Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
+            </p>
+          </Reveal>
+        </div>
       </div>
 
       {/* ── BAMBOU — fond beige chaud ── */}

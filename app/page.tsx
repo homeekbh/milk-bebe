@@ -57,47 +57,18 @@ function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: nu
   );
 }
 
-// ── GRAND TEXTE DÉFILANT CONTINU — remplace bigTextStyle ──
+// ── GRAND TEXTE DÉFILANT — fond #3a2a1a, texte rgba(242,237,230,0.13) ──
 function BigTextScroll({ text, speed = 28 }: { text: string; speed?: number }) {
-  // On duplique le texte pour créer un loop infini sur toute la largeur
   const repeated = `${text}   ✦   ${text}   ✦   `;
   return (
-    <div style={{ overflow: "hidden", padding: "12px 0", userSelect: "none" }}>
-      <style>{`
-        @keyframes bigtxt { from { transform: translateX(0); } to { transform: translateX(-50%); } }
-        .bts { display: flex; width: max-content; animation: bigtxt ${speed}s linear infinite; white-space: nowrap; }
-      `}</style>
-      <div className="bts">
+    <div style={{ overflow: "hidden", padding: "12px 0", userSelect: "none", background: "#3a2a1a" }}>
+      <div className="bts" style={{ animationDuration: `${speed}s` }}>
         {[...Array(2)].map((_, i) => (
           <span key={i} style={{
             fontSize: "clamp(28px, 5.5vw, 80px)",
             fontWeight: 950,
             letterSpacing: "-0.02em",
             color: "rgba(242,237,230,0.13)",
-            textTransform: "uppercase",
-            paddingRight: "4vw",
-            lineHeight: 1.1,
-          }}>
-            {repeated}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── VERSION BANDEAU — même défilement mais couleur ambre pour le fond sombre ──
-function BigTextScrollBandeau({ text, speed = 30 }: { text: string; speed?: number }) {
-  const repeated = `${text}   ✦   ${text}   ✦   `;
-  return (
-    <div style={{ overflow: "hidden", padding: "12px 0", userSelect: "none" }}>
-      <div className="bts">
-        {[...Array(2)].map((_, i) => (
-          <span key={i} style={{
-            fontSize: "clamp(28px, 5.5vw, 80px)",
-            fontWeight: 950,
-            letterSpacing: "-0.02em",
-            color: "rgba(196,154,74,0.18)",
             textTransform: "uppercase",
             paddingRight: "4vw",
             lineHeight: 1.1,
@@ -154,7 +125,7 @@ function Ticker() {
         @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes bigtxt { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .tk  { display:flex; animation:ticker 32s linear infinite; white-space:nowrap; width:max-content; }
-        .bts { display:flex; white-space:nowrap; width:max-content; }
+        .bts { display:flex; white-space:nowrap; width:max-content; animation:bigtxt 28s linear infinite; }
       `}</style>
       <div className="tk">{[...Array(2)].map((_, i) => <span key={i} style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: "#1a1410", paddingRight: 60 }}>{str}</span>)}</div>
     </div>
@@ -229,7 +200,6 @@ export default function HomePage() {
         .pcard:hover .pcard-img { transform:scale(1.06)!important; }
         .cat-card:hover { background:rgba(196,154,74,0.08)!important; border-color:rgba(196,154,74,0.25)!important; transform:translateY(-4px)!important; }
         .tension-card:hover { border-color:rgba(196,154,74,0.3)!important; transform:translateY(-4px); }
-
         .pgrid    { grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
         .catgrid  { grid-template-columns: repeat(4, 1fr); }
         .rgrid    { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
@@ -238,7 +208,6 @@ export default function HomePage() {
         .tgrid    { grid-template-columns: repeat(3, 1fr); }
         .pillars  { grid-template-columns: repeat(4, 1fr); }
         .comptable{ grid-template-columns: 1.4fr 1fr 1fr; }
-
         @media (max-width: 1024px) {
           .catgrid  { grid-template-columns: repeat(2, 1fr) !important; }
           .pillars  { grid-template-columns: repeat(2, 1fr) !important; }
@@ -271,22 +240,18 @@ export default function HomePage() {
               <span key={tag} style={{ padding: "6px 14px", borderRadius: 99, border: `1px solid ${C.amber}`, color: C.amber, fontSize: 12, fontWeight: 800 }}>{tag}</span>
             ))}
           </div>
-
           <h1 style={{ margin: "0 0 22px", fontSize: "clamp(38px,7.5vw,96px)", fontWeight: 950, letterSpacing: -3, lineHeight: 0.95, color: C.warm }}>
             L'essentiel.<br /><span style={{ color: C.amber }}>Sans compromis.</span>
           </h1>
-
           <div className="badge-svg" style={{ position: "absolute", top: "50%", right: "6%", transform: "translateY(-50%)", zIndex: 3 }}>
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation: "badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -55,0 a 55,55 0 1,1 110,0 a 55,55 0 1,1 -110,0" fill="none"/>
               <text fontSize="12" fontWeight="700" letterSpacing="2.5" fill={C.amber}><textPath href="#bc">BAMBOU OEKO-TEX · PREMIUM · NOURRISSON ·</textPath></text>
             </svg>
           </div>
-
           <p style={{ margin: "0 0 32px", fontSize: "clamp(14px,1.8vw,19px)", color: C.muted, maxWidth: 520, lineHeight: 1.75 }}>
             Des essentiels bébé en bambou certifié OEKO-TEX. Pensés pour réduire les galères du quotidien — pas pour faire joli en photo.
           </p>
-
           <div className="hero-btns" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Link href="/produits" style={{ padding: "16px 30px", borderRadius: 14, background: C.warm, color: "#1a1410", fontWeight: 900, fontSize: "clamp(14px,1.6vw,17px)", textDecoration: "none", display: "inline-block" }}>
               Découvrir la collection →
@@ -295,7 +260,6 @@ export default function HomePage() {
               Pourquoi le bambou ?
             </Link>
           </div>
-
           <div style={{ display: "flex", gap: 40, marginTop: 48, flexWrap: "wrap" }}>
             {[
               { value: 500, suffix: "+", label: "familles satisfaites" },
@@ -309,7 +273,6 @@ export default function HomePage() {
             ))}
           </div>
         </div>
-
         <div style={{ position: "absolute", bottom: 24, left: "50%", transform: "translateX(-50%)", display: "flex", flexDirection: "column", alignItems: "center", gap: 6, opacity: 0.35, zIndex: 3 }}>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.warm }}>Découvrir</div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: "bounce-arr 2s ease infinite" }}>
@@ -320,10 +283,10 @@ export default function HomePage() {
 
       <Ticker />
 
-      {/* ── SECTION SCROLLANTE ── */}
+      {/* ── SECTION SOMBRE ── */}
       <div ref={scrollSection.ref} style={{ background: C.bg }}>
 
-        {/* Texte défilant haut — pleine largeur */}
+        {/* Texte défilant haut */}
         <div style={{ paddingTop: 48 }}>
           <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={28} />
         </div>
@@ -378,7 +341,7 @@ export default function HomePage() {
         )}
 
         {/* Catégories */}
-        <div style={{ padding: "0 5vw 40px" }}>
+        <div style={{ padding: "0 5vw 48px" }}>
           <div className="catgrid" style={{ display: "grid", gap: 14 }}>
             {CATS.map((cat, i) => (
               <div key={cat.label} style={{ opacity: scrollSection.visible ? 1 : 0, transform: scrollSection.visible ? "none" : "translateY(40px)", transition: `opacity 0.7s ease ${i*0.1}s, transform 0.7s ease ${i*0.1}s` }}>
@@ -395,10 +358,7 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Texte défilant bas — pleine largeur */}
-        <div style={{ paddingBottom: 48 }}>
-          <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={32} />
-        </div>
+        {/* PAS de texte défilant ici — supprimé */}
       </div>
 
       {/* ── BANDEAU CHAUD ── */}
@@ -419,8 +379,8 @@ export default function HomePage() {
           </Reveal>
         </div>
 
-        {/* SÉPARATEUR — même texte défilant, couleur ambre fantôme */}
-        <BigTextScrollBandeau text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} />
+        {/* SÉPARATEUR — exactement le même composant/style que le texte scrollant du haut */}
+        <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} />
 
         {/* BLOC 2 */}
         <div style={{ padding: "32px 5vw 56px" }}>
@@ -520,7 +480,6 @@ export default function HomePage() {
             </h2>
           </div>
         </Reveal>
-
         <div className="pillars" style={{ display: "grid", gap: 14, marginBottom: 48 }}>
           {[
             "Chaque seconde compte à 3h du mat'",
@@ -538,7 +497,6 @@ export default function HomePage() {
             </Reveal>
           ))}
         </div>
-
         <Reveal>
           <div style={{ marginBottom: 16 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 14 }}>La différence</div>
@@ -564,7 +522,6 @@ export default function HomePage() {
             ))}
           </div>
         </Reveal>
-
         <Reveal>
           <div style={{ padding: "28px 32px", borderRadius: 20, background: "rgba(196,154,74,0.06)", border: "1px solid rgba(196,154,74,0.15)" }}>
             <div style={{ fontSize: 48, color: C.amber, lineHeight: 0.8, marginBottom: 14, fontFamily: "Georgia, serif", fontWeight: 900 }}>"</div>

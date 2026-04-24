@@ -12,12 +12,11 @@ const C = {
   muted:    "rgba(242,237,230,0.55)",
   faint:    "rgba(242,237,230,0.08)",
   amber:    "#c49a4a",
-  // ── Palette taupe ──
-  taupe1:   "#f0e8dc",   // fond sections claires
-  taupe2:   "#e4d8c8",   // fond cards / alternance
-  taupe3:   "#d4c4b0",   // bordures, séparateurs
-  taupeDark:"#c2af97",   // détails
-  taupeCard:"#ede4d6",   // fond cards blanches → taupe doux
+  taupe1:   "#f0e8dc",
+  taupe2:   "#e4d8c8",
+  taupe3:   "#d4c4b0",
+  taupeDark:"#c2af97",
+  taupeCard:"#ede4d6",
 };
 
 function useScrollReveal(threshold = 0.15) {
@@ -42,6 +41,15 @@ function useInView(threshold = 0.1) {
   return { ref, visible };
 }
 
+function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
+  const { ref, visible } = useScrollReveal();
+  return (
+    <div ref={ref} style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : "translateY(28px)", transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s` }}>
+      {children}
+    </div>
+  );
+}
+
 function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: string }) {
   const [count, setCount] = useState(0);
   const { ref, visible } = useScrollReveal(0.3);
@@ -54,15 +62,29 @@ function AnimatedCounter({ value, suffix = "" }: { value: number; suffix?: strin
   return <span ref={ref}>{count.toLocaleString("fr-FR")}{suffix}</span>;
 }
 
-function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const { ref, visible } = useScrollReveal();
+// ── Texte défilant — centré verticalement en hauteur fixe ──
+function BigTextScroll({ text, speed = 28 }: { text: string; speed?: number }) {
+  const repeated = `${text}   ✦   ${text}   ✦   `;
   return (
-    <div ref={ref} style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : "translateY(28px)", transition: `opacity 0.7s ease ${delay}s, transform 0.7s ease ${delay}s` }}>
-      {children}
+    <div style={{ overflow: "hidden", height: "clamp(60px,8vw,110px)", display: "flex", alignItems: "center", userSelect: "none", background: C.bg }}>
+      <style>{`
+        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes bigtxt { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        .tk  { display:flex; animation:ticker 32s linear infinite; white-space:nowrap; width:max-content; }
+        .bts { display:flex; white-space:nowrap; width:max-content; animation:bigtxt var(--spd,28s) linear infinite; }
+      `}</style>
+      <div className="bts" style={{ "--spd": `${speed}s` } as React.CSSProperties}>
+        {[...Array(2)].map((_, i) => (
+          <span key={i} style={{ fontSize: "clamp(28px,5.5vw,80px)", fontWeight: 950, letterSpacing: "-0.02em", color: "rgba(242,237,230,0.13)", textTransform: "uppercase", paddingRight: "4vw", lineHeight: 1 }}>
+            {repeated}
+          </span>
+        ))}
+      </div>
     </div>
   );
 }
 
+// ── Accordion hover — fond taupe moyen ──
 function HoverAccordion({ title, tag, children }: { title: string; tag: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -71,7 +93,7 @@ function HoverAccordion({ title, tag, children }: { title: string; tag: string; 
       onMouseLeave={() => setOpen(false)}
       style={{
         borderRadius: 20,
-        background: open ? C.taupeCard : C.taupe1,
+        background: open ? C.taupeCard : C.taupeDark,
         border: open ? `1.5px solid ${C.amber}` : `1.5px solid ${C.taupe3}`,
         overflow: "hidden",
         transition: "box-shadow 0.3s ease, border-color 0.3s ease, background 0.3s ease",
@@ -88,27 +110,6 @@ function HoverAccordion({ title, tag, children }: { title: string; tag: string; 
       </div>
       <div style={{ maxHeight: open ? "1200px" : 0, overflow: "hidden", transition: "max-height 0.5s cubic-bezier(0.4,0,0.2,1)" }}>
         <div style={{ padding: "0 28px 28px" }}>{children}</div>
-      </div>
-    </div>
-  );
-}
-
-function BigTextScroll({ text, speed = 28 }: { text: string; speed?: number }) {
-  const repeated = `${text}   ✦   ${text}   ✦   `;
-  return (
-    <div style={{ overflow: "hidden", padding: "12px 0", userSelect: "none", background: C.bg }}>
-      <style>{`
-        @keyframes ticker { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        @keyframes bigtxt { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        .tk  { display:flex; animation:ticker 32s linear infinite; white-space:nowrap; width:max-content; }
-        .bts { display:flex; white-space:nowrap; width:max-content; animation:bigtxt var(--spd,28s) linear infinite; }
-      `}</style>
-      <div className="bts" style={{ "--spd": `${speed}s` } as React.CSSProperties}>
-        {[...Array(2)].map((_, i) => (
-          <span key={i} style={{ fontSize: "clamp(28px,5.5vw,80px)", fontWeight: 950, letterSpacing: "-0.02em", color: "rgba(242,237,230,0.13)", textTransform: "uppercase", paddingRight: "4vw", lineHeight: 1.1 }}>
-            {repeated}
-          </span>
-        ))}
       </div>
     </div>
   );
@@ -158,7 +159,7 @@ function CatCard({ cat }: { cat: typeof CATS[0] }) {
         border: hov ? `2px solid ${C.amber}` : `2px solid ${C.taupe3}`,
         transition: "all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
         transform: hov ? "translateY(-8px) scale(1.02)" : "none",
-        boxShadow: hov ? `0 28px 56px rgba(0,0,0,0.22), 0 0 0 1px ${C.amber}44` : `0 2px 12px rgba(0,0,0,0.06)`,
+        boxShadow: hov ? `0 28px 56px rgba(0,0,0,0.22), 0 0 0 1px ${C.amber}44` : "0 2px 12px rgba(0,0,0,0.06)",
         height: "100%", boxSizing: "border-box" as const,
       }}>
         <div style={{ marginBottom: 12, transition: "transform 0.3s ease", transform: hov ? "scale(1.15)" : "none", display: "inline-block" }}>
@@ -285,7 +286,7 @@ export default function HomePage() {
             ))}
           </div>
 
-          {/* Réassurance — sans doublon retour gratuit */}
+          {/* Réassurance sans doublon */}
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", paddingTop: 18, borderTop: "1px solid rgba(242,237,230,0.08)" }}>
             {[
               { Icon: IconTruck, label: "Livraison offerte",  desc: "dès 60€"  },
@@ -313,7 +314,7 @@ export default function HomePage() {
 
       <Ticker />
 
-      {/* ── PRODUITS — fond taupe, cards centrées ── */}
+      {/* ── PRODUITS — fond taupe1, cards centrées ── */}
       <div ref={scrollSection.ref} style={{ background: C.taupe1, padding: "48px 5vw" }}>
         <Reveal>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 28, flexWrap: "wrap", gap: 12 }}>
@@ -324,7 +325,6 @@ export default function HomePage() {
             <Link href="/produits" style={{ fontSize: 15, fontWeight: 800, color: C.amber, textDecoration: "none", whiteSpace: "nowrap" }}>Voir tout →</Link>
           </div>
         </Reveal>
-        {/* Cards centrées, ratio 1/1, fond taupe card */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(220px,280px))", gap: 16, justifyContent: "center" }}>
           {products.map((p, i) => {
             const promo = isPromoActive(p);
@@ -333,7 +333,7 @@ export default function HomePage() {
             return (
               <Reveal key={p.id} delay={i * 0.08}>
                 <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none", display: "block" }}>
-                  <div className="pcard" style={{ borderRadius: 16, overflow: "visible", background: C.taupeCard, border: `1.5px solid ${C.taupe3}`, position: "relative", transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer", boxShadow: `0 2px 12px rgba(0,0,0,0.06)` }}>
+                  <div className="pcard" style={{ borderRadius: 16, overflow: "visible", background: C.taupeCard, border: `1.5px solid ${C.taupe3}`, position: "relative", transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer", boxShadow: "0 2px 12px rgba(0,0,0,0.06)" }}>
                     {badge && (
                       <div style={{ position: "absolute", top: 0, right: 0, width: 90, height: 90, overflow: "hidden", zIndex: 10, borderRadius: "0 16px 0 0", pointerEvents: "none" }}>
                         <div style={{ position: "absolute", top: 18, right: -26, background: C.amber, color: "#1a1410", fontSize: 9, fontWeight: 900, padding: "6px 36px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{badge}</div>
@@ -361,10 +361,10 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── TEXTE DÉFILANT ── */}
+      {/* ── TEXTE DÉFILANT — centré verticalement ── */}
       <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={28} />
 
-      {/* ── CATÉGORIES — fond taupe2, hover noir/ambre waouh ── */}
+      {/* ── CATÉGORIES — fond taupe2 ── */}
       <div style={{ background: C.taupe2, padding: "48px 5vw" }}>
         <Reveal>
           <div style={{ marginBottom: 28 }}>
@@ -381,7 +381,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── BANDEAU ERIKA — taupe chaud, lisible ── */}
+      {/* ── BANDEAU ERIKA — fond taupe1, textes lisibles ── */}
       <div style={{ background: C.taupe1 }}>
         <div style={{ padding: "56px 5vw 32px" }}>
           <Reveal>
@@ -397,6 +397,7 @@ export default function HomePage() {
           </Reveal>
         </div>
 
+        {/* Séparateur défilant — centré ── */}
         <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} />
 
         <div style={{ padding: "32px 5vw 56px" }}>
@@ -414,7 +415,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── CADEAU DE NAISSANCE ── */}
+      {/* ── CADEAU DE NAISSANCE — fond taupe2 ── */}
       <div style={{ background: C.taupe2, padding: "64px 5vw" }}>
         <Reveal>
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 48, alignItems: "center" }}>
@@ -433,7 +434,7 @@ export default function HomePage() {
                 <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, background: "#1a1410", color: C.warm, fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
                   Voir les essentiels →
                 </Link>
-                <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, border: `2px solid #1a1410`, color: "#1a1410", fontWeight: 700, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
+                <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, border: "2px solid #1a1410", color: "#1a1410", fontWeight: 700, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
                   Liste de naissance
                 </Link>
               </div>
@@ -455,8 +456,8 @@ export default function HomePage() {
         </Reveal>
       </div>
 
-      {/* ── ACCORDÉONS AU HOVER — fond taupe1, cards taupeCard ── */}
-      <div style={{ background: C.taupe1, padding: "64px 5vw", display: "grid", gap: 14 }}>
+      {/* ── ACCORDÉONS AU HOVER — fond taupeDark, cards taupe2 ── */}
+      <div style={{ background: C.taupeDark, padding: "64px 5vw", display: "grid", gap: 14 }}>
 
         <HoverAccordion title="La vérité des parents" tag="Nuits · Habillage · Sommeil">
           <div className="tgrid" style={{ display: "grid", gap: 14 }}>
@@ -465,7 +466,7 @@ export default function HomePage() {
               { label: "Habillage combat", tension: "Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",              benefice: "Des ouvertures intelligentes, 3 gestes max, c'est fait." },
               { label: "Sommeil fragile",  tension: "Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait au premier mouvement.", benefice: "Un lange qui tient et calme le réflexe de Moro." },
             ].map(card => (
-              <div key={card.label} style={{ borderRadius: 14, background: C.taupeCard, border: `1px solid ${C.taupe3}`, overflow: "hidden" }}>
+              <div key={card.label} style={{ borderRadius: 14, background: C.taupe2, border: `1px solid ${C.taupe3}`, overflow: "hidden" }}>
                 <div style={{ padding: "16px 18px 12px" }}>
                   <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "rgba(26,20,16,0.25)", marginBottom: 6 }}>La tension</div>
                   <div style={{ fontSize: "clamp(15px,1.6vw,18px)", fontWeight: 950, color: "#1a1410", letterSpacing: -0.5, marginBottom: 8, lineHeight: 1.1 }}>{card.label}</div>
@@ -488,7 +489,7 @@ export default function HomePage() {
               "Matières douces et certifiées",
               "Testés par de vrais parents fatigués",
             ].map((pillar, i) => (
-              <div key={pillar} style={{ padding: "16px 18px", borderRadius: 14, background: C.taupeCard, border: `1px solid ${C.taupe3}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
+              <div key={pillar} style={{ padding: "16px 18px", borderRadius: 14, background: C.taupe2, border: `1px solid ${C.taupe3}`, display: "flex", gap: 12, alignItems: "flex-start" }}>
                 <div style={{ width: 28, height: 28, borderRadius: "50%", background: C.amber, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
                   <span style={{ color: "#1a1410", fontWeight: 900, fontSize: 12 }}>{i + 1}</span>
                 </div>
@@ -513,7 +514,7 @@ export default function HomePage() {
                 { s: "Habillage",        c: "Combat quotidien",         m: "2-3 gestes, c'est fait" },
                 { s: "Conception",       c: "Pour faire joli",          m: "Pour simplifier"        },
               ].map((row, i) => (
-                <div key={row.s} className="comptable" style={{ display: "grid", borderTop: `1px solid ${C.taupe3}`, background: i % 2 === 0 ? C.taupeCard : C.taupe1 }}>
+                <div key={row.s} className="comptable" style={{ display: "grid", borderTop: `1px solid ${C.taupe3}`, background: i % 2 === 0 ? C.taupeCard : C.taupe2 }}>
                   <div style={{ padding: "10px 16px", fontWeight: 700, color: "#1a1410", fontSize: "clamp(11px,1.1vw,13px)" }}>{row.s}</div>
                   <div style={{ padding: "10px 16px", color: "rgba(26,20,16,0.3)", fontSize: "clamp(10px,1vw,12px)", borderLeft: `1px solid ${C.taupe3}`, textDecoration: "line-through" }}>{row.c}</div>
                   <div style={{ padding: "10px 16px", color: C.amber, fontWeight: 800, fontSize: "clamp(10px,1vw,12px)", borderLeft: `1px solid ${C.taupe3}` }}>{row.m}</div>
@@ -538,7 +539,7 @@ export default function HomePage() {
               { name: "Amina B.",  role: "Maman de Samy, 3 mois",    text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins. Moins de galères, plus de sommeil pour tout le monde." },
               { name: "Julie D.",  role: "Maman d'Emma, née en juin", text: "Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis. Lavage après lavage, c'est toujours aussi bien." },
             ].map(r => (
-              <div key={r.name} style={{ padding: "16px 18px", borderRadius: 14, background: C.taupeCard, border: `1px solid ${C.taupe3}` }}>
+              <div key={r.name} style={{ padding: "16px 18px", borderRadius: 14, background: C.taupe2, border: `1px solid ${C.taupe3}` }}>
                 <div style={{ display: "flex", marginBottom: 8 }}>{[...Array(5)].map((_, j) => <span key={j} style={{ color: C.amber, fontSize: 13 }}>★</span>)}</div>
                 <p style={{ margin: "0 0 10px", fontSize: "clamp(12px,1.2vw,14px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.7, fontStyle: "italic" }}>&ldquo;{r.text}&rdquo;</p>
                 <div style={{ fontWeight: 800, fontSize: 13, color: "#1a1410" }}>{r.name}</div>
@@ -547,6 +548,7 @@ export default function HomePage() {
             ))}
           </div>
         </HoverAccordion>
+
       </div>
 
       {/* ── CTA FINAL ── */}

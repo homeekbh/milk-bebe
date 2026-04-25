@@ -27,25 +27,21 @@ export default function ScrollMarquee() {
   }, []);
 
 const bigTextStyle = {
-  fontSize: "clamp(50px, 6.5vw, 110px)", // légèrement plus petit
+  fontSize: "clamp(46px, 6vw, 100px)",
   fontWeight: 950,
-  letterSpacing: "-1.5px",
+  letterSpacing: "-1.2px",
   lineHeight: 1.05,
   textTransform: "uppercase" as const,
-  transition:
-    "transform 1s cubic-bezier(.22,1,.36,1), opacity 0.6s ease",
+  transition: "transform 0.9s cubic-bezier(.22,1,.36,1)",
   willChange: "transform",
-  color: "rgba(0,0,0,0.25)",
 
-  // 🔥 OMBRAGE PROFOND PREMIUM
-  textShadow: `
-    0 4px 6px rgba(0,0,0,0.15),
-    0 12px 20px rgba(0,0,0,0.12),
-    0 30px 60px rgba(0,0,0,0.08)
-  `,
+  // ✅ gris plus clair et plus contrasté
+  color: "rgba(0,0,0,0.12)",
+
+  // ✅ ombre nette (pas floue, pas trouble)
+  textShadow: "0 3px 0 rgba(0,0,0,0.06)",
 
   textAlign: "center" as const,
-  transformStyle: "preserve-3d" as const,
 };
 
   const lineStyle = {

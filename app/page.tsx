@@ -15,21 +15,20 @@ const C = {
   dark:  "#1a1410",
 };
 
-// ── Gradient de transition entre sections ──
+// ── Gradient de transition — hauteur réduite ──
 function Divider({ from, to }: { from: string; to: string }) {
-  return <div style={{ height: 64, background: `linear-gradient(to bottom, ${from}, ${to})`, flexShrink: 0 }} />;
+  return <div style={{ height: 32, background: `linear-gradient(to bottom, ${from}, ${to})`, flexShrink: 0 }} />;
 }
 
-// ── Hook reveal bidirectionnel ──
 function useBiReveal(threshold = 0.15) {
-  const ref      = useRef<HTMLDivElement>(null);
-  const prevY    = useRef(0);
-  const [state, setState] = useState<{ visible: boolean; dir: "up" | "down" }>({ visible: false, dir: "down" });
+  const ref    = useRef<HTMLDivElement>(null);
+  const prevY  = useRef(0);
+  const [state, setState] = useState<{ visible: boolean; dir: "up"|"down" }>({ visible: false, dir: "down" });
   useEffect(() => {
     const el = ref.current; if (!el) return;
     const obs = new IntersectionObserver(([e]) => {
-      const curY  = e.boundingClientRect.top;
-      const dir   = curY < prevY.current ? "up" : "down";
+      const curY = e.boundingClientRect.top;
+      const dir  = curY < prevY.current ? "up" : "down";
       prevY.current = curY;
       if (e.isIntersecting) setState({ visible: true, dir });
       else setState({ visible: false, dir });
@@ -60,20 +59,31 @@ function useInView(threshold = 0.1) {
   return { ref, visible };
 }
 
-// ── Texte scrollant — effet 3D extrusion sharp ──
+// ── Texte scrollant — net, effet 3D extrusion ──
 function BigTextScroll({ text, speed = 28, bg }: { text: string; speed?: number; bg?: string }) {
   const bgColor   = bg ?? C.light;
   const isDark    = bgColor === C.bg;
   const textColor = isDark ? "rgba(242,237,230,0.18)" : "rgba(26,20,16,0.13)";
   const shadow    = isDark
-    ? `1px 1px 0 rgba(196,154,74,0.35), 2px 2px 0 rgba(196,154,74,0.25), 3px 3px 0 rgba(196,154,74,0.15), 4px 4px 10px rgba(0,0,0,0.6), 0 0 30px rgba(0,0,0,0.3)`
+    ? `1px 1px 0 rgba(196,154,74,0.35), 2px 2px 0 rgba(196,154,74,0.25), 3px 3px 0 rgba(196,154,74,0.15), 4px 4px 10px rgba(0,0,0,0.6)`
     : `1px 1px 0 rgba(26,20,16,0.22), 2px 2px 0 rgba(26,20,16,0.14), 3px 3px 0 rgba(26,20,16,0.08), 4px 4px 10px rgba(0,0,0,0.15)`;
-  const repeated  = `${text}   ✦   ${text}   ✦   `;
+  const repeated = `${text}   ✦   ${text}   ✦   `;
   return (
     <div style={{ overflow: "hidden", height: "clamp(60px,8vw,110px)", display: "flex", alignItems: "center", userSelect: "none", background: bgColor }}>
       <div className="bts" style={{ "--spd": `${speed}s` } as React.CSSProperties}>
         {[...Array(2)].map((_, i) => (
-          <span key={i} style={{ fontSize: "clamp(28px,5.5vw,80px)", fontWeight: 950, letterSpacing: "-0.02em", color: textColor, textTransform: "uppercase", paddingRight: "4vw", lineHeight: 1, textShadow: shadow, imageRendering: "crisp-edges" }}>
+          <span key={i} style={{
+            fontSize: "clamp(28px,5.5vw,80px)",
+            fontWeight: 950,
+            letterSpacing: "-0.01em",
+            color: textColor,
+            textTransform: "uppercase",
+            paddingRight: "4vw",
+            lineHeight: 1,
+            textShadow: shadow,
+            WebkitFontSmoothing: "antialiased",
+            MozOsxFontSmoothing: "grayscale",
+          } as React.CSSProperties}>
             {repeated}
           </span>
         ))}
@@ -82,13 +92,11 @@ function BigTextScroll({ text, speed = 28, bg }: { text: string; speed?: number;
   );
 }
 
-// ── Card catégorie — animation bidirectionnelle ──
-function CatCardAnimated({ cat, index, visible, dir }: { cat: { label: string; desc: string; href: string; Icon: any }; index: number; visible: boolean; dir: "up"|"down" }) {
+function CatCardAnimated({ cat, index, visible }: { cat: { label: string; desc: string; href: string; Icon: any }; index: number; visible: boolean }) {
   const [hov, setHov] = useState(false);
   const fromRight = index % 2 === 1;
-  const offX = fromRight ? "80px" : "-80px";
   return (
-    <div style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : `translateX(${offX})`, transition: `opacity 0.7s ease ${index*0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index*0.1}s` }}>
+    <div style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : `translateX(${fromRight ? "80px" : "-80px"})`, transition: `opacity 0.7s ease ${index*0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index*0.1}s` }}>
       <Link href={cat.href} style={{ textDecoration: "none", display: "block" }}
         onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
         <div style={{
@@ -97,7 +105,7 @@ function CatCardAnimated({ cat, index, visible, dir }: { cat: { label: string; d
           border: hov ? `2px solid ${C.amber}` : "2px solid rgba(196,154,74,0.18)",
           transition: "all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
           transform: hov ? "translateY(-6px) scale(1.03)" : "translateY(-3px)",
-          boxShadow: hov ? `0 24px 48px rgba(0,0,0,0.5)` : "0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)",
+          boxShadow: hov ? "0 24px 48px rgba(0,0,0,0.5)" : "0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)",
           display: "flex", flexDirection: "row" as const, alignItems: "center", gap: 14, boxSizing: "border-box" as const,
         }}>
           <div style={{ flexShrink: 0, transition: "transform 0.3s", transform: hov ? "scale(1.15)" : "none" }}>
@@ -114,7 +122,6 @@ function CatCardAnimated({ cat, index, visible, dir }: { cat: { label: string; d
   );
 }
 
-// ── HoverAccordion ──
 function HoverAccordion({ title, tag, children }: { title: string; tag: string; children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
@@ -148,7 +155,7 @@ function Ticker() {
   const str = TICKER_ITEMS.join("   ");
   return (
     <div style={{ overflow: "hidden", background: C.amber, padding: "11px 0" }}>
-      <div className="tk">{[...Array(2)].map((_, i) => <span key={i} style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: C.dark, paddingRight: 60 }}>{str}</span>)}</div>
+      <div className="tk">{[...Array(2)].map((_,i) => <span key={i} style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: C.dark, paddingRight: 60 }}>{str}</span>)}</div>
     </div>
   );
 }
@@ -162,14 +169,18 @@ const CATS = [
   { label:"Accessoires", desc:"Les détails qui changent tout", href:"/categorie/accessoires", Icon:IconAccessoires },
 ];
 
+const acard = (content: React.ReactNode, key?: string) => (
+  <div key={key} style={{ borderRadius:14, background:C.bg, border:"1px solid rgba(196,154,74,0.12)", overflow:"hidden", boxShadow:"0 6px 20px rgba(0,0,0,0.35)", transform:"translateY(-2px)" }}>
+    {content}
+  </div>
+);
+
 export default function HomePage() {
-  const heroRef = useRef<HTMLDivElement>(null);
-  const catSec  = useInView(0.1);
-  const [catDir, setCatDir]     = useState<"up"|"down">("down");
-  const catPrevY = useRef(0);
-  const [products, setProducts] = useState<any[]>([]);
-  const [label, setLabel]       = useState("Nos essentiels du moment");
-  const prodSec = useInView(0.1);
+  const heroRef  = useRef<HTMLDivElement>(null);
+  const catSec   = useInView(0.1);
+  const [catVisible, setCatVisible] = useState(false);
+  const [products, setProducts]     = useState<any[]>([]);
+  const [lbl, setLbl]               = useState("Nos essentiels du moment");
 
   useEffect(() => {
     fetch("/api/produits").then(r=>r.json()).then((data:any[])=>{
@@ -178,43 +189,31 @@ export default function HomePage() {
       const s=data.filter(p=>p.highlight==="selection"&&p.stock>0);
       const n=data.filter(p=>p.highlight==="nouveaute"&&p.stock>0);
       const a=data.filter(p=>p.stock>0);
-      let chosen=a,lbl="default";
-      if(m.length){chosen=m;lbl="meilleure_vente";}
-      else if(s.length){chosen=s;lbl="selection";}
-      else if(n.length){chosen=n;lbl="nouveaute";}
+      let chosen=a,label="default";
+      if(m.length){chosen=m;label="meilleure_vente";}
+      else if(s.length){chosen=s;label="selection";}
+      else if(n.length){chosen=n;label="nouveaute";}
       setProducts(chosen.slice(0,4));
-      setLabel(HIGHLIGHT_LABELS[lbl]??HIGHLIGHT_LABELS.default);
+      setLbl(HIGHLIGHT_LABELS[label]??HIGHLIGHT_LABELS.default);
     }).catch(()=>{});
   },[]);
 
-  useEffect(() => {
+  useEffect(()=>{
     const el=heroRef.current;if(!el)return;
     const h=()=>{el.style.transform=`translateY(${window.scrollY*0.3}px)`;};
     window.addEventListener("scroll",h,{passive:true});return()=>window.removeEventListener("scroll",h);
   },[]);
 
-  // direction scroll pour catégories
-  useEffect(() => {
-    const el = catSec.ref.current; if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      const y = e.boundingClientRect.top;
-      setCatDir(y < catPrevY.current ? "up" : "down");
-      catPrevY.current = y;
-    }, { threshold: 0.1 });
-    obs.observe(el); return () => obs.disconnect();
-  }, []);
+  useEffect(()=>{
+    const el=catSec.ref.current;if(!el)return;
+    const obs=new IntersectionObserver(([e])=>{if(e.isIntersecting)setCatVisible(true);else setCatVisible(false);},{threshold:0.1});
+    obs.observe(el);return()=>obs.disconnect();
+  },[]);
 
   function isPromo(p:any){
     if(!p.promo_price||!p.promo_start||!p.promo_end)return false;
     const now=new Date();return new Date(p.promo_start)<=now&&new Date(p.promo_end)>=now;
   }
-
-  // ── Card interne accordion ──
-  const acard = (content: React.ReactNode) => (
-    <div style={{ borderRadius:14, background:C.bg, border:"1px solid rgba(196,154,74,0.12)", overflow:"hidden", boxShadow:"0 6px 20px rgba(0,0,0,0.35)", transform:"translateY(-2px)" }}>
-      {content}
-    </div>
-  );
 
   return (
     <div style={{ background:C.bg, color:C.warm, overflowX:"hidden" }}>
@@ -249,9 +248,9 @@ export default function HomePage() {
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"100vh", display:"flex", alignItems:"center", overflow:"hidden" }}>
         <div ref={heroRef} style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
-          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 60%" }} />
+          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 60%" }}/>
         </div>
-        <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.88) 0%,rgba(13,11,9,0.5) 50%,rgba(13,11,9,0.75) 100%)" }} />
+        <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.88) 0%,rgba(13,11,9,0.5) 50%,rgba(13,11,9,0.75) 100%)" }}/>
         <div className="hero-content" style={{ position:"relative", zIndex:2, padding:"clamp(110px,15vh,180px) 5vw 80px", width:"100%", boxSizing:"border-box" }}>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:24 }}>
             {["Nouveau-né","0-3 mois","3-6 mois"].map(tag=>(
@@ -259,17 +258,19 @@ export default function HomePage() {
             ))}
           </div>
           <h1 style={{ margin:"0 0 22px", fontSize:"clamp(38px,7.5vw,96px)", fontWeight:950, letterSpacing:-3, lineHeight:0.95, color:C.warm }}>
-            L'essentiel.<br /><span style={{ color:C.amber }}>Sans compromis.</span>
+            L'essentiel.<br/><span style={{ color:C.amber }}>Sans compromis.</span>
           </h1>
-          {/* Badge corrigé : OEKO-TEX · BAMBOU PREMIUM */}
+
+          {/* ── Badge — cercle fermé, texte centré ── */}
           <div className="badge-svg" style={{ position:"absolute", top:"50%", right:"6%", transform:"translateY(-50%)", zIndex:3 }}>
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation:"badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -52,0 a 52,52 0 1,1 104,0 a 52,52 0 1,1 -104,0" fill="none"/>
-              <text fontSize="11" fontWeight="700" letterSpacing="3.5" fill={C.amber}>
-                <textPath href="#bc">OEKO-TEX · BAMBOU PREMIUM ·</textPath>
+              <text fontSize="11" fontWeight="700" letterSpacing="5.5" fill={C.amber}>
+                <textPath href="#bc" startOffset="0%">OEKO-TEX  ——  BAMBOU PREMIUM  ——</textPath>
               </text>
             </svg>
           </div>
+
           <p style={{ margin:"0 0 32px", fontSize:"clamp(14px,1.8vw,19px)", color:C.muted, maxWidth:520, lineHeight:1.75 }}>
             Des essentiels bébé en bambou certifié OEKO-TEX. Pensés pour réduire les galères du quotidien — pas pour faire joli en photo.
           </p>
@@ -277,7 +278,6 @@ export default function HomePage() {
             <Link href="/produits" style={{ padding:"16px 30px", borderRadius:14, background:C.warm, color:C.dark, fontWeight:900, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Découvrir la collection →</Link>
             <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
           </div>
-          {/* KPIs */}
           <div style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
             {[{val:"500+",label:"familles satisfaites"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
               <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
@@ -286,7 +286,6 @@ export default function HomePage() {
               </div>
             ))}
           </div>
-          {/* Réassurance */}
           <div style={{ display:"flex", gap:24, flexWrap:"wrap", paddingTop:18, borderTop:"1px solid rgba(242,237,230,0.08)" }}>
             {[{Icon:IconTruck,label:"Livraison offerte",desc:"dès 60€"},{Icon:IconLeaf,label:"Bambou OEKO-TEX",desc:"certifié"},{Icon:IconLock,label:"Paiement sécurisé",desc:"Stripe"}].map(r=>(
               <div key={r.label} style={{ display:"flex", alignItems:"center", gap:8 }}>
@@ -304,16 +303,16 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Ticker />
-      <Divider from={C.bg} to={C.light} />
+      <Ticker/>
+      <Divider from={C.bg} to={C.light}/>
 
-      {/* ── PRODUITS — fond taupe clair ── */}
-      <div ref={prodSec.ref} style={{ background:C.light, padding:"32px 5vw" }}>
+      {/* ── PRODUITS ── */}
+      <div style={{ background:C.light, padding:"32px 5vw" }}>
         <Reveal>
           <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24, flexWrap:"wrap", gap:12 }}>
             <div>
               <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:8 }}>Sélection</div>
-              <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1 }}>{label}</h2>
+              <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1 }}>{lbl}</h2>
             </div>
             <Link href="/produits" style={{ fontSize:15, fontWeight:800, color:C.amber, textDecoration:"none" }}>Voir tout →</Link>
           </div>
@@ -344,28 +343,27 @@ export default function HomePage() {
             );
           })}
         </div>
-        {/* Texte scrollant sur fond taupe clair — effet 3D */}
         <div style={{ marginTop:40, marginLeft:"-5vw", marginRight:"-5vw" }}>
           <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={28} bg={C.light}/>
         </div>
       </div>
 
-      <Divider from={C.light} to={C.bg} />
+      <Divider from={C.light} to={C.bg}/>
 
-      {/* ── CATÉGORIES — fond marron ── */}
+      {/* ── CATÉGORIES ── */}
       <div ref={catSec.ref} style={{ background:C.bg, padding:"40px 5vw 48px" }}>
-        <div style={{ opacity:catSec.visible?1:0, transform:catSec.visible?"none":"translateY(24px)", transition:"opacity 0.6s ease, transform 0.6s ease", marginBottom:24 }}>
+        <div style={{ opacity:catVisible?1:0, transform:catVisible?"none":"translateY(24px)", transition:"opacity 0.6s ease, transform 0.6s ease", marginBottom:24 }}>
           <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(242,237,230,0.3)", marginBottom:8 }}>Par besoin</div>
           <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1, color:C.warm, lineHeight:1 }}>Trouvez l'essentiel qui vous correspond</h2>
         </div>
         <div className="catgrid" style={{ display:"grid", gap:14 }}>
-          {CATS.map((cat,i)=><CatCardAnimated key={cat.label} cat={cat} index={i} visible={catSec.visible} dir={catDir}/>)}
+          {CATS.map((cat,i)=><CatCardAnimated key={cat.label} cat={cat} index={i} visible={catVisible}/>)}
         </div>
       </div>
 
-      <Divider from={C.bg} to={C.light} />
+      <Divider from={C.bg} to={C.light}/>
 
-      {/* ── BANDEAU ERIKA — fond taupe clair ── */}
+      {/* ── BANDEAU ERIKA ── */}
       <div style={{ background:C.light }}>
         <div style={{ padding:"48px 5vw 32px" }}>
           <Reveal>
@@ -374,9 +372,7 @@ export default function HomePage() {
             <p style={{ margin:0, fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.</p>
           </Reveal>
         </div>
-        <div style={{ marginLeft:"-0px", marginRight:"-0px" }}>
-          <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} bg={C.light}/>
-        </div>
+        <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} bg={C.light}/>
         <div style={{ padding:"32px 5vw 48px" }}>
           <Reveal>
             <p style={{ margin:"0 0 6px", fontSize:"clamp(18px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>M!LK n'est pas une marque de vêtements.</p>
@@ -386,7 +382,7 @@ export default function HomePage() {
         </div>
       </div>
 
-      <Divider from={C.light} to={C.taupe} />
+      <Divider from={C.light} to={C.taupe}/>
 
       {/* ── CADEAU ── */}
       <div style={{ background:C.taupe, padding:"56px 5vw" }}>
@@ -416,15 +412,15 @@ export default function HomePage() {
         </Reveal>
       </div>
 
-      <Divider from={C.taupe} to={C.light} />
+      <Divider from={C.taupe} to={C.light}/>
 
-      {/* ── ACCORDÉONS — fond taupe clair ── */}
+      {/* ── ACCORDÉONS ── */}
       <div style={{ background:C.light, padding:"48px 5vw", display:"grid", gap:14 }}>
 
         <Reveal>
           <HoverAccordion title="La vérité des parents" tag="Nuits · Habillage · Sommeil">
             <div className="tgrid" style={{ display:"grid", gap:14 }}>
-              {[{label:"Nuits pourries",tension:"Se lever 5 fois, changer une couche dans le noir, rendormir un bébé hurlant.",benefice:"Des vêtements pensés pour changer vite sans tout défaire."},{label:"Habillage combat",tension:"Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",benefice:"Des ouvertures intelligentes, 3 gestes max, c'est fait."},{label:"Sommeil fragile",tension:"Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait au premier mouvement.",benefice:"Un lange qui tient et calme le réflexe de Moro."}].map(card=>(
+              {[{label:"Nuits pourries",tension:"Se lever 5 fois, changer une couche dans le noir, rendormir un bébé hurlant.",benefice:"Des vêtements pensés pour changer vite sans tout défaire."},{label:"Habillage combat",tension:"Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",benefice:"Des ouvertures intelligentes, 3 gestes max, c'est fait."},{label:"Sommeil fragile",tension:"Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait au premier mouvement.",benefice:"Un lange qui tient et calme le réflexe de Moro."}].map(card=>
                 acard(<>
                   <div style={{ padding:"16px 18px 12px" }}>
                     <div style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(242,237,230,0.2)", marginBottom:6 }}>La tension</div>
@@ -435,8 +431,8 @@ export default function HomePage() {
                     <div style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:6 }}>Le bénéfice M!LK</div>
                     <p style={{ margin:0, fontSize:"clamp(12px,1.2vw,14px)", color:C.warm, lineHeight:1.6, fontWeight:800 }}>{card.benefice}</p>
                   </div>
-                </>)
-              ))}
+                </>, card.label)
+              )}
             </div>
           </HoverAccordion>
         </Reveal>
@@ -444,12 +440,12 @@ export default function HomePage() {
         <Reveal delay={0.05}>
           <HoverAccordion title="Comment on conçoit nos essentiels" tag="Notre approche">
             <div className="pillars" style={{ display:"grid", gap:12 }}>
-              {["Chaque seconde compte à 3h du mat'","Zéro compromis sur la sécurité","Matières douces et certifiées","Testés par de vrais parents fatigués"].map((pillar,i)=>(
+              {["Chaque seconde compte à 3h du mat'","Zéro compromis sur la sécurité","Matières douces et certifiées","Testés par de vrais parents fatigués"].map((pillar,i)=>
                 acard(<div style={{ padding:"16px 18px", display:"flex", gap:12, alignItems:"flex-start" }}>
                   <div style={{ width:28, height:28, borderRadius:"50%", background:C.amber, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><span style={{ color:C.dark, fontWeight:900, fontSize:12 }}>{i+1}</span></div>
                   <div style={{ fontWeight:800, fontSize:"clamp(12px,1.2vw,14px)", color:C.warm, lineHeight:1.45 }}>{pillar}</div>
-                </div>)
-              ))}
+                </div>, pillar)
+              )}
             </div>
           </HoverAccordion>
         </Reveal>
@@ -481,23 +477,23 @@ export default function HomePage() {
         <Reveal delay={0.15}>
           <HoverAccordion title="Des parents, pas des acteurs" tag="Ce qu'on entend">
             <div className="rgrid" style={{ display:"grid", gap:14 }}>
-              {[{name:"Thomas R.",role:"Papa de Luna",text:"La gigoteuse à nouer a sauvé nos premières semaines. Pas d'exagération."},{name:"Sarah K.",role:"Maman de Noah",text:"Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée."},{name:"Amina B.",role:"Maman de Samy, 3 mois",text:"Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins."},{name:"Julie D.",role:"Maman d'Emma, née en juin",text:"Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis."}].map(r=>(
+              {[{name:"Thomas R.",role:"Papa de Luna",text:"La gigoteuse à nouer a sauvé nos premières semaines. Pas d'exagération."},{name:"Sarah K.",role:"Maman de Noah",text:"Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée."},{name:"Amina B.",role:"Maman de Samy, 3 mois",text:"Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins."},{name:"Julie D.",role:"Maman d'Emma, née en juin",text:"Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis."}].map(r=>
                 acard(<div style={{ padding:"16px 18px" }}>
                   <div style={{ display:"flex", marginBottom:8 }}>{[...Array(5)].map((_,j)=><span key={j} style={{ color:C.amber, fontSize:13 }}>★</span>)}</div>
                   <p style={{ margin:"0 0 10px", fontSize:"clamp(12px,1.2vw,14px)", color:C.muted, lineHeight:1.7, fontStyle:"italic" }}>&ldquo;{r.text}&rdquo;</p>
                   <div style={{ fontWeight:800, fontSize:13, color:C.warm }}>{r.name}</div>
                   <div style={{ fontSize:11, color:"rgba(242,237,230,0.3)", marginTop:2 }}>{r.role}</div>
-                </div>)
-              ))}
+                </div>, r.name)
+              )}
             </div>
           </HoverAccordion>
         </Reveal>
 
       </div>
 
-      <Divider from={C.light} to={C.bg} />
+      <Divider from={C.light} to={C.bg}/>
 
-      {/* ── CTA FINAL — hauteur réduite, texte adapté ── */}
+      {/* ── CTA FINAL ── */}
       <section style={{ padding:"40px 5vw", textAlign:"center", background:C.bg }}>
         <Reveal>
           <div style={{ maxWidth:900, margin:"0 auto" }}>

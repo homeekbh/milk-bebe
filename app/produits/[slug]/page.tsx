@@ -195,7 +195,7 @@ function PhilosophyCard({ text }: { text: string }) {
     else if (s.startsWith("Ici") || s.startsWith("La ") || s.startsWith("Le ")) { blocks.push({ a: s, hero: true }); }
     else { blocks.push({ a: s }); }
   });
-  const cLines = conclusion ? conclusion.replace(/\. /g, ".|\").split(\"|\").map(s => s.trim()).filter(Boolean) : [];
+  const cLines = conclusion ? conclusion.replace(/\. /g, ".|").split("|").map((s: string) => s.trim()).filter(Boolean) : [];
   return (
     <div style={{ padding: "26px 26px", borderRadius: 20, background: "#2a2018", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>Philosophie M!LK</div>

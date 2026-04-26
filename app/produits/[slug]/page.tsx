@@ -257,22 +257,110 @@ const IconSize        = () => <svg width="13" height="13" viewBox="0 0 24 24" fi
 function IconBandeau() {
   const A = AMBER;
   const items = [
-    { label: "Anti-bactérien",   svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="24" stroke={A} strokeWidth="1.8"/><ellipse cx="32" cy="32" rx="9" ry="12" stroke={A} strokeWidth="1.8"/>{[-6,-1,4,9].map((y,i)=><g key={i}><line x1="23" y1={32+y} x2="17" y2={30+y} stroke={A} strokeWidth="1.3" strokeLinecap="round"/><line x1="41" y1={32+y} x2="47" y2={30+y} stroke={A} strokeWidth="1.3" strokeLinecap="round"/></g>)}<circle cx="29" cy="27" r="1.5" fill={A}/><circle cx="35" cy="32" r="1.5" fill={A}/><circle cx="28" cy="37" r="1.5" fill={A}/></svg> },
-    { label: "Thermorégulateur", svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M32 10 L32 38" stroke={A} strokeWidth="2" strokeLinecap="round"/><circle cx="32" cy="46" r="10" stroke={A} strokeWidth="2"/><path d="M32 38 A10 10 0 0 1 32 56" stroke={A} strokeWidth="2.5" strokeLinecap="round"/><line x1="38" y1="18" x2="42" y2="18" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="38" y1="25" x2="42" y2="25" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="38" y1="32" x2="42" y2="32" stroke={A} strokeWidth="1.8" strokeLinecap="round"/></svg> },
-    { label: "Ultra doux",       svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M12 42 C12 42 10 38 12 34 C14 30 18 34 18 34 L26 25 C26 25 29 22 32 24 C32 24 34 19 37 20 C37 20 39 16 42 17 C42 17 44 14 47 16 L52 23 C54 26 52 31 49 31 L40 40" stroke={A} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none"/><path d="M12 42 L40 42 C40 42 46 44 46 52 L12 52 C12 52 10 48 12 42Z" stroke={A} strokeWidth="1.8" strokeLinecap="round" fill="none"/><path d="M16 47 Q28 45 40 47" stroke={A} strokeWidth="1.1" strokeLinecap="round" fill="none"/></svg> },
-    { label: "Respirant",        svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M10 32 C10 32 18 20 32 20 C46 20 54 32 54 32 C54 32 46 44 32 44 C18 44 10 32 10 32Z" stroke={A} strokeWidth="1.8"/><circle cx="32" cy="32" r="6" stroke={A} strokeWidth="1.8"/><line x1="32" y1="10" x2="32" y2="16" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="32" y1="48" x2="32" y2="54" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="6" y1="32" x2="12" y2="32" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="52" y1="32" x2="58" y2="32" stroke={A} strokeWidth="1.8" strokeLinecap="round"/></svg> },
-    { label: "Super extensible", svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M8 32 L20 22 L20 28 L44 28 L44 22 L56 32 L44 42 L44 36 L20 36 L20 42 Z" stroke={A} strokeWidth="1.8" strokeLinejoin="round" fill="none"/><line x1="32" y1="10" x2="32" y2="18" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="32" y1="46" x2="32" y2="54" stroke={A} strokeWidth="1.8" strokeLinecap="round"/></svg> },
-    { label: "Bambou bio",       svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><line x1="20" y1="56" x2="20" y2="12" stroke={A} strokeWidth="2" strokeLinecap="round"/>{[48,36,24,16].map((y,i)=><line key={i} x1="17" y1={y} x2="23" y2={y} stroke={A} strokeWidth="1.8" strokeLinecap="round"/>)}<path d="M20 30 C11 24 7 14 13 12 C17 11 20 20 20 30Z" stroke={A} strokeWidth="1.4" fill="none"/><line x1="34" y1="56" x2="34" y2="10" stroke={A} strokeWidth="2" strokeLinecap="round"/>{[50,38,26,14].map((y,i)=><line key={i} x1="31" y1={y} x2="37" y2={y} stroke={A} strokeWidth="1.8" strokeLinecap="round"/>)}<line x1="48" y1="56" x2="48" y2="12" stroke={A} strokeWidth="2" strokeLinecap="round"/>{[48,36,24,16].map((y,i)=><line key={i} x1="45" y1={y} x2="51" y2={y} stroke={A} strokeWidth="1.8" strokeLinecap="round"/>)}<path d="M48 24 C57 18 61 10 55 8 C51 7 48 16 48 24Z" stroke={A} strokeWidth="1.4" fill="none"/></svg> },
-    { label: "Hypoallergénique", svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M24 52 C24 52 11 41 13 26 C13 26 24 30 24 41" stroke={A} strokeWidth="1.8" strokeLinecap="round" fill="none"/><path d="M24 52 C24 52 37 41 35 26 C35 26 24 30 24 41" stroke={A} strokeWidth="1.8" strokeLinecap="round" fill="none"/><line x1="24" y1="16" x2="24" y2="52" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><path d="M8 33 L16 43 L30 23" stroke={A} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg> },
+    {
+      label: "Anti-bactérien",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <circle cx="24" cy="24" r="20" stroke={A} strokeWidth="1.4"/>
+        <circle cx="24" cy="24" r="9" stroke={A} strokeWidth="1.4"/>
+        <circle cx="24" cy="15" r="2" fill={A}/>
+        <circle cx="24" cy="33" r="2" fill={A}/>
+        <circle cx="15" cy="24" r="2" fill={A}/>
+        <circle cx="33" cy="24" r="2" fill={A}/>
+        <circle cx="18" cy="18" r="1.5" fill={A}/>
+        <circle cx="30" cy="18" r="1.5" fill={A}/>
+        <circle cx="18" cy="30" r="1.5" fill={A}/>
+        <circle cx="30" cy="30" r="1.5" fill={A}/>
+        <line x1="8" y1="8" x2="40" y2="40" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
+    },
+    {
+      label: "Thermorégulateur",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <line x1="24" y1="4" x2="24" y2="44" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="4" y1="24" x2="44" y2="24" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="10" y1="10" x2="38" y2="38" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="38" y1="10" x2="10" y2="38" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="24" y1="4" x2="20" y2="10" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="24" y1="4" x2="28" y2="10" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="24" y1="44" x2="20" y2="38" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="24" y1="44" x2="28" y2="38" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="4" y1="24" x2="10" y2="20" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="4" y1="24" x2="10" y2="28" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="44" y1="24" x2="38" y2="20" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="44" y1="24" x2="38" y2="28" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
+    },
+    {
+      label: "Ultra doux",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <path d="M24 44 C24 44 8 30 8 16 C8 8 16 4 24 8 C32 4 40 8 40 16 C40 30 24 44 24 44Z" stroke={A} strokeWidth="1.4" fill="none"/>
+        <line x1="24" y1="8" x2="24" y2="44" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="16" y1="14" x2="24" y2="20" stroke={A} strokeWidth="1" strokeLinecap="round"/>
+        <line x1="14" y1="20" x2="24" y2="24" stroke={A} strokeWidth="1" strokeLinecap="round"/>
+        <line x1="15" y1="26" x2="24" y2="28" stroke={A} strokeWidth="1" strokeLinecap="round"/>
+        <line x1="32" y1="14" x2="24" y2="20" stroke={A} strokeWidth="1" strokeLinecap="round"/>
+        <line x1="34" y1="20" x2="24" y2="24" stroke={A} strokeWidth="1" strokeLinecap="round"/>
+        <line x1="33" y1="26" x2="24" y2="28" stroke={A} strokeWidth="1" strokeLinecap="round"/>
+      </svg>
+    },
+    {
+      label: "Respirant",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <path d="M10 36 C10 36 16 28 24 28 C32 28 38 36 38 36" stroke={A} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+        <line x1="24" y1="28" x2="24" y2="6" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <polyline points="18,12 24,6 30,12" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <line x1="14" y1="34" x2="14" y2="18" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <polyline points="10,24 14,18 18,24" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <line x1="34" y1="34" x2="34" y2="18" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <polyline points="30,24 34,18 38,24" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      </svg>
+    },
+    {
+      label: "Super extensible",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <line x1="4" y1="24" x2="44" y2="24" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <polyline points="10,18 4,24 10,30" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <polyline points="38,18 44,24 38,30" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <line x1="24" y1="10" x2="24" y2="38" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <polyline points="18,16 24,10 30,16" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+        <polyline points="18,32 24,38 30,32" stroke={A} strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+      </svg>
+    },
+    {
+      label: "Bambou bio",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <line x1="14" y1="44" x2="14" y2="6" stroke={A} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="10" y1="14" x2="18" y2="14" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="10" y1="22" x2="18" y2="22" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="10" y1="30" x2="18" y2="30" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="10" y1="38" x2="18" y2="38" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="24" y1="44" x2="24" y2="4" stroke={A} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="20" y1="12" x2="28" y2="12" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="20" y1="20" x2="28" y2="20" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="20" y1="28" x2="28" y2="28" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="20" y1="36" x2="28" y2="36" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="34" y1="44" x2="34" y2="8" stroke={A} strokeWidth="2" strokeLinecap="round"/>
+        <line x1="30" y1="16" x2="38" y2="16" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="30" y1="24" x2="38" y2="24" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="30" y1="32" x2="38" y2="32" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+        <line x1="30" y1="40" x2="38" y2="40" stroke={A} strokeWidth="1.4" strokeLinecap="round"/>
+      </svg>
+    },
+    {
+      label: "Hypoallergénique",
+      svg: <svg width="38" height="38" viewBox="0 0 48 48" fill="none">
+        <path d="M24 8 C24 8 10 22 10 32 C10 40 16 44 24 44 C32 44 38 40 38 32 C38 22 24 8 24 8Z" stroke={A} strokeWidth="1.4" fill="none"/>
+        <path d="M16 34 C16 30 19 27 24 27" stroke={A} strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+      </svg>
+    },
   ];
   return (
-    <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
-      {/* Toutes les 7 icônes sur une ligne, scroll si nécessaire */}
-      <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", gap: 0, scrollbarWidth: "none" }}>
+    <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 8px" }}>
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 0 }}>
         {items.map(item => (
-          <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
+          <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", padding: "0 2px" }}>
             {item.svg}
-            <div style={{ fontSize: 7.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: "rgba(26,20,16,0.65)", textAlign: "center", lineHeight: 1.3 }}>{item.label}</div>
+            <div style={{ fontSize: 7, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", color: "rgba(26,20,16,0.6)", textAlign: "center", lineHeight: 1.3 }}>{item.label}</div>
           </div>
         ))}
       </div>

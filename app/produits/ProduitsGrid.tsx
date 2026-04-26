@@ -143,7 +143,8 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   function changeSearch(v: string)    { setSearch(v);             setPage(1); }
 
   return (
-    <div style={{ background: C.light, minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
+    // Fond global taupe clair — pleine largeur
+    <div style={{ background: C.light, minHeight: "100vh", overflowX: "hidden" }}>
       <style>{`
         ${MILK_STYLES}
         .pcard-grid:hover { transform:translateY(-5px)!important; box-shadow:0 20px 40px rgba(0,0,0,0.18)!important; border-color:${C.amber}!important; }
@@ -154,7 +155,8 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         @media(max-width:768px) { .pgrid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
       `}</style>
 
-      <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 4vw" }}>
+      {/* Zone contenu avec padding */}
+      <div style={{ paddingTop: 100, paddingBottom: 0, padding: "100px 4vw 0" }}>
 
         <Reveal>
           <div style={{ marginBottom: 32 }}>
@@ -164,6 +166,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           </div>
         </Reveal>
 
+        {/* Filtres */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {CATEGORIES.map(cat => (
@@ -187,6 +190,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           <span style={{ color: C.amber, fontWeight: 900 }}>{filtered.length}</span>{" "}produit{filtered.length > 1 ? "s" : ""}
         </div>
 
+        {/* Grille */}
         {paginated.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 40px" }}>
             <div style={{ fontSize: 20, fontWeight: 900, color: C.dark, marginBottom: 12 }}>Aucun produit trouvé</div>
@@ -201,6 +205,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           </div>
         )}
 
+        {/* Pagination */}
         {totalPages > 1 && (
           <div style={{ display: "flex", justifyContent: "center", alignItems: "center", gap: 12, marginTop: 40 }}>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
@@ -214,36 +219,39 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
             </button>
           </div>
         )}
+      </div>
 
-        {/* Section essentiels */}
-        <div style={{ marginTop: 72 }}>
-          <Divider from={C.light} to={C.taupe} />
-          <div style={{ background: C.taupe, margin: "0 -4vw", padding: "56px 4vw" }}>
-            <Reveal>
-              <h2 style={{ margin: "0 0 32px", fontSize: "clamp(22px,3.5vw,38px)", fontWeight: 950, letterSpacing: -1.5, color: C.dark, lineHeight: 1.1 }}>
-                Des essentiels bébé. Sans le superflu.
-              </h2>
-            </Reveal>
-            <div className="ess-grid">
-              {ESSENTIELS.map((e, i) => (
-                <Reveal key={e.titre} delay={i * 0.08}>
-                  <div style={{ padding: "24px 20px", borderRadius: 18, background: C.light, border: "1px solid rgba(26,20,16,0.1)", boxShadow: "0 6px 20px rgba(0,0,0,0.08)", transform: "translateY(-2px)" }}>
-                    <h3 style={{ margin: "0 0 10px", fontSize: "clamp(14px,1.4vw,16px)", fontWeight: 900, color: C.dark, lineHeight: 1.3 }}>{e.titre}</h3>
-                    <p style={{ margin: 0, fontSize: "clamp(12px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.6 }}>{e.desc}</p>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
+      {/* Section essentiels — pleine largeur avec Divider */}
+      <div style={{ marginTop: 64 }}>
+        <Divider from={C.light} to={C.taupe} />
+        <div style={{ background: C.taupe, padding: "56px 4vw" }}>
+          <Reveal>
+            <h2 style={{ margin: "0 0 32px", fontSize: "clamp(22px,3.5vw,38px)", fontWeight: 950, letterSpacing: -1.5, color: C.dark, lineHeight: 1.1 }}>
+              Des essentiels bébé. Sans le superflu.
+            </h2>
+          </Reveal>
+          <div className="ess-grid">
+            {ESSENTIELS.map((e, i) => (
+              <Reveal key={e.titre} delay={i * 0.08}>
+                <div style={{ padding: "24px 20px", borderRadius: 18, background: C.light, border: "1px solid rgba(26,20,16,0.1)", boxShadow: "0 6px 20px rgba(0,0,0,0.08)", transform: "translateY(-2px)" }}>
+                  <h3 style={{ margin: "0 0 10px", fontSize: "clamp(14px,1.4vw,16px)", fontWeight: 900, color: C.dark, lineHeight: 1.3 }}>{e.titre}</h3>
+                  <p style={{ margin: 0, fontSize: "clamp(12px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.6 }}>{e.desc}</p>
+                </div>
+              </Reveal>
+            ))}
           </div>
-          <Divider from={C.taupe} to={C.light} />
         </div>
+        <Divider from={C.taupe} to={C.light} />
+      </div>
 
-        <div style={{ marginTop: 48, display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
+      {/* Réassurance — pleine largeur */}
+      <div style={{ padding: "40px 4vw 80px", background: C.light }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
           {[
-            { label: "100% Bambou",      desc: "Certifié OEKO-TEX"  },
-            { label: "Livraison offerte", desc: "Dès 60€ d'achat"    },
-            { label: "Retour gratuit",    desc: "Sous 15 jours"      },
-            { label: "Paiement sécurisé", desc: "Via Stripe"         },
+            { label: "100% Bambou",       desc: "Certifié OEKO-TEX"  },
+            { label: "Livraison offerte",  desc: "Dès 60€ d'achat"    },
+            { label: "Retour gratuit",     desc: "Sous 15 jours"      },
+            { label: "Paiement sécurisé", desc: "Via Stripe"          },
           ].map(r => (
             <div key={r.label} style={{ padding: "18px 20px", borderRadius: 16, background: C.taupe, border: `1px solid rgba(26,20,16,0.1)`, textAlign: "center", boxShadow: "0 4px 12px rgba(0,0,0,0.06)" }}>
               <div style={{ fontWeight: 900, fontSize: 14, color: C.dark, marginBottom: 3 }}>{r.label}</div>
@@ -251,7 +259,6 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
             </div>
           ))}
         </div>
-
       </div>
     </div>
   );

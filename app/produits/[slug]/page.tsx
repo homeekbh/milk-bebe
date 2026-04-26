@@ -6,6 +6,14 @@ import Image                           from "next/image";
 import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
 
+// ── Palette unifiée ──
+const BG    = "#d8c8b0"; // taupe clair = fond principal fiche
+const TAUPE = "#c4ae94"; // taupe moyen
+const AMBER = "#c49a4a";
+const DARK  = "#1a1410";
+const WARM  = "#f2ede6";
+const MARON = "#2d1a0e";
+
 function isPromoActive(p: any) {
   if (!p?.promo_price || !p?.promo_start || !p?.promo_end) return false;
   const now = new Date();
@@ -195,20 +203,20 @@ function PhilosophyCard({ text }: { text: string }) {
     else if (s.startsWith("Ici") || s.startsWith("La ") || s.startsWith("Le ")) { blocks.push({ a: s, hero: true }); }
     else { blocks.push({ a: s }); }
   });
-  const cLines = conclusion ? conclusion.replace(/\. /g, ".|").split("|").map((s: string) => s.trim()).filter(Boolean) : [];
+  const cLines: string[] = conclusion ? conclusion.replace(/\. /g, ".|").split("|").map((s: string) => s.trim()).filter(Boolean) : [];
   return (
-    <div style={{ padding: "26px 26px", borderRadius: 20, background: "#2a2018", height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
-      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>Philosophie M!LK</div>
+    <div style={{ padding: "26px 26px", borderRadius: 20, background: MARON, height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
+      <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 5 }}>Philosophie M!LK</div>
       <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 22 }}>Comment ça réduit ta charge mentale</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
         {blocks.map((block, i) =>
           block.hero ? (
             <div key={i} style={{ padding: "12px 16px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.22)" }}>
-              <div style={{ fontSize: "clamp(13px,1.1vw,15px)", color: "#f2ede6", fontWeight: 800, lineHeight: 1.5 }}>{block.a}</div>
+              <div style={{ fontSize: "clamp(13px,1.1vw,15px)", color: WARM, fontWeight: 800, lineHeight: 1.5 }}>{block.a}</div>
             </div>
           ) : (
             <div key={i} style={{ borderLeft: "2px solid rgba(196,154,74,0.25)", paddingLeft: 14 }}>
-              {block.q && <div style={{ fontSize: "clamp(11px,0.9vw,12px)", color: "#c49a4a", fontWeight: 800, letterSpacing: 0.4, marginBottom: 3 }}>{block.q}</div>}
+              {block.q && <div style={{ fontSize: "clamp(11px,0.9vw,12px)", color: AMBER, fontWeight: 800, letterSpacing: 0.4, marginBottom: 3 }}>{block.q}</div>}
               <div style={{ fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(242,237,230,0.8)", fontWeight: 700, lineHeight: 1.45 }}>{block.a}</div>
             </div>
           )
@@ -216,8 +224,8 @@ function PhilosophyCard({ text }: { text: string }) {
       </div>
       {cLines.length > 0 && (
         <div style={{ marginTop: 20, paddingTop: 16, borderTop: "1px solid rgba(242,237,230,0.08)", display: "flex", flexDirection: "column", gap: 4 }}>
-          {cLines.map((line, i) => (
-            <div key={i} style={{ fontSize: i === cLines.length - 1 ? "clamp(14px,1.2vw,16px)" : "clamp(11px,0.9vw,12px)", fontWeight: i === cLines.length - 1 ? 900 : 500, color: i === cLines.length - 1 ? "#f2ede6" : "rgba(242,237,230,0.35)", lineHeight: 1.5 }}>
+          {cLines.map((line: string, i: number) => (
+            <div key={i} style={{ fontSize: i === cLines.length - 1 ? "clamp(14px,1.2vw,16px)" : "clamp(11px,0.9vw,12px)", fontWeight: i === cLines.length - 1 ? 900 : 500, color: i === cLines.length - 1 ? WARM : "rgba(242,237,230,0.35)", lineHeight: 1.5 }}>
               {line}
             </div>
           ))}
@@ -235,18 +243,19 @@ const GUIDE_TAILLES = [
   { taille: "6-12 mois",  poids: "8 – 11 kg",  poitrine: "26 cm", longueur: "62 cm" },
 ];
 
-const IconThermometer = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v10m0 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/><path d="M12 6h2M12 9h1" stroke="#c49a4a" strokeWidth="1.5" strokeLinecap="round"/></svg>;
-const IconBan         = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#c49a4a" strokeWidth="1.8"/><path d="M6 6l12 12" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
-const IconFlat        = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h16M4 8h8M4 16h8" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
-const IconHeat        = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 6c0 2 2 2 2 4s-2 2-2 4M12 4c0 2 2 2 2 4s-2 2-2 4M16 6c0 2 2 2 2 4s-2 2-2 4" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/><path d="M5 19h14" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
-const IconLeaf        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke="#c49a4a" strokeWidth="1.8"/><path d="M12 22V9" stroke="#c49a4a" strokeWidth="1.8"/></svg>;
-const IconTruck       = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 3h13v13H1z" stroke="#c49a4a" strokeWidth="1.8" strokeLinejoin="round"/><path d="M14 8h4l3 3v5h-7V8z" stroke="#c49a4a" strokeWidth="1.8" strokeLinejoin="round"/><circle cx="5.5" cy="18.5" r="2.5" stroke="#c49a4a" strokeWidth="1.8"/><circle cx="18.5" cy="18.5" r="2.5" stroke="#c49a4a" strokeWidth="1.8"/></svg>;
-const IconReturn      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 14H4V9" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 14a9 9 0 1 0 1.5-5" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round"/></svg>;
-const IconLock        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke="#c49a4a" strokeWidth="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke="#c49a4a" strokeWidth="1.8"/></svg>;
-const IconSize        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h10M3 18h6" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round"/></svg>;
+const IconThermometer = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v10m0 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/><path d="M12 6h2M12 9h1" stroke={AMBER} strokeWidth="1.5" strokeLinecap="round"/></svg>;
+const IconBan         = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M6 6l12 12" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/></svg>;
+const IconFlat        = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M4 12h16M4 8h8M4 16h8" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/></svg>;
+const IconHeat        = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M8 6c0 2 2 2 2 4s-2 2-2 4M12 4c0 2 2 2 2 4s-2 2-2 4M16 6c0 2 2 2 2 4s-2 2-2 4" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/><path d="M5 19h14" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/></svg>;
+const IconLeaf        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={AMBER} strokeWidth="1.8"/><path d="M12 22V9" stroke={AMBER} strokeWidth="1.8"/></svg>;
+const IconTruck       = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M1 3h13v13H1z" stroke={AMBER} strokeWidth="1.8" strokeLinejoin="round"/><path d="M14 8h4l3 3v5h-7V8z" stroke={AMBER} strokeWidth="1.8" strokeLinejoin="round"/><circle cx="5.5" cy="18.5" r="2.5" stroke={AMBER} strokeWidth="1.8"/><circle cx="18.5" cy="18.5" r="2.5" stroke={AMBER} strokeWidth="1.8"/></svg>;
+const IconReturn      = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M9 14H4V9" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/><path d="M4 14a9 9 0 1 0 1.5-5" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/></svg>;
+const IconLock        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke={AMBER} strokeWidth="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={AMBER} strokeWidth="1.8"/></svg>;
+const IconSize        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h10M3 18h6" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>;
 
+// ── 7 icônes exactes de la capture — une seule ligne, toutes visibles ──
 function IconBandeau() {
-  const A = "#c49a4a";
+  const A = AMBER;
   const items = [
     { label: "Anti-bactérien",   svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><circle cx="32" cy="32" r="24" stroke={A} strokeWidth="1.8"/><ellipse cx="32" cy="32" rx="9" ry="12" stroke={A} strokeWidth="1.8"/>{[-6,-1,4,9].map((y,i)=><g key={i}><line x1="23" y1={32+y} x2="17" y2={30+y} stroke={A} strokeWidth="1.3" strokeLinecap="round"/><line x1="41" y1={32+y} x2="47" y2={30+y} stroke={A} strokeWidth="1.3" strokeLinecap="round"/></g>)}<circle cx="29" cy="27" r="1.5" fill={A}/><circle cx="35" cy="32" r="1.5" fill={A}/><circle cx="28" cy="37" r="1.5" fill={A}/></svg> },
     { label: "Thermorégulateur", svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M32 10 L32 38" stroke={A} strokeWidth="2" strokeLinecap="round"/><circle cx="32" cy="46" r="10" stroke={A} strokeWidth="2"/><path d="M32 38 A10 10 0 0 1 32 56" stroke={A} strokeWidth="2.5" strokeLinecap="round"/><line x1="38" y1="18" x2="42" y2="18" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="38" y1="25" x2="42" y2="25" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><line x1="38" y1="32" x2="42" y2="32" stroke={A} strokeWidth="1.8" strokeLinecap="round"/></svg> },
@@ -257,12 +266,13 @@ function IconBandeau() {
     { label: "Hypoallergénique", svg: <svg width="36" height="36" viewBox="0 0 64 64" fill="none"><path d="M24 52 C24 52 11 41 13 26 C13 26 24 30 24 41" stroke={A} strokeWidth="1.8" strokeLinecap="round" fill="none"/><path d="M24 52 C24 52 37 41 35 26 C35 26 24 30 24 41" stroke={A} strokeWidth="1.8" strokeLinecap="round" fill="none"/><line x1="24" y1="16" x2="24" y2="52" stroke={A} strokeWidth="1.8" strokeLinecap="round"/><path d="M8 33 L16 43 L30 23" stroke={A} strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"/></svg> },
   ];
   return (
-    <div style={{ marginTop: 14, background: "#ede8df", borderRadius: 14, padding: "14px 12px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", gap: 0, maxWidth: "50%", overflowX: "auto", scrollbarWidth: "none" }}>
+    <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
+      {/* Toutes les 7 icônes sur une ligne, scroll si nécessaire */}
+      <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", gap: 0, scrollbarWidth: "none" }}>
         {items.map(item => (
-          <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: "0 0 auto", width: 72, padding: "0 4px" }}>
+          <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
             {item.svg}
-            <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 0.8, textTransform: "uppercase", color: "rgba(26,20,16,0.6)", textAlign: "center", lineHeight: 1.3 }}>{item.label}</div>
+            <div style={{ fontSize: 7.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: "rgba(26,20,16,0.65)", textAlign: "center", lineHeight: 1.3 }}>{item.label}</div>
           </div>
         ))}
       </div>
@@ -281,7 +291,7 @@ function DiagonalBadge({ label, out }: { label?: string; out: boolean }) {
   if (!text) return null;
   return (
     <div style={{ position: "absolute", top: 0, right: 0, width: 120, height: 120, overflow: "hidden", zIndex: 30, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 28, right: -34, background: "#c49a4a", color: "#1a1410", fontSize: 11, fontWeight: 900, padding: "9px 48px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{text}</div>
+      <div style={{ position: "absolute", top: 28, right: -34, background: AMBER, color: DARK, fontSize: 11, fontWeight: 900, padding: "9px 48px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{text}</div>
     </div>
   );
 }
@@ -319,12 +329,12 @@ function Lightbox({ images, startIndex, onClose }: { images: string[]; startInde
 function FaqItem({ q, r }: { q: string; r: string }) {
   const [open, setOpen] = useState(false);
   return (
-    <div style={{ borderTop: "1px solid rgba(242,237,230,0.07)" }}>
+    <div style={{ borderTop: `1px solid rgba(26,20,16,0.1)` }}>
       <button onClick={() => setOpen(v => !v)} style={{ width: "100%", padding: "13px 0", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
-        <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.3vw,15px)", color: "#f2ede6", lineHeight: 1.3 }}>{q}</span>
-        <span style={{ fontSize: 20, color: "#c49a4a", flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none", lineHeight: 1 }}>+</span>
+        <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.3vw,15px)", color: DARK, lineHeight: 1.3 }}>{q}</span>
+        <span style={{ fontSize: 20, color: AMBER, flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none", lineHeight: 1 }}>+</span>
       </button>
-      {open && <div style={{ padding: "0 0 13px", fontSize: "clamp(13px,1.2vw,14px)", lineHeight: 1.75, color: "rgba(242,237,230,0.55)", whiteSpace: "pre-line" }}>{r}</div>}
+      {open && <div style={{ padding: "0 0 13px", fontSize: "clamp(13px,1.2vw,14px)", lineHeight: 1.75, color: "rgba(26,20,16,0.6)", whiteSpace: "pre-line" }}>{r}</div>}
     </div>
   );
 }
@@ -364,11 +374,11 @@ export default function ProductPage() {
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }
 
-  if (loading) return <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", background: "#f5f0e8" }}><div style={{ opacity: 0.4 }}>Chargement...</div></div>;
+  if (loading) return <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", background: BG }}><div style={{ opacity: 0.4, color: DARK }}>Chargement...</div></div>;
   if (!product) return (
-    <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", background: "#f5f0e8", padding: 40, textAlign: "center" }}>
-      <div><div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>Produit introuvable</div>
-      <Link href="/produits" style={{ padding: "12px 24px", borderRadius: 12, background: "#1a1410", color: "#f2ede6", fontWeight: 800, textDecoration: "none" }}>← Retour</Link></div>
+    <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", background: BG, padding: 40, textAlign: "center" }}>
+      <div><div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, color: DARK }}>Produit introuvable</div>
+      <Link href="/produits" style={{ padding: "12px 24px", borderRadius: 12, background: DARK, color: WARM, fontWeight: 800, textDecoration: "none" }}>← Retour</Link></div>
     </div>
   );
 
@@ -401,36 +411,37 @@ export default function ProductPage() {
   else { for (let i = 0; i < allImages.length; i += 2) photoRows.push(allImages.slice(i, i + 2)); }
 
   return (
-    <div style={{ background: "#f5f0e8", minHeight: "100vh" }}>
+    <div style={{ background: BG, minHeight: "100vh" }}>
       {lightboxIdx !== null && allImages.length > 0 && (
         <Lightbox images={allImages} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
 
       <style>{`
-        .pl-outer { display: grid; grid-template-columns: 1fr 1fr; gap: 0; align-items: start; max-width: 1800px; margin: 0 auto; }
-        .pl-left  { padding: 16px 24px 80px 4vw; }
-        .pl-right { position: sticky; top: 84px; padding: 16px 4vw 80px 24px; display: grid; gap: 18px; max-height: calc(100vh - 84px); overflow-y: auto; scrollbar-width: none; }
-        .pl-right::-webkit-scrollbar { display: none; }
-        .photo-row  { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px; }
-        .photo-item { position: relative; aspect-ratio: 3/4; border-radius: 14px; overflow: hidden; background: #ede8df; cursor: zoom-in; }
-        .photo-item.single { grid-column: 1 / -1; aspect-ratio: 4/5; }
-        .bottom-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: stretch; }
-        @media (max-width: 900px) {
-          .pl-outer { grid-template-columns: 1fr !important; }
-          .pl-left  { padding: 12px 4vw 24px !important; }
-          .pl-right { position: static !important; max-height: none !important; padding: 0 4vw 120px !important; overflow: visible !important; }
-          .photo-row { gap: 6px; margin-bottom: 6px; }
-          .bottom-grid { grid-template-columns: 1fr !important; }
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; }
+        .pl-left  { padding:16px 24px 80px 4vw; }
+        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:grid; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
+        .pl-right::-webkit-scrollbar { display:none; }
+        .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+        .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
+        .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
+        .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
+        @media(max-width:900px){
+          .pl-outer { grid-template-columns:1fr!important; }
+          .pl-left  { padding:12px 4vw 24px!important; }
+          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 120px!important; overflow:visible!important; }
+          .photo-row { gap:6px; margin-bottom:6px; }
+          .bottom-grid { grid-template-columns:1fr!important; }
         }
       `}</style>
 
+      {/* Breadcrumb */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "84px 4vw 0" }}>
         <div style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(26,20,16,0.4)", flexWrap: "wrap", paddingBottom: 8 }}>
           <Link href="/"         style={{ textDecoration: "none", color: "inherit" }}>Accueil</Link>
           <span>/</span>
           <Link href="/produits" style={{ textDecoration: "none", color: "inherit" }}>Produits</Link>
           <span>/</span>
-          <span style={{ color: "#1a1410", fontWeight: 600 }}>{product.name}</span>
+          <span style={{ color: DARK, fontWeight: 600 }}>{product.name}</span>
         </div>
       </div>
 
@@ -449,7 +460,7 @@ export default function ProductPage() {
                   return (
                     <div key={ci} className={`photo-item${isSingle ? " single" : ""}`} onClick={() => { if (!isPlaceholder) setLightboxIdx(idx); }}>
                       {isPlaceholder ? (
-                        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 28, fontWeight: 950, color: "#c8bfb2" }}>M!LK</div>
+                        <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 28, fontWeight: 950, color: "rgba(26,20,16,0.2)" }}>M!LK</div>
                       ) : (
                         <>
                           <Image src={img} alt={`${product.name} ${idx+1}`} fill sizes="(max-width:900px) 50vw, 25vw" style={{ objectFit: "cover" }}/>
@@ -472,45 +483,36 @@ export default function ProductPage() {
         {/* ─── DROITE : panneau achat ─── */}
         <div className="pl-right">
 
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX
           </div>
 
-          <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: "#1a1410" }}>
+          <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>
             {product.name}
           </h1>
 
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>{Number(displayPrice).toFixed(2)} €</span>
+            <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>{Number(displayPrice).toFixed(2)} €</span>
             {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
           </div>
 
-          {subtitle && (
-            <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", fontWeight: 700, color: "rgba(26,20,16,0.7)", lineHeight: 1.5 }}>
-              {subtitle}
-            </p>
-          )}
-
-          {extraDesc && (
-            <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.8 }}>
-              {extraDesc}
-            </p>
-          )}
+          {subtitle && <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", fontWeight: 700, color: "rgba(26,20,16,0.7)", lineHeight: 1.5 }}>{subtitle}</p>}
+          {extraDesc && <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.8 }}>{extraDesc}</p>}
 
           {features.length > 0 && (
-            <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column", gap: 11 }}>
+            <div style={{ padding: "18px 20px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)`, display: "flex", flexDirection: "column", gap: 11 }}>
               {features.map((feat, i) => {
                 const colonIdx = feat.indexOf(" : ");
                 const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
                 const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
                 return (
                   <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(196,154,74,0.12)", border: "1px solid rgba(196,154,74,0.35)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                      <svg width="9" height="7" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    <div style={{ width: 20, height: 20, borderRadius: "50%", background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                      <svg width="9" height="7" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
                     </div>
                     <div>
-                      <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.1vw,14px)", color: "#1a1410" }}>{label}</span>
+                      <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.1vw,14px)", color: DARK }}>{label}</span>
                       {desc && <span style={{ fontWeight: 400, fontSize: "clamp(12px,1vw,13px)", color: "rgba(26,20,16,0.5)" }}> : {desc}</span>}
                     </div>
                   </div>
@@ -520,21 +522,21 @@ export default function ProductPage() {
           )}
 
           {coloris && (
-            <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: "#1a1410", lineHeight: 1.5 }}>
-              <span style={{ color: "#c49a4a", fontWeight: 900 }}>Coloris</span> — {coloris}
+            <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: DARK, lineHeight: 1.5 }}>
+              <span style={{ color: AMBER, fontWeight: 900 }}>Coloris</span> — {coloris}
             </div>
           )}
 
           {!coloris && motif && (
-            <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: "#1a1410", lineHeight: 1.5 }}>
-              <span style={{ color: "#c49a4a", fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
+            <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: DARK, lineHeight: 1.5 }}>
+              <span style={{ color: AMBER, fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
             </div>
           )}
 
           {couleursDispos.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                Couleur {couleur && <span style={{ color: "#1a1410" }}>— {couleur}</span>}
+                Couleur {couleur && <span style={{ color: DARK }}>— {couleur}</span>}
               </span>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {couleursDispos.map((c: any) => {
@@ -542,9 +544,9 @@ export default function ProductPage() {
                   const selected = couleur === c.name;
                   return (
                     <button key={c.name} onClick={() => { if (!epuise) setCouleur(c.name); }} title={c.name}
-                      style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? "3px solid #1a1410" : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: c.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? "0 0 0 3px #f5f0e8, 0 0 0 5px #1a1410" : "none" }}>
+                      style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? `3px solid ${DARK}` : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: c.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` : "none" }}>
                       {c.image_url && <img src={c.image_url} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-                      {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: "#c49a4a", transform: "rotate(45deg)" }} /></div>}
+                      {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: AMBER, transform: "rotate(45deg)" }} /></div>}
                     </button>
                   );
                 })}
@@ -555,7 +557,7 @@ export default function ProductPage() {
           {taillesDispos.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                Taille {taille && <span style={{ color: "#1a1410" }}>— {taille}</span>}
+                Taille {taille && <span style={{ color: DARK }}>— {taille}</span>}
               </span>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {
@@ -564,35 +566,35 @@ export default function ProductPage() {
                   const selected = taille === t;
                   return (
                     <button key={t} onClick={() => { if (!epuise) setTaille(t); }}
-                      style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? "#1a1410" : "#fff", color: selected ? "#f2ede6" : epuise ? "rgba(26,20,16,0.3)" : "#1a1410", boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.08)", overflow: "hidden", whiteSpace: "nowrap" }}>
+                      style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
                       {t}
-                      {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: "#c49a4a", transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
-                      {!epuise && stockT <= 3 && <span style={{ marginLeft: 5, fontSize: 10, color: "#c49a4a", fontWeight: 700 }}>({stockT})</span>}
+                      {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
+                      {!epuise && stockT <= 3 && <span style={{ marginLeft: 5, fontSize: 10, color: AMBER, fontWeight: 700 }}>({stockT})</span>}
                     </button>
                   );
                 })}
               </div>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.18)" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke="#c49a4a" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round"/></svg>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>
                 <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>Le bambou stretch est extrêmement extensible — pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus.</span>
               </div>
             </div>
           )}
 
           {taillesDispos.length > 0 && !productSlug.includes("bonnet") && (
-            <div style={{ borderRadius: 12, overflow: "hidden", border: "1px solid rgba(26,20,16,0.1)" }}>
-              <button onClick={() => setGuideOpen(v => !v)} style={{ width: "100%", padding: "11px 14px", background: guideOpen ? "#1a1410" : "#fff", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid rgba(26,20,16,0.12)` }}>
+              <button onClick={() => setGuideOpen(v => !v)} style={{ width: "100%", padding: "11px 14px", background: guideOpen ? DARK : "rgba(26,20,16,0.06)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <IconSize />
-                  <span style={{ fontSize: 12, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", color: guideOpen ? "#c49a4a" : "#1a1410" }}>Guide des tailles</span>
+                  <span style={{ fontSize: 12, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", color: guideOpen ? AMBER : DARK }}>Guide des tailles</span>
                 </div>
-                <span style={{ fontSize: 18, color: guideOpen ? "#c49a4a" : "#1a1410", transition: "transform 0.2s", transform: guideOpen ? "rotate(45deg)" : "none", fontWeight: 300 }}>+</span>
+                <span style={{ fontSize: 18, color: guideOpen ? AMBER : DARK, transition: "transform 0.2s", transform: guideOpen ? "rotate(45deg)" : "none", fontWeight: 300 }}>+</span>
               </button>
               {guideOpen && (
-                <div style={{ background: "#fff", overflowX: "auto" }}>
+                <div style={{ background: "rgba(26,20,16,0.04)", overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 280 }}>
                     <thead>
-                      <tr style={{ background: "#f9f6f2" }}>
+                      <tr style={{ background: "rgba(26,20,16,0.06)" }}>
                         {["Taille","Poids","Poitrine","Longueur"].map(h => (
                           <th key={h} style={{ padding: "8px 10px", textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: 0.4, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", whiteSpace: "nowrap" }}>{h}</th>
                         ))}
@@ -600,16 +602,16 @@ export default function ProductPage() {
                     </thead>
                     <tbody>
                       {GUIDE_TAILLES.map((row, i) => (
-                        <tr key={row.taille} style={{ borderTop: "1px solid rgba(26,20,16,0.05)", background: i % 2 === 0 ? "#fff" : "#faf7f4" }}>
-                          <td style={{ padding: "9px 10px", fontWeight: 900, color: "#c49a4a", fontSize: 13, textAlign: "left" }}>{row.taille}</td>
-                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.6)", fontSize: 12, textAlign: "center" }}>{row.poids}</td>
-                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.6)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.poitrine}</td>
-                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.6)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.longueur}</td>
+                        <tr key={row.taille} style={{ borderTop: "1px solid rgba(26,20,16,0.06)", background: i % 2 === 0 ? "transparent" : "rgba(26,20,16,0.03)" }}>
+                          <td style={{ padding: "9px 10px", fontWeight: 900, color: AMBER, fontSize: 13, textAlign: "left" }}>{row.taille}</td>
+                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 12, textAlign: "center" }}>{row.poids}</td>
+                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.poitrine}</td>
+                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.longueur}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "#f9f6f2" }}>En cas de doute, prenez la taille supérieure.</div>
+                  <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "rgba(26,20,16,0.04)" }}>En cas de doute, prenez la taille supérieure.</div>
                 </div>
               )}
             </div>
@@ -617,20 +619,20 @@ export default function ProductPage() {
 
           <div style={{ display: "grid", gap: 8 }}>
             <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>Quantité</span>
-            <div style={{ display: "flex", alignItems: "center", background: "#fff", borderRadius: 12, padding: 4, width: "fit-content", boxShadow: "0 1px 4px rgba(0,0,0,0.08)" }}>
-              <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: "#1a1410" }}>−</button>
-              <span style={{ width: 40, textAlign: "center", fontWeight: 900, fontSize: 16, color: "#1a1410" }}>{qty}</span>
-              <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: "#1a1410" }}>+</button>
+            <div style={{ display: "flex", alignItems: "center", background: "rgba(26,20,16,0.06)", borderRadius: 12, padding: 4, width: "fit-content" }}>
+              <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>−</button>
+              <span style={{ width: 40, textAlign: "center", fontWeight: 900, fontSize: 16, color: DARK }}>{qty}</span>
+              <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>+</button>
             </div>
           </div>
 
           <div style={{ display: "grid", gap: 10 }}>
             <button onClick={handleAddToCart} disabled={outTaille}
-              style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "#d1cdc8" : "#1a1410", color: added ? "#fff" : outTaille ? "#9ca3af" : "#f2ede6", transition: "all 0.2s" }}>
+              style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s" }}>
               {added ? "✓ Ajouté au panier !" : outTaille ? "Épuisé" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
             </button>
             {cartCount > 0 && (
-              <Link href="/panier" style={{ padding: "13px 24px", borderRadius: 16, border: "2px solid #1a1410", fontWeight: 800, fontSize: 14, textDecoration: "none", color: "#1a1410", textAlign: "center", display: "block" }}>
+              <Link href="/panier" style={{ padding: "13px 24px", borderRadius: 16, border: `2px solid ${DARK}`, fontWeight: 800, fontSize: 14, textDecoration: "none", color: DARK, textAlign: "center", display: "block" }}>
                 Voir le panier ({cartCount})
               </Link>
             )}
@@ -643,30 +645,30 @@ export default function ProductPage() {
               { Icon: IconReturn, label: "Retour gratuit 15 jours"   },
               { Icon: IconLock,   label: "Paiement sécurisé Stripe"  },
             ].map(r => (
-              <div key={r.label} style={{ padding: "9px 11px", borderRadius: 10, background: "#fff", display: "flex", alignItems: "center", gap: 7, fontSize: "clamp(10px,0.9vw,12px)", fontWeight: 700, color: "rgba(26,20,16,0.65)", boxShadow: "0 1px 3px rgba(0,0,0,0.05)", whiteSpace: "nowrap" }}>
+              <div key={r.label} style={{ padding: "9px 11px", borderRadius: 10, background: "rgba(26,20,16,0.07)", display: "flex", alignItems: "center", gap: 7, fontSize: "clamp(10px,0.9vw,12px)", fontWeight: 700, color: "rgba(26,20,16,0.65)", whiteSpace: "nowrap" }}>
                 <r.Icon />{r.label}
               </div>
             ))}
           </div>
 
           {whyResult && (
-            <div style={{ padding: "20px 22px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>La vraie raison</div>
+            <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)` }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 4 }}>La vraie raison</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Pourquoi ce produit existe</div>
               <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8 }}>{whyResult.why}</p>
             </div>
           )}
 
           {whyResult && (
-            <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.07)", border: "1px solid rgba(196,154,74,0.18)" }}>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>Ce que tu obtiens</div>
+            <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 4 }}>Ce que tu obtiens</div>
               <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Le résultat</div>
               <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8, fontWeight: 600 }}>{whyResult.result}</p>
             </div>
           )}
 
-          <div style={{ padding: "18px 20px", borderRadius: 16, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
-            <h3 style={{ margin: "0 0 8px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: "#1a1410" }}>Conseils d'entretien</h3>
+          <div style={{ padding: "18px 20px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)` }}>
+            <h3 style={{ margin: "0 0 8px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: DARK }}>Conseils d'entretien</h3>
             <div style={{ marginBottom: 12, fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
               {productSlug.includes("bonnet")
                 ? "95 % viscose de bambou · 5 % élasthanne"
@@ -685,27 +687,27 @@ export default function ProductPage() {
         </div>
       </div>
 
+      {/* ─── BAS DE PAGE ─── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
-
         <div className="bottom-grid" style={{ marginBottom: 24 }}>
           {related.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>Complétez votre collection</div>
-                <h2 style={{ margin: 0, fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Les clients ont aussi acheté</h2>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 8 }}>Complétez votre collection</div>
+                <h2 style={{ margin: 0, fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>Les clients ont aussi acheté</h2>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14, flex: 1 }}>
                 {related.map((p: any) => (
                   <Link key={p.id} href={`/produits/${p.slug}`}
-                    style={{ textDecoration: "none", color: "inherit", borderRadius: 14, overflow: "hidden", background: "#fff", border: "1px solid rgba(26,20,16,0.07)", display: "block", transition: "transform 0.2s, box-shadow 0.2s" }}
+                    style={{ textDecoration: "none", color: "inherit", borderRadius: 14, overflow: "hidden", background: TAUPE, border: `1px solid rgba(26,20,16,0.08)`, display: "block", transition: "transform 0.2s, box-shadow 0.2s" }}
                     onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.transform = "translateY(-4px)"; (e.currentTarget as HTMLAnchorElement).style.boxShadow = "0 12px 32px rgba(0,0,0,0.1)"; }}
                     onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.transform = ""; (e.currentTarget as HTMLAnchorElement).style.boxShadow = ""; }}>
-                    <div style={{ position: "relative", aspectRatio: "3/4", background: "#ede8df" }}>
-                      {p.image_url ? <Image src={p.image_url} alt={p.name} fill sizes="200px" style={{ objectFit: "cover" }} /> : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 20, fontWeight: 950, color: "#c8bfb2" }}>M!LK</div>}
+                    <div style={{ position: "relative", aspectRatio: "3/4", background: BG }}>
+                      {p.image_url ? <Image src={p.image_url} alt={p.name} fill sizes="200px" style={{ objectFit: "cover" }} /> : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 20, fontWeight: 950, color: "rgba(26,20,16,0.2)" }}>M!LK</div>}
                     </div>
                     <div style={{ padding: "10px 12px" }}>
-                      <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4, color: "#1a1410", lineHeight: 1.3 }}>{p.name}</div>
-                      <div style={{ fontWeight: 950, fontSize: 15, color: "#1a1410" }}>{Number(p.price_ttc).toFixed(2)} €</div>
+                      <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4, color: DARK, lineHeight: 1.3 }}>{p.name}</div>
+                      <div style={{ fontWeight: 950, fontSize: 15, color: DARK }}>{Number(p.price_ttc).toFixed(2)} €</div>
                     </div>
                   </Link>
                 ))}
@@ -716,15 +718,17 @@ export default function ProductPage() {
           {philosophy && <PhilosophyCard text={philosophy} />}
         </div>
 
-        <div style={{ padding: "24px 28px", borderRadius: 20, background: "#2a2018" }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: "#f2ede6" }}>Questions fréquentes</h3>
+        {/* FAQ */}
+        <div style={{ padding: "24px 28px", borderRadius: 20, background: TAUPE, border: `1px solid rgba(26,20,16,0.1)` }}>
+          <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>
           {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
         </div>
       </div>
 
-      <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: "rgba(245,240,232,0.97)", backdropFilter: "blur(8px)", borderTop: "1px solid rgba(26,20,16,0.1)" }}>
+      {/* CTA mobile */}
+      <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>
         <button onClick={handleAddToCart} disabled={outTaille}
-          style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "#d1cdc8" : "#1a1410", color: "#f2ede6" }}>
+          style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM }}>
           {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
         </button>
       </div>

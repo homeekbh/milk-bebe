@@ -30,7 +30,7 @@ function Cross() {
 
 export default function PourquoiBambouPage() {
   return (
-    <div style={{ background: C.bg, minHeight: "100vh", color: C.warm }}>
+    <div style={{ background: C.bg, minHeight: "100vh", color: C.warm, overflowX: "hidden" }}>
       <style>{`
         ${MILK_STYLES}
         .pb-grid { display:grid; grid-template-columns:1fr 1fr; gap:56px; align-items:center; margin-bottom:64px; }
@@ -45,7 +45,7 @@ export default function PourquoiBambouPage() {
         }
       `}</style>
 
-      {/* HERO */}
+      {/* HERO — pleine largeur */}
       <section style={{ position: "relative", height: "52vh", minHeight: 320, overflow: "hidden" }}>
         <Image src="/matiere/bambou-02.png" alt="Tissu bambou M!LK" fill priority sizes="100vw"
           style={{ objectFit: "cover", filter: "brightness(0.45) saturate(0.6)" }} />
@@ -62,7 +62,7 @@ export default function PourquoiBambouPage() {
       <Ticker />
       <Divider from={C.bg} to={C.light} />
 
-      {/* INTRO */}
+      {/* INTRO — pleine largeur */}
       <div style={{ background: C.light, padding: "56px 5vw" }}>
         <Reveal>
           <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
@@ -76,8 +76,8 @@ export default function PourquoiBambouPage() {
         </Reveal>
       </div>
 
-      {/* PROPRIÉTÉS */}
-      <div style={{ background: C.light, padding: "20px 5vw 56px", maxWidth: 1200, margin: "0 auto" }}>
+      {/* PROPRIÉTÉS — pleine largeur */}
+      <div style={{ background: C.light, padding: "20px 5vw 56px" }}>
         {PROPRIETES.map((p, i) => (
           <div key={p.titre} className={`pb-grid${i % 2 !== 0 ? " pb-rev" : ""}`}>
             <Reveal>
@@ -103,7 +103,7 @@ export default function PourquoiBambouPage() {
 
       <Divider from={C.light} to={C.bg} />
 
-      {/* COMPARATIF */}
+      {/* COMPARATIF — pleine largeur */}
       <div style={{ background: C.bg, padding: "56px 5vw" }}>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
@@ -131,9 +131,9 @@ export default function PourquoiBambouPage() {
 
       <Divider from={C.bg} to={C.taupe} />
 
-      {/* OEKO-TEX */}
+      {/* OEKO-TEX — pleine largeur */}
       <div style={{ background: C.taupe, padding: "56px 5vw" }}>
-        <div className="pb-otg" style={{ maxWidth: 1200, margin: "0 auto" }}>
+        <div className="pb-otg">
           <Reveal>
             <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", aspectRatio: "1", boxShadow: "0 16px 48px rgba(0,0,0,0.15)" }}>
               <Image src="/matiere/bambou-02.png" alt="Nourrisson body bambou OEKO-TEX M!LK" fill sizes="50vw" style={{ objectFit: "cover" }} />
@@ -155,7 +155,7 @@ export default function PourquoiBambouPage() {
 
       <Divider from={C.taupe} to={C.light} />
 
-      {/* FAQ */}
+      {/* FAQ — pleine largeur */}
       <div style={{ background: C.light, padding: "56px 5vw" }}>
         <Reveal>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
@@ -178,7 +178,7 @@ export default function PourquoiBambouPage() {
       <BigTextScroll text="BAMBOU CERTIFIÉ OEKO-TEX · PEAU DOUCE PROTÉGÉE" speed={28} bg={C.light} />
       <Divider from={C.light} to={C.bg} />
 
-      {/* CTA */}
+      {/* CTA — pleine largeur */}
       <section style={{ background: C.bg, padding: "56px 5vw", textAlign: "center" }}>
         <Reveal>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>

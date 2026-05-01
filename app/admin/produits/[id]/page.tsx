@@ -543,6 +543,7 @@ export default function AdminProductForm() {
   // ── Nouvelles states : cards fiche + FAQs ──
   const [ficheCards,   setFicheCards]   = useState<FicheCard[]>([]);
   const [faqs,         setFaqs]         = useState<FaqItem[]>([]);
+  const [showPreview,  setShowPreview]  = useState(false);
 
   // Chargement produit existant
   useEffect(() => {
@@ -785,7 +786,18 @@ export default function AdminProductForm() {
 
   if (loading) return <div style={{ padding: 60, opacity: 0.4, fontSize: 16 }}>Chargement...</div>;
 
+  // ── Données aperçu calculées en live ──
+  const previewSubtitle  = ficheCards.find(c => c.type === "subtitle")?.content ?? "";
+  const previewFeatures: string[] = (() => { try { return JSON.parse(ficheCards.find(c => c.type === "features")?.content ?? "[]"); } catch { return []; } })();
+  const previewWR: { why: string; result: string } | null = (() => { try { const wr = JSON.parse(ficheCards.find(c => c.type === "whyresult")?.content ?? "null"); return wr?.why ? wr : null; } catch { return null; } })();
+  const previewColoris   = ficheCards.find(c => c.type === "coloris")?.content ?? "";
+  const previewDesc      = ficheCards.find(c => c.type === "description")?.content ?? "";
+  const previewPhilo     = ficheCards.find(c => c.type === "philosophy")?.content ?? "";
+  const priceDisplay     = form.promo_price ? Number(form.promo_price) : Number(form.price_ttc || 0);
+  const hasPreviewContent = form.name || previewSubtitle || previewFeatures.length > 0 || previewWR || ficheCards.length > 0;
+
   return (
+    <div style={{ display: "grid", gridTemplateColumns: showPreview ? "820px 1fr" : "1fr", gap: 0, minHeight: "100vh", alignItems: "start" }}>
     <div style={{ padding: "32px 40px", maxWidth: 820 }}>
 
       {/* ── En-tête ── */}
@@ -797,6 +809,11 @@ export default function AdminProductForm() {
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410", flex: 1 }}>
           {isNew ? "Nouveau produit" : `Modifier : ${form.name || "..."}`}
         </h1>
+        <button onClick={() => setShowPreview(v => !v)}
+          style={{ padding: "10px 18px", borderRadius: 10, border: `2px solid ${showPreview ? "#c49a4a" : "rgba(0,0,0,0.12)"}`, background: showPreview ? "#1a1410" : "#fff", color: showPreview ? "#c49a4a" : "#1a1410", cursor: "pointer", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 16 }}>👁</span>
+          {showPreview ? "Masquer l'aperçu" : "Aperçu fiche"}
+        </button>
 
         {!isNew && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1196,5 +1213,176 @@ export default function AdminProductForm() {
 
       </div>
     </div>
+
+    {/* ── PANNEAU APERÇU STICKY ── */}
+    {showPreview && (
+      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#1a1410", borderLeft: "1px solid rgba(196,154,74,0.2)", padding: "24px 20px", boxSizing: "border-box" }}>
+        {/* Header aperçu */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 14, borderBottom: "1px solid rgba(196,154,74,0.15)" }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 2 }}>Aperçu fiche produit</div>
+            <div style={{ fontSize: 12, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>Mise à jour en temps réel</div>
+          </div>
+          <button onClick={() => setShowPreview(false)}
+            style={{ width: 28, height: 28, borderRadius: 99, background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "#f2ede6", fontSize: 14, display: "grid", placeItems: "center" }}>
+            ✕
+          </button>
+        </div>
+
+        {!hasPreviewContent ? (
+          <div style={{ padding: "40px 20px", textAlign: "center", color: "rgba(242,237,230,0.25)", fontSize: 13 }}>
+            Remplis les champs pour voir l'aperçu
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 14 }}>
+
+            {/* Image principale */}
+            {form.image_url && (
+              <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", aspectRatio: "3/4", background: "#2d1a0e" }}>
+                <img src={form.image_url} alt={form.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+              </div>
+            )}
+
+            {/* Catégorie + nom */}
+            <div>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>
+                {form.category_slug || "catégorie"} · Bambou OEKO-TEX
+              </div>
+              <div style={{ fontSize: "clamp(18px,1.8vw,22px)", fontWeight: 950, letterSpacing: -0.5, lineHeight: 1.15, color: "#f2ede6" }}>
+                {form.name || <span style={{ opacity: 0.3 }}>Nom du produit</span>}
+              </div>
+            </div>
+
+            {/* Prix */}
+            {Number(form.price_ttc) > 0 && (
+              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                <span style={{ fontSize: 22, fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
+                  {priceDisplay.toFixed(2)} €
+                </span>
+                {form.promo_price && (
+                  <span style={{ fontSize: 15, textDecoration: "line-through", color: "rgba(242,237,230,0.35)", fontWeight: 700 }}>
+                    {Number(form.price_ttc).toFixed(2)} €
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* Sous-titre */}
+            {previewSubtitle && (
+              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(242,237,230,0.7)", lineHeight: 1.5 }}>
+                {previewSubtitle}
+              </div>
+            )}
+
+            {/* Description */}
+            {previewDesc && (
+              <div style={{ fontSize: 12, color: "rgba(242,237,230,0.55)", lineHeight: 1.75 }}>
+                {previewDesc}
+              </div>
+            )}
+
+            {/* Coloris */}
+            {previewColoris && (
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#f2ede6", lineHeight: 1.5 }}>
+                <span style={{ color: "#c49a4a", fontWeight: 900 }}>Coloris</span> — {previewColoris}
+              </div>
+            )}
+
+            {/* Features */}
+            {previewFeatures.filter(Boolean).length > 0 && (
+              <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gap: 9 }}>
+                {previewFeatures.filter(Boolean).map((feat, i) => {
+                  const colonIdx = feat.indexOf(" : ");
+                  const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
+                  const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
+                  return (
+                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <div style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(196,154,74,0.2)", border: "1px solid rgba(196,154,74,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                        <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                      </div>
+                      <div style={{ fontSize: 12, lineHeight: 1.4 }}>
+                        <span style={{ fontWeight: 800, color: "#f2ede6" }}>{label}</span>
+                        {desc && <span style={{ color: "rgba(242,237,230,0.5)" }}> : {desc}</span>}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Tailles */}
+            {sizes.length > 0 && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Taille</div>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {sizes.map(t => (
+                    <div key={t} style={{ padding: "7px 13px", borderRadius: 8, background: "rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 800, color: "#f2ede6" }}>{t}</div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Couleurs */}
+            {colors.length > 0 && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Couleur</div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {colors.map((c, i) => (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                      <div style={{ width: 32, height: 32, borderRadius: 99, border: "2px solid rgba(255,255,255,0.2)", background: c.hex, overflow: "hidden" }}>
+                        {c.image_url && <img src={c.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                      </div>
+                      <span style={{ fontSize: 9, color: "rgba(242,237,230,0.4)", fontWeight: 700 }}>{c.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Pourquoi / Résultat */}
+            {previewWR && (
+              <>
+                <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>La vraie raison</div>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(242,237,230,0.6)", lineHeight: 1.7 }}>{previewWR.why}</p>
+                </div>
+                <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.2)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Ce que tu obtiens</div>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(242,237,230,0.7)", lineHeight: 1.7, fontWeight: 600 }}>{previewWR.result}</p>
+                </div>
+              </>
+            )}
+
+            {/* Philosophie */}
+            {previewPhilo && (
+              <div style={{ padding: "14px 16px", borderRadius: 12, background: "#2d1a0e", border: "1px solid rgba(196,154,74,0.15)" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
+                <p style={{ margin: 0, fontSize: 11, color: "rgba(242,237,230,0.55)", lineHeight: 1.7, whiteSpace: "pre-line" }}>{previewPhilo.slice(0, 300)}{previewPhilo.length > 300 ? "…" : ""}</p>
+              </div>
+            )}
+
+            {/* FAQs */}
+            {faqs.filter(f => f.question).length > 0 && (
+              <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 10 }}>FAQ ({faqs.filter(f => f.question).length} questions)</div>
+                {faqs.filter(f => f.question).slice(0, 3).map((faq, i) => (
+                  <div key={i} style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none", paddingTop: i > 0 ? 8 : 0, marginTop: i > 0 ? 8 : 0 }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#f2ede6", marginBottom: 3 }}>{faq.question}</div>
+                    <div style={{ fontSize: 11, color: "rgba(242,237,230,0.45)", lineHeight: 1.6 }}>{faq.reponse.slice(0, 80)}{faq.reponse.length > 80 ? "…" : ""}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Bouton CTA simulé */}
+            <div style={{ marginTop: 8, padding: "14px", borderRadius: 12, background: "#f2ede6", textAlign: "center", fontWeight: 900, fontSize: 14, color: "#1a1410" }}>
+              Ajouter — {priceDisplay > 0 ? `${priceDisplay.toFixed(2)} €` : "—"}
+            </div>
+
+          </div>
+        )}
+      </div>
+    )}
+  </div>
   );
 }

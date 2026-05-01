@@ -1,14 +1,21 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
+import type { NextRequest } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { data } = await supabaseServer
     .from("promo_codes").select("*").order("created_at", { ascending: false });
   return Response.json(data ?? []);
 }
 
-export async function POST(req: Request) {
-  const body = await req.json();
+export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
 
+  const body  = await req.json();
   const clean = {
     ...body,
     code:           (body.code ?? "").toUpperCase().trim(),
@@ -27,13 +34,16 @@ export async function POST(req: Request) {
   return Response.json(data);
 }
 
-export async function PUT(req: Request) {
+export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { id, ...rest } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const clean: any = { ...rest };
-  if (rest.discount_value !== undefined) clean.discount_value = isNaN(parseFloat(rest.discount_value)) ? 0    : parseFloat(rest.discount_value);
-  if (rest.min_order      !== undefined) clean.min_order      = isNaN(parseFloat(rest.min_order))      ? 0    : parseFloat(rest.min_order);
+  if (rest.discount_value !== undefined) clean.discount_value = isNaN(parseFloat(rest.discount_value)) ? 0 : parseFloat(rest.discount_value);
+  if (rest.min_order      !== undefined) clean.min_order      = isNaN(parseFloat(rest.min_order))      ? 0 : parseFloat(rest.min_order);
   if (rest.max_uses       !== undefined) clean.max_uses       = rest.max_uses ? parseInt(rest.max_uses) : null;
   if (rest.expires_at     !== undefined) clean.expires_at     = rest.expires_at || null;
 
@@ -43,7 +53,10 @@ export async function PUT(req: Request) {
   return Response.json(data);
 }
 
-export async function DELETE(req: Request) {
+export async function DELETE(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
   const { error } = await supabaseServer.from("promo_codes").delete().eq("id", id);

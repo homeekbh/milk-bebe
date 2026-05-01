@@ -1,7 +1,11 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { searchParams } = new URL(req.url);
   const id = searchParams.get("id");
 
@@ -19,20 +23,21 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const body  = await req.json();
   const clean: Record<string, any> = { ...body };
 
-  if ("price_ttc"   in body) clean.price_ttc   = isNaN(Number(body.price_ttc))   ? 0    : Number(body.price_ttc);
+  if ("price_ttc"   in body) clean.price_ttc   = isNaN(Number(body.price_ttc))   ? 0 : Number(body.price_ttc);
   if ("promo_price" in body) clean.promo_price  = (!body.promo_price || isNaN(Number(body.promo_price))) ? null : Number(body.promo_price);
-  if ("stock"       in body) clean.stock        = isNaN(Number(body.stock))       ? 0    : Number(body.stock);
+  if ("stock"       in body) clean.stock        = isNaN(Number(body.stock))       ? 0 : Number(body.stock);
   if ("promo_start" in body) clean.promo_start  = body.promo_start || null;
   if ("promo_end"   in body) clean.promo_end    = body.promo_end   || null;
-  if ("position"    in body) clean.position     = isNaN(Number(body.position))    ? 0    : Number(body.position);
-  if ("weight_g"    in body) clean.weight_g     = (!body.weight_g  || isNaN(Number(body.weight_g))) ? null : Number(body.weight_g);
-
-  // Colonnes JSONB — stocker telles quelles (arrays d'objets)
-  if ("fiche_cards" in body) clean.fiche_cards = Array.isArray(body.fiche_cards) ? body.fiche_cards : null;
-  if ("fiche_faqs"  in body) clean.fiche_faqs  = Array.isArray(body.fiche_faqs)  ? body.fiche_faqs  : null;
+  if ("position"    in body) clean.position     = isNaN(Number(body.position))    ? 0 : Number(body.position);
+  if ("weight_g"    in body) clean.weight_g     = (!body.weight_g || isNaN(Number(body.weight_g))) ? null : Number(body.weight_g);
+  if ("fiche_cards" in body) clean.fiche_cards  = Array.isArray(body.fiche_cards) ? body.fiche_cards : null;
+  if ("fiche_faqs"  in body) clean.fiche_faqs   = Array.isArray(body.fiche_faqs)  ? body.fiche_faqs  : null;
 
   const { data, error } = await supabaseServer
     .from("products").insert([clean]).select().single();
@@ -41,21 +46,22 @@ export async function POST(req: NextRequest) {
 }
 
 export async function PUT(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { id, ...rest } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const clean: Record<string, any> = { ...rest };
-  if ("price_ttc"   in rest) clean.price_ttc   = isNaN(Number(rest.price_ttc))   ? 0    : Number(rest.price_ttc);
+  if ("price_ttc"   in rest) clean.price_ttc   = isNaN(Number(rest.price_ttc))   ? 0 : Number(rest.price_ttc);
   if ("promo_price" in rest) clean.promo_price  = (!rest.promo_price || isNaN(Number(rest.promo_price))) ? null : Number(rest.promo_price);
-  if ("stock"       in rest) clean.stock        = isNaN(Number(rest.stock))       ? 0    : Number(rest.stock);
+  if ("stock"       in rest) clean.stock        = isNaN(Number(rest.stock))       ? 0 : Number(rest.stock);
   if ("promo_start" in rest) clean.promo_start  = rest.promo_start || null;
   if ("promo_end"   in rest) clean.promo_end    = rest.promo_end   || null;
-  if ("position"    in rest) clean.position     = isNaN(Number(rest.position))    ? 0    : Number(rest.position);
-  if ("weight_g"    in rest) clean.weight_g     = (!rest.weight_g  || isNaN(Number(rest.weight_g))) ? null : Number(rest.weight_g);
-
-  // Colonnes JSONB — stocker telles quelles
-  if ("fiche_cards" in rest) clean.fiche_cards = Array.isArray(rest.fiche_cards) ? rest.fiche_cards : null;
-  if ("fiche_faqs"  in rest) clean.fiche_faqs  = Array.isArray(rest.fiche_faqs)  ? rest.fiche_faqs  : null;
+  if ("position"    in rest) clean.position     = isNaN(Number(rest.position))    ? 0 : Number(rest.position);
+  if ("weight_g"    in rest) clean.weight_g     = (!rest.weight_g || isNaN(Number(rest.weight_g))) ? null : Number(rest.weight_g);
+  if ("fiche_cards" in rest) clean.fiche_cards  = Array.isArray(rest.fiche_cards) ? rest.fiche_cards : null;
+  if ("fiche_faqs"  in rest) clean.fiche_faqs   = Array.isArray(rest.fiche_faqs)  ? rest.fiche_faqs  : null;
 
   const { data, error } = await supabaseServer
     .from("products").update(clean).eq("id", id).select().single();
@@ -64,6 +70,9 @@ export async function PUT(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { id } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 

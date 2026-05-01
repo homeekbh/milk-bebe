@@ -1,6 +1,11 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
+import type { NextRequest } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   try {
     const { data, error } = await supabaseServer
       .from("orders")
@@ -9,27 +14,12 @@ export async function GET() {
 
     if (error) return Response.json({ error: error.message }, { status: 500 });
 
-    // Dédupliquer par email
-    const map = new Map<string, {
-      name: string;
-      email: string;
-      orders: number;
-      total: number;
-      first: string;
-      last: string;
-    }>();
+    const map = new Map<string, { name: string; email: string; orders: number; total: number; first: string; last: string }>();
 
     for (const o of data ?? []) {
       if (!o.customer_email) continue;
       if (!map.has(o.customer_email)) {
-        map.set(o.customer_email, {
-          name:   o.customer_name  ?? "",
-          email:  o.customer_email,
-          orders: 0,
-          total:  0,
-          first:  o.created_at,
-          last:   o.created_at,
-        });
+        map.set(o.customer_email, { name: o.customer_name ?? "", email: o.customer_email, orders: 0, total: 0, first: o.created_at, last: o.created_at });
       }
       const c = map.get(o.customer_email)!;
       c.orders += 1;
@@ -39,31 +29,14 @@ export async function GET() {
     }
 
     const clients = Array.from(map.values());
-
-    // ── CSV ──
     const rows: string[] = [];
-    rows.push([
-      "Nom",
-      "Email",
-      "Nb commandes",
-      "Total dépensé (€)",
-      "Première commande",
-      "Dernière commande",
-    ].map(h => `"${h}"`).join(";"));
+    rows.push(["Nom", "Email", "Nb commandes", "Total dépensé (€)", "Première commande", "Dernière commande"].map(h => `"${h}"`).join(";"));
 
     for (const c of clients) {
-      rows.push([
-        c.name,
-        c.email,
-        c.orders,
-        c.total.toFixed(2),
-        new Date(c.first).toLocaleDateString("fr-FR"),
-        new Date(c.last).toLocaleDateString("fr-FR"),
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+      rows.push([c.name, c.email, c.orders, c.total.toFixed(2), new Date(c.first).toLocaleDateString("fr-FR"), new Date(c.last).toLocaleDateString("fr-FR")].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
     }
 
     const csv = "\uFEFF" + rows.join("\n");
-
     return new Response(csv, {
       headers: {
         "Content-Type": "text/csv; charset=utf-8",

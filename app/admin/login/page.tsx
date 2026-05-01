@@ -4,7 +4,14 @@ import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 
-const ADMIN_EMAILS = ["home.ekbh@gmail.com", "erika.koztandi@gmail.com"];
+// ── Emails admin depuis variables d'environnement Vercel ──
+// Ajouter NEXT_PUBLIC_ADMIN_EMAIL_1 et NEXT_PUBLIC_ADMIN_EMAIL_2 dans Vercel
+function getAdminEmails(): string[] {
+  return [
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL_1,
+    process.env.NEXT_PUBLIC_ADMIN_EMAIL_2,
+  ].filter(Boolean) as string[];
+}
 
 function AdminLoginContent() {
   const searchParams = useSearchParams();
@@ -17,10 +24,19 @@ function AdminLoginContent() {
   const [error,    setError]    = useState("");
 
   useEffect(() => {
-    // ✅ getSession lit depuis localStorage — fiable et synchrone
     supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user && ADMIN_EMAILS.includes(session.user.email ?? "")) {
-        window.location.href = redirect;
+      const adminEmails = getAdminEmails();
+      if (session?.user && (adminEmails.length === 0 || adminEmails.includes(session.user.email ?? ""))) {
+        // Fallback : si pas d'emails configurés, vérifier is_admin en BDD
+        if (adminEmails.length === 0) {
+          supabase.from("profiles").select("is_admin").eq("id", session.user.id).single()
+            .then(({ data }) => {
+              if (data?.is_admin) window.location.href = redirect;
+              else setChecking(false);
+            });
+        } else {
+          window.location.href = redirect;
+        }
       } else {
         setChecking(false);
       }
@@ -40,7 +56,11 @@ function AdminLoginContent() {
       return;
     }
 
-    if (ADMIN_EMAILS.includes(data.user.email ?? "")) {
+    // Vérifier is_admin en BDD (source de vérité)
+    const { data: profile } = await supabase
+      .from("profiles").select("is_admin").eq("id", data.user.id).single();
+
+    if (profile?.is_admin) {
       window.location.href = redirect;
       return;
     }
@@ -79,7 +99,7 @@ function AdminLoginContent() {
                 Email admin
               </label>
               <input type="email" value={email} onChange={e => setEmail(e.target.value)} required
-                placeholder="home.ekbh@gmail.com"
+                placeholder="votre@email.com"
                 style={{ padding: "14px 16px", borderRadius: 12, border: "1px solid rgba(242,237,230,0.12)", fontSize: 15, outline: "none", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontWeight: 600, width: "100%", boxSizing: "border-box" }} />
             </div>
             <div style={{ display: "grid", gap: 8 }}>

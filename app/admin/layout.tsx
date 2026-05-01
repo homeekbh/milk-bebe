@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
@@ -21,9 +21,12 @@ const NAV = [
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router   = useRouter();
+
   const [mobile,    setMobile]    = useState(false);
   const [open,      setOpen]      = useState(false);
   const [userEmail, setUserEmail] = useState("");
+  const [checking,  setChecking]  = useState(true);
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 768);
@@ -33,10 +36,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user?.email) setUserEmail(session.user.email);
+    if (pathname === "/admin/login") { setChecking(false); return; }
+
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) {
+        router.replace(`/admin/login?redirect=${pathname}`);
+        return;
+      }
+
+      // Vérifier is_admin en BDD
+      const { data: profile } = await supabase
+        .from("profiles").select("is_admin").eq("id", session.user.id).single();
+
+      if (!profile?.is_admin) {
+        await supabase.auth.signOut();
+        router.replace("/admin/login");
+        return;
+      }
+
+      setUserEmail(session.user.email ?? "");
+      setChecking(false);
     });
-  }, []);
+  }, [pathname, router]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -45,6 +66,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   // Page login — pas de layout
   if (pathname === "/admin/login") return <>{children}</>;
+
+  // Vérification en cours
+  if (checking) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#1a1410", display: "grid", placeItems: "center" }}>
+        <div style={{ color: "#c49a4a", fontSize: 14, fontWeight: 700 }}>Vérification des droits...</div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ display: "flex", minHeight: "100vh", background: "#f5f0e8" }}>

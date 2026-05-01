@@ -13,6 +13,28 @@ const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_3,
 ].filter(Boolean) as string[];
 
+// ── Extrait la taille depuis le nom de l'article
+// Ex: "Body éclairs — 0-3 mois" → "0-3 mois"
+// Ex: "Body éclairs — Noir — 3-6 mois" → "3-6 mois"
+function extractTailleFromName(name: string): string | null {
+  if (!name) return null;
+  const parts = name.split(" — ");
+  if (parts.length < 2) return null;
+  // La taille est toujours le dernier segment s'il ressemble à une taille
+  const last = parts[parts.length - 1].trim();
+  const taillePatterns = [
+    /^Nouveau-né$/i,
+    /^\d+-\d+\s*mois$/i,
+    /^0-6\s*mois$/i,
+    /^6-12\s*mois$/i,
+    /^Taille unique$/i,
+    /^\d+×\d+\s*cm$/i,
+    /^Naissance$/i,
+  ];
+  if (taillePatterns.some(p => p.test(last))) return last;
+  return null;
+}
+
 export async function POST(req: Request) {
   const body        = await req.text();
   const headersList = await headers();
@@ -53,7 +75,7 @@ export async function POST(req: Request) {
         country:     shippingAddr.country     ?? "FR",
       } : null;
 
-      // ✅ Enregistrer la commande (upsert pour éviter doublons)
+      // ✅ Enregistrer la commande (upsert — protection doublons)
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .upsert([{
@@ -77,21 +99,25 @@ export async function POST(req: Request) {
         console.log("✅ Order saved:", orderData?.id);
       }
 
-      // ✅ Décrémenter le stock — par slug ET par id pour robustesse
+      // ✅ Décrémenter stock global ET sizes_stock par taille
       for (const item of items) {
         let productData: any = null;
 
-        // Essaie d'abord par id
+        // Cherche d'abord par id, fallback par slug
         if (item.id) {
           const { data } = await supabaseServer
-            .from("products").select("id, stock, slug").eq("id", item.id).single();
+            .from("products")
+            .select("id, stock, slug, sizes_stock")
+            .eq("id", item.id)
+            .single();
           if (data) productData = data;
         }
-
-        // Fallback par slug si id ne match pas
         if (!productData && item.slug) {
           const { data } = await supabaseServer
-            .from("products").select("id, stock, slug").eq("slug", item.slug).single();
+            .from("products")
+            .select("id, stock, slug, sizes_stock")
+            .eq("slug", item.slug)
+            .single();
           if (data) productData = data;
         }
 
@@ -100,18 +126,43 @@ export async function POST(req: Request) {
           continue;
         }
 
-        const newStock = Math.max(0, (productData.stock ?? 0) - (item.quantity ?? 1));
+        const qty = item.quantity ?? 1;
+
+        // ── 1. Décrémenter stock global
+        const newStock = Math.max(0, (productData.stock ?? 0) - qty);
+        const updatePayload: Record<string, any> = { stock: newStock };
+
+        // ── 2. Décrémenter sizes_stock si la taille est identifiable
+        const taille = extractTailleFromName(item.name ?? "");
+        if (taille) {
+          const currentSizesStock: Record<string, number> = productData.sizes_stock ?? {};
+          const currentTailleStock = currentSizesStock[taille] ?? 0;
+          const newTailleStock     = Math.max(0, currentTailleStock - qty);
+
+          // Met à jour l'objet sizes_stock avec la nouvelle valeur pour cette taille
+          updatePayload.sizes_stock = {
+            ...currentSizesStock,
+            [taille]: newTailleStock,
+          };
+
+          console.log(`✅ sizes_stock[${taille}]: ${currentTailleStock} → ${newTailleStock}`);
+        } else {
+          console.log(`ℹ️ Pas de taille identifiée pour "${item.name}" — stock global uniquement`);
+        }
+
         const { error: stockError } = await supabaseServer
-          .from("products").update({ stock: newStock }).eq("id", productData.id);
+          .from("products")
+          .update(updatePayload)
+          .eq("id", productData.id);
 
         if (stockError) {
           console.error("❌ Stock update error:", productData.slug, stockError.message);
         } else {
-          console.log(`✅ Stock updated: ${productData.slug} → ${newStock}`);
+          console.log(`✅ Stock updated: ${productData.slug} → global: ${newStock}`);
         }
       }
 
-      // Incrémenter uses_count promo
+      // ✅ Incrémenter uses_count promo
       if (promoCode) {
         const { data: promo } = await supabaseServer
           .from("promo_codes").select("id, uses_count").eq("code", promoCode).single();
@@ -123,7 +174,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // Marquer abandoned cart comme converti
+      // ✅ Marquer abandoned cart comme converti
       if (email) {
         await supabaseServer
           .from("abandoned_carts")
@@ -131,7 +182,7 @@ export async function POST(req: Request) {
           .eq("email", email.toLowerCase().trim());
       }
 
-      // Emails de confirmation
+      // ✅ Email de confirmation client
       if (email && orderData) {
         try {
           await fetch(`${BASE}/api/emails/confirmation`, {
@@ -154,7 +205,7 @@ export async function POST(req: Request) {
         }
       }
 
-      // Notification admin
+      // ✅ Notification admin — depuis bonjour@milkbebe.fr
       if (orderData && ADMIN_EMAILS.length > 0) {
         const itemsHtml = items.map((i: any) =>
           `<div style="font-size:14px;color:rgba(242,237,230,0.65);margin-top:6px">
@@ -165,8 +216,8 @@ export async function POST(req: Request) {
         for (const adminEmail of ADMIN_EMAILS) {
           try {
             await resend.emails.send({
-              from: "M!LK Notifications <onboarding@resend.dev>",
-              to:   adminEmail,
+              from:    "M!LK <bonjour@milkbebe.fr>",
+              to:      adminEmail,
               subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
               html: `
                 <div style="background:#1a1410;font-family:Arial,sans-serif;padding:32px;border-radius:16px;max-width:520px">

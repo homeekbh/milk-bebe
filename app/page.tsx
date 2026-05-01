@@ -266,7 +266,7 @@ export default function HomePage() {
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation:"badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -52,0 a 52,52 0 1,1 104,0 a 52,52 0 1,1 -104,0" fill="none"/>
               <text fontSize="11" fontWeight="700" letterSpacing="5.5" fill={C.amber}>
-                <textPath href="#bc" startOffset="0%"> —  OEKO-TEX  —  BAMBOU PREMIUM  </textPath>
+                <textPath href="#bc" startOffset="0%"> — OEKO-TEX — BAMBOU PREMIUM </textPath>
               </text>
             </svg>
           </div>

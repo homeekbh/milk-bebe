@@ -30,6 +30,10 @@ export async function POST(req: NextRequest) {
   if ("position"    in body) clean.position     = isNaN(Number(body.position))    ? 0    : Number(body.position);
   if ("weight_g"    in body) clean.weight_g     = (!body.weight_g  || isNaN(Number(body.weight_g))) ? null : Number(body.weight_g);
 
+  // Colonnes JSONB — stocker telles quelles (arrays d'objets)
+  if ("fiche_cards" in body) clean.fiche_cards = Array.isArray(body.fiche_cards) ? body.fiche_cards : null;
+  if ("fiche_faqs"  in body) clean.fiche_faqs  = Array.isArray(body.fiche_faqs)  ? body.fiche_faqs  : null;
+
   const { data, error } = await supabaseServer
     .from("products").insert([clean]).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
@@ -48,6 +52,10 @@ export async function PUT(req: NextRequest) {
   if ("promo_end"   in rest) clean.promo_end    = rest.promo_end   || null;
   if ("position"    in rest) clean.position     = isNaN(Number(rest.position))    ? 0    : Number(rest.position);
   if ("weight_g"    in rest) clean.weight_g     = (!rest.weight_g  || isNaN(Number(rest.weight_g))) ? null : Number(rest.weight_g);
+
+  // Colonnes JSONB — stocker telles quelles
+  if ("fiche_cards" in rest) clean.fiche_cards = Array.isArray(rest.fiche_cards) ? rest.fiche_cards : null;
+  if ("fiche_faqs"  in rest) clean.fiche_faqs  = Array.isArray(rest.fiche_faqs)  ? rest.fiche_faqs  : null;
 
   const { data, error } = await supabaseServer
     .from("products").update(clean).eq("id", id).select().single();

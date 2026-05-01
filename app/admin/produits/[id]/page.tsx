@@ -5,7 +5,6 @@ import { useParams, useRouter } from "next/navigation";
 
 const CATEGORIES = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
 
-// ✅ Tailles suggérées — pas limitées : on peut en créer de nouvelles librement
 const TAILLES_SUGGESTIONS = [
   "Naissance", "0-3 mois", "3-6 mois", "6-12 mois",
   "0-6 mois", "Taille unique", "120×120 cm",
@@ -40,13 +39,28 @@ const EMPTY: Record<string, string> = {
   supplier_ref: "",
 };
 
-// ✅ Type couleur — hex classique OU image de motif
 type ColorEntry = {
   name:       string;
   hex:        string;
   stock:      string;
   image_url?: string;
 };
+
+// ── Nouvelles structures pour cards et FAQs éditables ──
+type FicheCard = {
+  id:       string;
+  type:     "subtitle" | "description" | "coloris" | "features" | "whyresult" | "philosophy" | "entretien" | "motif";
+  title:    string;
+  content:  string; // JSON stringifié selon le type
+};
+
+type FaqItem = {
+  id:      string;
+  question: string;
+  reponse:  string;
+};
+
+function newId() { return Math.random().toString(36).slice(2, 9); }
 
 function slugify(s: string) {
   return s.trim().toLowerCase().normalize("NFD")
@@ -99,26 +113,26 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   }
 
   return (
-    <div style={{ padding: 14, borderRadius: 12, border: isMain ? "2px solid #c49a4a" : "1px solid rgba(0,0,0,0.08)", background: isMain ? "#fffbf0" : "#fafafa", display: "grid", gap: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <label style={{ ...LS, fontWeight: 900 }}>{label}</label>
+    <div style={{ display: "grid", gap: 8 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, justifyContent: "space-between" }}>
+        <label style={LS}>{label}</label>
         <label style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer", fontSize: 13, fontWeight: 800, color: isMain ? "#c49a4a" : "rgba(0,0,0,0.4)" }}>
           <input type="radio" name="main_photo" checked={isMain} onChange={onSetMain} style={{ accentColor: "#c49a4a" }} />
-          {isMain ? "⭐ Principale" : "Définir principale"}
+          ⭐ Photo principale
         </label>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 8, alignItems: "center" }}>
-        <input type="text" value={value}
-          onChange={e => { onChange(fieldKey, e.target.value); setOk(false); }}
-          placeholder="https://..." style={{ ...IS, fontSize: 13 }} />
+      <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+        <input value={value} onChange={e => onChange(fieldKey, e.target.value)}
+          placeholder="URL de l'image..." style={{ ...IS, flex: 1 }} />
         <input ref={ref} type="file" accept="image/*" onChange={handleFile} style={{ display: "none" }} />
-        <button onClick={() => ref.current?.click()} disabled={uploading}
+        <button type="button" onClick={() => ref.current?.click()} disabled={uploading}
           style={{ padding: "11px 14px", borderRadius: 10, background: uploading ? "#f3f4f6" : "#1a1410", color: uploading ? "#9ca3af" : "#f2ede6", fontWeight: 800, fontSize: 13, border: "none", cursor: uploading ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-          {uploading ? "..." : "⬆ Upload"}
+          {uploading ? "Upload..." : "⬆ Uploader"}
         </button>
         {value && (
-          <img src={value} alt="" style={{ width: 40, height: 40, objectFit: "cover", borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)" }}
-            onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+          <div style={{ width: 48, height: 48, borderRadius: 8, overflow: "hidden", flexShrink: 0, border: "1px solid rgba(0,0,0,0.1)" }}>
+            <img src={value} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+          </div>
         )}
       </div>
       {err && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>❌ {err}</div>}
@@ -127,11 +141,11 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   );
 }
 
-// ── Field texte générique ─────────────────────────────────────────────────────
-function Field({ label, fieldKey, value, onChange, type = "text", placeholder, hint }: {
+// ── Field générique ───────────────────────────────────────────────────────────
+function Field({ label, fieldKey, value, onChange, placeholder, type = "text", hint }: {
   label: string; fieldKey: string; value: string;
   onChange: (k: string, v: string) => void;
-  type?: string; placeholder?: string; hint?: string;
+  placeholder?: string; type?: string; hint?: string;
 }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
@@ -143,130 +157,107 @@ function Field({ label, fieldKey, value, onChange, type = "text", placeholder, h
   );
 }
 
-// ── ✅ ColorEntryRow — pastille image OU couleur hex ─────────────────────────
+// ── ColorEntryRow ─────────────────────────────────────────────────────────────
 function ColorEntryRow({ color, index, onUpdate, onRemove }: {
   color: ColorEntry; index: number;
   onUpdate: (i: number, k: keyof ColorEntry, v: string) => void;
   onRemove: (i: number) => void;
 }) {
-  const imgRef = useRef<HTMLInputElement>(null);
-  const [uploading, setUploading] = useState(false);
+  const ref = useRef<HTMLInputElement>(null);
   const [uploadErr, setUploadErr] = useState("");
   const hasImage = !!color.image_url;
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true); setUploadErr("");
+    const file = e.target.files?.[0]; if (!file) return;
+    setUploadErr("");
     try {
-      const fd = new FormData();
-      fd.append("file", file);
+      const fd = new FormData(); fd.append("file", file);
       const res  = await fetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur upload");
+      if (!res.ok) throw new Error(data.error ?? "Erreur");
       onUpdate(index, "image_url", data.url);
     } catch (e: any) { setUploadErr(e.message); }
-    finally {
-      setUploading(false);
-      if (imgRef.current) imgRef.current.value = "";
-    }
+    finally { if (ref.current) ref.current.value = ""; }
   }
 
   return (
-    <div style={{ padding: 18, borderRadius: 14, background: "#fafafa", border: "1px solid rgba(0,0,0,0.08)", display: "grid", gap: 14 }}>
-
-      {/* Ligne principale */}
-      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px auto", gap: 12, alignItems: "end" }}>
-
-        {/* ✅ Pastille cliquable — image OU hex */}
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
-          <span style={{ ...LS, fontSize: 9 }}>Pastille</span>
-          <div
-            onClick={() => imgRef.current?.click()}
-            title="Cliquer pour uploader une image de motif"
+    <div style={{ display: "grid", gap: 14, padding: "18px 20px", borderRadius: 14, background: "#f5f0e8", border: "2px solid #1a1410" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 14, alignItems: "start" }}>
+        {/* Pastille */}
+        <div>
+          <input ref={ref} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
+          <button type="button" onClick={() => ref.current?.click()} title="Uploader une image de motif"
             style={{ position: "relative", width: 56, height: 56, borderRadius: 14, border: `2px solid ${hasImage ? "#c49a4a" : "rgba(0,0,0,0.12)"}`, overflow: "hidden", background: color.hex, cursor: "pointer" }}
           >
-            {hasImage && (
+            {color.image_url && (
               <img src={color.image_url} alt={color.name}
                 style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }}
                 onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
               />
             )}
-            {/* Overlay */}
-            <div className="swatch-overlay" style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.35)", display: "flex", alignItems: "center", justifyContent: "center", opacity: 0, transition: "opacity 0.15s" }}>
+            <div style={{ position: "absolute", bottom: 0, left: 0, right: 0, background: "rgba(0,0,0,0.5)", padding: "3px 0", textAlign: "center" }}>
               <span style={{ color: "#fff", fontSize: 18, lineHeight: 1 }}>⬆</span>
             </div>
-            {/* Badge mode */}
             <div style={{ position: "absolute", bottom: 2, right: 2, fontSize: 9, fontWeight: 900, background: hasImage ? "#c49a4a" : "#1a1410", color: "#fff", padding: "1px 4px", borderRadius: 4, lineHeight: 1.4 }}>
               {hasImage ? "IMG" : "HEX"}
             </div>
-          </div>
-          <input ref={imgRef} type="file" accept="image/*" onChange={handleImageUpload} style={{ display: "none" }} />
-
-          <style>{`.swatch-overlay:hover { opacity: 1 !important; }`}</style>
+          </button>
         </div>
 
         {/* Nom */}
-        <div style={{ display: "grid", gap: 5 }}>
+        <div style={{ display: "grid", gap: 6 }}>
           <label style={LS}>Nom du coloris / motif</label>
           <input type="text" value={color.name}
             onChange={e => onUpdate(index, "name", e.target.value)}
-            placeholder="Ex : Rouge cerise, Fleurs bleues..."
-            style={IS} />
+            placeholder="Ex : Noir damier, Caramel uni..." style={IS} />
         </div>
 
         {/* Stock */}
-        <div style={{ display: "grid", gap: 5 }}>
+        <div style={{ display: "grid", gap: 6 }}>
           <label style={LS}>Stock</label>
           <input type="number" value={color.stock} min="0"
             onChange={e => onUpdate(index, "stock", e.target.value)}
-            style={{ ...IS, textAlign: "center" }} />
+            style={{ ...IS, width: 80, textAlign: "center" }} />
         </div>
 
         {/* Supprimer */}
-        <button onClick={() => onRemove(index)}
+        <button type="button" onClick={() => onRemove(index)}
           style={{ padding: "12px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer", alignSelf: "end", marginBottom: 0 }}>
           ✕
         </button>
       </div>
 
-      {/* Ligne avancée : hex + URL image */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        <div style={{ display: "grid", gap: 5 }}>
-          <label style={{ ...LS, fontSize: 10 }}>
+      {/* Hex + image URL */}
+      <div style={{ display: "grid", gridTemplateColumns: "auto 1fr 1fr auto", gap: 10, alignItems: "end" }}>
+        <div style={{ display: "grid", gap: 6 }}>
+          <label style={LS}>
             Couleur hex {hasImage && <span style={{ color: "#c49a4a" }}>(image chargée ✓)</span>}
           </label>
           <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
             <input type="color" value={color.hex}
               onChange={e => onUpdate(index, "hex", e.target.value)}
-              style={{ width: 40, height: 38, borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", cursor: "pointer", padding: 2, flexShrink: 0 }} />
+              style={{ width: 44, height: 44, borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", padding: 2, cursor: "pointer" }} />
             <input type="text" value={color.hex}
               onChange={e => onUpdate(index, "hex", e.target.value)}
-              placeholder="#f2ede6"
-              style={{ ...IS, fontSize: 13, fontFamily: "monospace", flex: 1, width: "auto" }} />
+              style={{ ...IS, width: 110 }} />
           </div>
         </div>
-
-        <div style={{ display: "grid", gap: 5 }}>
-          <label style={{ ...LS, fontSize: 10 }}>URL image motif (ou upload ↑)</label>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-            <input type="text" value={color.image_url ?? ""}
-              onChange={e => onUpdate(index, "image_url", e.target.value)}
-              placeholder="https://..."
-              style={{ ...IS, fontSize: 12, flex: 1, width: "auto" }} />
-            {hasImage && (
-              <button onClick={() => onUpdate(index, "image_url", "")} title="Retirer l'image"
-                style={{ padding: "10px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 12, border: "none", cursor: "pointer", flexShrink: 0 }}>
-                ✕
-              </button>
-            )}
-          </div>
+        <div style={{ display: "grid", gap: 6 }}>
+          <label style={LS}>URL image motif (optionnel)</label>
+          <input type="text" value={color.image_url ?? ""}
+            onChange={e => onUpdate(index, "image_url", e.target.value)}
+            placeholder="https://..." style={IS} />
         </div>
+        {color.image_url && (
+          <button type="button" onClick={() => onUpdate(index, "image_url", "")}
+            style={{ padding: "10px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 12, border: "none", cursor: "pointer", flexShrink: 0 }}>
+            Retirer l'image
+          </button>
+        )}
       </div>
 
       {uploadErr && <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>❌ {uploadErr}</div>}
 
-      {/* Aperçu résumé */}
       {color.name && (
         <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "#fff", border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ width: 26, height: 26, borderRadius: 99, overflow: "hidden", border: "1px solid rgba(0,0,0,0.12)", background: color.hex, flexShrink: 0 }}>
@@ -275,6 +266,253 @@ function ColorEntryRow({ color, index, onUpdate, onRemove }: {
           <span style={{ fontWeight: 800, fontSize: 13, color: "#1a1410" }}>{color.name}</span>
           <span style={{ fontSize: 13, color: "rgba(26,20,16,0.45)" }}>— {color.stock} unité{parseInt(color.stock) !== 1 ? "s" : ""}</span>
           {hasImage && <span style={{ marginLeft: "auto", fontSize: 11, fontWeight: 800, color: "#c49a4a", background: "rgba(196,154,74,0.1)", padding: "3px 8px", borderRadius: 99 }}>Motif image ✓</span>}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── CARDS FICHE PRODUIT ÉDITABLES ─────────────────────────────────────────────
+
+const CARD_TYPES: { value: FicheCard["type"]; label: string; desc: string }[] = [
+  { value: "subtitle",    label: "Sous-titre produit",   desc: "Phrase d'accroche sous le nom (ex : Double zip + moufles…)" },
+  { value: "description", label: "Description",          desc: "Paragraphe de description libre" },
+  { value: "coloris",     label: "Info coloris",         desc: "Ex : Terre cuite — brun chaud aux nuances naturelles" },
+  { value: "motif",       label: "Info motif",           desc: "Ex : Motif Flash — éclairs blancs minimalistes" },
+  { value: "features",    label: "Points forts (liste)", desc: "Liste de points clés du produit" },
+  { value: "whyresult",   label: "Pourquoi / Résultat",  desc: "Bloc narratif en 2 parties : Pourquoi + Résultat" },
+  { value: "philosophy",  label: "Philosophie M!LK",     desc: "Bloc philosophie (texte long avec mise en forme auto)" },
+  { value: "entretien",   label: "Conseils d'entretien", desc: "Instructions de lavage/séchage" },
+];
+
+function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
+  card: FicheCard;
+  onUpdate: (id: string, field: keyof FicheCard, value: string) => void;
+  onRemove: (id: string) => void;
+  onMoveUp: (id: string) => void;
+  onMoveDown: (id: string) => void;
+  isFirst: boolean; isLast: boolean;
+}) {
+  const [open, setOpen] = useState(true);
+  const typeDef = CARD_TYPES.find(t => t.value === card.type);
+
+  // Parse features as array
+  let featuresArr: string[] = [];
+  if (card.type === "features") {
+    try { featuresArr = JSON.parse(card.content); } catch { featuresArr = []; }
+  }
+
+  // Parse whyresult
+  let wrObj = { why: "", result: "" };
+  if (card.type === "whyresult") {
+    try { wrObj = JSON.parse(card.content); } catch {}
+  }
+
+  // Parse entretien
+  let entretienArr: string[] = [];
+  if (card.type === "entretien") {
+    try { entretienArr = JSON.parse(card.content); } catch { entretienArr = []; }
+  }
+
+  function updateFeature(idx: number, val: string) {
+    const arr = [...featuresArr]; arr[idx] = val;
+    onUpdate(card.id, "content", JSON.stringify(arr));
+  }
+  function addFeature() {
+    onUpdate(card.id, "content", JSON.stringify([...featuresArr, ""]));
+  }
+  function removeFeature(idx: number) {
+    onUpdate(card.id, "content", JSON.stringify(featuresArr.filter((_, i) => i !== idx)));
+  }
+  function updateWR(field: "why"|"result", val: string) {
+    onUpdate(card.id, "content", JSON.stringify({ ...wrObj, [field]: val }));
+  }
+  function updateEntretienLine(idx: number, val: string) {
+    const arr = [...entretienArr]; arr[idx] = val;
+    onUpdate(card.id, "content", JSON.stringify(arr));
+  }
+  function addEntretienLine() {
+    onUpdate(card.id, "content", JSON.stringify([...entretienArr, ""]));
+  }
+  function removeEntretienLine(idx: number) {
+    onUpdate(card.id, "content", JSON.stringify(entretienArr.filter((_, i) => i !== idx)));
+  }
+
+  return (
+    <div style={{ borderRadius: 14, border: "2px solid rgba(196,154,74,0.3)", overflow: "hidden", background: "#fffdf9" }}>
+      {/* Header */}
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", background: "rgba(196,154,74,0.08)", borderBottom: open ? "1px solid rgba(196,154,74,0.2)" : "none" }}>
+        <button type="button" onClick={() => setOpen(v => !v)}
+          style={{ width: 28, height: 28, borderRadius: 8, border: "none", background: "rgba(196,154,74,0.15)", cursor: "pointer", fontSize: 14, display: "grid", placeItems: "center", color: "#c49a4a", flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none" }}>
+          +
+        </button>
+        <div style={{ flex: 1 }}>
+          <div style={{ fontWeight: 900, fontSize: 14, color: "#1a1410" }}>{typeDef?.label ?? card.type}</div>
+          {card.title && <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)", marginTop: 1 }}>{card.title}</div>}
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          <button type="button" onClick={() => onMoveUp(card.id)} disabled={isFirst}
+            style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isFirst ? "not-allowed" : "pointer", opacity: isFirst ? 0.3 : 1, fontSize: 13 }}>↑</button>
+          <button type="button" onClick={() => onMoveDown(card.id)} disabled={isLast}
+            style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isLast ? "not-allowed" : "pointer", opacity: isLast ? 0.3 : 1, fontSize: 13 }}>↓</button>
+          <button type="button" onClick={() => onRemove(card.id)}
+            style={{ padding: "5px 9px", borderRadius: 6, border: "none", background: "#fee2e2", color: "#b91c1c", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>✕</button>
+        </div>
+      </div>
+
+      {/* Body */}
+      {open && (
+        <div style={{ padding: "16px 16px 18px", display: "grid", gap: 12 }}>
+          {/* Titre interne optionnel */}
+          {(card.type === "philosophy" || card.type === "whyresult") && (
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={LS}>Titre interne (optionnel)</label>
+              <input value={card.title} onChange={e => onUpdate(card.id, "title", e.target.value)}
+                placeholder="Ex : Philosophie pour Bodies" style={IS} />
+            </div>
+          )}
+
+          {/* Contenu selon type */}
+          {(card.type === "subtitle" || card.type === "description" || card.type === "coloris" || card.type === "motif" || card.type === "philosophy") && (
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={LS}>{typeDef?.desc}</label>
+              <textarea value={card.content} onChange={e => onUpdate(card.id, "content", e.target.value)}
+                rows={card.type === "philosophy" ? 8 : card.type === "description" ? 4 : 2}
+                placeholder={typeDef?.desc}
+                style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", lineHeight: 1.6 }}>
+                {card.type === "philosophy" && "Sépare les paragraphes par une ligne vide (\\n\\n). Le 1er \\n\\n sépare texte principal et conclusion en gras."}
+                {(card.type === "subtitle" || card.type === "description") && "Texte affiché tel quel sur la fiche produit."}
+                {card.type === "coloris" && "Ex : Terre cuite — brun chaud aux nuances naturelles, à la fois doux et affirmé."}
+                {card.type === "motif" && "Format : Motif [Nom] — [description]. Ex : Motif Flash — éclairs blancs minimalistes sur fond gris."}
+              </div>
+            </div>
+          )}
+
+          {card.type === "features" && (
+            <div style={{ display: "grid", gap: 10 }}>
+              <label style={LS}>Points forts — un par ligne (le texte avant " : " sera en gras)</label>
+              {featuresArr.map((f, i) => (
+                <div key={i} style={{ display: "flex", gap: 8 }}>
+                  <input value={f} onChange={e => updateFeature(i, e.target.value)}
+                    placeholder={`Point ${i+1} (ex : Col enveloppe élargi : passe sur la tête sans forcer)`}
+                    style={{ ...IS, flex: 1 }} />
+                  <button type="button" onClick={() => removeFeature(i)}
+                    style={{ padding: "0 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800 }}>✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addFeature}
+                style={{ padding: "10px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
+                + Ajouter un point fort
+              </button>
+            </div>
+          )}
+
+          {card.type === "whyresult" && (
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Pourquoi — texte narratif (problème parent)</label>
+                <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
+                  rows={5} placeholder="Ex : Tu te lèves pour la 4e fois. Il est 3h du mat'..."
+                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Résultat — ce que ça change concrètement</label>
+                <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
+                  rows={3} placeholder="Ex : Change de couche en 30 secondes. Bébé reste calme..."
+                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+              </div>
+            </div>
+          )}
+
+          {card.type === "entretien" && (
+            <div style={{ display: "grid", gap: 10 }}>
+              <label style={LS}>Instructions d'entretien — une par ligne</label>
+              {entretienArr.map((line, i) => (
+                <div key={i} style={{ display: "flex", gap: 8 }}>
+                  <input value={line} onChange={e => updateEntretienLine(i, e.target.value)}
+                    placeholder={`Ex : Lavage 40°C, cycle délicat`}
+                    style={{ ...IS, flex: 1 }} />
+                  <button type="button" onClick={() => removeEntretienLine(i)}
+                    style={{ padding: "0 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800 }}>✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addEntretienLine}
+                style={{ padding: "10px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
+                + Ajouter une instruction
+              </button>
+            </div>
+          )}
+
+          {/* Aperçu minimaliste */}
+          {card.content && card.type === "features" && featuresArr.length > 0 && (
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "#f5f0e8", border: "1px solid rgba(196,154,74,0.2)" }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.35)", marginBottom: 8 }}>Aperçu</div>
+              {featuresArr.map((f, i) => {
+                const colonIdx = f.indexOf(" : ");
+                const label = colonIdx > -1 ? f.slice(0, colonIdx) : f;
+                const desc  = colonIdx > -1 ? f.slice(colonIdx + 3) : "";
+                return (
+                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }}>
+                    <span style={{ color: "#c49a4a", fontWeight: 900, flexShrink: 0 }}>✓</span>
+                    <span style={{ fontSize: 13 }}>
+                      <strong>{label}</strong>{desc && ` : ${desc}`}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── FAQ ÉDITABLES ──────────────────────────────────────────────────────────────
+function FaqEditor({ faq, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
+  faq: FaqItem;
+  onUpdate: (id: string, field: keyof FaqItem, value: string) => void;
+  onRemove: (id: string) => void;
+  onMoveUp: (id: string) => void;
+  onMoveDown: (id: string) => void;
+  isFirst: boolean; isLast: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", overflow: "hidden", background: "#fff" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", cursor: "pointer", background: "#f9f6f1" }} onClick={() => setOpen(v => !v)}>
+        <span style={{ fontSize: 18, color: "#c49a4a", fontWeight: 300, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none", flexShrink: 0 }}>+</span>
+        <div style={{ flex: 1, fontWeight: 700, fontSize: 14, color: "#1a1410" }}>
+          {faq.question || <span style={{ color: "rgba(26,20,16,0.35)" }}>Question non renseignée…</span>}
+        </div>
+        <div style={{ display: "flex", gap: 4 }}>
+          <button type="button" onClick={e => { e.stopPropagation(); onMoveUp(faq.id); }} disabled={isFirst}
+            style={{ padding: "4px 7px", borderRadius: 5, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isFirst ? "not-allowed" : "pointer", opacity: isFirst ? 0.3 : 1, fontSize: 11 }}>↑</button>
+          <button type="button" onClick={e => { e.stopPropagation(); onMoveDown(faq.id); }} disabled={isLast}
+            style={{ padding: "4px 7px", borderRadius: 5, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isLast ? "not-allowed" : "pointer", opacity: isLast ? 0.3 : 1, fontSize: 11 }}>↓</button>
+          <button type="button" onClick={e => { e.stopPropagation(); onRemove(faq.id); }}
+            style={{ padding: "4px 7px", borderRadius: 5, border: "none", background: "#fee2e2", color: "#b91c1c", cursor: "pointer", fontSize: 11, fontWeight: 800 }}>✕</button>
+        </div>
+      </div>
+      {open && (
+        <div style={{ padding: "14px 14px 16px", display: "grid", gap: 10 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={LS}>Question</label>
+            <input value={faq.question} onChange={e => onUpdate(faq.id, "question", e.target.value)}
+              placeholder="Ex : C'est quoi le double zip inversé ?" style={IS} />
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={LS}>Réponse (\\n pour sauter une ligne)</label>
+            <textarea value={faq.reponse} onChange={e => onUpdate(faq.id, "reponse", e.target.value)}
+              rows={4} placeholder="Ex : Un système d'ouverture à double sens..."
+              style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+          </div>
+          {faq.reponse && (
+            <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f5f0e8", fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+              {faq.reponse}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -293,7 +531,7 @@ export default function AdminProductForm() {
   const [sizes,        setSizes]        = useState<string[]>([]);
   const [sizesStock,   setSizesStock]   = useState<Record<string, string>>({});
   const [colors,       setColors]       = useState<ColorEntry[]>([]);
-  const [customTaille, setCustomTaille] = useState("");  // ✅ taille libre
+  const [customTaille, setCustomTaille] = useState("");
   const [loading,      setLoading]      = useState(!isNew);
   const [saving,       setSaving]       = useState(false);
   const [publishing,   setPublishing]   = useState(false);
@@ -301,6 +539,10 @@ export default function AdminProductForm() {
   const [success,      setSuccess]      = useState("");
   const [autoSaved,    setAutoSaved]    = useState(false);
   const [lastSaved,    setLastSaved]    = useState<Date | null>(null);
+
+  // ── Nouvelles states : cards fiche + FAQs ──
+  const [ficheCards,   setFicheCards]   = useState<FicheCard[]>([]);
+  const [faqs,         setFaqs]         = useState<FaqItem[]>([]);
 
   // Chargement produit existant
   useEffect(() => {
@@ -352,6 +594,13 @@ export default function AdminProductForm() {
                 }))
               : []
           );
+          // Charger cards et faqs sauvegardés
+          if (Array.isArray(data.fiche_cards)) {
+            setFicheCards(data.fiche_cards);
+          }
+          if (Array.isArray(data.fiche_faqs)) {
+            setFaqs(data.fiche_faqs);
+          }
         }
         setLoading(false);
       })
@@ -379,7 +628,6 @@ export default function AdminProductForm() {
     });
   }
 
-  // ✅ Taille : toggle prédéfinie OU ajout libre
   function toggleSize(t: string) {
     setSizes(prev => {
       if (prev.includes(t)) {
@@ -390,38 +638,68 @@ export default function AdminProductForm() {
       return [...prev, t];
     });
   }
-
   function addCustomTaille() {
-    const t = customTaille.trim();
-    if (!t) return;
-    if (!sizes.includes(t)) {
-      setSizes(prev => [...prev, t]);
-      setSizesStock(prev => ({ ...prev, [t]: "0" }));
-    }
+    const t = customTaille.trim(); if (!t) return;
+    if (!sizes.includes(t)) { setSizes(prev => [...prev, t]); setSizesStock(prev => ({ ...prev, [t]: "0" })); }
     setCustomTaille("");
   }
-
   function removeSize(t: string) {
     setSizes(prev => prev.filter(s => s !== t));
     setSizesStock(prev => { const n = { ...prev }; delete n[t]; return n; });
   }
+  function setSizeStock(t: string, v: string) { setSizesStock(prev => ({ ...prev, [t]: v })); }
 
-  function setSizeStock(t: string, v: string) {
-    setSizesStock(prev => ({ ...prev, [t]: v }));
-  }
-
-  const totalFromSizes  = sizes.length > 0
-    ? sizes.reduce((s, t) => s + (parseInt(sizesStock[t] ?? "0") || 0), 0)
-    : null;
-  const totalFromColors = colors.length > 0
-    ? colors.reduce((s, c) => s + (parseInt(c.stock) || 0), 0)
-    : null;
+  const totalFromSizes  = sizes.length > 0 ? sizes.reduce((s, t) => s + (parseInt(sizesStock[t] ?? "0") || 0), 0) : null;
+  const totalFromColors = colors.length > 0 ? colors.reduce((s, c) => s + (parseInt(c.stock) || 0), 0) : null;
   const computedStock   = totalFromSizes ?? totalFromColors;
 
   function addColor() { setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0", image_url: "" }]); }
   function removeColor(i: number) { setColors(p => p.filter((_, idx) => idx !== i)); }
   function updateColor(i: number, k: keyof ColorEntry, v: string) {
     setColors(p => p.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
+  }
+
+  // ── Cards fiche produit ──
+  function addCard(type: FicheCard["type"]) {
+    const typeDef = CARD_TYPES.find(t => t.value === type);
+    let defaultContent = "";
+    if (type === "features")  defaultContent = JSON.stringify([""]);
+    if (type === "whyresult") defaultContent = JSON.stringify({ why: "", result: "" });
+    if (type === "entretien") defaultContent = JSON.stringify(["Lavage 40°C, cycle délicat", "Sans adoucissant ni javel", "Séchage à l'air libre recommandé", "Sèche-linge basse température"]);
+    setFicheCards(prev => [...prev, { id: newId(), type, title: typeDef?.label ?? type, content: defaultContent }]);
+  }
+  function updateCard(id: string, field: keyof FicheCard, value: string) {
+    setFicheCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+  }
+  function removeCard(id: string) { setFicheCards(prev => prev.filter(c => c.id !== id)); }
+  function moveCard(id: string, dir: "up"|"down") {
+    setFicheCards(prev => {
+      const idx = prev.findIndex(c => c.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= next.length) return prev;
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
+  }
+
+  // ── FAQs ──
+  function addFaq() { setFaqs(prev => [...prev, { id: newId(), question: "", reponse: "" }]); }
+  function updateFaq(id: string, field: keyof FaqItem, value: string) {
+    setFaqs(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
+  }
+  function removeFaq(id: string) { setFaqs(prev => prev.filter(f => f.id !== id)); }
+  function moveFaq(id: string, dir: "up"|"down") {
+    setFaqs(prev => {
+      const idx = prev.findIndex(f => f.id === id);
+      if (idx === -1) return prev;
+      const next = [...prev];
+      const swapIdx = dir === "up" ? idx - 1 : idx + 1;
+      if (swapIdx < 0 || swapIdx >= next.length) return prev;
+      [next[idx], next[swapIdx]] = [next[swapIdx], next[idx]];
+      return next;
+    });
   }
 
   async function togglePublish() {
@@ -470,6 +748,9 @@ export default function AdminProductForm() {
           stock:     parseInt(c.stock) || 0,
           image_url: c.image_url || null,
         })),
+        // Nouvelles données fiche produit
+        fiche_cards: ficheCards,
+        fiche_faqs:  faqs,
       };
 
       const res  = await fetch("/api/admin/products", {
@@ -582,9 +863,9 @@ export default function AdminProductForm() {
           <Field label="Poids (grammes)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />
 
           <div style={{ display: "grid", gap: 6 }}>
-            <label style={LS}>Description</label>
+            <label style={LS}>Description courte (interne / fallback SEO)</label>
             <textarea value={form.description} onChange={e => set("description", e.target.value)}
-              placeholder="Description affichée sur la page produit..."
+              placeholder="Description courte interne..."
               rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
           </div>
         </div>
@@ -613,7 +894,6 @@ export default function AdminProductForm() {
             </div>
           </div>
 
-          {/* Suggestions prédéfinies */}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {TAILLES_SUGGESTIONS.map(t => {
               const checked = sizes.includes(t);
@@ -626,17 +906,14 @@ export default function AdminProductForm() {
             })}
           </div>
 
-          {/* ✅ Ajout taille libre */}
           <div style={{ display: "grid", gap: 6 }}>
             <label style={LS}>Ajouter une taille personnalisée</label>
             <div style={{ display: "flex", gap: 10 }}>
-              <input
-                type="text" value={customTaille}
+              <input type="text" value={customTaille}
                 onChange={e => setCustomTaille(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomTaille(); } }}
                 placeholder="Ex : 6-9 mois, 4 ans, XS, 50 cm..."
-                style={{ ...IS, flex: 1 }}
-              />
+                style={{ ...IS, flex: 1 }} />
               <button onClick={addCustomTaille}
                 style={{ padding: "12px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
                 + Ajouter
@@ -647,7 +924,6 @@ export default function AdminProductForm() {
             </div>
           </div>
 
-          {/* Tailles actives avec stock */}
           {sizes.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <label style={LS}>Stock par taille</label>
@@ -664,22 +940,16 @@ export default function AdminProductForm() {
                         </span>
                       )}
                     </div>
-
-                    {/* Barre stock */}
                     <div style={{ width: 100, height: 6, background: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", borderRadius: 99, background: stockVal === 0 ? "#9ca3af" : stockVal <= 5 ? "#f59e0b" : "#c49a4a", width: `${Math.min(100, (stockVal / 100) * 100)}%`, transition: "width 0.3s" }} />
                     </div>
-
-                    {/* Input stock */}
                     <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>Stock :</span>
                       <input type="number" min="0" value={sizesStock[t] ?? "0"}
                         onChange={e => setSizeStock(t, e.target.value)}
                         style={{ width: 72, padding: "8px 10px", borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", fontSize: 16, fontWeight: 900, textAlign: "center", outline: "none", background: "#fff" }} />
                     </div>
-
-                    {/* Supprimer taille */}
-                    <button onClick={() => removeSize(t)} title="Retirer cette taille"
+                    <button onClick={() => removeSize(t)}
                       style={{ padding: "8px 10px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
                       ✕
                     </button>
@@ -726,7 +996,6 @@ export default function AdminProductForm() {
             </div>
           )}
 
-          {/* Aperçu pastilles */}
           {colors.length > 0 && (
             <div style={{ padding: "16px 18px", borderRadius: 12, background: "#fafafa", border: "1px solid rgba(0,0,0,0.07)" }}>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 12 }}>
@@ -783,7 +1052,94 @@ export default function AdminProductForm() {
           </div>
         </div>
 
-        {/* ── 6. SEO ── */}
+        {/* ── 6. CONTENU FICHE PRODUIT ── */}
+        <div style={{ ...SECTION, border: "2px solid rgba(196,154,74,0.25)", background: "#fffdf8" }}>
+          <div>
+            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>
+              🎨 Contenu de la fiche produit
+            </div>
+            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>
+              Crée et ordonne les blocs qui s'afficheront sur la fiche produit. Chaque bloc a son propre style sur le site.
+              <br />Ces données remplacent le contenu généré automatiquement depuis la catégorie/slug.
+            </div>
+          </div>
+
+          {ficheCards.length === 0 ? (
+            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
+              Aucun bloc défini — la fiche affichera le contenu par défaut selon la catégorie
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 12 }}>
+              {ficheCards.map((card, idx) => (
+                <FicheCardEditor
+                  key={card.id}
+                  card={card}
+                  onUpdate={updateCard}
+                  onRemove={removeCard}
+                  onMoveUp={(id) => moveCard(id, "up")}
+                  onMoveDown={(id) => moveCard(id, "down")}
+                  isFirst={idx === 0}
+                  isLast={idx === ficheCards.length - 1}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Ajout de blocs */}
+          <div style={{ display: "grid", gap: 8 }}>
+            <label style={{ ...LS, color: "rgba(196,154,74,0.8)" }}>Ajouter un bloc</label>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {CARD_TYPES.map(t => (
+                <button key={t.value} type="button" onClick={() => addCard(t.value)}
+                  title={t.desc}
+                  style={{ padding: "9px 14px", borderRadius: 99, border: "2px dashed rgba(196,154,74,0.4)", background: "rgba(196,154,74,0.05)", color: "#c49a4a", fontWeight: 800, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}>
+                  + {t.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 7. FAQ ── */}
+        <div style={{ ...SECTION, border: "2px solid rgba(26,20,16,0.1)" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>
+                ❓ FAQ — Questions fréquentes
+              </div>
+              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6 }}>
+                Ajoute les questions/réponses spécifiques à ce produit. Elles s'afficheront dans l'accordéon FAQ de la fiche.
+              </div>
+            </div>
+            <button type="button" onClick={addFaq}
+              style={{ padding: "10px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+              + Ajouter une question
+            </button>
+          </div>
+
+          {faqs.length === 0 ? (
+            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
+              Aucune FAQ — les questions par défaut selon la catégorie seront utilisées
+            </div>
+          ) : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {faqs.map((faq, idx) => (
+                <FaqEditor
+                  key={faq.id}
+                  faq={faq}
+                  onUpdate={updateFaq}
+                  onRemove={removeFaq}
+                  onMoveUp={(id) => moveFaq(id, "up")}
+                  onMoveDown={(id) => moveFaq(id, "down")}
+                  isFirst={idx === 0}
+                  isLast={idx === faqs.length - 1}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── 8. SEO ── */}
         <div style={SECTION}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>SEO — Référencement Google</div>

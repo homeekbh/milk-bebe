@@ -6,7 +6,7 @@ import Image                           from "next/image";
 import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
 
-// \u2500\u2500 Palette unifi\u00e9e \u2500\u2500
+// ── Palette unifiée ──
 const BG    = "#d8c8b0"; // taupe clair = fond principal fiche
 const TAUPE = "#c4ae94"; // taupe moyen
 const AMBER = "#c49a4a";
@@ -21,115 +21,115 @@ function isPromoActive(p: any) {
 }
 
 function getMotifDetails(slug: string) {
-  if (slug.includes("eclair"))  return { motif: "Flash",  desc: "\u00e9clairs blancs minimalistes sur fond gris anthracite"      };
+  if (slug.includes("eclair"))  return { motif: "Flash",  desc: "éclairs blancs minimalistes sur fond gris anthracite"      };
   if (slug.includes("smileys")) return { motif: "Smile",  desc: "petits visages souriants, ton beige chaud sur fond caramel" };
-  if (slug.includes("damier"))  return { motif: "Check",  desc: "damier noir et \u00e9cru, graphique et intemporel"              };
-  if (slug.includes("uni"))     return { motif: "Uni",    desc: "c\u00f4tel\u00e9 intemporel, minimaliste et doux"                    };
+  if (slug.includes("damier"))  return { motif: "Check",  desc: "damier noir et écru, graphique et intemporel"              };
+  if (slug.includes("uni"))     return { motif: "Uni",    desc: "côtelé intemporel, minimaliste et doux"                    };
   return null;
 }
 
 function getProductSubtitle(category: string, slug: string): string {
-  if (slug.includes("bonnet"))    return "La vraie alternative au bonnet d'h\u00f4pital qu'on oublie d\u00e8s la sortie.";
+  if (slug.includes("bonnet"))    return "La vraie alternative au bonnet d'hôpital qu'on oublie dès la sortie.";
   if (slug.includes("lange"))     return "Le sommeil avant le style.";
-  if (category === "pyjamas")     return "Double zip + moufles int\u00e9gr\u00e9es = fin des batailles quotidiennes.";
-  if (category === "bodies")      return "Habillage en deux gestes. Mains prot\u00e9g\u00e9es. Sans accessoires.";
-  if (category === "gigoteuses")  return "Change express. Z\u00e9ro boutons. Z\u00e9ro gal\u00e8re \u00e0 3h du matin.";
+  if (category === "pyjamas")     return "Double zip + moufles intégrées = fin des batailles quotidiennes.";
+  if (category === "bodies")      return "Habillage en deux gestes. Mains protégées. Sans accessoires.";
+  if (category === "gigoteuses")  return "Change express. Zéro boutons. Zéro galère à 3h du matin.";
   return "";
 }
 
 function getProductDesc(slug: string): string {
-  if (slug.includes("bonnet")) return "Premier contact avec la t\u00eate fragile de votre nouveau-n\u00e9, ce bonnet a \u00e9t\u00e9 pens\u00e9 pour \u00eatre aussi doux que rassurant. Confectionn\u00e9 en bambou, il est naturellement respirant, souple et adapt\u00e9 aux peaux les plus sensibles. Il garde la chaleur sans jamais \u00e9touffer \u2014 exactement ce qu'il faut dans les premi\u00e8res heures de vie.";
+  if (slug.includes("bonnet")) return "Premier contact avec la tête fragile de votre nouveau-né, ce bonnet a été pensé pour être aussi doux que rassurant. Confectionné en bambou, il est naturellement respirant, souple et adapté aux peaux les plus sensibles. Il garde la chaleur sans jamais étouffer — exactement ce qu'il faut dans les premières heures de vie.";
   return "";
 }
 
 function getColoris(slug: string): string | null {
-  if (slug.includes("bonnet")) return "Terre cuite \u2014 brun chaud aux nuances naturelles, \u00e0 la fois doux et affirm\u00e9.";
+  if (slug.includes("bonnet")) return "Terre cuite — brun chaud aux nuances naturelles, à la fois doux et affirmé.";
   return null;
 }
 
 function getProductFeatures(category: string, slug: string): string[] {
   if (slug.includes("bonnet")) return [
-    "Ultra doux d\u00e8s le premier contact",
-    "Respirant : id\u00e9al pour r\u00e9guler la temp\u00e9rature",
+    "Ultra doux dès le premier contact",
+    "Respirant : idéal pour réguler la température",
     "Respectueux des peaux sensibles",
     "Coupe minimaliste : maintien parfait sans comprimer",
-    "Tailles disponibles : Naissance \u00e0 6 mois",
+    "Tailles disponibles : Naissance à 6 mois",
   ];
   if (slug.includes("lange")) return [
-    "Taille XXL (120\u00d7120 cm) : assez grand pour un emmaillotage qui tient vraiment",
-    "Bambou respirant : r\u00e9gule la temp\u00e9rature, pas de surchauffe",
-    "Reproduit la pression du ventre maternel : effet calmant imm\u00e9diat",
-    "Tissu avec grip : reste en place m\u00eame quand b\u00e9b\u00e9 se d\u00e9bat",
-    "Devient plus doux \u00e0 chaque lavage",
+    "Taille XXL (120×120 cm) : assez grand pour un emmaillotage qui tient vraiment",
+    "Bambou respirant : régule la température, pas de surchauffe",
+    "Reproduit la pression du ventre maternel : effet calmant immédiat",
+    "Tissu avec grip : reste en place même quand bébé se débat",
+    "Devient plus doux à chaque lavage",
     "Multi-usage : swaddle, couverture, drap d'allaitement, protection poussette",
   ];
   if (category === "bodies") return [
-    "Col enveloppe \u00e9largi : passe sur la t\u00eate sans forcer, z\u00e9ro pression sur la fontanelle",
+    "Col enveloppe élargi : passe sur la tête sans forcer, zéro pression sur la fontanelle",
     "3 pressions seulement : pas 7, pas 12. Juste 3.",
-    "Moufles pliables int\u00e9gr\u00e9es : tu replies, tu d\u00e9plies. Toujours l\u00e0.",
-    "Bambou hypoallerg\u00e9nique : z\u00e9ro irritation, m\u00eame sur peau atopique",
+    "Moufles pliables intégrées : tu replies, tu déplies. Toujours là.",
+    "Bambou hypoallergénique : zéro irritation, même sur peau atopique",
     "Extensible 4 sens : suit tous les mouvements, ne comprime pas",
-    "Coutures plates : z\u00e9ro frottement, z\u00e9ro marques",
+    "Coutures plates : zéro frottement, zéro marques",
   ];
   if (category === "pyjamas") return [
-    "Double zip invers\u00e9 : change par le bas, habille par le haut",
-    "Z\u00e9ro bouton : rien \u00e0 aligner, rien \u00e0 rater. Jamais.",
+    "Double zip inversé : change par le bas, habille par le haut",
+    "Zéro bouton : rien à aligner, rien à rater. Jamais.",
     "Pieds pliables : chauds quand il faut, libres quand c'est mieux",
-    "Moufles pliables int\u00e9gr\u00e9es : tu replies, tu d\u00e9plies. Fini les moufles perdues.",
+    "Moufles pliables intégrées : tu replies, tu déplies. Fini les moufles perdues.",
     "Bambou stretch 95% : suit tous les mouvements sans tirer",
-    "Silencieux : z\u00e9ro scratch, z\u00e9ro bruit qui r\u00e9veille",
+    "Silencieux : zéro scratch, zéro bruit qui réveille",
   ];
   if (category === "gigoteuses") return [
     "Bas nouable : ouvre/ferme d'une main, sans regarder, dans le noir",
-    "Z\u00e9ro bouton, z\u00e9ro zip : rien \u00e0 aligner, rien \u00e0 coincer",
-    "Moufles pliables int\u00e9gr\u00e9es : tu replies, tu d\u00e9plies. Toujours l\u00e0.",
-    "Bambou ultra-souple : glisse sans frotter, ne r\u00e9veille pas",
-    "Coupe ample : b\u00e9b\u00e9 bouge librement, z\u00e9ro compression",
-    "Thermor\u00e9gulant : chaud sans surchauffer. \u00c9t\u00e9 comme hiver.",
+    "Zéro bouton, zéro zip : rien à aligner, rien à coincer",
+    "Moufles pliables intégrées : tu replies, tu déplies. Toujours là.",
+    "Bambou ultra-souple : glisse sans frotter, ne réveille pas",
+    "Coupe ample : bébé bouge librement, zéro compression",
+    "Thermorégulant : chaud sans surchauffer. Été comme hiver.",
   ];
   return [];
 }
 
 function getWhyResult(category: string, slug: string): { why: string; result: string } | null {
   if (slug.includes("bonnet")) return {
-    why: "Premier contact avec la t\u00eate fragile de votre nouveau-n\u00e9, ce bonnet a \u00e9t\u00e9 pens\u00e9 pour \u00eatre aussi doux que rassurant. Confectionn\u00e9 en bambou, il est naturellement respirant, souple et adapt\u00e9 aux peaux les plus sensibles. Il garde la chaleur sans jamais \u00e9touffer, exactement ce qu'il faut dans les premi\u00e8res heures de vie.",
-    result: "Sa coupe minimaliste assure un maintien parfait sans comprimer. Votre b\u00e9b\u00e9 est au chaud, \u00e0 l'aise, sans pression inutile \u2014 d\u00e8s les premi\u00e8res minutes.",
+    why: "Premier contact avec la tête fragile de votre nouveau-né, ce bonnet a été pensé pour être aussi doux que rassurant. Confectionné en bambou, il est naturellement respirant, souple et adapté aux peaux les plus sensibles. Il garde la chaleur sans jamais étouffer, exactement ce qu'il faut dans les premières heures de vie.",
+    result: "Sa coupe minimaliste assure un maintien parfait sans comprimer. Votre bébé est au chaud, à l'aise, sans pression inutile — dès les premières minutes.",
   };
   if (slug.includes("lange")) return {
-    why: "Ton b\u00e9b\u00e9 sursaute, se r\u00e9veille, pleure. Le r\u00e9flexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essay\u00e9 d'emmailloter avec une couverture classique \u2014 \u00e7a se d\u00e9fait au premier mouvement. Les swaddles \u00e0 velcro ? Bruyants. Trop serr\u00e9s. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton b\u00e9b\u00e9 plus vite et lui permettre de dormir plus longtemps. Et toi avec.",
-    result: "B\u00e9b\u00e9 calm\u00e9 en quelques minutes. R\u00e9flexe de Moro contenu. Moins de r\u00e9veils en sursaut. Des plages de sommeil plus longues \u2014 pour lui et pour toi. Tu r\u00e9cup\u00e8res un peu.",
+    why: "Ton bébé sursaute, se réveille, pleure. Le réflexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essayé d'emmailloter avec une couverture classique — ça se défait au premier mouvement. Les swaddles à velcro ? Bruyants. Trop serrés. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton bébé plus vite et lui permettre de dormir plus longtemps. Et toi avec.",
+    result: "Bébé calmé en quelques minutes. Réflexe de Moro contenu. Moins de réveils en sursaut. Des plages de sommeil plus longues — pour lui et pour toi. Tu récupères un peu.",
   };
   if (category === "bodies") return {
-    why: "Habiller un nouveau-n\u00e9, c'est stressant. La t\u00eate est fragile, le cou ne tient pas, il pleure d\u00e8s que tu approches un v\u00eatement de son visage. Et une fois habill\u00e9 ? Il se griffe le visage parce que t'as oubli\u00e9 les moufles. Ce body existe pour simplifier : un col qui glisse sans forcer, des moufles pliables int\u00e9gr\u00e9es d\u00e9j\u00e0 l\u00e0, trois pressions et c'est fini.",
-    result: "Habillage en moins de 30 secondes. Pas de cris. Pas de stress sur la t\u00eate fragile. Mains prot\u00e9g\u00e9es H24 sans accessoire \u00e0 perdre. Tu passes \u00e0 autre chose.",
+    why: "Habiller un nouveau-né, c'est stressant. La tête est fragile, le cou ne tient pas, il pleure dès que tu approches un vêtement de son visage. Et une fois habillé ? Il se griffe le visage parce que t'as oublié les moufles. Ce body existe pour simplifier : un col qui glisse sans forcer, des moufles pliables intégrées déjà là, trois pressions et c'est fini.",
+    result: "Habillage en moins de 30 secondes. Pas de cris. Pas de stress sur la tête fragile. Mains protégées H24 sans accessoire à perdre. Tu passes à autre chose.",
   };
   if (category === "pyjamas") return {
-    why: "L'habillage d'un b\u00e9b\u00e9 peut virer au cauchemar. Il gigote, il pleure, tu t'\u00e9nerves. Les boutons-pression ? 15 \u00e0 aligner pendant qu'il se d\u00e9bat. Les moufles s\u00e9par\u00e9es ? Elles disparaissent toujours au mauvais moment. R\u00e9sultat : friction, tension, tout le monde finit \u00e9puis\u00e9. On a con\u00e7u ce pyjama pour supprimer le combat : un double zip qui simplifie tout + des moufles pliables int\u00e9gr\u00e9es pour \u00e9viter les griffures sans jamais avoir \u00e0 les chercher. Un zip. Deux gestes. C'est fait.",
-    result: "Habillage en moins d'une minute. Change de couche sans d\u00e9shabiller. Z\u00e9ro friction entre toi et ton b\u00e9b\u00e9. Pas de moufles \u00e0 retrouver au fond du salon : elles sont int\u00e9gr\u00e9es au poignet, pr\u00eates quand tu veux prot\u00e9ger son visage. Les routines deviennent fluides, pas stressantes.",
+    why: "L'habillage d'un bébé peut virer au cauchemar. Il gigote, il pleure, tu t'énerves. Les boutons-pression ? 15 à aligner pendant qu'il se débat. Les moufles séparées ? Elles disparaissent toujours au mauvais moment. Résultat : friction, tension, tout le monde finit épuisé. On a conçu ce pyjama pour supprimer le combat : un double zip qui simplifie tout + des moufles pliables intégrées pour éviter les griffures sans jamais avoir à les chercher. Un zip. Deux gestes. C'est fait.",
+    result: "Habillage en moins d'une minute. Change de couche sans déshabiller. Zéro friction entre toi et ton bébé. Pas de moufles à retrouver au fond du salon : elles sont intégrées au poignet, prêtes quand tu veux protéger son visage. Les routines deviennent fluides, pas stressantes.",
   };
   if (category === "gigoteuses") return {
-    why: "Tu te l\u00e8ves pour la 4e fois. Il est 3h du mat'. T'as les yeux \u00e0 moiti\u00e9 ferm\u00e9s. Tu dois changer une couche dans la p\u00e9nombre sans r\u00e9veiller compl\u00e8tement le b\u00e9b\u00e9 \u2014 ni toi-m\u00eame. Les boutons-pression ? Impossible \u00e0 aligner. Le zip ? Trop bruyant. Les moufles s\u00e9par\u00e9es ? Perdues quelque part dans le lit. Cette gigoteuse \u00e0 nouer existe pour \u00e7a : un v\u00eatement qu'on ouvre et ferme sans r\u00e9fl\u00e9chir, sans regarder, sans bataille.",
-    result: "Change de couche en 30 secondes. B\u00e9b\u00e9 reste calme, \u00e0 moiti\u00e9 endormi. Mains prot\u00e9g\u00e9es sans accessoire \u00e0 retrouver. Tu retournes te coucher plus vite. Les r\u00e9veils sont \u00e9court\u00e9s. Les nuits deviennent un peu moins chaotiques.",
+    why: "Tu te lèves pour la 4e fois. Il est 3h du mat'. T'as les yeux à moitié fermés. Tu dois changer une couche dans la pénombre sans réveiller complètement le bébé — ni toi-même. Les boutons-pression ? Impossible à aligner. Le zip ? Trop bruyant. Les moufles séparées ? Perdues quelque part dans le lit. Cette gigoteuse à nouer existe pour ça : un vêtement qu'on ouvre et ferme sans réfléchir, sans regarder, sans bataille.",
+    result: "Change de couche en 30 secondes. Bébé reste calme, à moitié endormi. Mains protégées sans accessoire à retrouver. Tu retournes te coucher plus vite. Les réveils sont écourtés. Les nuits deviennent un peu moins chaotiques.",
   };
   return null;
 }
 
 function getPhilosophy(category: string, slug: string): string {
-  if (slug.includes("bonnet"))    return "Chaque produit M!LK r\u00e9pond \u00e0 un probl\u00e8me r\u00e9el. Pas de design pour le design. Pas de fonctionnalit\u00e9 inutile. Juste ce qui compte quand t'es \u00e9puis\u00e9.\
+  if (slug.includes("bonnet"))    return "Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.\
 \
-Le bonnet en bambou, c'est exactement \u00e7a : ni trop, ni pas assez. Juste la bonne mati\u00e8re, la bonne coupe, pour les premi\u00e8res heures qui comptent vraiment.";
-  if (slug.includes("lange"))     return "Les swaddles \u00e0 velcro ? Le scratch r\u00e9veille le b\u00e9b\u00e9 quand tu l'ouvres. Les couvertures classiques ? Trop petites, se d\u00e9font. Les gigoteuses ? Pas adapt\u00e9es aux nouveau-n\u00e9s qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.\
+Le bonnet en bambou, c'est exactement ça : ni trop, ni pas assez. Juste la bonne matière, la bonne coupe, pour les premières heures qui comptent vraiment.";
+  if (slug.includes("lange"))     return "Les swaddles à velcro ? Le scratch réveille le bébé quand tu l'ouvres. Les couvertures classiques ? Trop petites, se défont. Les gigoteuses ? Pas adaptées aux nouveau-nés qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.\
 \
-Chaque produit M!LK r\u00e9pond \u00e0 un probl\u00e8me r\u00e9el. Pas de design pour le design. Pas de fonctionnalit\u00e9 inutile. Juste ce qui compte quand t'es \u00e9puis\u00e9.";
-  if (category === "bodies")      return "Les bodies \u00e0 col rond ? Bataille pour passer la t\u00eate, b\u00e9b\u00e9 hurle. Les bodies \u00e0 boutons sur l'\u00e9paule ? 6 pressions \u00e0 aligner. Les moufles s\u00e9par\u00e9es ? Perdues en 24h. Le body express combine col facile + pressions minimum + moufles pliables int\u00e9gr\u00e9es.\
+Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  if (category === "bodies")      return "Les bodies à col rond ? Bataille pour passer la tête, bébé hurle. Les bodies à boutons sur l'épaule ? 6 pressions à aligner. Les moufles séparées ? Perdues en 24h. Le body express combine col facile + pressions minimum + moufles pliables intégrées.\
 \
-Chaque produit M!LK r\u00e9pond \u00e0 un probl\u00e8me r\u00e9el. Pas de design pour le design. Pas de fonctionnalit\u00e9 inutile. Juste ce qui compte quand t'es \u00e9puis\u00e9.";
-  if (category === "pyjamas")     return "Les pyjamas \u00e0 boutons ? Combat garanti \u00e0 chaque change. Les combinaisons sans zip invers\u00e9 ? Tu dois tout d\u00e9faire pour une couche. Les moufles s\u00e9par\u00e9es ? Elles se perdent, tombent, disparaissent quand b\u00e9b\u00e9 en a le plus besoin. Ici : double zip invers\u00e9 + bambou stretch + moufles pliables int\u00e9gr\u00e9es = moins de gestes, moins de lutte, moins d'objets \u00e0 g\u00e9rer.\
+Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  if (category === "pyjamas")     return "Les pyjamas à boutons ? Combat garanti à chaque change. Les combinaisons sans zip inversé ? Tu dois tout défaire pour une couche. Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin. Ici : double zip inversé + bambou stretch + moufles pliables intégrées = moins de gestes, moins de lutte, moins d'objets à gérer.\
 \
-Chaque produit M!LK r\u00e9pond \u00e0 un probl\u00e8me r\u00e9el. Pas de design pour le design. Pas de fonctionnalit\u00e9 inutile. Juste ce qui compte quand t'es \u00e9puis\u00e9.";
-  if (category === "gigoteuses")  return "Les grenouill\u00e8res \u00e0 boutons ? 12 pressions \u00e0 aligner dans le noir \u2014 t'abandonnes au 3e essai. Les pyjamas zip ? Le bruit r\u00e9veille le b\u00e9b\u00e9. Les gigoteuses classiques ? Pas d'acc\u00e8s direct \u00e0 la couche. Les moufles s\u00e9par\u00e9es ? Perdues dans le lit \u00e0 3h du mat'. La gigoteuse \u00e0 nouer r\u00e9sout tout : acc\u00e8s imm\u00e9diat, fermeture silencieuse, z\u00e9ro manipulation complexe.\
+Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
+  if (category === "gigoteuses")  return "Les grenouillères à boutons ? 12 pressions à aligner dans le noir — t'abandonnes au 3e essai. Les pyjamas zip ? Le bruit réveille le bébé. Les gigoteuses classiques ? Pas d'accès direct à la couche. Les moufles séparées ? Perdues dans le lit à 3h du mat'. La gigoteuse à nouer résout tout : accès immédiat, fermeture silencieuse, zéro manipulation complexe.\
 \
-Chaque produit M!LK r\u00e9pond \u00e0 un probl\u00e8me r\u00e9el. Pas de design pour le design. Pas de fonctionnalit\u00e9 inutile. Juste ce qui compte quand t'es \u00e9puis\u00e9.";
+Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.";
   return "";
 }
 
@@ -188,15 +188,15 @@ function getProductFAQ(category: string, slug: string): { q: string; r: string }
 
 function getProductEntretien(slug: string) {
   if (slug.includes("bonnet")) return [
-    { Icon: IconBan,  text: "Lavage en cycle d\u00e9licat avec des couleurs similaires" },
-    { Icon: IconFlat, text: "S\u00e9chage \u00e0 plat ou sur cintre"                         },
-    { Icon: IconHeat, text: "\u00c9viter le s\u00e8che-linge pour pr\u00e9server la mati\u00e8re"      },
+    { Icon: IconBan,  text: "Lavage en cycle délicat avec des couleurs similaires" },
+    { Icon: IconFlat, text: "Séchage à plat ou sur cintre"                         },
+    { Icon: IconHeat, text: "Éviter le sèche-linge pour préserver la matière"      },
   ];
   return [
-    { Icon: IconThermometer, text: "Lavage 40\u00b0C, cycle d\u00e9licat"       },
+    { Icon: IconThermometer, text: "Lavage 40°C, cycle délicat"       },
     { Icon: IconBan,         text: "Sans adoucissant ni javel"         },
-    { Icon: IconFlat,        text: "S\u00e9chage \u00e0 l'air libre recommand\u00e9" },
-    { Icon: IconHeat,        text: "S\u00e8che-linge basse temp\u00e9rature"     },
+    { Icon: IconFlat,        text: "Séchage à l'air libre recommandé" },
+    { Icon: IconHeat,        text: "Sèche-linge basse température"     },
   ];
 }
 
@@ -224,7 +224,7 @@ function PhilosophyCard({ text }: { text: string }) {
   return (
     <div style={{ padding: "26px 26px", borderRadius: 20, background: MARON, height: "100%", display: "flex", flexDirection: "column", boxSizing: "border-box" }}>
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 5 }}>Philosophie M!LK</div>
-      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 22 }}>Comment \u00e7a r\u00e9duit ta charge mentale</div>
+      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 22 }}>Comment ça réduit ta charge mentale</div>
       <div style={{ display: "flex", flexDirection: "column", gap: 14, flex: 1 }}>
         {blocks.map((block, i) =>
           block.hero ? (
@@ -252,12 +252,12 @@ function PhilosophyCard({ text }: { text: string }) {
   );
 }
 
-const TAILLES_ORDER = ["Nouveau-n\u00e9","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120\u00d7120 cm"];
+const TAILLES_ORDER = ["Nouveau-né","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120×120 cm"];
 const GUIDE_TAILLES = [
-  { taille: "Nouveau-n\u00e9", poids: "2,5 \u2013 4 kg", poitrine: "21 cm", longueur: "50 cm" },
-  { taille: "0-3 mois",   poids: "3,5 \u2013 6 kg", poitrine: "22 cm", longueur: "54 cm" },
-  { taille: "3-6 mois",   poids: "6 \u2013 8 kg",   poitrine: "24 cm", longueur: "57 cm" },
-  { taille: "6-12 mois",  poids: "8 \u2013 11 kg",  poitrine: "26 cm", longueur: "62 cm" },
+  { taille: "Nouveau-né", poids: "2,5 – 4 kg", poitrine: "21 cm", longueur: "50 cm" },
+  { taille: "0-3 mois",   poids: "3,5 – 6 kg", poitrine: "22 cm", longueur: "54 cm" },
+  { taille: "3-6 mois",   poids: "6 – 8 kg",   poitrine: "24 cm", longueur: "57 cm" },
+  { taille: "6-12 mois",  poids: "8 – 11 kg",  poitrine: "26 cm", longueur: "62 cm" },
 ];
 
 const IconThermometer = () => <svg width="15" height="15" viewBox="0 0 24 24" fill="none"><path d="M12 2v10m0 0a4 4 0 1 0 0 8 4 4 0 0 0 0-8z" stroke={AMBER} strokeWidth="1.8" strokeLinecap="round"/><path d="M12 6h2M12 9h1" stroke={AMBER} strokeWidth="1.5" strokeLinecap="round"/></svg>;
@@ -270,7 +270,7 @@ const IconReturn      = () => <svg width="13" height="13" viewBox="0 0 24 24" fi
 const IconLock        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke={AMBER} strokeWidth="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={AMBER} strokeWidth="1.8"/></svg>;
 const IconSize        = () => <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h10M3 18h6" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>;
 
-// \u2500\u2500 7 ic\u00f4nes exactes de la capture \u2014 une seule ligne, toutes visibles \u2500\u2500
+// ── 7 icônes exactes de la capture — une seule ligne, toutes visibles ──
 function IconBandeau() {
   // Filtre CSS pour convertir le noir (#000) des SVG en marron foncé (#2d1a0e)
   const svgFilter = "brightness(0) saturate(100%) invert(10%) sepia(40%) saturate(700%) hue-rotate(340deg) brightness(55%)";
@@ -305,10 +305,10 @@ function IconBandeau() {
 function DiagonalBadge({ label, out }: { label?: string; out: boolean }) {
   if (out) return (
     <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 30, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 26, right: -30, background: "#6b7280", color: "#fff", fontSize: 11, fontWeight: 900, padding: "8px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>\u00c9puis\u00e9</div>
+      <div style={{ position: "absolute", top: 26, right: -30, background: "#6b7280", color: "#fff", fontSize: 11, fontWeight: 900, padding: "8px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>Épuisé</div>
     </div>
   );
-  const cfg: Record<string,string> = { nouveau:"Nouveau", bestseller:"Best seller", exclusif:"Exclusif", last:"Derni\u00e8res pi\u00e8ces", promo:"Promo", coup_de_coeur:"Coup de c\u0153ur" };
+  const cfg: Record<string,string> = { nouveau:"Nouveau", bestseller:"Best seller", exclusif:"Exclusif", last:"Dernières pièces", promo:"Promo", coup_de_coeur:"Coup de cœur" };
   const text = label ? cfg[label] : null;
   if (!text) return null;
   return (
@@ -332,7 +332,7 @@ function Lightbox({ images, startIndex, onClose }: { images: string[]; startInde
     <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.94)", display: "flex", flexDirection: "column" }}>
       <div style={{ flexShrink: 0, padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div style={{ fontSize: 13, color: "rgba(255,255,255,0.4)", fontWeight: 600 }}>{images.length} photo{images.length > 1 ? "s" : ""}</div>
-        <button onClick={onClose} style={{ width: 40, height: 40, borderRadius: 99, background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", color: "#fff", fontSize: 18, display: "grid", placeItems: "center" }}>\u2715</button>
+        <button onClick={onClose} style={{ width: 40, height: 40, borderRadius: 99, background: "rgba(255,255,255,0.1)", border: "none", cursor: "pointer", color: "#fff", fontSize: 18, display: "grid", placeItems: "center" }}>✕</button>
       </div>
       <div ref={containerRef} style={{ flex: 1, overflowY: "auto", padding: "0 20px 40px", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
         {images.map((img, i) => (
@@ -391,8 +391,12 @@ export default function ProductPage() {
 
   function handleAddToCart() {
     if (!product) return;
-    const name = [product.name, taille, couleur].filter(Boolean).join(" \u2014 ");
-    for (let i = 0; i < qty; i++) addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: 1 });
+    if (taillesDispos.length > 0 && !taille) {
+      alert("Merci de sélectionner une taille avant d'ajouter au panier.");
+      return;
+    }
+    const name = [product.name, taille, couleur].filter(Boolean).join(" — ");
+    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty });
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }
 
@@ -400,7 +404,7 @@ export default function ProductPage() {
   if (!product) return (
     <div style={{ minHeight: "60vh", display: "grid", placeItems: "center", background: BG, padding: 40, textAlign: "center" }}>
       <div><div style={{ fontSize: 18, fontWeight: 800, marginBottom: 12, color: DARK }}>Produit introuvable</div>
-      <Link href="/produits" style={{ padding: "12px 24px", borderRadius: 12, background: DARK, color: WARM, fontWeight: 800, textDecoration: "none" }}>\u2190 Retour</Link></div>
+      <Link href="/produits" style={{ padding: "12px 24px", borderRadius: 12, background: DARK, color: WARM, fontWeight: 800, textDecoration: "none" }}>← Retour</Link></div>
     </div>
   );
 
@@ -414,19 +418,28 @@ export default function ProductPage() {
   const sizesStock     : Record<string,number> = product.sizes_stock ?? {};
   const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
   const outTaille      = taille ? Number(sizesStock[taille] ?? product.stock ?? 0) <= 0 : out;
+  const needsTaille     = taillesDispos.length > 0 && !taille;
   const cartCount      = items.reduce((s, i) => s + i.quantity, 0);
 
   const productSlug   = product.slug ?? "";
   const productCat    = product.category_slug ?? "";
-  const subtitle      = getProductSubtitle(productCat, productSlug);
-  const extraDesc     = getProductDesc(productSlug);
-  const coloris       = getColoris(productSlug);
-  const features      = getProductFeatures(productCat, productSlug);
-  const whyResult     = getWhyResult(productCat, productSlug);
-  const philosophy    = getPhilosophy(productCat, productSlug);
-  const FAQ           = getProductFAQ(productCat, productSlug);
-  const entretien     = getProductEntretien(productSlug);
-  const motif         = getMotifDetails(productSlug);
+
+  // ── Priorité : données custom admin (fiche_cards/fiche_faqs) sinon fallback auto ──
+  const ficheCards: any[]  = Array.isArray(product.fiche_cards) ? product.fiche_cards : [];
+  const ficheFaqs:  any[]  = Array.isArray(product.fiche_faqs)  ? product.fiche_faqs  : [];
+  const hasCustomCards     = ficheCards.length > 0;
+  const hasCustomFaqs      = ficheFaqs.length > 0;
+
+  // Helpers fallback (utilisés si pas de custom)
+  const subtitle      = hasCustomCards ? (ficheCards.find((c: any) => c.type === "subtitle")?.content ?? "") : getProductSubtitle(productCat, productSlug);
+  const extraDesc     = hasCustomCards ? (ficheCards.find((c: any) => c.type === "description")?.content ?? "") : getProductDesc(productSlug);
+  const coloris       = hasCustomCards ? (ficheCards.find((c: any) => c.type === "coloris")?.content ?? null) : getColoris(productSlug);
+  const motif         = hasCustomCards ? (() => { const m = ficheCards.find((c: any) => c.type === "motif"); if (!m?.content) return null; const parts = m.content.split(" — "); return parts.length >= 2 ? { motif: parts[0].replace("Motif ", ""), desc: parts.slice(1).join(" — ") } : null; })() : getMotifDetails(productSlug);
+  const features      = hasCustomCards ? (() => { try { return JSON.parse(ficheCards.find((c: any) => c.type === "features")?.content ?? "[]"); } catch { return []; } })() : getProductFeatures(productCat, productSlug);
+  const whyResult     = hasCustomCards ? (() => { try { const wr = JSON.parse(ficheCards.find((c: any) => c.type === "whyresult")?.content ?? "null"); return wr?.why ? wr : null; } catch { return null; } })() : getWhyResult(productCat, productSlug);
+  const philosophy    = hasCustomCards ? (ficheCards.find((c: any) => c.type === "philosophy")?.content ?? "") : getPhilosophy(productCat, productSlug);
+  const entretien     = hasCustomCards ? (() => { try { const arr = JSON.parse(ficheCards.find((c: any) => c.type === "entretien")?.content ?? "null"); return Array.isArray(arr) ? arr.map((text: string, i: number) => ({ Icon: [IconThermometer,IconBan,IconFlat,IconHeat][i%4], text })) : getProductEntretien(productSlug); } catch { return getProductEntretien(productSlug); } })() : getProductEntretien(productSlug);
+  const FAQ           = hasCustomFaqs ? ficheFaqs.map((f: any) => ({ q: f.question, r: f.reponse })) : getProductFAQ(productCat, productSlug);
 
   const photoRows: string[][] = [];
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }
@@ -473,7 +486,7 @@ export default function ProductPage() {
 
       <div className="pl-outer">
 
-        {/* \u2500\u2500\u2500 GAUCHE : photos \u2500\u2500\u2500 */}
+        {/* ─── GAUCHE : photos ─── */}
         <div className="pl-left">
           <div style={{ position: "relative" }}>
             <DiagonalBadge label={badgeLabel} out={out} />
@@ -506,11 +519,11 @@ export default function ProductPage() {
           <IconBandeau />
         </div>
 
-        {/* \u2500\u2500\u2500 DROITE : panneau achat \u2500\u2500\u2500 */}
+        {/* ─── DROITE : panneau achat ─── */}
         <div className="pl-right">
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
-            {productCat || "M!LK"} \u00b7 Bambou OEKO-TEX
+            {productCat || "M!LK"} · Bambou OEKO-TEX
           </div>
 
           <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>
@@ -518,8 +531,8 @@ export default function ProductPage() {
           </h1>
 
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>{Number(displayPrice).toFixed(2)} \u20ac</span>
-            {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} \u20ac</span>}
+            <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>{Number(displayPrice).toFixed(2)} €</span>
+            {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
           </div>
 
@@ -528,7 +541,7 @@ export default function ProductPage() {
 
           {features.length > 0 && (
             <div style={{ padding: "18px 20px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)`, display: "flex", flexDirection: "column", gap: 11 }}>
-              {features.map((feat, i) => {
+              {features.map((feat: string, i: number) => {
                 const colonIdx = feat.indexOf(" : ");
                 const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
                 const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
@@ -549,20 +562,20 @@ export default function ProductPage() {
 
           {coloris && (
             <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: DARK, lineHeight: 1.5 }}>
-              <span style={{ color: AMBER, fontWeight: 900 }}>Coloris</span> \u2014 {coloris}
+              <span style={{ color: AMBER, fontWeight: 900 }}>Coloris</span> — {coloris}
             </div>
           )}
 
           {!coloris && motif && (
             <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: DARK, lineHeight: 1.5 }}>
-              <span style={{ color: AMBER, fontWeight: 900 }}>Motif {motif.motif}</span> \u2014 {motif.desc}.
+              <span style={{ color: AMBER, fontWeight: 900 }}>Motif {motif.motif}</span> — {motif.desc}.
             </div>
           )}
 
           {couleursDispos.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                Couleur {couleur && <span style={{ color: DARK }}>\u2014 {couleur}</span>}
+                Couleur {couleur && <span style={{ color: DARK }}>— {couleur}</span>}
               </span>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 {couleursDispos.map((c: any) => {
@@ -583,7 +596,7 @@ export default function ProductPage() {
           {taillesDispos.length > 0 && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                Taille {taille && <span style={{ color: DARK }}>\u2014 {taille}</span>}
+                Taille {taille && <span style={{ color: DARK }}>— {taille}</span>}
               </span>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {
@@ -602,7 +615,7 @@ export default function ProductPage() {
               </div>
               <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>
-                <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>Le bambou stretch est extr\u00eamement extensible \u2014 pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus.</span>
+                <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>Le bambou stretch est extrêmement extensible — pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus.</span>
               </div>
             </div>
           )}
@@ -637,16 +650,16 @@ export default function ProductPage() {
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "rgba(26,20,16,0.04)" }}>En cas de doute, prenez la taille sup\u00e9rieure.</div>
+                  <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "rgba(26,20,16,0.04)" }}>En cas de doute, prenez la taille supérieure.</div>
                 </div>
               )}
             </div>
           )}
 
           <div style={{ display: "grid", gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>Quantit\u00e9</span>
+            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>Quantité</span>
             <div style={{ display: "flex", alignItems: "center", background: "rgba(26,20,16,0.06)", borderRadius: 12, padding: 4, width: "fit-content" }}>
-              <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>\u2212</button>
+              <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>−</button>
               <span style={{ width: 40, textAlign: "center", fontWeight: 900, fontSize: 16, color: DARK }}>{qty}</span>
               <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>+</button>
             </div>
@@ -654,8 +667,8 @@ export default function ProductPage() {
 
           <div style={{ display: "grid", gap: 10 }}>
             <button onClick={handleAddToCart} disabled={outTaille}
-              style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s" }}>
-              {added ? "\u2713 Ajout\u00e9 au panier !" : outTaille ? "\u00c9puis\u00e9" : `Ajouter \u2014 ${(Number(displayPrice) * qty).toFixed(2)} \u20ac`}
+              style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
+              {added ? "✓ Ajouté au panier !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
             </button>
             {cartCount > 0 && (
               <Link href="/panier" style={{ padding: "13px 24px", borderRadius: 16, border: `2px solid ${DARK}`, fontWeight: 800, fontSize: 14, textDecoration: "none", color: DARK, textAlign: "center", display: "block" }}>
@@ -667,9 +680,9 @@ export default function ProductPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[
               { Icon: IconLeaf,   label: "100% Bambou OEKO-TEX"     },
-              { Icon: IconTruck,  label: "Livraison offerte d\u00e8s 60\u20ac" },
+              { Icon: IconTruck,  label: "Livraison offerte dès 60€" },
               { Icon: IconReturn, label: "Retour gratuit 15 jours"   },
-              { Icon: IconLock,   label: "Paiement s\u00e9curis\u00e9 Stripe"  },
+              { Icon: IconLock,   label: "Paiement sécurisé Stripe"  },
             ].map(r => (
               <div key={r.label} style={{ padding: "9px 11px", borderRadius: 10, background: "rgba(26,20,16,0.07)", display: "flex", alignItems: "center", gap: 7, fontSize: "clamp(10px,0.9vw,12px)", fontWeight: 700, color: "rgba(26,20,16,0.65)", whiteSpace: "nowrap" }}>
                 <r.Icon />{r.label}
@@ -688,7 +701,7 @@ export default function ProductPage() {
           {whyResult && (
             <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 4 }}>Ce que tu obtiens</div>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Le r\u00e9sultat</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 12 }}>Le résultat</div>
               <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.8, fontWeight: 600 }}>{whyResult.result}</p>
             </div>
           )}
@@ -713,14 +726,14 @@ export default function ProductPage() {
         </div>
       </div>
 
-      {/* \u2500\u2500\u2500 BAS DE PAGE \u2500\u2500\u2500 */}
+      {/* ─── BAS DE PAGE ─── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
         <div className="bottom-grid" style={{ marginBottom: 24 }}>
           {related.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ marginBottom: 20 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 8 }}>Compl\u00e9tez votre collection</div>
-                <h2 style={{ margin: 0, fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>Les clients ont aussi achet\u00e9</h2>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 8 }}>Complétez votre collection</div>
+                <h2 style={{ margin: 0, fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>Les clients ont aussi acheté</h2>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 14, flex: 1 }}>
                 {related.map((p: any) => (
@@ -733,7 +746,7 @@ export default function ProductPage() {
                     </div>
                     <div style={{ padding: "10px 12px" }}>
                       <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 4, color: DARK, lineHeight: 1.3 }}>{p.name}</div>
-                      <div style={{ fontWeight: 950, fontSize: 15, color: DARK }}>{Number(p.price_ttc).toFixed(2)} \u20ac</div>
+                      <div style={{ fontWeight: 950, fontSize: 15, color: DARK }}>{Number(p.price_ttc).toFixed(2)} €</div>
                     </div>
                   </Link>
                 ))}
@@ -746,7 +759,7 @@ export default function ProductPage() {
 
         {/* FAQ */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: TAUPE, border: `1px solid rgba(26,20,16,0.1)` }}>
-          <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fr\u00e9quentes</h3>
+          <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>
           {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
         </div>
       </div>
@@ -755,7 +768,7 @@ export default function ProductPage() {
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>
         <button onClick={handleAddToCart} disabled={outTaille}
           style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM }}>
-          {added ? "\u2713 Ajout\u00e9 !" : outTaille ? "\u00c9puis\u00e9" : `Ajouter \u2014 ${(Number(displayPrice) * qty).toFixed(2)} \u20ac`}
+          {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
         </button>
       </div>
       <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}`}</style>

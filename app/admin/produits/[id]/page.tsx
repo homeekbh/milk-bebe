@@ -39,6 +39,104 @@ const EMPTY: Record<string, string> = {
   supplier_ref: "",
 };
 
+
+// ═══════════════════════════════════════════════════════════════════
+// Contenu hardcodé par catégorie/slug — utilisé pour pré-remplir
+// l'admin quand fiche_cards est vide en base
+// ═══════════════════════════════════════════════════════════════════
+function HC_subtitle(cat: string, slug: string): string {
+  if (slug.includes("bonnet"))   return "La vraie alternative au bonnet d\'hôpital qu\'on oublie dès la sortie.";
+  if (slug.includes("lange"))    return "Le sommeil avant le style.";
+  if (cat === "pyjamas")         return "Double zip + moufles intégrées = fin des batailles quotidiennes.";
+  if (cat === "bodies")          return "Habillage en deux gestes. Mains protégées. Sans accessoires.";
+  if (cat === "gigoteuses")      return "Change express. Zéro boutons. Zéro galère à 3h du matin.";
+  return "";
+}
+function HC_features(cat: string, slug: string): string[] {
+  if (slug.includes("bonnet")) return ["Ultra doux dès le premier contact","Respirant : idéal pour réguler la température","Respectueux des peaux sensibles","Coupe minimaliste : maintien parfait sans comprimer","Tailles disponibles : Naissance à 6 mois"];
+  if (slug.includes("lange"))  return ["Taille XXL (120×120 cm) : assez grand pour un emmaillotage qui tient vraiment","Bambou respirant : régule la température, pas de surchauffe","Reproduit la pression du ventre maternel : effet calmant immédiat","Tissu avec grip : reste en place même quand bébé se débat","Devient plus doux à chaque lavage","Multi-usage : swaddle, couverture, drap d\'allaitement, protection poussette"];
+  if (cat === "bodies")       return ["Col enveloppe élargi : passe sur la tête sans forcer, zéro pression sur la fontanelle","3 pressions seulement : pas 7, pas 12. Juste 3.","Moufles pliables intégrées : tu replies, tu déplies. Toujours là.","Bambou hypoallergénique : zéro irritation, même sur peau atopique","Extensible 4 sens : suit tous les mouvements, ne comprime pas","Coutures plates : zéro frottement, zéro marques"];
+  if (cat === "pyjamas")      return ["Double zip inversé : change par le bas, habille par le haut","Zéro bouton : rien à aligner, rien à rater. Jamais.","Pieds pliables : chauds quand il faut, libres quand c\'est mieux","Moufles pliables intégrées : tu replies, tu déplies. Fini les moufles perdues.","Bambou stretch 95% : suit tous les mouvements sans tirer","Silencieux : zéro scratch, zéro bruit qui réveille"];
+  if (cat === "gigoteuses")   return ["Bas nouable : ouvre/ferme d\'une main, sans regarder, dans le noir","Zéro bouton, zéro zip : rien à aligner, rien à coincer","Moufles pliables intégrées : tu replies, tu déplies. Toujours là.","Bambou ultra-souple : glisse sans frotter, ne réveille pas","Coupe ample : bébé bouge librement, zéro compression","Thermorégulant : chaud sans surchauffer. Été comme hiver."];
+  return [];
+}
+function HC_why(cat: string, slug: string): string {
+  if (slug.includes("bonnet"))  return "Premier contact avec la tête fragile de votre nouveau-né, ce bonnet a été pensé pour être aussi doux que rassurant. Confectionné en bambou, il est naturellement respirant, souple et adapté aux peaux les plus sensibles. Il garde la chaleur sans jamais étouffer, exactement ce qu\'il faut dans les premières heures de vie.";
+  if (slug.includes("lange"))   return "Ton bébé sursaute, se réveille, pleure. Le réflexe de Moro le tire du sommeil toutes les 20 minutes. Tu as essayé d\'emmailloter avec une couverture classique — ça se défait au premier mouvement. Les swaddles à velcro ? Bruyants. Trop serrés. Ou pas assez. Ce swaddle existe pour une seule raison : calmer ton bébé plus vite et lui permettre de dormir plus longtemps. Et toi avec.";
+  if (cat === "bodies")         return "Habiller un nouveau-né, c\'est stressant. La tête est fragile, le cou ne tient pas, il pleure dès que tu approches un vêtement de son visage. Et une fois habillé ? Il se griffe le visage parce que t\'as oublié les moufles. Ce body existe pour simplifier : un col qui glisse sans forcer, des moufles pliables intégrées déjà là, trois pressions et c\'est fini.";
+  if (cat === "pyjamas")        return "L\'habillage d\'un bébé peut virer au cauchemar. Il gigote, il pleure, tu t\'énerves. Les boutons-pression ? 15 à aligner pendant qu\'il se débat. Les moufles séparées ? Elles disparaissent toujours au mauvais moment. Résultat : friction, tension, tout le monde finit épuisé. On a conçu ce pyjama pour supprimer le combat : un double zip qui simplifie tout + des moufles pliables intégrées pour éviter les griffures sans jamais avoir à les chercher. Un zip. Deux gestes. C\'est fait.";
+  if (cat === "gigoteuses")     return "Tu te lèves pour la 4e fois. Il est 3h du mat\'. T\'as les yeux à moitié fermés. Tu dois changer une couche dans la pénombre sans réveiller complètement le bébé — ni toi-même. Les boutons-pression ? Impossible à aligner. Le zip ? Trop bruyant. Les moufles séparées ? Perdues quelque part dans le lit. Cette gigoteuse à nouer existe pour ça : un vêtement qu\'on ouvre et ferme sans réfléchir, sans regarder, sans bataille.";
+  return "";
+}
+function HC_result(cat: string, slug: string): string {
+  if (slug.includes("bonnet"))  return "Sa coupe minimaliste assure un maintien parfait sans comprimer. Votre bébé est au chaud, à l\'aise, sans pression inutile — dès les premières minutes.";
+  if (slug.includes("lange"))   return "Bébé calmé en quelques minutes. Réflexe de Moro contenu. Moins de réveils en sursaut. Des plages de sommeil plus longues — pour lui et pour toi. Tu récupères un peu.";
+  if (cat === "bodies")         return "Habillage en moins de 30 secondes. Pas de cris. Pas de stress sur la tête fragile. Mains protégées H24 sans accessoire à perdre. Tu passes à autre chose.";
+  if (cat === "pyjamas")        return "Habillage en moins d\'une minute. Change de couche sans déshabiller. Zéro friction entre toi et ton bébé. Pas de moufles à retrouver au fond du salon : elles sont intégrées au poignet, prêtes quand tu veux protéger son visage. Les routines deviennent fluides, pas stressantes.";
+  if (cat === "gigoteuses")     return "Change de couche en 30 secondes. Bébé reste calme, à moitié endormi. Mains protégées sans accessoire à retrouver. Tu retournes te coucher plus vite. Les réveils sont écourtés. Les nuits deviennent un peu moins chaotiques.";
+  return "";
+}
+function HC_philosophy(cat: string, slug: string): string {
+  if (cat === "pyjamas")    return "Les pyjamas à boutons ? Combat garanti à chaque change. Les combinaisons sans zip inversé ? Tu dois tout défaire pour une couche. Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin. Ici : double zip inversé + bambou stretch + moufles pliables intégrées = moins de gestes, moins de lutte, moins d\'objets à gérer.";
+  if (cat === "bodies")     return "Les bodies à col rond ? Bataille pour passer la tête, bébé hurle. Les bodies à boutons sur l\'épaule ? 6 pressions à aligner. Les moufles séparées ? Perdues en 24h. Le body express combine col facile + pressions minimum + moufles pliables intégrées.";
+  if (cat === "gigoteuses") return "Les grenouillères à boutons ? 12 pressions à aligner dans le noir — t\'abandonnes au 3e essai. Les pyjamas zip ? Le bruit réveille le bébé. Les gigoteuses classiques ? Pas d\'accès direct à la couche. Les moufles séparées ? Perdues dans le lit à 3h du mat\'. La gigoteuse à nouer résout tout : accès immédiat, fermeture silencieuse, zéro manipulation complexe.";
+  if (slug.includes("lange"))   return "Les swaddles à velcro ? Le scratch réveille le bébé quand tu l\'ouvres. Les couvertures classiques ? Trop petites, se défont. Les gigoteuses ? Pas adaptées aux nouveau-nés qui ont besoin de contention. La mousseline grand format offre le meilleur compromis : maintien efficace, ouverture silencieuse, respiration optimale.";
+  return "";
+}
+function HC_entretien(slug: string): string[] {
+  if (slug.includes("bonnet")) return ["Lavage en cycle délicat avec des couleurs similaires","Séchage à plat ou sur cintre","Éviter le sèche-linge pour préserver la matière"];
+  return ["Lavage 40°C, cycle délicat","Sans adoucissant ni javel","Séchage à l\'air libre recommandé","Sèche-linge basse température"];
+}
+function HC_faqs(cat: string, slug: string): Array<{question:string;reponse:string}> {
+  const base = [
+    { question: "Pourquoi le bambou plutôt que le coton ?", reponse: "Parce qu\'il est plus doux, plus respirant et thermorégulateur. Il absorbe mieux l\'humidité, reste confortable dans le temps et garde sa qualité lavage après lavage." },
+    { question: "Ça taille comment ?", reponse: "Coupe ajustée avec tissu stretch qui accompagne les mouvements. Si tu hésites entre deux tailles, prends la plus grande pour prolonger l\'usage.\n\nLe bambou stretch est extrêmement extensible — pas de risque de trop petit ou trop grand. En cas de doute, prenez la taille au-dessus." },
+    { question: "Jusqu\'à quel âge ?", reponse: "Les produits M!LK sont actuellement conçus pour les bébés de la naissance jusqu\'à 6 mois. La gamme évoluera progressivement pour accompagner les étapes suivantes." },
+  ];
+  if (cat === "pyjamas") return [
+    { question: "C\'est quoi le double zip inversé ?", reponse: "Un système d\'ouverture à double sens : par le bas pour changer la couche sans déshabiller bébé, par le haut pour l\'habiller rapidement. Moins de manipulation, moins de stress, surtout la nuit." },
+    { question: "Les moufles pliables, ça sert à quoi ?", reponse: "À éviter les griffures sans gérer des moufles séparées que tu perds en permanence. Elles sont intégrées : tu replies, tu déplies, elles sont toujours là." },
+    { question: "Mon bébé déteste être habillé. Ça change quoi ?", reponse: "Moins de gestes, moins de contraintes. Pas de boutons à aligner, pas de lutte inutile. Résultat : un habillage plus rapide, plus fluide, et un bébé moins irrité." },
+    ...base,
+  ];
+  if (cat === "bodies") return [
+    { question: "Le col enveloppe, ça passe vraiment sans forcer ?", reponse: "Oui — et surtout, il ne se passe pas par la tête. Le col enveloppe est conçu pour enfiler le vêtement par le bas, en remontant doucement sur le corps de bébé." },
+    { question: "Les moufles pliables, ça sert à quoi ?", reponse: "À éviter les griffures sans gérer des moufles séparées que tu perds en permanence. Elles sont intégrées : tu replies, tu déplies, elles sont toujours là." },
+    ...base,
+  ];
+  if (cat === "gigoteuses") return [
+    { question: "C\'est quoi une gigoteuse à nouer ?", reponse: "Une fermeture simple par nœud, sans zip ni boutons. Tu défais, tu changes, tu renoues. Rapide, même dans le noir." },
+    { question: "Les moufles pliables, ça sert à quoi ?", reponse: "À éviter les griffures sans gérer des moufles séparées. Elles sont intégrées : tu replies, tu déplies, elles sont toujours là." },
+    ...base,
+  ];
+  if (slug.includes("lange")) return [
+    { question: "L\'emmaillotage, ça sert à quoi ?", reponse: "À calmer et sécuriser bébé en recréant une sensation proche du ventre maternel. Résultat : moins de sursauts, un endormissement plus facile, et un sommeil plus stable." },
+    { question: "Ça aide vraiment à calmer bébé ?", reponse: "Oui. La pression douce reproduit la sensation du ventre maternel. Le bambou amplifie cet effet grâce à sa souplesse." },
+    ...base,
+  ];
+  return base;
+}
+
+// Pré-remplit les cards depuis le contenu hardcodé
+function buildDefaultCards(cat: string, slug: string, withId: () => string): FicheCard[] {
+  const cards: any[] = [];
+  const sub = HC_subtitle(cat, slug);
+  if (sub) cards.push({ id: withId(), type: "subtitle", title: "Phrase d\'accroche", content: sub });
+  const feats = HC_features(cat, slug);
+  if (feats.length) cards.push({ id: withId(), type: "features", title: "Points forts", content: JSON.stringify(feats) });
+  const why = HC_why(cat, slug);
+  const res = HC_result(cat, slug);
+  if (why) cards.push({ id: withId(), type: "whyresult", title: "Pourquoi / Résultat", content: JSON.stringify({ why, result: res }) });
+  const philo = HC_philosophy(cat, slug);
+  if (philo) cards.push({ id: withId(), type: "philosophy", title: "Philosophie M!LK", content: philo });
+  const entr = HC_entretien(slug);
+  cards.push({ id: withId(), type: "entretien", title: "Conseils d\'entretien", content: JSON.stringify(entr) });
+  return cards;
+}
+function buildDefaultFaqs(cat: string, slug: string, withId: () => string) {
+  return HC_faqs(cat, slug).map(f => ({ id: withId(), question: f.question, reponse: f.reponse }));
+}
+
 type ColorEntry = {
   name:       string;
   hex:        string;
@@ -296,210 +394,239 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
   const [open, setOpen] = useState(true);
   const typeDef = CARD_TYPES.find(t => t.value === card.type);
 
-  // Parse features as array
   let featuresArr: string[] = [];
-  if (card.type === "features") {
-    try { featuresArr = JSON.parse(card.content); } catch { featuresArr = []; }
-  }
-
-  // Parse whyresult
+  if (card.type === "features") { try { featuresArr = JSON.parse(card.content); } catch { featuresArr = []; } }
   let wrObj = { why: "", result: "" };
-  if (card.type === "whyresult") {
-    try { wrObj = JSON.parse(card.content); } catch {}
-  }
-
-  // Parse entretien
+  if (card.type === "whyresult") { try { wrObj = JSON.parse(card.content); } catch {} }
   let entretienArr: string[] = [];
-  if (card.type === "entretien") {
-    try { entretienArr = JSON.parse(card.content); } catch { entretienArr = []; }
-  }
+  if (card.type === "entretien") { try { entretienArr = JSON.parse(card.content); } catch { entretienArr = []; } }
 
-  function updateFeature(idx: number, val: string) {
-    const arr = [...featuresArr]; arr[idx] = val;
-    onUpdate(card.id, "content", JSON.stringify(arr));
-  }
-  function addFeature() {
-    onUpdate(card.id, "content", JSON.stringify([...featuresArr, ""]));
-  }
-  function removeFeature(idx: number) {
-    onUpdate(card.id, "content", JSON.stringify(featuresArr.filter((_, i) => i !== idx)));
-  }
-  function updateWR(field: "why"|"result", val: string) {
-    onUpdate(card.id, "content", JSON.stringify({ ...wrObj, [field]: val }));
-  }
-  function updateEntretienLine(idx: number, val: string) {
-    const arr = [...entretienArr]; arr[idx] = val;
-    onUpdate(card.id, "content", JSON.stringify(arr));
-  }
-  function addEntretienLine() {
-    onUpdate(card.id, "content", JSON.stringify([...entretienArr, ""]));
-  }
-  function removeEntretienLine(idx: number) {
-    onUpdate(card.id, "content", JSON.stringify(entretienArr.filter((_, i) => i !== idx)));
-  }
+  function updateFeature(idx: number, val: string) { const a = [...featuresArr]; a[idx] = val; onUpdate(card.id, "content", JSON.stringify(a)); }
+  function addFeature() { onUpdate(card.id, "content", JSON.stringify([...featuresArr, ""])); }
+  function removeFeature(idx: number) { onUpdate(card.id, "content", JSON.stringify(featuresArr.filter((_, i) => i !== idx))); }
+  function updateWR(field: "why"|"result", val: string) { onUpdate(card.id, "content", JSON.stringify({ ...wrObj, [field]: val })); }
+  function updateEntretienLine(idx: number, val: string) { const a = [...entretienArr]; a[idx] = val; onUpdate(card.id, "content", JSON.stringify(a)); }
+  function addEntretienLine() { onUpdate(card.id, "content", JSON.stringify([...entretienArr, ""])); }
+  function removeEntretienLine(idx: number) { onUpdate(card.id, "content", JSON.stringify(entretienArr.filter((_, i) => i !== idx))); }
 
   return (
-    <div style={{ borderRadius: 14, border: "2px solid rgba(196,154,74,0.3)", overflow: "hidden", background: "#fffdf9" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "13px 16px", background: "rgba(196,154,74,0.08)", borderBottom: open ? "1px solid rgba(196,154,74,0.2)" : "none" }}>
-        <button type="button" onClick={() => setOpen(v => !v)}
-          style={{ width: 28, height: 28, borderRadius: 8, border: "none", background: "rgba(196,154,74,0.15)", cursor: "pointer", fontSize: 14, display: "grid", placeItems: "center", color: "#c49a4a", flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none" }}>
-          +
-        </button>
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 900, fontSize: 14, color: "#1a1410" }}>{typeDef?.label ?? card.type}</div>
-          {card.title && <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)", marginTop: 1 }}>{card.title}</div>}
+    <div style={{ borderRadius: 16, border: `2px solid ${open ? "#c49a4a" : "rgba(196,154,74,0.25)"}`, overflow: "hidden", background: "#fffdf9", marginBottom: 0 }}>
+
+      {/* ── Header accordéon ── */}
+      <div onClick={() => setOpen(v => !v)}
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: open ? "rgba(196,154,74,0.1)" : "#faf8f4", cursor: "pointer", userSelect: "none" }}>
+        <div style={{ width: 26, height: 26, borderRadius: 8, border: "none", background: open ? "#c49a4a" : "rgba(196,154,74,0.15)", display: "grid", placeItems: "center", flexShrink: 0, transition: "all 0.2s" }}>
+          <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+            <path d="M2 4l4 4 4-4" stroke={open ? "#fff" : "#c49a4a"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          </svg>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 900, fontSize: 14, color: "#1a1410", display: "flex", alignItems: "center", gap: 6 }}>
+            <span>{typeDef?.icon}</span>
+            <span>{typeDef?.label ?? card.type}</span>
+            {card.content && card.content !== "[]" && card.content !== '{"why":"","result":""}' && (
+              <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 99, background: "rgba(22,163,74,0.12)", color: "#16a34a" }}>✓ rempli</span>
+            )}
+          </div>
+          {!open && card.content && card.type === "subtitle" && (
+            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{card.content}</div>
+          )}
+          {!open && card.type === "features" && featuresArr.length > 0 && (
+            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2 }}>{featuresArr.length} point{featuresArr.length > 1 ? "s" : ""} — {featuresArr[0]?.split(" : ")[0]}{featuresArr.length > 1 ? "…" : ""}</div>
+          )}
+          {!open && card.type === "whyresult" && wrObj.why && (
+            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wrObj.why.slice(0, 60)}…</div>
+          )}
+        </div>
+        <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
           <button type="button" onClick={() => onMoveUp(card.id)} disabled={isFirst}
-            style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isFirst ? "not-allowed" : "pointer", opacity: isFirst ? 0.3 : 1, fontSize: 13 }}>↑</button>
+            style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isFirst ? "not-allowed" : "pointer", opacity: isFirst ? 0.3 : 1, fontSize: 12 }}>↑</button>
           <button type="button" onClick={() => onMoveDown(card.id)} disabled={isLast}
-            style={{ padding: "5px 9px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isLast ? "not-allowed" : "pointer", opacity: isLast ? 0.3 : 1, fontSize: 13 }}>↓</button>
+            style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isLast ? "not-allowed" : "pointer", opacity: isLast ? 0.3 : 1, fontSize: 12 }}>↓</button>
           <button type="button" onClick={() => onRemove(card.id)}
-            style={{ padding: "5px 9px", borderRadius: 6, border: "none", background: "#fee2e2", color: "#b91c1c", cursor: "pointer", fontSize: 13, fontWeight: 800 }}>✕</button>
+            style={{ padding: "5px 8px", borderRadius: 6, border: "none", background: "#fee2e2", color: "#b91c1c", cursor: "pointer", fontSize: 12, fontWeight: 800 }}>✕</button>
         </div>
       </div>
 
-      {/* Body */}
+      {/* ── Corps accordéon ouvert — layout 2 colonnes : édition + aperçu ── */}
       {open && (
-        <div style={{ padding: "16px 16px 18px", display: "grid", gap: 12 }}>
-          {/* Titre interne optionnel */}
-          {(card.type === "philosophy" || card.type === "whyresult") && (
-            <div style={{ display: "grid", gap: 6 }}>
-              <label style={LS}>Titre interne (optionnel)</label>
-              <input value={card.title} onChange={e => onUpdate(card.id, "title", e.target.value)}
-                placeholder="Ex : Philosophie pour Bodies" style={IS} />
-            </div>
-          )}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", borderTop: "1px solid rgba(196,154,74,0.15)" }}>
 
-          {/* Contenu selon type */}
-          {(card.type === "subtitle" || card.type === "description" || card.type === "coloris" || card.type === "motif" || card.type === "philosophy") && (
-            <div style={{ display: "grid", gap: 6 }}>
-              <label style={LS}>{typeDef?.desc}</label>
-              <textarea value={card.content} onChange={e => onUpdate(card.id, "content", e.target.value)}
-                rows={card.type === "philosophy" ? 8 : card.type === "description" ? 4 : 2}
-                placeholder={typeDef?.desc}
-                style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
-              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", lineHeight: 1.6 }}>
-                {card.type === "philosophy" && (
-                  <div style={{ display: "grid", gap: 4 }}>
-                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)" }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 4 }}>→ Card sombre "Philosophie M!LK"</div>
-                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", lineHeight: 1.6 }}>
-                        Écris les phrases avec des questions (ex : "Les pyjamas à boutons ?") — elles seront mises en valeur.<br/>
-                        Commence par "Ici :" ou "La " pour créer un bloc encadré.<br/>
-                        <strong>La conclusion finale "Chaque produit M!LK répond..." s'affiche automatiquement</strong> — ne la réécris pas ici.
+          {/* COLONNE GAUCHE — édition */}
+          <div style={{ padding: "16px 18px 20px", display: "grid", gap: 12, borderRight: "1px solid rgba(196,154,74,0.15)" }}>
+
+            {/* Subtitle / Description / Coloris / Motif / Philosophie */}
+            {(card.type === "subtitle" || card.type === "description" || card.type === "coloris" || card.type === "motif" || card.type === "philosophy") && (
+              <>
+                {card.type === "subtitle" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Phrase en gras juste sous le nom du produit</div>}
+                {card.type === "motif"    && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Format : Motif [Nom] — [description]</div>}
+                {card.type === "coloris"  && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Ex : Terre cuite — brun chaud aux nuances naturelles</div>}
+                {card.type === "philosophy" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8, lineHeight: 1.5 }}>Phrases avec "?" = mises en valeur · "Ici :" = bloc encadré · La conclusion finale s'affiche auto.</div>}
+                <label style={LS}>{typeDef?.label}</label>
+                <textarea value={card.content} onChange={e => onUpdate(card.id, "content", e.target.value)}
+                  rows={card.type === "philosophy" ? 9 : card.type === "description" ? 4 : 2}
+                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.65 }} />
+              </>
+            )}
+
+            {/* Features */}
+            {card.type === "features" && (
+              <>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Format : <strong>Titre</strong> : description · Ex : "Double zip inversé : change par le bas"</div>
+                <label style={LS}>Points forts ({featuresArr.length})</label>
+                {featuresArr.map((f, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", flexShrink: 0, width: 18, textAlign: "right" }}>{i+1}</span>
+                    <input value={f} onChange={e => updateFeature(i, e.target.value)}
+                      placeholder="Double zip inversé : change par le bas"
+                      style={{ ...IS, flex: 1 }} />
+                    <button type="button" onClick={() => removeFeature(i)}
+                      style={{ padding: "0 10px", height: 38, borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800, flexShrink: 0 }}>✕</button>
+                  </div>
+                ))}
+                <button type="button" onClick={addFeature}
+                  style={{ padding: "9px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
+                  + Ajouter un point
+                </button>
+              </>
+            )}
+
+            {/* WhyResult */}
+            {card.type === "whyresult" && (
+              <>
+                <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(26,20,16,0.06)", borderLeft: "3px solid #c49a4a" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 1 — "La vraie raison / Pourquoi ce produit existe"</div>
+                </div>
+                <label style={LS}>Le problème du parent</label>
+                <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
+                  rows={5} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+                <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(196,154,74,0.08)", borderLeft: "3px solid #c49a4a", marginTop: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 2 — "Ce que tu obtiens / Le résultat"</div>
+                </div>
+                <label style={LS}>Le résultat concret</label>
+                <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
+                  rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+              </>
+            )}
+
+            {/* Entretien */}
+            {card.type === "entretien" && (
+              <>
+                <label style={LS}>Instructions — une par ligne</label>
+                {entretienArr.map((line, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8 }}>
+                    <input value={line} onChange={e => updateEntretienLine(i, e.target.value)}
+                      placeholder="Ex : Lavage 40°C, cycle délicat"
+                      style={{ ...IS, flex: 1 }} />
+                    <button type="button" onClick={() => removeEntretienLine(i)}
+                      style={{ padding: "0 10px", height: 38, borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800 }}>✕</button>
+                  </div>
+                ))}
+                <button type="button" onClick={addEntretienLine}
+                  style={{ padding: "9px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
+                  + Ajouter
+                </button>
+              </>
+            )}
+          </div>
+
+          {/* COLONNE DROITE — aperçu de cette card exacte */}
+          <div style={{ padding: "14px 14px", background: "#d8c8b0", display: "flex", flexDirection: "column", gap: 10 }}>
+            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Aperçu sur la fiche</div>
+
+            {/* Subtitle */}
+            {card.type === "subtitle" && card.content && (
+              <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(26,20,16,0.75)", lineHeight: 1.5 }}>{card.content}</div>
+            )}
+
+            {/* Description */}
+            {card.type === "description" && card.content && (
+              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.75 }}>{card.content}</div>
+            )}
+
+            {/* Coloris / Motif */}
+            {(card.type === "coloris" || card.type === "motif") && card.content && (
+              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>
+                <span style={{ color: "#c49a4a", fontWeight: 900 }}>{card.type === "motif" ? "Motif" : "Coloris"}</span> — {card.content}
+              </div>
+            )}
+
+            {/* Features */}
+            {card.type === "features" && featuresArr.filter(Boolean).length > 0 && (
+              <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(26,20,16,0.06)", border: "1px solid rgba(26,20,16,0.1)", display: "grid", gap: 8 }}>
+                {featuresArr.filter(Boolean).map((feat, i) => {
+                  const colonIdx = feat.indexOf(" : ");
+                  const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
+                  const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
+                  return (
+                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+                        <circle cx="7" cy="7" r="6.5" fill="rgba(196,154,74,0.15)" stroke="rgba(196,154,74,0.4)"/>
+                        <path d="M4 7l2 2 4-4" stroke="#c49a4a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                      <div style={{ fontSize: 12, lineHeight: 1.4, color: "#1a1410" }}>
+                        <strong>{label}</strong>{desc && <span style={{ fontWeight: 400, color: "rgba(26,20,16,0.5)" }}> : {desc}</span>}
                       </div>
                     </div>
-                  </div>
-                )}
-                {card.type === "subtitle" && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 2 }}>→ Phrase en gras juste sous le nom du produit</div>
-                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Ex : "Double zip + moufles intégrées = fin des batailles quotidiennes."</div>
-                  </div>
-                )}
-                {card.type === "description" && "Paragraphe libre affiché sous la phrase d'accroche."}
-                {card.type === "coloris" && "Ex : Terre cuite — brun chaud aux nuances naturelles, à la fois doux et affirmé."}
-                {card.type === "motif" && (
-                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)" }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 2 }}>→ Ligne sous les points forts : "Motif Flash — éclairs blancs…"</div>
-                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Format : Motif [Nom] — [description]. Ex : "Motif Flash — éclairs blancs minimalistes sur fond gris anthracite."</div>
-                  </div>
-                )}
+                  );
+                })}
               </div>
-            </div>
-          )}
+            )}
 
-          {card.type === "features" && (
-            <div style={{ display: "grid", gap: 10 }}>
-              <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)", marginBottom: 4 }}>
-                <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 2 }}>→ Card avec les ✓ ambrés sous la phrase d'accroche</div>
-                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Format : <strong>Titre en gras</strong> : description. Ex : "Double zip inversé : change par le bas"</div>
+            {/* WhyResult */}
+            {card.type === "whyresult" && (wrObj.why || wrObj.result) && (
+              <div style={{ display: "grid", gap: 8 }}>
+                {wrObj.why && (
+                  <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(26,20,16,0.07)", border: "1px solid rgba(26,20,16,0.1)" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>La vraie raison</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Pourquoi ce produit existe</div>
+                    <p style={{ margin: 0, fontSize: 11, color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>{wrObj.why}</p>
+                  </div>
+                )}
+                {wrObj.result && (
+                  <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
+                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>Ce que tu obtiens</div>
+                    <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Le résultat</div>
+                    <p style={{ margin: 0, fontSize: 11, color: "rgba(26,20,16,0.65)", lineHeight: 1.7, fontWeight: 600 }}>{wrObj.result}</p>
+                  </div>
+                )}
               </div>
-              <label style={LS}>Points forts — un par ligne</label>
-              {featuresArr.map((f, i) => (
-                <div key={i} style={{ display: "flex", gap: 8 }}>
-                  <input value={f} onChange={e => updateFeature(i, e.target.value)}
-                    placeholder={`Point ${i+1} (ex : Col enveloppe élargi : passe sur la tête sans forcer)`}
-                    style={{ ...IS, flex: 1 }} />
-                  <button type="button" onClick={() => removeFeature(i)}
-                    style={{ padding: "0 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800 }}>✕</button>
+            )}
+
+            {/* Philosophy */}
+            {card.type === "philosophy" && card.content && (
+              <div style={{ padding: "12px 14px", borderRadius: 12, background: "#2d1a0e" }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 3 }}>Philosophie M!LK</div>
+                <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Comment ça réduit ta charge mentale</div>
+                <div style={{ fontSize: 11, color: "rgba(242,237,230,0.7)", lineHeight: 1.7 }}>{card.content}</div>
+                <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(242,237,230,0.08)", fontSize: 11, fontWeight: 900, color: "#f2ede6", lineHeight: 1.5 }}>
+                  Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
                 </div>
-              ))}
-              <button type="button" onClick={addFeature}
-                style={{ padding: "10px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
-                + Ajouter un point fort
-              </button>
-            </div>
-          )}
+              </div>
+            )}
 
-          {card.type === "whyresult" && (
-            <div style={{ display: "grid", gap: 12 }}>
+            {/* Entretien */}
+            {card.type === "entretien" && entretienArr.filter(Boolean).length > 0 && (
               <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)", marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a" }}>→ Card "La vraie raison" / "Pourquoi ce produit existe"</div>
-                </div>
-                <label style={LS}>Texte — raconte le problème du parent de façon directe</label>
-                <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
-                  rows={5} placeholder="Ex : L'habillage d'un bébé peut virer au cauchemar. Il gigote, il pleure, tu t'énerves..."
-                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
-              </div>
-              <div style={{ display: "grid", gap: 6 }}>
-                <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(196,154,74,0.08)", marginBottom: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a" }}>→ Card "Ce que tu obtiens" / "Le résultat"</div>
-                </div>
-                <label style={LS}>Résultat concret — court, percutant</label>
-                <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
-                  rows={3} placeholder="Ex : Habillage en moins d'une minute. Change de couche sans déshabiller. Zéro friction..."
-                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
-              </div>
-            </div>
-          )}
-
-          {card.type === "entretien" && (
-            <div style={{ display: "grid", gap: 10 }}>
-              <label style={LS}>Instructions d'entretien — une par ligne</label>
-              {entretienArr.map((line, i) => (
-                <div key={i} style={{ display: "flex", gap: 8 }}>
-                  <input value={line} onChange={e => updateEntretienLine(i, e.target.value)}
-                    placeholder={`Ex : Lavage 40°C, cycle délicat`}
-                    style={{ ...IS, flex: 1 }} />
-                  <button type="button" onClick={() => removeEntretienLine(i)}
-                    style={{ padding: "0 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800 }}>✕</button>
-                </div>
-              ))}
-              <button type="button" onClick={addEntretienLine}
-                style={{ padding: "10px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
-                + Ajouter une instruction
-              </button>
-            </div>
-          )}
-
-          {/* Aperçu minimaliste */}
-          {card.content && card.type === "features" && featuresArr.length > 0 && (
-            <div style={{ padding: "12px 14px", borderRadius: 10, background: "#f5f0e8", border: "1px solid rgba(196,154,74,0.2)" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.35)", marginBottom: 8 }}>Aperçu</div>
-              {featuresArr.map((f, i) => {
-                const colonIdx = f.indexOf(" : ");
-                const label = colonIdx > -1 ? f.slice(0, colonIdx) : f;
-                const desc  = colonIdx > -1 ? f.slice(colonIdx + 3) : "";
-                return (
-                  <div key={i} style={{ display: "flex", gap: 8, marginBottom: 6, alignItems: "flex-start" }}>
-                    <span style={{ color: "#c49a4a", fontWeight: 900, flexShrink: 0 }}>✓</span>
-                    <span style={{ fontSize: 13 }}>
-                      <strong>{label}</strong>{desc && ` : ${desc}`}
-                    </span>
+                {entretienArr.filter(Boolean).map((line, i) => (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#1a1410" }}>
+                    <span style={{ color: "#c49a4a", fontSize: 16 }}>⬤</span>
+                    {line}
                   </div>
-                );
-              })}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+
+            {!card.content || card.content === "[]" || card.content === '{"why":"","result":""}' ? (
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.3)", fontStyle: "italic" }}>Remplis le contenu pour voir l'aperçu</div>
+            ) : null}
+          </div>
         </div>
       )}
     </div>
   );
 }
+
 
 // ── FAQ ÉDITABLES ──────────────────────────────────────────────────────────────
 function FaqEditor({ faq, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
@@ -630,12 +757,19 @@ export default function AdminProductForm() {
                 }))
               : []
           );
-          // Charger cards et faqs sauvegardés
-          if (Array.isArray(data.fiche_cards)) {
+          // Charger cards et faqs — ou pré-remplir depuis contenu hardcodé
+          const cat  = data.category_slug ?? "";
+          const slg  = data.slug          ?? "";
+          if (Array.isArray(data.fiche_cards) && data.fiche_cards.length > 0) {
             setFicheCards(data.fiche_cards);
+          } else {
+            // Pré-remplissage automatique depuis le contenu existant codé en dur
+            setFicheCards(buildDefaultCards(cat, slg, newId));
           }
-          if (Array.isArray(data.fiche_faqs)) {
+          if (Array.isArray(data.fiche_faqs) && data.fiche_faqs.length > 0) {
             setFaqs(data.fiche_faqs);
+          } else {
+            setFaqs(buildDefaultFaqs(cat, slg, newId));
           }
         }
         setLoading(false);
@@ -667,12 +801,18 @@ export default function AdminProductForm() {
 
   // Dupliquer les cards + FAQs d'un produit source vers ce produit
   function duplicateFromProduct(source: any) {
+    const cat = source.category_slug ?? "";
+    const slg = source.slug ?? "";
     if (Array.isArray(source.fiche_cards) && source.fiche_cards.length > 0) {
-      // Réattribuer des IDs uniques pour éviter les doublons
       setFicheCards(source.fiche_cards.map((c: any) => ({ ...c, id: newId() })));
+    } else {
+      // Générer depuis le contenu hardcodé de ce produit
+      setFicheCards(buildDefaultCards(cat, slg, newId));
     }
     if (Array.isArray(source.fiche_faqs) && source.fiche_faqs.length > 0) {
       setFaqs(source.fiche_faqs.map((f: any) => ({ ...f, id: newId() })));
+    } else {
+      setFaqs(buildDefaultFaqs(cat, slg, newId));
     }
     setShowDuplicateModal(false);
   }
@@ -1298,13 +1438,13 @@ export default function AdminProductForm() {
             <div style={{ padding: "30px", textAlign: "center", color: "rgba(26,20,16,0.4)" }}>Chargement…</div>
           ) : (
             <div style={{ overflowY: "auto", display: "grid", gap: 8 }}>
-              {allProducts.filter(p => p.id !== id && (Array.isArray(p.fiche_cards) && p.fiche_cards.length > 0)).length === 0 && (
+              {allProducts.filter(p => p.id !== id).length === 0 && (
                 <div style={{ padding: 20, textAlign: "center", color: "rgba(26,20,16,0.4)", fontSize: 14 }}>
                   Aucun produit avec des blocs définis pour l'instant.
                 </div>
               )}
               {allProducts
-                .filter(p => p.id !== id && Array.isArray(p.fiche_cards) && p.fiche_cards.length > 0)
+                .filter(p => p.id !== id)
                 .map(p => (
                   <button key={p.id} onClick={() => duplicateFromProduct(p)}
                     style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, border: "2px solid rgba(0,0,0,0.08)", background: "#fff", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
@@ -1318,7 +1458,9 @@ export default function AdminProductForm() {
                     <div style={{ flex: 1 }}>
                       <div style={{ fontWeight: 900, fontSize: 15, color: "#1a1410", marginBottom: 3 }}>{p.name}</div>
                       <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)" }}>
-                        {p.fiche_cards?.length ?? 0} bloc{(p.fiche_cards?.length ?? 0) > 1 ? "s" : ""}
+                        {Array.isArray(p.fiche_cards) && p.fiche_cards.length > 0
+                          ? `${p.fiche_cards.length} bloc${p.fiche_cards.length > 1 ? "s" : ""} sauvegardés`
+                          : "Contenu auto (catégorie)"}
                         {p.fiche_faqs?.length > 0 ? ` · ${p.fiche_faqs.length} FAQ` : ""}
                         {" · "}{p.category_slug}
                       </div>

@@ -576,6 +576,9 @@ export default function AdminProductForm() {
   const [ficheCards,   setFicheCards]   = useState<FicheCard[]>([]);
   const [faqs,         setFaqs]         = useState<FaqItem[]>([]);
   const [showPreview,  setShowPreview]  = useState(false);
+  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
+  const [allProducts,  setAllProducts]  = useState<any[]>([]);
+  const [loadingProds, setLoadingProds] = useState(false);
 
   // Chargement produit existant
   useEffect(() => {
@@ -652,6 +655,27 @@ export default function AdminProductForm() {
     }, 10000);
     return () => clearTimeout(t);
   }, [form, draftKey]);
+
+  // Charger tous les produits pour la duplication
+  async function loadAllProducts() {
+    setLoadingProds(true);
+    const res = await fetch("/api/admin/products");
+    const data = await res.json();
+    setAllProducts(Array.isArray(data) ? data : []);
+    setLoadingProds(false);
+  }
+
+  // Dupliquer les cards + FAQs d'un produit source vers ce produit
+  function duplicateFromProduct(source: any) {
+    if (Array.isArray(source.fiche_cards) && source.fiche_cards.length > 0) {
+      // Réattribuer des IDs uniques pour éviter les doublons
+      setFicheCards(source.fiche_cards.map((c: any) => ({ ...c, id: newId() })));
+    }
+    if (Array.isArray(source.fiche_faqs) && source.fiche_faqs.length > 0) {
+      setFaqs(source.fiche_faqs.map((f: any) => ({ ...f, id: newId() })));
+    }
+    setShowDuplicateModal(false);
+  }
 
   function set(k: string, v: string) {
     setForm(f => {
@@ -841,6 +865,11 @@ export default function AdminProductForm() {
         <h1 style={{ margin: 0, fontSize: 24, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410", flex: 1 }}>
           {isNew ? "Nouveau produit" : `Modifier : ${form.name || "..."}`}
         </h1>
+        <button onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
+          style={{ padding: "10px 18px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", color: "#1a1410", cursor: "pointer", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
+          <span style={{ fontSize: 16 }}>📋</span>
+          Copier depuis…
+        </button>
         <button onClick={() => setShowPreview(v => !v)}
           style={{ padding: "10px 18px", borderRadius: 10, border: `2px solid ${showPreview ? "#c49a4a" : "rgba(0,0,0,0.12)"}`, background: showPreview ? "#1a1410" : "#fff", color: showPreview ? "#c49a4a" : "#1a1410", cursor: "pointer", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
           <span style={{ fontSize: 16 }}>👁</span>
@@ -1251,6 +1280,57 @@ export default function AdminProductForm() {
 
       </div>
     </div>
+
+    {/* ── MODALE DUPLICATION ── */}
+    {showDuplicateModal && (
+      <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        onClick={e => { if (e.target === e.currentTarget) setShowDuplicateModal(false); }}>
+        <div style={{ background: "#fff", borderRadius: 20, padding: 28, maxWidth: 560, width: "100%", maxHeight: "80vh", overflow: "hidden", display: "flex", flexDirection: "column", gap: 16 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <div style={{ fontSize: 18, fontWeight: 900, color: "#1a1410" }}>Copier les cards depuis…</div>
+              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginTop: 3 }}>Les blocs de contenu et FAQs seront copiés. Les photos et prix ne changent pas.</div>
+            </div>
+            <button onClick={() => setShowDuplicateModal(false)}
+              style={{ width: 32, height: 32, borderRadius: 99, background: "#f5f0e8", border: "none", cursor: "pointer", fontSize: 16, display: "grid", placeItems: "center" }}>✕</button>
+          </div>
+          {loadingProds ? (
+            <div style={{ padding: "30px", textAlign: "center", color: "rgba(26,20,16,0.4)" }}>Chargement…</div>
+          ) : (
+            <div style={{ overflowY: "auto", display: "grid", gap: 8 }}>
+              {allProducts.filter(p => p.id !== id && (Array.isArray(p.fiche_cards) && p.fiche_cards.length > 0)).length === 0 && (
+                <div style={{ padding: 20, textAlign: "center", color: "rgba(26,20,16,0.4)", fontSize: 14 }}>
+                  Aucun produit avec des blocs définis pour l'instant.
+                </div>
+              )}
+              {allProducts
+                .filter(p => p.id !== id && Array.isArray(p.fiche_cards) && p.fiche_cards.length > 0)
+                .map(p => (
+                  <button key={p.id} onClick={() => duplicateFromProduct(p)}
+                    style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: 14, border: "2px solid rgba(0,0,0,0.08)", background: "#fff", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
+                    onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "#c49a4a"; (e.currentTarget as HTMLButtonElement).style.background = "#fffdf8"; }}
+                    onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(0,0,0,0.08)"; (e.currentTarget as HTMLButtonElement).style.background = "#fff"; }}>
+                    {p.image_url && (
+                      <div style={{ width: 52, height: 52, borderRadius: 10, overflow: "hidden", flexShrink: 0 }}>
+                        <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                      </div>
+                    )}
+                    <div style={{ flex: 1 }}>
+                      <div style={{ fontWeight: 900, fontSize: 15, color: "#1a1410", marginBottom: 3 }}>{p.name}</div>
+                      <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)" }}>
+                        {p.fiche_cards?.length ?? 0} bloc{(p.fiche_cards?.length ?? 0) > 1 ? "s" : ""}
+                        {p.fiche_faqs?.length > 0 ? ` · ${p.fiche_faqs.length} FAQ` : ""}
+                        {" · "}{p.category_slug}
+                      </div>
+                    </div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#c49a4a", whiteSpace: "nowrap" }}>Copier →</div>
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
+      </div>
+    )}
 
     {/* ── PANNEAU APERÇU STICKY ── */}
     {showPreview && (

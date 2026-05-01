@@ -274,15 +274,15 @@ function ColorEntryRow({ color, index, onUpdate, onRemove }: {
 
 // ── CARDS FICHE PRODUIT ÉDITABLES ─────────────────────────────────────────────
 
-const CARD_TYPES: { value: FicheCard["type"]; label: string; desc: string }[] = [
-  { value: "subtitle",    label: "Sous-titre produit",   desc: "Phrase d'accroche sous le nom (ex : Double zip + moufles…)" },
-  { value: "description", label: "Description",          desc: "Paragraphe de description libre" },
-  { value: "coloris",     label: "Info coloris",         desc: "Ex : Terre cuite — brun chaud aux nuances naturelles" },
-  { value: "motif",       label: "Info motif",           desc: "Ex : Motif Flash — éclairs blancs minimalistes" },
-  { value: "features",    label: "Points forts (liste)", desc: "Liste de points clés du produit" },
-  { value: "whyresult",   label: "Pourquoi / Résultat",  desc: "Bloc narratif en 2 parties : Pourquoi + Résultat" },
-  { value: "philosophy",  label: "Philosophie M!LK",     desc: "Bloc philosophie (texte long avec mise en forme auto)" },
-  { value: "entretien",   label: "Conseils d'entretien", desc: "Instructions de lavage/séchage" },
+const CARD_TYPES: { value: FicheCard["type"]; label: string; desc: string; icon: string; preview: string }[] = [
+  { value: "subtitle",    label: "Phrase d'accroche",       icon: "💬", desc: "La phrase en gras sous le nom du produit",                  preview: "Double zip + moufles intégrées = fin des batailles quotidiennes." },
+  { value: "features",    label: "Points forts ✓",          icon: "✅", desc: "La card avec les checkmarks ambrés",                        preview: "Double zip inversé : change par le bas \nZéro bouton : rien à aligner…" },
+  { value: "motif",       label: "Info motif / coloris",    icon: "🎨", desc: "La ligne 'Motif Flash — éclairs blancs…' sous les points forts", preview: "Motif Flash — éclairs blancs minimalistes sur fond gris anthracite." },
+  { value: "whyresult",   label: "Pourquoi + Résultat",     icon: "💡", desc: "2 cards : 'La vraie raison' + 'Ce que tu obtiens'",          preview: "Pourquoi : L'habillage d'un bébé peut virer… / Résultat : Habillage en moins d'une minute…" },
+  { value: "philosophy",  label: "Philosophie M!LK",        icon: "🧠", desc: "La grande card sombre avec les Q/R et la conclusion en gras", preview: "Les pyjamas à boutons ? Combat garanti… / Ici : double zip…" },
+  { value: "description", label: "Description libre",       icon: "📝", desc: "Paragraphe de texte libre (bonnet, lange, etc.)",             preview: "Premier contact avec la tête fragile de votre nouveau-né…" },
+  { value: "coloris",     label: "Info coloris texte",      icon: "🌈", desc: "Texte coloris pour produits sans variante de motif",         preview: "Terre cuite — brun chaud aux nuances naturelles, à la fois doux et affirmé." },
+  { value: "entretien",   label: "Conseils d'entretien",    icon: "🧺", desc: "Instructions de lavage affichées sous le bouton panier",     preview: "Lavage 40°C, cycle délicat \nSans adoucissant ni javel…" },
 ];
 
 function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
@@ -381,17 +381,43 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
                 placeholder={typeDef?.desc}
                 style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
               <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", lineHeight: 1.6 }}>
-                {card.type === "philosophy" && "Sépare les paragraphes par une ligne vide (\\n\\n). Le 1er \\n\\n sépare texte principal et conclusion en gras."}
-                {(card.type === "subtitle" || card.type === "description") && "Texte affiché tel quel sur la fiche produit."}
+                {card.type === "philosophy" && (
+                  <div style={{ display: "grid", gap: 4 }}>
+                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)" }}>
+                      <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 4 }}>→ Card sombre "Philosophie M!LK"</div>
+                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", lineHeight: 1.6 }}>
+                        Écris les phrases avec des questions (ex : "Les pyjamas à boutons ?") — elles seront mises en valeur.<br/>
+                        Commence par "Ici :" ou "La " pour créer un bloc encadré.<br/>
+                        <strong>La conclusion finale "Chaque produit M!LK répond..." s'affiche automatiquement</strong> — ne la réécris pas ici.
+                      </div>
+                    </div>
+                  </div>
+                )}
+                {card.type === "subtitle" && (
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 2 }}>→ Phrase en gras juste sous le nom du produit</div>
+                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Ex : "Double zip + moufles intégrées = fin des batailles quotidiennes."</div>
+                  </div>
+                )}
+                {card.type === "description" && "Paragraphe libre affiché sous la phrase d'accroche."}
                 {card.type === "coloris" && "Ex : Terre cuite — brun chaud aux nuances naturelles, à la fois doux et affirmé."}
-                {card.type === "motif" && "Format : Motif [Nom] — [description]. Ex : Motif Flash — éclairs blancs minimalistes sur fond gris."}
+                {card.type === "motif" && (
+                  <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 2 }}>→ Ligne sous les points forts : "Motif Flash — éclairs blancs…"</div>
+                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Format : Motif [Nom] — [description]. Ex : "Motif Flash — éclairs blancs minimalistes sur fond gris anthracite."</div>
+                  </div>
+                )}
               </div>
             </div>
           )}
 
           {card.type === "features" && (
             <div style={{ display: "grid", gap: 10 }}>
-              <label style={LS}>Points forts — un par ligne (le texte avant " : " sera en gras)</label>
+              <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)", marginBottom: 4 }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", marginBottom: 2 }}>→ Card avec les ✓ ambrés sous la phrase d'accroche</div>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Format : <strong>Titre en gras</strong> : description. Ex : "Double zip inversé : change par le bas"</div>
+              </div>
+              <label style={LS}>Points forts — un par ligne</label>
               {featuresArr.map((f, i) => (
                 <div key={i} style={{ display: "flex", gap: 8 }}>
                   <input value={f} onChange={e => updateFeature(i, e.target.value)}
@@ -411,15 +437,21 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
           {card.type === "whyresult" && (
             <div style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gap: 6 }}>
-                <label style={LS}>Pourquoi — texte narratif (problème parent)</label>
+                <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.06)", marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a" }}>→ Card "La vraie raison" / "Pourquoi ce produit existe"</div>
+                </div>
+                <label style={LS}>Texte — raconte le problème du parent de façon directe</label>
                 <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
-                  rows={5} placeholder="Ex : Tu te lèves pour la 4e fois. Il est 3h du mat'..."
+                  rows={5} placeholder="Ex : L'habillage d'un bébé peut virer au cauchemar. Il gigote, il pleure, tu t'énerves..."
                   style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
               </div>
               <div style={{ display: "grid", gap: 6 }}>
-                <label style={LS}>Résultat — ce que ça change concrètement</label>
+                <div style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(196,154,74,0.08)", marginBottom: 4 }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a" }}>→ Card "Ce que tu obtiens" / "Le résultat"</div>
+                </div>
+                <label style={LS}>Résultat concret — court, percutant</label>
                 <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
-                  rows={3} placeholder="Ex : Change de couche en 30 secondes. Bébé reste calme..."
+                  rows={3} placeholder="Ex : Habillage en moins d'une minute. Change de couche sans déshabiller. Zéro friction..."
                   style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
               </div>
             </div>
@@ -1102,15 +1134,21 @@ export default function AdminProductForm() {
             </div>
           )}
 
-          {/* Ajout de blocs */}
-          <div style={{ display: "grid", gap: 8 }}>
-            <label style={{ ...LS, color: "rgba(196,154,74,0.8)" }}>Ajouter un bloc</label>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {/* Ajout de blocs — visuels avec preview */}
+          <div style={{ display: "grid", gap: 10 }}>
+            <label style={{ ...LS, color: "rgba(196,154,74,0.8)" }}>Ajouter un bloc à la fiche</label>
+            <div style={{ display: "grid", gap: 8 }}>
               {CARD_TYPES.map(t => (
                 <button key={t.value} type="button" onClick={() => addCard(t.value)}
-                  title={t.desc}
-                  style={{ padding: "9px 14px", borderRadius: 99, border: "2px dashed rgba(196,154,74,0.4)", background: "rgba(196,154,74,0.05)", color: "#c49a4a", fontWeight: 800, fontSize: 13, cursor: "pointer", transition: "all 0.15s" }}>
-                  + {t.label}
+                  style={{ display: "grid", gridTemplateColumns: "36px 1fr auto", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, border: "1.5px dashed rgba(196,154,74,0.35)", background: "rgba(196,154,74,0.04)", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
+                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(196,154,74,0.1)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(196,154,74,0.6)"; }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(196,154,74,0.04)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(196,154,74,0.35)"; }}>
+                  <div style={{ fontSize: 20, textAlign: "center" }}>{t.icon}</div>
+                  <div>
+                    <div style={{ fontWeight: 900, fontSize: 13, color: "#1a1410", marginBottom: 2 }}>{t.label}</div>
+                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", lineHeight: 1.4 }}>{t.desc}</div>
+                  </div>
+                  <div style={{ fontSize: 18, color: "#c49a4a", fontWeight: 300, paddingRight: 4 }}>+</div>
                 </button>
               ))}
             </div>
@@ -1216,167 +1254,193 @@ export default function AdminProductForm() {
 
     {/* ── PANNEAU APERÇU STICKY ── */}
     {showPreview && (
-      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#1a1410", borderLeft: "1px solid rgba(196,154,74,0.2)", padding: "24px 20px", boxSizing: "border-box" }}>
+      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#d8c8b0", borderLeft: "2px solid rgba(26,20,16,0.12)", boxSizing: "border-box", scrollbarWidth: "none" }}>
         {/* Header aperçu */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 20, paddingBottom: 14, borderBottom: "1px solid rgba(196,154,74,0.15)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 14px", borderBottom: "1px solid rgba(26,20,16,0.12)", background: "#c4ae94", position: "sticky", top: 0, zIndex: 10 }}>
           <div>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 2 }}>Aperçu fiche produit</div>
-            <div style={{ fontSize: 12, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>Mise à jour en temps réel</div>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#1a1410", marginBottom: 1 }}>Aperçu fiche produit</div>
+            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>Temps réel — panneau droit</div>
           </div>
           <button onClick={() => setShowPreview(false)}
-            style={{ width: 28, height: 28, borderRadius: 99, background: "rgba(255,255,255,0.08)", border: "none", cursor: "pointer", color: "#f2ede6", fontSize: 14, display: "grid", placeItems: "center" }}>
+            style={{ width: 28, height: 28, borderRadius: 99, background: "rgba(26,20,16,0.1)", border: "none", cursor: "pointer", color: "#1a1410", fontSize: 14, display: "grid", placeItems: "center" }}>
             ✕
           </button>
         </div>
 
         {!hasPreviewContent ? (
-          <div style={{ padding: "40px 20px", textAlign: "center", color: "rgba(242,237,230,0.25)", fontSize: 13 }}>
+          <div style={{ padding: "60px 20px", textAlign: "center", color: "rgba(26,20,16,0.3)", fontSize: 13 }}>
             Remplis les champs pour voir l'aperçu
           </div>
         ) : (
-          <div style={{ display: "grid", gap: 14 }}>
+          <div style={{ padding: "20px 16px", display: "grid", gap: 16 }}>
 
-            {/* Image principale */}
+            {/* ── Image principale ── */}
             {form.image_url && (
-              <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", aspectRatio: "3/4", background: "#2d1a0e" }}>
+              <div style={{ position: "relative", borderRadius: 14, overflow: "hidden", aspectRatio: "3/4", background: "#c4ae94" }}>
                 <img src={form.image_url} alt={form.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
               </div>
             )}
 
-            {/* Catégorie + nom */}
-            <div>
-              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>
+            {/* ── Catégorie + Nom + Prix ── */}
+            <div style={{ display: "grid", gap: 6 }}>
+              <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a" }}>
                 {form.category_slug || "catégorie"} · Bambou OEKO-TEX
               </div>
-              <div style={{ fontSize: "clamp(18px,1.8vw,22px)", fontWeight: 950, letterSpacing: -0.5, lineHeight: 1.15, color: "#f2ede6" }}>
+              <div style={{ fontSize: 20, fontWeight: 950, letterSpacing: -0.5, lineHeight: 1.15, color: "#1a1410" }}>
                 {form.name || <span style={{ opacity: 0.3 }}>Nom du produit</span>}
               </div>
+              {Number(form.price_ttc) > 0 && (
+                <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
+                  <span style={{ fontSize: 22, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>{priceDisplay.toFixed(2)} €</span>
+                  {form.promo_price && <span style={{ fontSize: 14, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(form.price_ttc).toFixed(2)} €</span>}
+                </div>
+              )}
             </div>
 
-            {/* Prix */}
-            {Number(form.price_ttc) > 0 && (
-              <div style={{ display: "flex", alignItems: "baseline", gap: 10 }}>
-                <span style={{ fontSize: 22, fontWeight: 950, letterSpacing: -1, color: "#f2ede6" }}>
-                  {priceDisplay.toFixed(2)} €
-                </span>
-                {form.promo_price && (
-                  <span style={{ fontSize: 15, textDecoration: "line-through", color: "rgba(242,237,230,0.35)", fontWeight: 700 }}>
-                    {Number(form.price_ttc).toFixed(2)} €
-                  </span>
-                )}
-              </div>
-            )}
-
-            {/* Sous-titre */}
+            {/* ── PHRASE D'ACCROCHE (subtitle) ── */}
             {previewSubtitle && (
-              <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(242,237,230,0.7)", lineHeight: 1.5 }}>
-                {previewSubtitle}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>💬 Phrase d'accroche</div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(26,20,16,0.75)", lineHeight: 1.5 }}>{previewSubtitle}</div>
               </div>
             )}
 
-            {/* Description */}
+            {/* ── DESCRIPTION ── */}
             {previewDesc && (
-              <div style={{ fontSize: 12, color: "rgba(242,237,230,0.55)", lineHeight: 1.75 }}>
-                {previewDesc}
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>📝 Description</div>
+                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.75 }}>{previewDesc}</div>
               </div>
             )}
 
-            {/* Coloris */}
-            {previewColoris && (
-              <div style={{ fontSize: 12, fontWeight: 700, color: "#f2ede6", lineHeight: 1.5 }}>
-                <span style={{ color: "#c49a4a", fontWeight: 900 }}>Coloris</span> — {previewColoris}
-              </div>
-            )}
-
-            {/* Features */}
+            {/* ── POINTS FORTS (features) — card exacte ── */}
             {previewFeatures.filter(Boolean).length > 0 && (
-              <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)", display: "grid", gap: 9 }}>
-                {previewFeatures.filter(Boolean).map((feat, i) => {
-                  const colonIdx = feat.indexOf(" : ");
-                  const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
-                  const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
-                  return (
-                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <div style={{ width: 16, height: 16, borderRadius: "50%", background: "rgba(196,154,74,0.2)", border: "1px solid rgba(196,154,74,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
-                        <svg width="8" height="6" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>✅ Points forts</div>
+                <div style={{ padding: "14px 16px", borderRadius: 14, background: "rgba(26,20,16,0.06)", border: "1px solid rgba(26,20,16,0.1)", display: "grid", gap: 10 }}>
+                  {previewFeatures.filter(Boolean).map((feat: string, i: number) => {
+                    const colonIdx = feat.indexOf(" : ");
+                    const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
+                    const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
+                    return (
+                      <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                        <div style={{ width: 18, height: 18, borderRadius: "50%", background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.4)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, marginTop: 1 }}>
+                          <svg width="9" height="7" viewBox="0 0 10 8" fill="none"><path d="M1 4L3.5 6.5L9 1" stroke="#c49a4a" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                        </div>
+                        <div style={{ fontSize: 12, lineHeight: 1.45, color: "#1a1410" }}>
+                          <span style={{ fontWeight: 800 }}>{label}</span>
+                          {desc && <span style={{ fontWeight: 400, color: "rgba(26,20,16,0.5)" }}> : {desc}</span>}
+                        </div>
                       </div>
-                      <div style={{ fontSize: 12, lineHeight: 1.4 }}>
-                        <span style={{ fontWeight: 800, color: "#f2ede6" }}>{label}</span>
-                        {desc && <span style={{ color: "rgba(242,237,230,0.5)" }}> : {desc}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             )}
 
-            {/* Tailles */}
+            {/* ── COLORIS / MOTIF ── */}
+            {previewColoris && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>🌈 Coloris</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}><span style={{ color: "#c49a4a", fontWeight: 900 }}>Coloris</span> — {previewColoris}</div>
+              </div>
+            )}
+            {ficheCards.find((c: any) => c.type === "motif")?.content && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>🎨 Motif</div>
+                <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>{ficheCards.find((c: any) => c.type === "motif")?.content}</div>
+              </div>
+            )}
+
+            {/* ── TAILLES ── */}
             {sizes.length > 0 && (
               <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Taille</div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Taille</div>
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   {sizes.map(t => (
-                    <div key={t} style={{ padding: "7px 13px", borderRadius: 8, background: "rgba(255,255,255,0.08)", fontSize: 12, fontWeight: 800, color: "#f2ede6" }}>{t}</div>
+                    <div key={t} style={{ padding: "8px 14px", borderRadius: 10, background: "rgba(26,20,16,0.08)", fontSize: 13, fontWeight: 800, color: "#1a1410" }}>{t}</div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Couleurs */}
+            {/* ── COULEURS ── */}
             {colors.length > 0 && (
               <div style={{ display: "grid", gap: 8 }}>
-                <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Couleur</div>
-                <div style={{ display: "flex", gap: 8 }}>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Couleur</div>
+                <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                   {colors.map((c, i) => (
-                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
-                      <div style={{ width: 32, height: 32, borderRadius: 99, border: "2px solid rgba(255,255,255,0.2)", background: c.hex, overflow: "hidden" }}>
+                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 5 }}>
+                      <div style={{ width: 36, height: 36, borderRadius: 99, border: "2px solid rgba(26,20,16,0.15)", background: c.hex, overflow: "hidden" }}>
                         {c.image_url && <img src={c.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                       </div>
-                      <span style={{ fontSize: 9, color: "rgba(242,237,230,0.4)", fontWeight: 700 }}>{c.name}</span>
+                      <span style={{ fontSize: 10, color: "rgba(26,20,16,0.5)", fontWeight: 700 }}>{c.name}</span>
                     </div>
                   ))}
                 </div>
               </div>
             )}
 
-            {/* Pourquoi / Résultat */}
-            {previewWR && (
-              <>
-                <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.08)" }}>
-                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>La vraie raison</div>
-                  <p style={{ margin: 0, fontSize: 12, color: "rgba(242,237,230,0.6)", lineHeight: 1.7 }}>{previewWR.why}</p>
+            {/* ── POURQUOI — card exacte ── */}
+            {previewWR?.why && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>💡 "La vraie raison"</div>
+                <div style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(26,20,16,0.06)", border: "1px solid rgba(26,20,16,0.1)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 3 }}>La vraie raison</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Pourquoi ce produit existe</div>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(26,20,16,0.7)", lineHeight: 1.8 }}>{previewWR.why}</p>
                 </div>
-                <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.2)" }}>
-                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Ce que tu obtiens</div>
-                  <p style={{ margin: 0, fontSize: 12, color: "rgba(242,237,230,0.7)", lineHeight: 1.7, fontWeight: 600 }}>{previewWR.result}</p>
-                </div>
-              </>
+              </div>
             )}
 
-            {/* Philosophie */}
+            {/* ── RÉSULTAT — card exacte ── */}
+            {previewWR?.result && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>💡 "Ce que tu obtiens"</div>
+                <div style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 3 }}>Ce que tu obtiens</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Le résultat</div>
+                  <p style={{ margin: 0, fontSize: 12, color: "rgba(26,20,16,0.7)", lineHeight: 1.8, fontWeight: 600 }}>{previewWR.result}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ── PHILOSOPHIE — card exacte sombre ── */}
             {previewPhilo && (
-              <div style={{ padding: "14px 16px", borderRadius: 12, background: "#2d1a0e", border: "1px solid rgba(196,154,74,0.15)" }}>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
-                <p style={{ margin: 0, fontSize: 11, color: "rgba(242,237,230,0.55)", lineHeight: 1.7, whiteSpace: "pre-line" }}>{previewPhilo.slice(0, 300)}{previewPhilo.length > 300 ? "…" : ""}</p>
-              </div>
-            )}
-
-            {/* FAQs */}
-            {faqs.filter(f => f.question).length > 0 && (
-              <div style={{ padding: "14px 16px", borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)" }}>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 10 }}>FAQ ({faqs.filter(f => f.question).length} questions)</div>
-                {faqs.filter(f => f.question).slice(0, 3).map((faq, i) => (
-                  <div key={i} style={{ borderTop: i > 0 ? "1px solid rgba(255,255,255,0.06)" : "none", paddingTop: i > 0 ? 8 : 0, marginTop: i > 0 ? 8 : 0 }}>
-                    <div style={{ fontSize: 11, fontWeight: 800, color: "#f2ede6", marginBottom: 3 }}>{faq.question}</div>
-                    <div style={{ fontSize: 11, color: "rgba(242,237,230,0.45)", lineHeight: 1.6 }}>{faq.reponse.slice(0, 80)}{faq.reponse.length > 80 ? "…" : ""}</div>
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>🧠 Philosophie M!LK</div>
+                <div style={{ padding: "18px 18px", borderRadius: 18, background: "#2d1a0e", border: "1px solid rgba(196,154,74,0.15)" }}>
+                  <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 3 }}>Philosophie M!LK</div>
+                  <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 14 }}>Comment ça réduit ta charge mentale</div>
+                  <div style={{ fontSize: 12, color: "rgba(242,237,230,0.7)", lineHeight: 1.7, whiteSpace: "pre-line" }}>{previewPhilo}</div>
+                  <div style={{ marginTop: 14, paddingTop: 12, borderTop: "1px solid rgba(242,237,230,0.08)", fontSize: 12, fontWeight: 900, color: "#f2ede6", lineHeight: 1.5 }}>
+                    Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
                   </div>
-                ))}
+                </div>
               </div>
             )}
 
-            {/* Bouton CTA simulé */}
-            <div style={{ marginTop: 8, padding: "14px", borderRadius: 12, background: "#f2ede6", textAlign: "center", fontWeight: 900, fontSize: 14, color: "#1a1410" }}>
+            {/* ── FAQ ── */}
+            {faqs.filter(f => f.question).length > 0 && (
+              <div>
+                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 6 }}>❓ FAQ ({faqs.filter(f => f.question).length} questions)</div>
+                <div style={{ padding: "14px 16px", borderRadius: 14, background: "#c4ae94", border: "1px solid rgba(26,20,16,0.1)", display: "grid", gap: 0 }}>
+                  {faqs.filter(f => f.question).map((faq, i) => (
+                    <div key={i} style={{ borderTop: i > 0 ? "1px solid rgba(26,20,16,0.1)" : "none", padding: "10px 0" }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>{faq.question}</div>
+                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>{faq.reponse.slice(0, 100)}{faq.reponse.length > 100 ? "…" : ""}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── CTA simulé ── */}
+            <div style={{ padding: "15px", borderRadius: 14, background: "#1a1410", textAlign: "center", fontWeight: 900, fontSize: 14, color: "#f2ede6", marginTop: 4 }}>
               Ajouter — {priceDisplay > 0 ? `${priceDisplay.toFixed(2)} €` : "—"}
+            </div>
+            <div style={{ padding: "8px", borderRadius: 10, border: "2px solid #1a1410", textAlign: "center", fontWeight: 800, fontSize: 13, color: "#1a1410" }}>
+              Voir le panier
             </div>
 
           </div>

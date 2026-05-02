@@ -687,30 +687,6 @@ export default function ProductPage() {
             ))}
           </div>
 
-          {/* ── Logo M!LK — visible dans l'espace sticky desktop ── */}
-          <div className="milk-logo-sticky">
-            <style>{`
-              @keyframes milk-bang {
-                0%,85%,100% { transform: translateY(0) scale(1); }
-                87% { transform: translateY(-8px) scale(1.18); }
-                91% { transform: translateY(3px) scale(0.94); }
-                94% { transform: translateY(-4px) scale(1.08); }
-                97% { transform: translateY(1px) scale(1.01); }
-              }
-              .milk-logo-sticky {
-                display:flex; flex-direction:column; align-items:center;
-                justify-content:center; padding:32px 0 24px; gap:10px;
-              }
-              @media(max-width:900px){ .milk-logo-sticky { display:none !important; } }
-            `}</style>
-            <div style={{ background: DARK, borderRadius: 18, padding:"18px 28px", display:"flex", alignItems:"center", gap:2 }}>
-              <span style={{ color: WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>M</span>
-              <span style={{ color: AMBER, fontWeight:950, fontSize:65, lineHeight:1, display:"inline-block", transform:"translateY(-4px)", animation:"milk-bang 4.5s cubic-bezier(0.22,1,0.36,1) infinite" }}>!</span>
-              <span style={{ color: WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>LK</span>
-            </div>
-            <span style={{ fontSize:10, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.3)" }}>Bambou OEKO-TEX</span>
-          </div>
-
           {whyResult && (
             <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)` }}>
               <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: AMBER, marginBottom: 4 }}>La vraie raison</div>
@@ -775,6 +751,27 @@ export default function ProductPage() {
             </div>
           ) : <div />}
 
+          {/* ── Logo M!LK dans le vide avant Philosophie ── */}
+          {philosophy && (
+            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"28px 0 20px", gap:10 }}>
+              <style>{`
+                @keyframes milk-bang {
+                  0%,85%,100% { transform:translateY(0) scale(1); }
+                  87% { transform:translateY(-10px) scale(1.2); }
+                  91% { transform:translateY(3px) scale(0.93); }
+                  94% { transform:translateY(-5px) scale(1.1); }
+                  97% { transform:translateY(1px) scale(1.01); }
+                }
+                @media(max-width:900px){ .milk-logo-philo { display:none !important; } }
+              `}</style>
+              <div className="milk-logo-philo" style={{ background:DARK, borderRadius:18, padding:"18px 28px", display:"flex", alignItems:"center", gap:2 }}>
+                <span style={{ color:WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>M</span>
+                <span style={{ color:AMBER, fontWeight:950, fontSize:66, lineHeight:1, display:"inline-block", transform:"translateY(-4px)", animation:"milk-bang 4.5s cubic-bezier(0.22,1,0.36,1) infinite" }}>!</span>
+                <span style={{ color:WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>LK</span>
+              </div>
+              <span style={{ fontSize:10, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.3)" }}>Bambou OEKO-TEX</span>
+            </div>
+          )}
           {philosophy && <PhilosophyCard text={philosophy} />}
         </div>
 

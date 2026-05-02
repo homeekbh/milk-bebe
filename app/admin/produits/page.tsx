@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { adminFetch } from "@/hooks/useAdminFetch";
 
 type Product = {
   id: string; name: string; slug: string;
@@ -45,7 +46,7 @@ export default function AdminProduitsListe() {
 
   async function load() {
     setLoading(true);
-    const res  = await fetch("/api/admin/products");
+    const res  = await adminFetch("/api/admin/products");
     const data = await res.json();
     setProducts(Array.isArray(data) ? data : []);
     setLoading(false);
@@ -53,7 +54,7 @@ export default function AdminProduitsListe() {
   useEffect(() => { load(); }, []);
 
   async function togglePublish(id: string, published: boolean) {
-    await fetch("/api/admin/products", {
+    await adminFetch("/api/admin/products", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, published: !published }),
     });
@@ -63,7 +64,7 @@ export default function AdminProduitsListe() {
   async function handleDelete(id: string, name: string) {
     if (!confirm(`Supprimer "${name}" définitivement ?`)) return;
     setDeleting(id);
-    await fetch("/api/admin/products", {
+    await adminFetch("/api/admin/products", {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
@@ -74,7 +75,7 @@ export default function AdminProduitsListe() {
   async function handleExportStock() {
     setExporting(true);
     try {
-      const res  = await fetch("/api/admin/export/stock");
+      const res  = await adminFetch("/api/admin/export/stock");
       if (!res.ok) throw new Error();
       const blob = await res.blob();
       const url  = URL.createObjectURL(blob);

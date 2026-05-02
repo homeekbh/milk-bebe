@@ -755,19 +755,20 @@ export default function ProductPage() {
         <div className="milk-logo-zone">
           <style>{`
             @keyframes milk-vibrate {
-              0%,90%,100% { transform: rotate(0deg) scale(1); }
-              91% { transform: rotate(-2deg) scale(1.04); }
-              93% { transform: rotate(2deg) scale(1.08); }
-              95% { transform: rotate(-1deg) scale(1.05); }
-              97% { transform: rotate(1deg) scale(1.02); }
+              0%,88%,100% { transform: translateY(0) scale(1); }
+              90% { transform: translateY(-6px) scale(1.15); }
+              92% { transform: translateY(2px) scale(0.95); }
+              94% { transform: translateY(-3px) scale(1.08); }
+              96% { transform: translateY(1px) scale(1.02); }
+              98% { transform: translateY(-1px) scale(1); }
             }
             .milk-logo-zone { display:flex; justify-content:center; padding:8px 0; }
             @media(max-width:900px){ .milk-logo-zone { display:none; } }
           `}</style>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, animation:"milk-vibrate 5s ease-in-out infinite" }}>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
             <div style={{ background: DARK, borderRadius: 16, padding:"14px 22px", display:"flex", alignItems:"center", gap:3 }}>
               <span style={{ color: WARM, fontWeight:950, fontSize:40, letterSpacing:-2, lineHeight:1 }}>M</span>
-              <span style={{ color: AMBER, fontWeight:950, fontSize:50, lineHeight:1, display:"inline-block", transform:"translateY(-3px)" }}>!</span>
+              <span style={{ color: AMBER, fontWeight:950, fontSize:50, lineHeight:1, display:"inline-block", transform:"translateY(-3px)", animation:"milk-vibrate 5s ease-in-out infinite" }}>!</span>
               <span style={{ color: WARM, fontWeight:950, fontSize:40, letterSpacing:-2, lineHeight:1 }}>LK</span>
             </div>
             <span style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.35)" }}>Bambou OEKO-TEX</span>

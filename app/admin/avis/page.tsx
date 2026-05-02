@@ -1,4 +1,5 @@
 "use client";
+import { adminFetch } from "@/hooks/useAdminFetch";
 
 import { useEffect, useState } from "react";
 
@@ -24,7 +25,7 @@ export default function AdminAvis() {
 
   async function load() {
     setLoading(true);
-    const res  = await fetch("/api/admin/reviews");
+    const res  = await adminFetch("/api/admin/reviews");
     const data = await res.json();
     setReviews(Array.isArray(data) ? data : []);
     setLoading(false);
@@ -33,7 +34,7 @@ export default function AdminAvis() {
   useEffect(() => { load(); }, []);
 
   async function toggleApprove(id: string, approved: boolean) {
-    await fetch("/api/admin/reviews", {
+    await adminFetch("/api/admin/reviews", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id, approved: !approved }),
@@ -43,7 +44,7 @@ export default function AdminAvis() {
 
   async function saveReply(id: string) {
     setSaving(true);
-    await fetch("/api/admin/reviews", {
+    await adminFetch("/api/admin/reviews", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id, reply: replyText.trim() || null }),
@@ -56,7 +57,7 @@ export default function AdminAvis() {
 
   async function deleteReview(id: string) {
     if (!confirm("Supprimer cet avis ?")) return;
-    await fetch("/api/admin/reviews", {
+    await adminFetch("/api/admin/reviews", {
       method:  "DELETE",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id }),

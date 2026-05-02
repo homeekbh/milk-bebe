@@ -1,4 +1,5 @@
 "use client";
+import { adminFetch } from "@/hooks/useAdminFetch";
 
 import { useEffect, useState } from "react";
 
@@ -27,7 +28,7 @@ export default function AdminPopups() {
   const [success,  setSuccess]  = useState("");
 
   async function load() {
-    const res  = await fetch("/api/admin/popups");
+    const res  = await adminFetch("/api/admin/popups");
     const data = await res.json();
     setPopups(Array.isArray(data) ? data : []);
   }
@@ -42,7 +43,7 @@ export default function AdminPopups() {
     setSaving(true);
     const method = editId ? "PUT" : "POST";
     const body   = editId ? { id: editId, ...form } : form;
-    await fetch("/api/admin/popups", {
+    await adminFetch("/api/admin/popups", {
       method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
     });
     setSuccess(editId ? "Pop-up mis à jour !" : "Pop-up créé !");
@@ -52,7 +53,7 @@ export default function AdminPopups() {
   }
 
   async function toggle(id: string, active: boolean) {
-    await fetch("/api/admin/popups", {
+    await adminFetch("/api/admin/popups", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, active }),
     });
@@ -61,7 +62,7 @@ export default function AdminPopups() {
 
   async function del(id: string) {
     if (!confirm("Supprimer ce pop-up ?")) return;
-    await fetch("/api/admin/popups", {
+    await adminFetch("/api/admin/popups", {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });

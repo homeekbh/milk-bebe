@@ -1,4 +1,5 @@
 "use client";
+import { adminFetch } from "@/hooks/useAdminFetch";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -59,7 +60,7 @@ export default function AdminCodes() {
   async function handleCreate() {
     if (!form.code.trim() || !form.value) { setError("Code et valeur requis"); return; }
     setSaving(true); setError(""); setSuccess("");
-    const res = await fetch("/api/admin/promo-codes", {
+    const res = await adminFetch("/api/admin/promo-codes", {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         code:       form.code.trim().toUpperCase(),
@@ -79,7 +80,7 @@ export default function AdminCodes() {
   }
 
   async function toggleActive(id: string, active: boolean) {
-    await fetch("/api/admin/promo-codes", {
+    await adminFetch("/api/admin/promo-codes", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, active: !active }),
     });
@@ -88,7 +89,7 @@ export default function AdminCodes() {
 
   async function handleDelete(id: string, code: string) {
     if (!confirm(`Supprimer le code "${code}" ?`)) return;
-    await fetch("/api/admin/promo-codes", {
+    await adminFetch("/api/admin/promo-codes", {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });

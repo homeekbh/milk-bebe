@@ -1,4 +1,5 @@
 "use client";
+import { adminFetch } from "@/hooks/useAdminFetch";
 
 import { useEffect, useState } from "react";
 
@@ -44,7 +45,7 @@ export default function AdminPromos() {
   const [success,  setSuccess]  = useState("");
 
   async function load() {
-    const res  = await fetch("/api/admin/promos");
+    const res  = await adminFetch("/api/admin/promos");
     const data = await res.json();
     setPromos(Array.isArray(data) ? data : []);
   }
@@ -88,7 +89,7 @@ export default function AdminPromos() {
         max_uses:       form.max_uses  ? parseInt(form.max_uses)    : null,
         expires_at:     form.expires_at || null,
       };
-      const res = await fetch("/api/admin/promos", {
+      const res = await adminFetch("/api/admin/promos", {
         method:  editId ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(editId ? { id: editId, ...body } : body),
@@ -106,7 +107,7 @@ export default function AdminPromos() {
 
   async function handleDelete(id: string) {
     if (!confirm("Supprimer ce code promo ?")) return;
-    await fetch("/api/admin/promos", {
+    await adminFetch("/api/admin/promos", {
       method:  "DELETE",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id }),
@@ -115,7 +116,7 @@ export default function AdminPromos() {
   }
 
   async function toggleActive(p: any) {
-    await fetch("/api/admin/promos", {
+    await adminFetch("/api/admin/promos", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id: p.id, active: !p.active }),

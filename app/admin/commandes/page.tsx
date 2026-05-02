@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useEffect, useState } from "react";
+import { adminFetch } from "@/hooks/useAdminFetch";
 
 type Order = {
   id: string;
@@ -183,7 +184,7 @@ export default function AdminCommandes() {
 
   async function load() {
     setLoading(true);
-    const res  = await fetch("/api/admin/commandes-data");
+    const res  = await adminFetch("/api/admin/commandes-data");
     const data = await res.json();
     setOrders(Array.isArray(data) ? data : []);
     setLoading(false);
@@ -205,7 +206,7 @@ export default function AdminCommandes() {
   async function handleShip(order: Order) {
     if (!tracking.trim() || !transporteur) return;
     setSaving(true);
-    await fetch("/api/admin/commandes-data", {
+    await adminFetch("/api/admin/commandes-data", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
@@ -216,7 +217,7 @@ export default function AdminCommandes() {
       }),
     });
     // Envoyer email expédition au client
-    await fetch("/api/emails/shipped", {
+    await adminFetch("/api/emails/shipped", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
@@ -233,7 +234,7 @@ export default function AdminCommandes() {
   }
 
   async function updateStatus(id: string, shipping_status: string) {
-    await fetch("/api/admin/commandes-data", {
+    await adminFetch("/api/admin/commandes-data", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id, shipping_status }),

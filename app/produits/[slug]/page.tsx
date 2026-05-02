@@ -446,7 +446,7 @@ export default function ProductPage() {
       <style>{`
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; }
         .pl-left  { padding:16px 24px 80px 4vw; }
-        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:grid; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
+        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
         .pl-right::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
@@ -752,7 +752,7 @@ export default function ProductPage() {
         </div>
 
         {/* Logo M!LK animé — au-dessus de la FAQ, visible seulement desktop */}
-        <div className="milk-logo-zone">
+        <div className="milk-logo-zone" style={{ flex: 1, display:"flex", alignItems:"center", justifyContent:"center", minHeight: 120 }}>
           <style>{`
             @keyframes milk-vibrate {
               0%,88%,100% { transform: translateY(0) scale(1); }
@@ -762,8 +762,8 @@ export default function ProductPage() {
               96% { transform: translateY(1px) scale(1.02); }
               98% { transform: translateY(-1px) scale(1); }
             }
-            .milk-logo-zone { display:flex; justify-content:center; padding:8px 0; }
-            @media(max-width:900px){ .milk-logo-zone { display:none; } }
+            .milk-logo-zone { padding:8px 0; }
+            @media(max-width:900px){ .milk-logo-zone { display:none !important; } }
           `}</style>
           <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
             <div style={{ background: DARK, borderRadius: 16, padding:"14px 22px", display:"flex", alignItems:"center", gap:3 }}>

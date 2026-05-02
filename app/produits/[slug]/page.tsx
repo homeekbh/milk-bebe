@@ -465,7 +465,6 @@ export default function ProductPage() {
           .photo-item { aspect-ratio:4/3!important; }
           .photo-item.single { aspect-ratio:4/3!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
-          .milk-logo-zone { display:none!important; }
         }
       `}</style>
 
@@ -756,52 +755,7 @@ export default function ProductPage() {
             </div>
           ) : <div />}
 
-          {/* ── Logo M!LK dans le vide avant Philosophie ── */}
-          {philosophy && (
-            <div style={{ display:"flex", flexDirection:"column", alignItems:"center", justifyContent:"center", padding:"28px 0 20px", gap:10 }}>
-              <style>{`
-                @keyframes milk-bang {
-                  0%,85%,100% { transform:translateY(0) scale(1); }
-                  87% { transform:translateY(-10px) scale(1.2); }
-                  91% { transform:translateY(3px) scale(0.93); }
-                  94% { transform:translateY(-5px) scale(1.1); }
-                  97% { transform:translateY(1px) scale(1.01); }
-                }
-                @media(max-width:900px){ .milk-logo-philo { display:none !important; } }
-              `}</style>
-              <div className="milk-logo-philo" style={{ background:DARK, borderRadius:18, padding:"18px 28px", display:"flex", alignItems:"center", gap:2 }}>
-                <span style={{ color:WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>M</span>
-                <span style={{ color:AMBER, fontWeight:950, fontSize:66, lineHeight:1, display:"inline-block", transform:"translateY(-4px)", animation:"milk-bang 4.5s cubic-bezier(0.22,1,0.36,1) infinite" }}>!</span>
-                <span style={{ color:WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>LK</span>
-              </div>
-              <span style={{ fontSize:10, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.3)" }}>Bambou OEKO-TEX</span>
-            </div>
-          )}
           {philosophy && <PhilosophyCard text={philosophy} />}
-        </div>
-
-        {/* Logo M!LK animé — au-dessus de la FAQ, visible seulement desktop */}
-        <div className="milk-logo-zone" style={{ flex: 1, display:"flex", alignItems:"center", justifyContent:"center", minHeight: 120 }}>
-          <style>{`
-            @keyframes milk-vibrate {
-              0%,88%,100% { transform: translateY(0) scale(1); }
-              90% { transform: translateY(-6px) scale(1.15); }
-              92% { transform: translateY(2px) scale(0.95); }
-              94% { transform: translateY(-3px) scale(1.08); }
-              96% { transform: translateY(1px) scale(1.02); }
-              98% { transform: translateY(-1px) scale(1); }
-            }
-            .milk-logo-zone { padding:8px 0; }
-            @media(max-width:900px){ .milk-logo-zone { display:none !important; } }
-          `}</style>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8 }}>
-            <div style={{ background: DARK, borderRadius: 16, padding:"14px 22px", display:"flex", alignItems:"center", gap:3 }}>
-              <span style={{ color: WARM, fontWeight:950, fontSize:40, letterSpacing:-2, lineHeight:1 }}>M</span>
-              <span style={{ color: AMBER, fontWeight:950, fontSize:50, lineHeight:1, display:"inline-block", transform:"translateY(-3px)", animation:"milk-vibrate 5s ease-in-out infinite" }}>!</span>
-              <span style={{ color: WARM, fontWeight:950, fontSize:40, letterSpacing:-2, lineHeight:1 }}>LK</span>
-            </div>
-            <span style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.35)" }}>Bambou OEKO-TEX</span>
-          </div>
         </div>
 
         {/* FAQ */}

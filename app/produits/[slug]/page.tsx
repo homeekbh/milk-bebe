@@ -283,9 +283,12 @@ function IconBandeau() {
             <img
               src={item.src}
               alt={item.label.replace("\n", " ")}
-              width={36}
-              height={36}
-              style={{ filter: svgFilter, objectFit: "contain" }}
+              style={{
+                filter: svgFilter,
+                objectFit: "contain",
+                width: item.src.includes("thermoregulation") ? 42 : 36,
+                height: item.src.includes("thermoregulation") ? 42 : 36,
+              }}
             />
             <div style={{ fontSize: 7.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: "rgba(26,20,16,0.65)", textAlign: "center", lineHeight: 1.3, whiteSpace: "pre-line" }}>{item.label}</div>
           </div>
@@ -444,6 +447,8 @@ export default function ProductPage() {
       )}
 
       <style>{`
+        *, *::before, *::after { box-sizing: border-box; }
+        .pl-outer { max-width:100vw; overflow:hidden; }
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
@@ -453,9 +458,9 @@ export default function ProductPage() {
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
         .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
         @media(max-width:900px){
-          .pl-outer { grid-template-columns:1fr!important; }
+          .pl-outer { grid-template-columns:1fr!important; overflow:hidden!important; width:100%!important; }
           .pl-left  { padding:12px 4vw 0!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; }
+          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; box-sizing:border-box!important; }
           .photo-row { grid-template-columns:1fr!important; gap:8px!important; margin-bottom:8px!important; }
           .photo-item { aspect-ratio:4/3!important; }
           .photo-item.single { aspect-ratio:4/3!important; }

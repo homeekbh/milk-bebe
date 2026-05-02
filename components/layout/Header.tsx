@@ -146,8 +146,8 @@ export default function Header() {
       `}</style>
 
       <header ref={el => { headerRef.current = el; }}
-        style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s" }}>
-        <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 clamp(12px,3vw,24px)", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
+        style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, overflowX: "hidden", background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s" }}>
+        <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 clamp(8px,3vw,20px)", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
           {/* ✅ Logo — clic scroll to top */}
           <Link

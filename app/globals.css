@@ -326,5 +326,18 @@ img[loading="lazy"] { content-visibility: auto; }
 /* ── Overflow horizontal global ── */
 html, body {
   overflow-x: hidden !important;
-  max-width: 100vw !important;
+  max-width: 100% !important;
+}
+
+/* ── Empêcher tout débordement sur mobile ── */
+@media (max-width: 900px) {
+  * { max-width: 100%; }
+  img, video { max-width: 100% !important; height: auto !important; }
+  
+  /* Cards et sections pleine largeur */
+  section, article, .card, [class*="card"], [class*="Card"] {
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    overflow: hidden !important;
+  }
 }

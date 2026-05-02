@@ -1,5 +1,26 @@
 "use client";
-import { adminFetch } from "@/hooks/useAdminFetch";
+// Helper inline — lit le token Supabase depuis localStorage
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = parsed.access_token ?? "";
+        if (token) break;
+      }
+    }
+  } catch {}
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+}
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";

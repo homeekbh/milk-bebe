@@ -3,6 +3,29 @@
 import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 
+// Helper inline — lit le token Supabase depuis localStorage
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = parsed.access_token ?? "";
+        if (token) break;
+      }
+    }
+  } catch {}
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+}
+
 const CATEGORIES = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
 
 const TAILLES_SUGGESTIONS = [
@@ -198,7 +221,7 @@ function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
     try {
       const fd = new FormData();
       fd.append("file", file);
-      const res  = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res  = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur upload");
       onChange(fieldKey, data.url);
@@ -270,7 +293,7 @@ function ColorEntryRow({ color, index, onUpdate, onRemove }: {
     setUploadErr("");
     try {
       const fd = new FormData(); fd.append("file", file);
-      const res  = await fetch("/api/admin/upload", { method: "POST", body: fd });
+      const res  = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Erreur");
       onUpdate(index, "image_url", data.url);
@@ -713,7 +736,7 @@ export default function AdminProductForm() {
       try { const s = localStorage.getItem(draftKey); if (s) setForm(f => ({ ...f, ...JSON.parse(s) })); } catch {}
       return;
     }
-    fetch(`/api/admin/products?id=${id}`)
+    adminFetch(`/api/admin/products?id=${id}`)
       .then(r => r.json())
       .then(data => {
         if (data && !data.error) {
@@ -793,7 +816,7 @@ export default function AdminProductForm() {
   // Charger tous les produits pour la duplication
   async function loadAllProducts() {
     setLoadingProds(true);
-    const res = await fetch("/api/admin/products");
+    const res = await adminFetch("/api/admin/products");
     const data = await res.json();
     setAllProducts(Array.isArray(data) ? data : []);
     setLoadingProds(false);
@@ -903,7 +926,7 @@ export default function AdminProductForm() {
     if (isNew) return;
     setPublishing(true);
     const newPub = !published;
-    const res = await fetch("/api/admin/products", {
+    const res = await adminFetch("/api/admin/products", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, published: newPub }),
     });
@@ -950,7 +973,7 @@ export default function AdminProductForm() {
         fiche_faqs:  faqs,
       };
 
-      const res  = await fetch("/api/admin/products", {
+      const res  = await adminFetch("/api/admin/products", {
         method:  isNew ? "POST" : "PUT",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify(isNew ? body : { id, ...body }),
@@ -968,7 +991,7 @@ export default function AdminProductForm() {
 
   async function handleDelete() {
     if (!confirm(`Supprimer "${form.name}" définitivement ?`)) return;
-    await fetch("/api/admin/products", {
+    await adminFetch("/api/admin/products", {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });

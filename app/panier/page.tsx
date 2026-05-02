@@ -115,7 +115,7 @@ export default function CartPage() {
         .cart-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
         .cart-sticky  { position: sticky; top: 100px; }
         .cart-outer   { padding: 0 32px; }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
           .cart-layout { grid-template-columns: 1fr !important; }
           .cart-sticky  { position: static !important; }
           .cart-outer   { padding: 0 16px !important; }

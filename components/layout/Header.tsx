@@ -136,7 +136,7 @@ export default function Header() {
         .milk-nav     { display: flex !important; }
         .milk-desktop { display: flex !important; }
         .milk-burger  { display: none !important; }
-        @media (max-width: 768px) {
+        @media (max-width: 900px) {
           .milk-nav     { display: none !important; }
           .milk-desktop { display: none !important; }
           .milk-burger  { display: flex !important; }
@@ -147,7 +147,7 @@ export default function Header() {
 
       <header ref={el => { headerRef.current = el; }}
         style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s" }}>
-        <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 24px", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
+        <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 clamp(12px,3vw,24px)", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
           {/* ✅ Logo — clic scroll to top */}
           <Link

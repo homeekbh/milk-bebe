@@ -152,7 +152,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         .pgrid    { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
         .ess-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
         @media(max-width:1200px){ .pgrid{grid-template-columns:repeat(3,1fr)!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
-        @media(max-width:768px) { .pgrid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
+        @media(max-width:900px) { .pgrid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
       `}</style>
 
       {/* Zone contenu avec padding */}

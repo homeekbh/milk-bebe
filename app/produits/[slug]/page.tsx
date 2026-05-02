@@ -454,10 +454,13 @@ export default function ProductPage() {
         .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
         @media(max-width:900px){
           .pl-outer { grid-template-columns:1fr!important; }
-          .pl-left  { padding:12px 4vw 24px!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 120px!important; overflow:visible!important; }
-          .photo-row { gap:6px; margin-bottom:6px; }
-          .bottom-grid { grid-template-columns:1fr!important; }
+          .pl-left  { padding:12px 4vw 0!important; }
+          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; }
+          .photo-row { grid-template-columns:1fr!important; gap:8px!important; margin-bottom:8px!important; }
+          .photo-item { aspect-ratio:4/3!important; }
+          .photo-item.single { aspect-ratio:4/3!important; }
+          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
+          .milk-logo-zone { display:none!important; }
         }
       `}</style>
 
@@ -682,6 +685,30 @@ export default function ProductPage() {
                 <r.Icon />{r.label}
               </div>
             ))}
+          </div>
+
+          {/* ── Logo M!LK — visible dans l'espace sticky desktop ── */}
+          <div className="milk-logo-sticky">
+            <style>{`
+              @keyframes milk-bang {
+                0%,85%,100% { transform: translateY(0) scale(1); }
+                87% { transform: translateY(-8px) scale(1.18); }
+                91% { transform: translateY(3px) scale(0.94); }
+                94% { transform: translateY(-4px) scale(1.08); }
+                97% { transform: translateY(1px) scale(1.01); }
+              }
+              .milk-logo-sticky {
+                display:flex; flex-direction:column; align-items:center;
+                justify-content:center; padding:32px 0 24px; gap:10px;
+              }
+              @media(max-width:900px){ .milk-logo-sticky { display:none !important; } }
+            `}</style>
+            <div style={{ background: DARK, borderRadius: 18, padding:"18px 28px", display:"flex", alignItems:"center", gap:2 }}>
+              <span style={{ color: WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>M</span>
+              <span style={{ color: AMBER, fontWeight:950, fontSize:65, lineHeight:1, display:"inline-block", transform:"translateY(-4px)", animation:"milk-bang 4.5s cubic-bezier(0.22,1,0.36,1) infinite" }}>!</span>
+              <span style={{ color: WARM, fontWeight:950, fontSize:52, letterSpacing:-2, lineHeight:1 }}>LK</span>
+            </div>
+            <span style={{ fontSize:10, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.3)" }}>Bambou OEKO-TEX</span>
           </div>
 
           {whyResult && (

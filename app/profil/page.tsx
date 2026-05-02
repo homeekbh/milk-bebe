@@ -84,7 +84,7 @@ function AddressFields({ addr, onChange, prefix }: {
         <input value={addr.line2} onChange={e => set("line2", e.target.value)}
           placeholder="Bâtiment A, Appartement 3..." style={IS} />
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 12 }}>
         <div>
           <label style={LS}>Code postal</label>
           <input value={addr.postal_code} onChange={e => set("postal_code", e.target.value)}
@@ -224,10 +224,19 @@ export default function ProfilPage() {
 
   return (
     <div style={{ background: BG, minHeight: "100vh", paddingTop: 90, paddingBottom: 80 }}>
-      <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 20px" }}>
+      <style>{`
+        @media (max-width: 600px) {
+          .profil-header { flex-direction: column !important; align-items: flex-start !important; gap: 14px !important; }
+          .profil-tabs { gap: 6px !important; }
+          .profil-tabs button { padding: 8px 12px !important; font-size: 13px !important; }
+          .profil-card { padding: 20px 16px !important; }
+          .profil-order-header { flex-direction: column !important; align-items: flex-start !important; }
+        }
+      `}</style>
+      <div style={{ maxWidth: 860, margin: "0 auto", padding: "0 clamp(12px,4vw,20px)" }}>
 
         {/* ── Header profil ── */}
-        <div style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 32, flexWrap: "wrap" }}>
+        <div className="profil-header" style={{ display: "flex", alignItems: "center", gap: 20, marginBottom: 32, flexWrap: "wrap" }}>
           {/* Avatar */}
           <div style={{ width: 64, height: 64, borderRadius: "50%", background: DARK, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, border: `3px solid ${AMBER}` }}>
             <span style={{ color: AMBER, fontWeight: 950, fontSize: 22, letterSpacing: -1 }}>{initials}</span>
@@ -250,7 +259,7 @@ export default function ProfilPage() {
         </div>
 
         {/* ── Onglets ── */}
-        <div style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
+        <div className="profil-tabs" style={{ display: "flex", gap: 8, marginBottom: 24, flexWrap: "wrap" }}>
           <button style={TAB_STYLE(tab === "commandes")} onClick={() => setTab("commandes")}>
             🛍 Mes commandes {orders.length > 0 && `(${orders.length})`}
           </button>
@@ -344,7 +353,7 @@ export default function ProfilPage() {
           <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid rgba(26,20,16,0.07)", display: "grid", gap: 20 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: DARK }}>Informations personnelles</div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 16 }}>
               <div>
                 <label style={LS}>Prénom</label>
                 <input value={firstName} onChange={e => setFirstName(e.target.value)}

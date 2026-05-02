@@ -248,3 +248,83 @@ img[loading="lazy"] { content-visibility: auto; }
   width: 100%;
   height: 100%;
 }
+
+/* ═══════════════════════════════════════════════════════
+   CORRECTIONS RESPONSIVE — audit iPhone 390px
+   Ajouté après audit live du 02/05/2026
+═══════════════════════════════════════════════════════ */
+
+/* ── Fiche produit : photos en 1 colonne sur mobile ── */
+@media (max-width: 900px) {
+  .photo-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px !important;
+  }
+  .photo-item {
+    aspect-ratio: 4/3 !important;
+  }
+  .photo-item.single {
+    aspect-ratio: 4/3 !important;
+    grid-column: auto !important;
+  }
+  /* Supprimer le double CTA (inline + fixed) */
+  .pl-right > button:last-of-type {
+    display: none !important;
+  }
+}
+
+/* ── Panier : récapitulatif sous les articles ── */
+@media (max-width: 900px) {
+  .cart-layout {
+    grid-template-columns: 1fr !important;
+  }
+  .cart-outer {
+    padding: 16px 4vw 80px !important;
+  }
+}
+
+/* ── Page produits : filtres en wrap ── */
+@media (max-width: 600px) {
+  .filters-bar {
+    flex-direction: column !important;
+    align-items: stretch !important;
+  }
+  .filters-bar input,
+  .filters-bar select {
+    width: 100% !important;
+  }
+}
+
+/* ── Profil : header et onglets adaptés ── */
+@media (max-width: 600px) {
+  .profil-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 14px !important;
+  }
+  .profil-tabs {
+    gap: 6px !important;
+    overflow-x: auto !important;
+    -webkit-overflow-scrolling: touch !important;
+    padding-bottom: 4px !important;
+  }
+  .profil-tabs button {
+    white-space: nowrap !important;
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+    min-height: 40px !important;
+  }
+}
+
+/* ── Qui sommes-nous / Pourquoi bambou : KPIs ── */
+@media (max-width: 600px) {
+  .qsn-kpis {
+    grid-template-columns: repeat(2, 1fr) !important;
+  }
+}
+
+/* ── Overflow horizontal global ── */
+html, body {
+  overflow-x: hidden !important;
+  max-width: 100vw !important;
+}

@@ -6,39 +6,48 @@ type AdminAuthResult =
   | { ok: true }
   | { ok: false; response: NextResponse };
 
-export async function requireAdmin(req: NextRequest): Promise<AdminAuthResult> {
-  const cookieHeader = req.headers.get("cookie") ?? "";
-
-  const supabase = createClient(
+function getSupabase() {
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     { auth: { persistSession: false } }
   );
+}
 
-  // Extraire le token JWT du cookie Supabase
-  const tokenMatch = cookieHeader.match(/sb-[^=]+-auth-token=([^;]+)/);
-  const rawToken   = tokenMatch ? decodeURIComponent(tokenMatch[1]) : null;
-
-  if (!rawToken) {
-    return { ok: false, response: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
+// Extrait le token depuis le header Authorization (Bearer) OU depuis le cookie Supabase
+function extractToken(req: NextRequest): string | null {
+  // 1. Bearer token (API calls avec Authorization header)
+  const authHeader = req.headers.get("authorization") ?? "";
+  if (authHeader.startsWith("Bearer ")) {
+    return authHeader.slice(7);
   }
 
-  let accessToken = "";
+  // 2. Cookie Supabase (appels depuis le navigateur sans header explicit)
+  const cookieHeader = req.headers.get("cookie") ?? "";
+  const tokenMatch   = cookieHeader.match(/sb-[^=]+-auth-token=([^;]+)/);
+  const rawToken     = tokenMatch ? decodeURIComponent(tokenMatch[1]) : null;
+  if (!rawToken) return null;
+
   try {
     const parsed = JSON.parse(rawToken);
-    accessToken  = parsed.access_token ?? parsed[0]?.access_token ?? "";
+    return parsed.access_token ?? parsed[0]?.access_token ?? null;
   } catch {
-    accessToken = rawToken;
+    return rawToken;
   }
+}
+
+export async function requireAdmin(req: NextRequest): Promise<AdminAuthResult> {
+  const supabase    = getSupabase();
+  const accessToken = extractToken(req);
 
   if (!accessToken) {
-    return { ok: false, response: NextResponse.json({ error: "Token invalide" }, { status: 401 }) };
+    return { ok: false, response: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
   }
 
   const { data: { user }, error } = await supabase.auth.getUser(accessToken);
 
   if (error || !user) {
-    return { ok: false, response: NextResponse.json({ error: "Non authentifié" }, { status: 401 }) };
+    return { ok: false, response: NextResponse.json({ error: "Token invalide" }, { status: 401 }) };
   }
 
   const { data: profile } = await supabase

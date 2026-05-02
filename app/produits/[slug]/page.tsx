@@ -510,39 +510,6 @@ export default function ProductPage() {
           </div>
           <IconBandeau />
 
-        {/* ── Logo M!LK animé — espace vide desktop ── */}
-        <div className="milk-logo-float">
-          <style>{`
-            @keyframes milk-bang {
-              0%,80%,100% { transform: translateY(0) scale(1) rotate(-1deg); }
-              84%  { transform: translateY(-10px) scale(1.12) rotate(2deg); }
-              88%  { transform: translateY(3px) scale(0.96) rotate(-1deg); }
-              93%  { transform: translateY(-4px) scale(1.05) rotate(1deg); }
-              97%  { transform: translateY(1px) scale(1) rotate(0deg); }
-            }
-            @keyframes milk-sub {
-              0%,100% { opacity:0.07; letter-spacing:3px; }
-              50%     { opacity:0.13; letter-spacing:4px; }
-            }
-            .milk-logo-float {
-              display:flex; align-items:center; justify-content:center;
-              flex:1; min-height:160px; padding:16px 0;
-            }
-            @media(max-width:900px){ .milk-logo-float { display:none!important; } }
-          `}</style>
-          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:14, opacity:0.11, userSelect:"none", pointerEvents:"none" }}>
-            <div style={{ animation:"milk-bang 3.8s cubic-bezier(0.22,1,0.36,1) infinite" }}>
-              <div style={{ background:"#1a1410", borderRadius:18, padding:"16px 26px", display:"flex", alignItems:"center", gap:2 }}>
-                <span style={{ color:"#f2ede6", fontWeight:950, fontSize:48, letterSpacing:-2, lineHeight:1 }}>M</span>
-                <span style={{ color:"#c49a4a", fontWeight:950, fontSize:60, lineHeight:1, display:"inline-block", transform:"translateY(-3px)" }}>!</span>
-                <span style={{ color:"#f2ede6", fontWeight:950, fontSize:48, letterSpacing:-2, lineHeight:1 }}>LK</span>
-              </div>
-            </div>
-            <div style={{ animation:"milk-sub 3.8s ease-in-out infinite", fontSize:10, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"#1a1410" }}>
-              Bambou OEKO-TEX
-            </div>
-          </div>
-        </div>
 
         </div>
 
@@ -782,6 +749,29 @@ export default function ProductPage() {
           ) : <div />}
 
           {philosophy && <PhilosophyCard text={philosophy} />}
+        </div>
+
+        {/* Logo M!LK animé — au-dessus de la FAQ, visible seulement desktop */}
+        <div className="milk-logo-zone">
+          <style>{`
+            @keyframes milk-vibrate {
+              0%,90%,100% { transform: rotate(0deg) scale(1); }
+              91% { transform: rotate(-2deg) scale(1.04); }
+              93% { transform: rotate(2deg) scale(1.08); }
+              95% { transform: rotate(-1deg) scale(1.05); }
+              97% { transform: rotate(1deg) scale(1.02); }
+            }
+            .milk-logo-zone { display:flex; justify-content:center; padding:8px 0; }
+            @media(max-width:900px){ .milk-logo-zone { display:none; } }
+          `}</style>
+          <div style={{ display:"flex", flexDirection:"column", alignItems:"center", gap:8, animation:"milk-vibrate 5s ease-in-out infinite" }}>
+            <div style={{ background: DARK, borderRadius: 16, padding:"14px 22px", display:"flex", alignItems:"center", gap:3 }}>
+              <span style={{ color: WARM, fontWeight:950, fontSize:40, letterSpacing:-2, lineHeight:1 }}>M</span>
+              <span style={{ color: AMBER, fontWeight:950, fontSize:50, lineHeight:1, display:"inline-block", transform:"translateY(-3px)" }}>!</span>
+              <span style={{ color: WARM, fontWeight:950, fontSize:40, letterSpacing:-2, lineHeight:1 }}>LK</span>
+            </div>
+            <span style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(26,20,16,0.35)" }}>Bambou OEKO-TEX</span>
+          </div>
         </div>
 
         {/* FAQ */}

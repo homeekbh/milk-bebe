@@ -459,6 +459,14 @@ export default function ProductPage() {
         .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
         @media(max-width:900px){
           .pl-outer { grid-template-columns:1fr!important; overflow:hidden!important; width:100%!important; }
+          .pl-left  { padding:12px 16px 0!important; overflow:hidden!important; width:100%!important; }
+          .pl-right { position:static!important; max-height:none!important; padding:0 16px 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; }
+          .photo-row { grid-template-columns:1fr!important; gap:8px!important; width:100%!important; }
+          .photo-item { aspect-ratio:4/3!important; width:100%!important; }
+          .photo-item.single { aspect-ratio:4/3!important; grid-column:auto!important; }
+          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
+          .milk-logo-zone,.milk-logo-sticky,.milk-logo-philo { display:none!important; }
+        }
           .pl-left  { padding:12px 4vw 0!important; }
           .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; box-sizing:border-box!important; }
           .photo-row { grid-template-columns:1fr!important; gap:8px!important; margin-bottom:8px!important; }

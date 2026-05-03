@@ -234,7 +234,7 @@ export default function HomePage() {
         .comptable { grid-template-columns:1.4fr 1fr 1fr; }
         .rgrid     { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
         @media(max-width:1024px){ .catgrid{grid-template-columns:repeat(2,1fr)!important} .pillars{grid-template-columns:repeat(2,1fr)!important} }
-        @media(max-width:768px){
+        @media(max-width:900px){
           .catgrid{grid-template-columns:repeat(2,1fr)!important}
           .tgrid{grid-template-columns:1fr!important}
           .pillars{grid-template-columns:1fr 1fr!important}
@@ -266,7 +266,7 @@ export default function HomePage() {
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation:"badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -52,0 a 52,52 0 1,1 104,0 a 52,52 0 1,1 -104,0" fill="none"/>
               <text fontSize="11" fontWeight="700" letterSpacing="5.5" fill={C.amber}>
-                <textPath href="#bc" startOffset="0%"> — OEKO-TEX — BAMBOU PREMIUM </textPath>
+                <textPath href="#bc" startOffset="0%"> —  OEKO-TEX  —  BAMBOU PREMIUM  </textPath>
               </text>
             </svg>
           </div>
@@ -317,7 +317,7 @@ export default function HomePage() {
             <Link href="/produits" style={{ fontSize:15, fontWeight:800, color:C.amber, textDecoration:"none" }}>Voir tout →</Link>
           </div>
         </Reveal>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,280px))", gap:16, justifyContent:"center" }}>
+        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(min(140px,100%),1fr))", gap:16, justifyContent:"center" }}>
           {products.map((p,i)=>{
             const promo=isPromo(p);const price=promo?p.promo_price:p.price_ttc;
             const badge=p.label==="bestseller"?"Best seller":p.label==="nouveau"?"Nouveau":p.highlight==="meilleure_vente"?"Best seller":p.highlight==="nouveaute"?"Nouveau":null;

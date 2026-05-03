@@ -447,9 +447,8 @@ export default function ProductPage() {
       )}
 
       <style>{`
-        *, *::before, *::after { box-sizing: border-box; }
-        .pl-outer { max-width:100vw; overflow:hidden; }
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; }
+        * { box-sizing:border-box; }
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; overflow:hidden; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
         .pl-right::-webkit-scrollbar { display:none; }
@@ -458,26 +457,10 @@ export default function ProductPage() {
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
         .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
         @media(max-width:900px){
-          .pl-outer { grid-template-columns:1fr!important; }
-          .pl-left  { padding:12px 16px 0!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 16px 24px!important; overflow:visible!important; }
-          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
-        }
-        @media(max-width:900px){
-          .pl-outer { grid-template-columns:1fr!important; overflow:hidden!important; width:100%!important; }
-          .pl-left  { padding:12px 16px 0!important; overflow:hidden!important; width:100%!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 16px 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; }
-          .photo-row { grid-template-columns:1fr!important; gap:8px!important; width:100%!important; }
-          .photo-item { aspect-ratio:4/3!important; width:100%!important; }
-          .photo-item.single { aspect-ratio:4/3!important; grid-column:auto!important; }
-          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
-          .milk-logo-zone,.milk-logo-sticky,.milk-logo-philo { display:none!important; }
-        }
-          .pl-left  { padding:12px 4vw 0!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; box-sizing:border-box!important; }
-          .photo-row { grid-template-columns:1fr!important; gap:8px!important; margin-bottom:8px!important; }
-          .photo-item { aspect-ratio:4/3!important; }
-          .photo-item.single { aspect-ratio:4/3!important; }
+          .pl-outer  { grid-template-columns:1fr!important; }
+          .pl-left   { padding:12px 16px 0!important; }
+          .pl-right  { position:static!important; max-height:none!important; padding:0 16px 80px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; }
+          .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
       `}</style>

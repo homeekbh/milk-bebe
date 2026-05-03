@@ -33,12 +33,12 @@ export default function QuiSommesNousPage() {
       `}</style>
 
       {/* HERO */}
-      <section style={{ position: "relative", height: "56vh", minHeight: 340, overflow: "hidden" }}>
+      <section style={{ position: "relative", height: "clamp(52vh,60vh,70vh)", minHeight: 300, overflow: "hidden" }}>
         <Image src="https://images.unsplash.com/photo-1555252333-9f8e92e65df9?w=1600&q=85" alt="M!LK" fill priority sizes="100vw"
           style={{ objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.45) saturate(0.7)" }} />
         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to bottom, rgba(45,26,14,0.1), rgba(45,26,14,0.92))` }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 44px" }}>
-          <div style={{ padding: "0 5vw", width: "100%", boxSizing: "border-box" }}>
+          <div style={{ padding: "0 clamp(12px,4vw,5vw)", width: "100%", boxSizing: "border-box" }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 12 }}>Notre histoire</div>
             <h1 style={{ color: C.warm, margin: 0, fontWeight: 950, letterSpacing: -2, lineHeight: 1.05, fontSize: "clamp(36px,6vw,72px)" }}>
               Moins de galères.<br />Plus de moments.
@@ -87,7 +87,7 @@ export default function QuiSommesNousPage() {
 
       {/* KPIs */}
       <div style={{ background: C.bg }}>
-        <div className="qsn-kpis" style={{ padding: "0 5vw" }}>
+        <div className="qsn-kpis" style={{ padding: "0 clamp(12px,4vw,5vw)" }}>
           {[
             { val: "100%", label: "Bambou certifié OEKO-TEX" },
             { val: "0",    label: "Substance nocive"          },

@@ -90,12 +90,15 @@ export default function ComingSoonPage() {
             animation: "mlk-letter-in 0.3s ease forwards",
           }}>M</span>
 
+          {/* ! — même taille que M et LK, translateY négatif pour dépasser juste un peu */}
           <span style={{
-            fontSize: "clamp(74px,15.25vw,165px)",
+            fontSize: "clamp(68px,14vw,152px)",
             fontWeight: 900,
             color: "#1a1410",
             lineHeight: 1,
             fontFamily: "Boldin, Arial Black, sans-serif",
+            transform: "translateY(-13%)",
+            display: "inline-block",
             animation: "mlk-drop 0.72s cubic-bezier(.22,.61,.36,1) forwards, mlk-neon 2.2s ease 0.8s forwards",
           }}>!</span>
 

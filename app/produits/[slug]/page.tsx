@@ -450,6 +450,7 @@ export default function ProductPage() {
         *, *::before, *::after { box-sizing: border-box; }
         .pl-outer { max-width:100vw; overflow:hidden; }
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; }
+        .pl-right-wrap { height:0; overflow:visible; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
         .pl-right::-webkit-scrollbar { display:none; }
@@ -460,15 +461,10 @@ export default function ProductPage() {
         @media(max-width:900px){
           .pl-outer { grid-template-columns:1fr!important; overflow:hidden!important; width:100%!important; }
           .pl-left  { padding:12px 16px 0!important; overflow:hidden!important; width:100%!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 16px 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; }
-          /* photos gardent 2 colonnes même sur mobile (format 3/4 acceptable) */
+          .pl-right-wrap { height:auto!important; }
+          .pl-right { position:static!important; max-height:none!important; padding:0 16px 100px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; width:100%!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
           .milk-logo-zone,.milk-logo-sticky,.milk-logo-philo { display:none!important; }
-        }
-          .pl-left  { padding:12px 4vw 0!important; }
-          .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; box-sizing:border-box!important; }
-          /* photos 2 colonnes maintenues */
-          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
       `}</style>
 
@@ -525,7 +521,7 @@ export default function ProductPage() {
         </div>
 
         {/* ─── DROITE : panneau achat ─── */}
-        <div className="pl-right">
+        <div className="pl-right-wrap"><div className="pl-right">
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX
@@ -767,7 +763,7 @@ export default function ProductPage() {
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>
           {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
         </div>
-      </div>
+      </div></div>
 
       {/* CTA mobile */}
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>

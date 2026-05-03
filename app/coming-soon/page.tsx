@@ -78,7 +78,7 @@ export default function ComingSoonPage() {
           alignItems: "flex-end",
           justifyContent: "center",
           lineHeight: 1,
-          marginBottom: 40,
+          marginBottom: 32,
         }}>
           <span style={{
             fontSize: "clamp(68px,14vw,152px)",
@@ -91,7 +91,7 @@ export default function ComingSoonPage() {
           }}>M</span>
 
           <span style={{
-            fontSize: "clamp(80px,16.5vw,178px)",
+            fontSize: "clamp(74px,15.25vw,165px)",
             fontWeight: 900,
             color: "#1a1410",
             lineHeight: 1,
@@ -110,6 +110,21 @@ export default function ComingSoonPage() {
           }}>LK</span>
         </div>
 
+        {/* OUVERTURE PROCHAINE */}
+        <p style={{
+          fontSize: "clamp(9px,1.1vw,11px)",
+          fontWeight: 700,
+          letterSpacing: 3,
+          textTransform: "uppercase",
+          color: "rgba(26,20,16,0.35)",
+          textAlign: "center",
+          fontFamily: "Boldin, Arial Black, sans-serif",
+          marginBottom: 20,
+          animation: "fadeUp 0.6s ease 1.2s both",
+        }}>
+          Ouverture prochaine
+        </p>
+
         {/* TAGLINE */}
         <p style={{
           fontSize: "clamp(9px,1.1vw,11px)",
@@ -121,11 +136,26 @@ export default function ComingSoonPage() {
           maxWidth: "80vw",
           lineHeight: 1.7,
           fontFamily: "Boldin, Arial Black, sans-serif",
-          marginBottom: 48,
+          marginBottom: 16,
           animation: "fadeUp 0.6s ease 1.4s both",
         }}>
           Pensé pour les parents...<br />
           Le confort qui simplifie vos journées.
+        </p>
+
+        {/* INCITATION */}
+        <p style={{
+          fontSize: "clamp(9px,1vw,10px)",
+          fontWeight: 700,
+          letterSpacing: 2,
+          textTransform: "uppercase",
+          color: "rgba(26,20,16,0.3)",
+          textAlign: "center",
+          fontFamily: "Boldin, Arial Black, sans-serif",
+          marginBottom: 32,
+          animation: "fadeUp 0.6s ease 1.55s both",
+        }}>
+          Inscris-toi pour être notifié·e en avant-première
         </p>
 
         {/* FORMULAIRE */}

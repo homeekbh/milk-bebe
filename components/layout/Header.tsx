@@ -156,10 +156,10 @@ export default function Header() {
             style={{ textDecoration: "none", flexShrink: 0 }}
             onClick={() => { if (typeof window !== "undefined" && window.scrollY > 0) window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", background: "#1a1410", borderRadius: 10, padding: "6px 14px", border: "1px solid rgba(196,154,74,0.25)" }}>
-              <span style={{ color: "#f2ede6", fontWeight: 950, fontSize: 19, letterSpacing: -1, lineHeight: 1 }}>M</span>
-              <span style={{ color: "#c49a4a", fontWeight: 950, fontSize: 25, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
-              <span style={{ color: "#f2ede6", fontWeight: 950, fontSize: 19, letterSpacing: -1, lineHeight: 1 }}>LK</span>
+            <div style={{ display: "flex", alignItems: "baseline", background: "transparent", borderRadius: 10, padding: "4px 2px" }}>
+              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
+              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
+              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
             </div>
           </Link>
 

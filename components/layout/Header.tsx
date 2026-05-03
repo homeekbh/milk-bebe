@@ -157,9 +157,9 @@ export default function Header() {
             onClick={() => { if (typeof window !== "undefined" && window.scrollY > 0) window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
             <div style={{ display: "flex", alignItems: "baseline", background: "transparent", borderRadius: 10, padding: "4px 2px" }}>
-              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
-              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
-              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
+              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
+              <span style={{ color: C.text, fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
+              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
             </div>
           </Link>
 

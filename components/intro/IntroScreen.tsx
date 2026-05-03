@@ -33,7 +33,7 @@ export default function IntroScreen() {
       i++;
       setTyped(PHRASE.slice(0, i));
       if (i >= PHRASE.length) clearInterval(iv);
-    }, 36);
+    }, 55);
     return () => clearInterval(iv);
   }, [phase]);
 
@@ -54,13 +54,13 @@ export default function IntroScreen() {
     // 1220ms → ! a atterri → néon démarre (phase 3)
     // 1700ms → phrase machine à écrire (phase 4)
     // auto  → dismiss après phrase + 800ms
-    const dur = 1700 + PHRASE.length * 36 + 800;
+    const dur = 1550 + PHRASE.length * 55 + 1800;
     const t = [
       setTimeout(() => setReady(true), 50),
-      setTimeout(() => setPhase(1), 100),
-      setTimeout(() => setPhase(2), 500),
-      setTimeout(() => setPhase(3), 1220),
-      setTimeout(() => setPhase(4), 1700),
+      setTimeout(() => setPhase(1), 20),
+      setTimeout(() => setPhase(2), 350),
+      setTimeout(() => setPhase(3), 1070),
+      setTimeout(() => setPhase(4), 1550),
       setTimeout(() => dismiss(),   dur),
     ];
     timers.current = t;
@@ -69,7 +69,7 @@ export default function IntroScreen() {
   }, [pathname]);
 
   if (!show) return null;
-  const totalDur = 1700 + PHRASE.length * 36 + 800;
+  const totalDur = 1550 + PHRASE.length * 55 + 1800;
 
   return (
     <div onClick={dismiss} style={{

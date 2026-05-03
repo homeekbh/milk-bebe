@@ -54,7 +54,7 @@ export default function IntroScreen() {
     // 1220ms → ! a atterri → néon démarre (phase 3)
     // 1700ms → phrase machine à écrire (phase 4)
     // auto  → dismiss après phrase + 800ms
-    const dur = 1550 + PHRASE.length * 55 + 1800;
+    const dur = 1550 + PHRASE.length * 55 + 800;
     const t = [
       setTimeout(() => setReady(true), 50),
       setTimeout(() => setPhase(1), 20),
@@ -69,7 +69,7 @@ export default function IntroScreen() {
   }, [pathname]);
 
   if (!show) return null;
-  const totalDur = 1550 + PHRASE.length * 55 + 1800;
+  const totalDur = 1550 + PHRASE.length * 55 + 800;
 
   return (
     <div onClick={dismiss} style={{

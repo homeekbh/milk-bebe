@@ -36,7 +36,7 @@
           <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 24 }}>Retours gratuits</h2>
           <div style={{ display: "grid", gap: 16 }}>
             {[
-              { step: "1", title: "Contactez-nous",        desc: "Envoyez un email à bonjour@milkbebe.fr avec votre numéro de commande et la raison du retour." },
+              { step: "1", title: "Contactez-nous",        desc: "Envoyez un email à contact@milkbebe.fr avec votre numéro de commande et la raison du retour." },
               { step: "2", title: "Renvoyez le colis",     desc: "Retournez le produit dans son emballage d'origine, non utilisé, dans les 15 jours suivant la réception." },
               { step: "3", title: "Remboursement",         desc: "Dès réception et vérification du produit, le remboursement est effectué sous 14 jours sur votre moyen de paiement." },
             ].map(step => (

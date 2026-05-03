@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 function emailConfirmation(
   prenom: string,
@@ -103,7 +103,7 @@ export async function POST(req: Request) {
     if (!email) return Response.json({ error: "Email manquant" }, { status: 400 });
 
     const { data, error } = await resend.emails.send({
-      from:    "M!LK <onboarding@resend.dev>",
+      from:    "M!LK <contact@milkbebe.fr>",
       to:      email,
       subject: `✅ Commande confirmée — M!LK #${order_id?.slice(0, 8).toUpperCase()}`,
       html:    emailConfirmation(prenom ?? "", email, items ?? [], amount_total ?? 0, order_id ?? ""),

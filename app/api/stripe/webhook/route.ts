@@ -5,7 +5,7 @@ import { Resend } from "resend";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const resend  = new Resend(process.env.RESEND_API_KEY);
-const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_1,
@@ -13,14 +13,10 @@ const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_3,
 ].filter(Boolean) as string[];
 
-// ── Extrait la taille depuis le nom de l'article
-// Ex: "Body éclairs — 0-3 mois" → "0-3 mois"
-// Ex: "Body éclairs — Noir — 3-6 mois" → "3-6 mois"
 function extractTailleFromName(name: string): string | null {
   if (!name) return null;
   const parts = name.split(" — ");
   if (parts.length < 2) return null;
-  // La taille est toujours le dernier segment s'il ressemble à une taille
   const last = parts[parts.length - 1].trim();
   const taillePatterns = [
     /^Nouveau-né$/i,
@@ -62,7 +58,6 @@ export async function POST(req: Request) {
       const name      = session.customer_details?.name  ?? "";
       const amount    = (session.amount_total ?? 0) / 100;
 
-      // Adresse de livraison
       const sessionAny   = session as any;
       const shippingAddr = sessionAny.shipping_details?.address ?? session.customer_details?.address ?? null;
       const shippingName = sessionAny.shipping_details?.name ?? name;
@@ -75,7 +70,6 @@ export async function POST(req: Request) {
         country:     shippingAddr.country     ?? "FR",
       } : null;
 
-      // ✅ Enregistrer la commande (upsert — protection doublons)
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .upsert([{
@@ -99,11 +93,9 @@ export async function POST(req: Request) {
         console.log("✅ Order saved:", orderData?.id);
       }
 
-      // ✅ Décrémenter stock global ET sizes_stock par taille
       for (const item of items) {
         let productData: any = null;
 
-        // Cherche d'abord par id, fallback par slug
         if (item.id) {
           const { data } = await supabaseServer
             .from("products")
@@ -127,24 +119,18 @@ export async function POST(req: Request) {
         }
 
         const qty = item.quantity ?? 1;
-
-        // ── 1. Décrémenter stock global
         const newStock = Math.max(0, (productData.stock ?? 0) - qty);
         const updatePayload: Record<string, any> = { stock: newStock };
 
-        // ── 2. Décrémenter sizes_stock si la taille est identifiable
         const taille = extractTailleFromName(item.name ?? "");
         if (taille) {
           const currentSizesStock: Record<string, number> = productData.sizes_stock ?? {};
           const currentTailleStock = currentSizesStock[taille] ?? 0;
           const newTailleStock     = Math.max(0, currentTailleStock - qty);
-
-          // Met à jour l'objet sizes_stock avec la nouvelle valeur pour cette taille
           updatePayload.sizes_stock = {
             ...currentSizesStock,
             [taille]: newTailleStock,
           };
-
           console.log(`✅ sizes_stock[${taille}]: ${currentTailleStock} → ${newTailleStock}`);
         } else {
           console.log(`ℹ️ Pas de taille identifiée pour "${item.name}" — stock global uniquement`);
@@ -162,7 +148,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // ✅ Incrémenter uses_count promo
       if (promoCode) {
         const { data: promo } = await supabaseServer
           .from("promo_codes").select("id, uses_count").eq("code", promoCode).single();
@@ -174,7 +159,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // ✅ Marquer abandoned cart comme converti
       if (email) {
         await supabaseServer
           .from("abandoned_carts")
@@ -182,7 +166,6 @@ export async function POST(req: Request) {
           .eq("email", email.toLowerCase().trim());
       }
 
-      // ✅ Email de confirmation client
       if (email && orderData) {
         try {
           await fetch(`${BASE}/api/emails/confirmation`, {
@@ -205,7 +188,6 @@ export async function POST(req: Request) {
         }
       }
 
-      // ✅ Notification admin — depuis bonjour@milkbebe.fr
       if (orderData && ADMIN_EMAILS.length > 0) {
         const itemsHtml = items.map((i: any) =>
           `<div style="font-size:14px;color:rgba(242,237,230,0.65);margin-top:6px">
@@ -216,7 +198,7 @@ export async function POST(req: Request) {
         for (const adminEmail of ADMIN_EMAILS) {
           try {
             await resend.emails.send({
-              from:    "M!LK <bonjour@milkbebe.fr>",
+              from:    "M!LK <contact@milkbebe.fr>",
               to:      adminEmail,
               subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
               html: `

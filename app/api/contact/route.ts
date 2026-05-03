@@ -3,7 +3,6 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const ADMIN  = process.env.ADMIN_EMAIL_1 ?? "contact@milkbebe.fr";
 
-// Sanitise le HTML pour éviter l'injection dans l'email admin
 function sanitize(str: string): string {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -17,7 +16,6 @@ export async function POST(req: Request) {
   const { nom, email, sujet, message } = await req.json();
   if (!nom || !email || !message) return Response.json({ error: "Champs manquants" }, { status: 400 });
 
-  // Validation email basique
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return Response.json({ error: "Email invalide" }, { status: 400 });
   }
@@ -28,9 +26,9 @@ export async function POST(req: Request) {
   const sMessage = sanitize(message).replace(/\n/g, "<br>");
 
   await resend.emails.send({
-    from:    "M!LK Contact <onboarding@resend.dev>",
+    from:    "M!LK Contact <contact@milkbebe.fr>",
     to:      ADMIN,
-    replyTo: email, // email original (pas sanitisé) pour le reply-to
+    replyTo: email,
     subject: `📩 Message de ${sNom} — ${sSujet || "Contact M!LK"}`,
     html: `
 <div style="font-family:sans-serif;max-width:500px;padding:24px;background:#1a1410;color:#f2ede6;border-radius:16px">
@@ -44,7 +42,7 @@ export async function POST(req: Request) {
   });
 
   await resend.emails.send({
-    from:    "M!LK <onboarding@resend.dev>",
+    from:    "M!LK <contact@milkbebe.fr>",
     to:      email,
     subject: "Nous avons bien reçu votre message — M!LK",
     html: `
@@ -56,7 +54,7 @@ export async function POST(req: Request) {
   <p style="color:rgba(242,237,230,0.5);font-size:15px;line-height:1.7;margin:0 0 24px">
     Merci ${sNom}, on revient vers toi sous 24h en jours ouvrés.
   </p>
-  <a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app"}/produits"
+  <a href="${process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr"}/produits"
     style="display:inline-block;background:#f2ede6;color:#1a1410;padding:13px 28px;border-radius:12px;font-weight:900;font-size:14px;text-decoration:none">
     Voir la collection →
   </a>

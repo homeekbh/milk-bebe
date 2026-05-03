@@ -64,7 +64,7 @@ const ADRESSE_EXPEDITEUR = {
   cp:      "—",
   ville:   "—",
   pays:    "France",
-  email:   "bonjour@milkbebe.fr",
+  email:   "contact@milkbebe.fr",
   tel:     "07 45 27 21 34",
 };
 

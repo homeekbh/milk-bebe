@@ -2,7 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function POST(req: Request) {
   const { email, source, promo_code } = await req.json();
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
 </html>`;
 
   await resend.emails.send({
-    from:    "M!LK <onboarding@resend.dev>",
+    from:    "M!LK <contact@milkbebe.fr>",
     to:      email,
     subject: promo_code ? `🎁 Ton code promo M!LK : ${promo_code}` : "Bienvenue chez M!LK !",
     html,

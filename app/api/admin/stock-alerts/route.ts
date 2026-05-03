@@ -5,14 +5,12 @@ import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const ADMIN_EMAILS = [process.env.ADMIN_EMAIL_1, process.env.ADMIN_EMAIL_2, process.env.ADMIN_EMAIL_3].filter(Boolean) as string[];
-const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function GET(req: NextRequest) {
-  // Route appelée par le cron Vercel — vérifier le token interne
   const cronSecret = req.headers.get("authorization");
   const isValidCron = cronSecret === `Bearer ${process.env.CRON_SECRET}`;
 
-  // Sinon vérifier l'admin connecté
   if (!isValidCron) {
     const auth = await requireAdmin(req);
     if (!auth.ok) return auth.response;
@@ -56,7 +54,7 @@ export async function GET(req: NextRequest) {
 
     for (const email of ADMIN_EMAILS) {
       await resend.emails.send({
-        from: "M!LK Admin <onboarding@resend.dev>",
+        from: "M!LK Admin <contact@milkbebe.fr>",
         to: email,
         subject: `⚠️ ${lowStock.length} produit${lowStock.length > 1 ? "s" : ""} en stock faible — M!LK`,
         html,

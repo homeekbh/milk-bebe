@@ -2,7 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function GET() {
   try {
@@ -43,7 +43,7 @@ export async function GET() {
       if (!subject) continue;
 
       const { error } = await resend.emails.send({
-        from:    "M!LK <onboarding@resend.dev>",
+        from:    "M!LK <contact@milkbebe.fr>",
         to:      cart.email,
         subject,
         html,

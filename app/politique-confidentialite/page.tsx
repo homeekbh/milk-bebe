@@ -10,7 +10,7 @@ export default function PolitiqueConfidentialite() {
         {[
           {
             title: "1. Responsable du traitement",
-            content: "M!LK — Essentiels Bébé Bambou\nEmail : bonjour@milkbebe.fr\nTéléphone : 07 45 27 21 34",
+            content: "M!LK — Essentiels Bébé Bambou\nEmail : contact@milkbebe.fr\nTéléphone : 07 45 27 21 34",
           },
           {
             title: "2. Données collectées",
@@ -53,7 +53,7 @@ Aucune donnée n'est vendue ou transmise à des tiers à des fins publicitaires.
 - Droit à l'effacement ("droit à l'oubli")
 - Droit à la portabilité
 - Droit d'opposition au traitement
-Pour exercer ces droits : bonjour@milkbebe.fr
+Pour exercer ces droits : contact@milkbebe.fr
 Vous pouvez également introduire une réclamation auprès de la CNIL (cnil.fr).`,
           },
           {

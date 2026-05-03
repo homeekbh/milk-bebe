@@ -1,7 +1,7 @@
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
-const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function POST(req: Request) {
   const { email, prenom, tracking, items } = await req.json();
@@ -57,7 +57,7 @@ export async function POST(req: Request) {
 </html>`;
 
   const { error } = await resend.emails.send({
-    from:    "M!LK <onboarding@resend.dev>",
+    from:    "M!LK <contact@milkbebe.fr>",
     to:      email,
     subject: `🚚 Votre commande M!LK est en route !`,
     html,

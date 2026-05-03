@@ -13,7 +13,7 @@ export default function MentionsLegales() {
             content: `Raison sociale : M!LK — Essentiels Bébé Bambou
 SIRET : En cours d'obtention
 Adresse : À compléter
-Email : bonjour@milkbebe.fr
+Email : contact@milkbebe.fr
 Téléphone : 07 45 27 21 34
 Directeur de publication : BHK — Design & Graphisme`,
           },
@@ -31,7 +31,7 @@ Site : vercel.com`,
           },
           {
             title: "Données personnelles",
-            content: "Le site milkbebe.fr collecte des données personnelles dans le cadre du traitement des commandes et de l'amélioration des services. Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits : bonjour@milkbebe.fr",
+            content: "Le site milkbebe.fr collecte des données personnelles dans le cadre du traitement des commandes et de l'amélioration des services. Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits : contact@milkbebe.fr",
           },
           {
             title: "Cookies",

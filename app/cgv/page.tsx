@@ -13,7 +13,7 @@
             content: `M!LK — Essentiels Bébé Bambou
 SIRET : En cours d'obtention
 Adresse : À compléter après obtention du SIRET
-Email : bonjour@milkbebe.fr
+Email : contact@milkbebe.fr
 Téléphone : 07 45 27 21 34`,
           },
           {
@@ -46,7 +46,7 @@ Téléphone : 07 45 27 21 34`,
           },
           {
             title: "9. Retours et remboursements",
-            content: "Pour effectuer un retour, contactez-nous à bonjour@milkbebe.fr dans les 15 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Le remboursement sera effectué dans les 14 jours suivant la réception du retour.",
+            content: "Pour effectuer un retour, contactez-nous à contact@milkbebe.fr dans les 15 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Le remboursement sera effectué dans les 14 jours suivant la réception du retour.",
           },
           {
             title: "10. Garanties",
@@ -54,7 +54,7 @@ Téléphone : 07 45 27 21 34`,
           },
           {
             title: "11. Données personnelles",
-            content: "Les données personnelles collectées sont utilisées uniquement pour le traitement des commandes et l'amélioration de nos services. Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contactez-nous à bonjour@milkbebe.fr.",
+            content: "Les données personnelles collectées sont utilisées uniquement pour le traitement des commandes et l'amélioration de nos services. Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contactez-nous à contact@milkbebe.fr.",
           },
           {
             title: "12. Litiges",

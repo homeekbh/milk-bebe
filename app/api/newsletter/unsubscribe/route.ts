@@ -25,7 +25,7 @@ export async function GET(req: Request) {
   <p style="color:rgba(242,237,230,0.5);font-size:15px;line-height:1.7;margin:0 0 28px">
     Tu as bien été supprimé de notre liste newsletter. Tes données clients ne sont pas affectées.
   </p>
-  <a href="https://milkbebe.fr" style="color:rgba(242,237,230,0.3);font-size:13px;text-decoration:underline">Retour au site</a>
+  <a href="https://www.milkbebe.fr" style="color:rgba(242,237,230,0.3);font-size:13px;text-decoration:underline">Retour au site</a>
 </div>
 </body>
 </html>`;

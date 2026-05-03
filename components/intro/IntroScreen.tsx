@@ -147,7 +147,7 @@ export default function IntroScreen() {
 
           {/* ! — tombe (phase 2) puis néon (phase 3) */}
           <span style={{
-            fontSize:"clamp(80px,16.5vw,178px)", fontWeight:900, color:DARK,
+            fontSize:"clamp(74px,15vw,162px)", fontWeight:900, color:DARK,
             lineHeight:1, display:"inline-block", letterSpacing:0,
             opacity: phase >= 2 ? undefined : 0,
             animation:

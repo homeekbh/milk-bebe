@@ -461,17 +461,13 @@ export default function ProductPage() {
           .pl-outer { grid-template-columns:1fr!important; overflow:hidden!important; width:100%!important; }
           .pl-left  { padding:12px 16px 0!important; overflow:hidden!important; width:100%!important; }
           .pl-right { position:static!important; max-height:none!important; padding:0 16px 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; }
-          .photo-row { grid-template-columns:1fr!important; gap:8px!important; width:100%!important; }
-          .photo-item { aspect-ratio:4/3!important; width:100%!important; }
-          .photo-item.single { aspect-ratio:4/3!important; grid-column:auto!important; }
+          /* photos gardent 2 colonnes même sur mobile (format 3/4 acceptable) */
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
           .milk-logo-zone,.milk-logo-sticky,.milk-logo-philo { display:none!important; }
         }
           .pl-left  { padding:12px 4vw 0!important; }
           .pl-right { position:static!important; max-height:none!important; padding:0 4vw 100px!important; overflow:hidden!important; display:flex!important; flex-direction:column!important; width:100%!important; box-sizing:border-box!important; }
-          .photo-row { grid-template-columns:1fr!important; gap:8px!important; margin-bottom:8px!important; }
-          .photo-item { aspect-ratio:4/3!important; }
-          .photo-item.single { aspect-ratio:4/3!important; }
+          /* photos 2 colonnes maintenues */
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
       `}</style>

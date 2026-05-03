@@ -302,20 +302,8 @@ html, body {
     flex-direction: column !important;
     width: 100% !important;
   }
-  /* Photos en 1 colonne */
-  .photo-row {
-    grid-template-columns: 1fr !important;
-    gap: 8px !important;
-    width: 100% !important;
-  }
-  .photo-item {
-    aspect-ratio: 4/3 !important;
-    width: 100% !important;
-  }
-  .photo-item.single {
-    aspect-ratio: 4/3 !important;
-    grid-column: auto !important;
-  }
+  /* Photos restent en 2 colonnes sur tablette/desktop */
+  /* Ne passer en 1 colonne que sur petit mobile */
   /* Masquer le logo desktop */
   .milk-logo-zone,
   .milk-logo-sticky,

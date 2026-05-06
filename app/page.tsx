@@ -246,6 +246,10 @@ export default function HomePage() {
           .hero-btns{flex-direction:column!important}
           .hero-btns a{text-align:center!important;width:100%;box-sizing:border-box}
           .badge-svg{display:none!important}
+          /* Stats : grille 3 colonnes compacte */
+          .stats-row { display:grid!important; grid-template-columns:1fr 1fr 1fr!important; gap:0!important; }
+          /* Hero : désactiver parallaxe → image visible */
+          .hero-parallax { inset:0!important; }
           /* Section cadeau → 1 colonne sur mobile */
           .cadeau-grid { grid-template-columns:1fr!important; gap:24px!important; }
           /* Boutons pleine largeur */
@@ -265,7 +269,7 @@ export default function HomePage() {
 
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"clamp(60vh,80vh,100vh)", display:"flex", alignItems:"center", overflow:"hidden" }}>
-        <div ref={heroRef} style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
+        <div ref={heroRef} className="hero-parallax" style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
           <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 60%" }}/>
         </div>
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.88) 0%,rgba(13,11,9,0.5) 50%,rgba(13,11,9,0.75) 100%)" }}/>
@@ -296,10 +300,10 @@ export default function HomePage() {
             <Link href="/produits" style={{ padding:"16px 30px", borderRadius:14, background:C.warm, color:C.dark, fontWeight:900, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Découvrir la collection →</Link>
             <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
+          <div className="stats-row" style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
             {[{val:"500+",label:"familles satisfaites"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
               <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
-                <div style={{ fontSize:"clamp(22px,3vw,40px)", fontWeight:950, letterSpacing:-1.5, color:C.warm, lineHeight:1 }}>{k.val}</div>
+                <div style={{ fontSize:"clamp(18px,3vw,40px)", fontWeight:950, letterSpacing:-1.5, color:C.warm, lineHeight:1 }}>{k.val}</div>
                 <div style={{ fontSize:"clamp(10px,0.9vw,12px)", color:C.muted, marginTop:4 }}>{k.label}</div>
               </div>
             ))}

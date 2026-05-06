@@ -225,6 +225,7 @@ export default function HomePage() {
         @keyframes ticker     { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         @keyframes bigtxt     { from{transform:translateX(0)} to{transform:translateX(-50%)} }
         .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
+        .pgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,280px)); gap:16px; justify-content:center; }
         .pcard:hover  { transform:translateY(-5px) !important; box-shadow:0 24px 48px rgba(0,0,0,0.2) !important; border-color:${C.amber} !important; }
         .pcard:hover .pcard-img { transform:scale(1.05) !important; }
         .tk  { display:flex; animation:ticker 16s linear infinite; white-space:nowrap; width:max-content; }
@@ -243,6 +244,7 @@ export default function HomePage() {
           .catgrid > div > a > div { min-height:80px!important; }
           .cat-label { overflow:hidden!important; text-overflow:ellipsis!important; white-space:nowrap!important; }
           .tgrid   { grid-template-columns:repeat(2,1fr)!important; }
+          .pgrid { grid-template-columns:repeat(2,1fr)!important; gap:10px!important; justify-content:unset!important; }
           .pillars { grid-template-columns:1fr 1fr!important; }
           .comptable { grid-template-columns:1fr 1fr 1fr!important; }
           .hero-btns { flex-direction:column!important; }
@@ -331,7 +333,7 @@ export default function HomePage() {
             <Link href="/produits" style={{ fontSize:15, fontWeight:800, color:C.amber, textDecoration:"none" }}>Voir tout →</Link>
           </div>
         </Reveal>
-        <div style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,280px))", gap:16, justifyContent:"center" }}>
+        <div className="pgrid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,280px))", gap:16, justifyContent:"center" }}>
           {products.map((p,i)=>{
             const promo=isPromo(p);const price=promo?p.promo_price:p.price_ttc;
             const badge=p.label==="bestseller"?"Best seller":p.label==="nouveau"?"Nouveau":p.highlight==="meilleure_vente"?"Best seller":p.highlight==="nouveaute"?"Nouveau":null;

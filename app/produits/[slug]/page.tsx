@@ -276,8 +276,8 @@ function IconBandeau() {
     { src: "/icons/super_extensible.svg",   label: "Super\nExtensible"      },
   ];
   return (
-    <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
+    <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px", overflowX: "auto" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, minWidth: 420, scrollbarWidth: "none" }}>
         {items.map(item => (
           <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
             <img
@@ -451,7 +451,7 @@ export default function ProductPage() {
         * { box-sizing:border-box; }
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; overflow:hidden; }
         .pl-left  { padding:16px 24px 80px 4vw; }
-        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; height:calc(100% - 84px); max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; align-self:start; }
+        .pl-right { position:sticky; top:84px; padding:16px 4vw 32px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; align-self:start; }
         .pl-right::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
@@ -769,11 +769,22 @@ export default function ProductPage() {
       </div>
 
       {/* CTA mobile */}
-      <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>
-        <button onClick={handleAddToCart} disabled={outTaille}
-          style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM }}>
-          {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
-        </button>
+      <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "10px 16px 14px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(10px)", borderTop: `1px solid rgba(26,20,16,0.1)`, boxShadow: "0 -4px 20px rgba(0,0,0,0.08)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+          <span style={{ fontSize: 13, fontWeight: 700, color: "rgba(26,20,16,0.6)", maxWidth: "65%", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{product.name}{taille ? ` · ${taille}` : ""}</span>
+          <span style={{ fontSize: 19, fontWeight: 950, color: promo ? "#b03020" : DARK }}>{Number(displayPrice).toFixed(2)} €</span>
+        </div>
+        <div style={{ display: "grid", gap: 8 }}>
+          <button onClick={handleAddToCart} disabled={outTaille}
+            style={{ width: "100%", padding: "16px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 16, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM, transition: "background 0.2s" }}>
+            {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter au panier`}
+          </button>
+          {cartCount > 0 && (
+            <Link href="/panier" style={{ padding: "12px", borderRadius: 12, border: `2px solid ${DARK}`, fontWeight: 800, fontSize: 13, textDecoration: "none", color: DARK, textAlign: "center", display: "block" }}>
+              Voir le panier ({cartCount})
+            </Link>
+          )}
+        </div>
       </div>
       <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}`}</style>
     </div>

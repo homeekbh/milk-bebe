@@ -107,12 +107,13 @@ function CatCardAnimated({ cat, index, visible }: { cat: { label: string; desc: 
           transform: hov ? "translateY(-6px) scale(1.03)" : "translateY(-3px)",
           boxShadow: hov ? "0 24px 48px rgba(0,0,0,0.5)" : "0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)",
           display: "flex", flexDirection: "row" as const, alignItems: "center", gap: 14, boxSizing: "border-box" as const,
+          minHeight: 90,
         }}>
           <div style={{ flexShrink: 0, transition: "transform 0.3s", transform: hov ? "scale(1.15)" : "none" }}>
             <cat.Icon s={24} c={hov ? C.dark : C.amber} />
           </div>
           <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,16px)", color: hov ? C.dark : C.warm, transition: "color 0.25s" }}>{cat.label}</div>
+            <div className="cat-label" style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,16px)", color: hov ? C.dark : C.warm, transition: "color 0.25s" }}>{cat.label}</div>
             <div style={{ fontSize: "clamp(10px,0.9vw,12px)", color: hov ? "rgba(26,20,16,0.7)" : C.muted, lineHeight: 1.4 }}>{cat.desc}</div>
           </div>
           <div style={{ fontSize: 13, fontWeight: 900, color: hov ? C.dark : C.amber, transition: "all 0.25s", transform: hov ? "translateX(4px)" : "none", flexShrink: 0 }}>→</div>
@@ -235,6 +236,7 @@ export default function HomePage() {
         .rgrid     { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
         @media(max-width:700px){ .rgrid { grid-template-columns:repeat(2,1fr)!important; } }
         @media(max-width:360px){ .rgrid { grid-template-columns:1fr!important; } }
+        @media(max-width:900px){ .tgrid{grid-template-columns:repeat(2,1fr)!important} }
         @media(max-width:1024px){ .catgrid{grid-template-columns:repeat(2,1fr)!important} .pillars{grid-template-columns:repeat(2,1fr)!important} }
         @media(max-width:768px){
           .catgrid{grid-template-columns:repeat(2,1fr)!important}
@@ -251,6 +253,8 @@ export default function HomePage() {
           .gift-btns a { width:100%!important; text-align:center!important; box-sizing:border-box!important; }
           /* Grid cadeau → 1 colonne */
           .gift-grid { grid-template-columns:1fr!important; }
+          /* Labels catgrid pas de coupure */
+          .catgrid .cat-label { white-space:nowrap!important; overflow:hidden!important; text-overflow:ellipsis!important; }
           /* tgrid produits → 2 colonnes */
           .tgrid { grid-template-columns:repeat(2,1fr)!important; }
           /* Texte BigText plus rapide */

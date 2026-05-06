@@ -54,7 +54,7 @@ const EMPTY: Record<string, string> = {
   name: "", slug: "", price_ttc: "", promo_price: "",
   promo_start: "", promo_end: "", stock: "0",
   category_slug: "bodies",
-  image_url: "", image_url_2: "", image_url_3: "", image_url_4: "",
+  image_url: "", image_url_2: "", image_url_3: "", image_url_4: "", image_url_5: "", image_url_6: "", image_url_7: "", image_url_8: "",
   description: "", main_image_index: "0",
   label: "", highlight: "",
   position: "0", weight_g: "",
@@ -753,6 +753,10 @@ export default function AdminProductForm() {
             image_url_2:      data.image_url_2       ?? "",
             image_url_3:      data.image_url_3       ?? "",
             image_url_4:      data.image_url_4       ?? "",
+            image_url_5:      data.image_url_5       ?? "",
+            image_url_6:      data.image_url_6       ?? "",
+            image_url_7:      data.image_url_7       ?? "",
+            image_url_8:      data.image_url_8       ?? "",
             description:      data.description       ?? "",
             main_image_index: String(data.main_image_index ?? 0),
             label:            data.label             ?? "",
@@ -999,8 +1003,8 @@ export default function AdminProductForm() {
     router.push("/admin/produits");
   }
 
-  const photoKeys   = ["image_url", "image_url_2", "image_url_3", "image_url_4"] as const;
-  const photoLabels = ["Photo 1", "Photo 2", "Photo 3", "Photo 4"];
+  const photoKeys   = ["image_url", "image_url_2", "image_url_3", "image_url_4", "image_url_5", "image_url_6", "image_url_7", "image_url_8"] as const;
+  const photoLabels = ["Photo 1", "Photo 2", "Photo 3", "Photo 4", "Photo 5", "Photo 6", "Photo 7", "Photo 8"];
   const hasPromo    = !!form.promo_price;
 
   if (loading) return <div style={{ padding: 60, opacity: 0.4, fontSize: 16 }}>Chargement...</div>;
@@ -1114,7 +1118,7 @@ export default function AdminProductForm() {
         {/* ── 2. PHOTOS ── */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Photos (4 max)</div>
+            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Photos (8 max)</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Coche ⭐ pour définir la photo principale</div>
           </div>
           {photoKeys.map((k, i) => (

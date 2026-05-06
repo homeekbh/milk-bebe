@@ -277,7 +277,7 @@ function IconBandeau() {
   ];
   return (
     <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", overflowX: "auto", gap: 0, scrollbarWidth: "none" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
         {items.map(item => (
           <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
             <img
@@ -462,6 +462,11 @@ export default function ProductPage() {
           .pl-right  { position:static!important; max-height:none!important; padding:0 16px 80px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
+        }
+        @media(max-width:600px){
+          .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; }
+          .icon-bandeau-grid img { width:28px!important; height:28px!important; }
+          .icon-bandeau-grid span { font-size:6.5px!important; }
         }
       `}</style>
 

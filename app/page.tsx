@@ -107,6 +107,7 @@ function CatCardAnimated({ cat, index, visible }: { cat: { label: string; desc: 
           transform: hov ? "translateY(-6px) scale(1.03)" : "translateY(-3px)",
           boxShadow: hov ? "0 24px 48px rgba(0,0,0,0.5)" : "0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)",
           display: "flex", flexDirection: "row" as const, alignItems: "center", gap: 14, boxSizing: "border-box" as const,
+          minHeight: 80,
         }}>
           <div style={{ flexShrink: 0, transition: "transform 0.3s", transform: hov ? "scale(1.15)" : "none" }}>
             <cat.Icon s={24} c={hov ? C.dark : C.amber} />
@@ -226,8 +227,10 @@ export default function HomePage() {
         .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
         .pcard:hover  { transform:translateY(-5px) !important; box-shadow:0 24px 48px rgba(0,0,0,0.2) !important; border-color:${C.amber} !important; }
         .pcard:hover .pcard-img { transform:scale(1.05) !important; }
-        .tk  { display:flex; animation:ticker 32s linear infinite; white-space:nowrap; width:max-content; }
+        .tk  { display:flex; animation:ticker 18s linear infinite; white-space:nowrap; width:max-content; }
         .bts { display:flex; white-space:nowrap; width:max-content; animation:bigtxt var(--spd,28s) linear infinite; }
+        @media(max-width:900px){ .bts { animation-duration:calc(var(--spd,28s) * 0.45) !important; } }
+        @media(max-width:900px){ .tk  { animation-duration:12s !important; } }
         .catgrid   { grid-template-columns:repeat(4,1fr); }
         .tgrid     { grid-template-columns:repeat(3,1fr); }
         .pillars   { grid-template-columns:repeat(4,1fr); }
@@ -250,7 +253,7 @@ export default function HomePage() {
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"clamp(60vh,80vh,100vh)", display:"flex", alignItems:"center", overflow:"hidden" }}>
         <div ref={heroRef} style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
-          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 60%" }}/>
+          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 30%" }}/>
         </div>
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.88) 0%,rgba(13,11,9,0.5) 50%,rgba(13,11,9,0.75) 100%)" }}/>
         <div className="hero-content" style={{ position:"relative", zIndex:2, padding:"clamp(110px,15vh,180px) 5vw 80px", width:"100%", boxSizing:"border-box" }}>
@@ -280,7 +283,7 @@ export default function HomePage() {
             <Link href="/produits" style={{ padding:"16px 30px", borderRadius:14, background:C.warm, color:C.dark, fontWeight:900, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Découvrir la collection →</Link>
             <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
           </div>
-          <div style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
+          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 0", marginBottom:28 }}>
             {[{val:"500+",label:"familles satisfaites"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
               <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
                 <div style={{ fontSize:"clamp(22px,3vw,40px)", fontWeight:950, letterSpacing:-1.5, color:C.warm, lineHeight:1 }}>{k.val}</div>

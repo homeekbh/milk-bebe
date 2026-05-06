@@ -21,14 +21,11 @@ export default function Footer() {
             Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Juste ce qui compte quand t'es épuisé.
           </p>
           <div style={{ display: "flex", gap: 10 }}>
-            <a href="https://instagram.com/milk_bebe" target="_blank" rel="noopener noreferrer"
+            <a href="https://instagram.com/milkbebe.fr" target="_blank" rel="noopener noreferrer"
               style={{ padding: "8px 16px", borderRadius: 99, border: "1px solid rgba(242,237,230,0.12)", color: "rgba(242,237,230,0.5)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
               Instagram
             </a>
-            <a href="https://facebook.com/milkbebe" target="_blank" rel="noopener noreferrer"
-              style={{ padding: "8px 16px", borderRadius: 99, border: "1px solid rgba(242,237,230,0.12)", color: "rgba(242,237,230,0.5)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
-              Facebook
-            </a>
+    
           </div>
         </div>
 

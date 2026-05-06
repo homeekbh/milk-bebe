@@ -158,7 +158,7 @@ export default function Header() {
           >
             <div style={{ display: "flex", alignItems: "baseline", background: "transparent", borderRadius: 10, padding: "4px 2px" }}>
               <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 28, letterSpacing: -1, lineHeight: 1, display: "inline-block", transform: "translateY(-3px)" }}>!</span>
+              <span style={{ color: C.text, fontWeight: 950, fontSize: 26, letterSpacing: -0.5, lineHeight: 1 }}>!</span>
               <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
             </div>
           </Link>

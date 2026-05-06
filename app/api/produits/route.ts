@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   if (slug) {
     const { data, error } = await supabaseServer
       .from("products")
-      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, description, featured, published, label, position, sizes, sizes_stock, colors, main_image_index, weight_g, seo_title, seo_description")
+      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8, description, featured, published, label, position, sizes, sizes_stock, colors, main_image_index, weight_g, seo_title, seo_description")
       .eq("slug", slug)
       .eq("published", true)
       .single();
@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   // ✅ Liste produits — inclut toutes les colonnes nécessaires
   let query = supabaseServer
     .from("products")
-    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, description, featured, published, label, position, sizes, sizes_stock, colors, main_image_index")
+    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8, description, featured, published, label, position, sizes, sizes_stock, colors, main_image_index")
     .eq("published", true)
     .order("position", { ascending: true });
 

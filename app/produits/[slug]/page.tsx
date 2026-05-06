@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { useCart } from "@/context/CartContext";
@@ -112,8 +113,9 @@ const REVIEWS = [
 ];
 
 // ─── PAGE PRINCIPALE ──────────────────────────────────────────────────────────
-export default function ProduitPage({ params }: { params: { slug: string } }) {
-  const { slug } = params;
+export default function ProduitPage() {
+  const params = useParams();
+  const slug = Array.isArray(params.slug) ? params.slug[0] : (params.slug ?? "");
   const { addToCart, items } = useCart();
 
   const [product, setProduct]   = useState<Product | null>(null);

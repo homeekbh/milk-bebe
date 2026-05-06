@@ -286,8 +286,9 @@ function IconBandeau() {
               style={{
                 filter: svgFilter,
                 objectFit: "contain",
-                width: item.src.includes("thermoregulation") ? 42 : 36,
-                height: item.src.includes("thermoregulation") ? 42 : 36,
+                width: item.src.includes("thermoregulation") ? 44 : 36,
+                height: 36,
+                display: "block",
               }}
             />
             <div style={{ fontSize: 7.5, fontWeight: 800, letterSpacing: 0.6, textTransform: "uppercase", color: "rgba(26,20,16,0.65)", textAlign: "center", lineHeight: 1.3, whiteSpace: "pre-line" }}>{item.label}</div>
@@ -450,7 +451,7 @@ export default function ProductPage() {
         * { box-sizing:border-box; }
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; overflow:hidden; }
         .pl-left  { padding:16px 24px 80px 4vw; }
-        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
+        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; height:calc(100% - 84px); max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; align-self:start; }
         .pl-right::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }

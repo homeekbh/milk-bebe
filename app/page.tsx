@@ -107,7 +107,6 @@ function CatCardAnimated({ cat, index, visible }: { cat: { label: string; desc: 
           transform: hov ? "translateY(-6px) scale(1.03)" : "translateY(-3px)",
           boxShadow: hov ? "0 24px 48px rgba(0,0,0,0.5)" : "0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)",
           display: "flex", flexDirection: "row" as const, alignItems: "center", gap: 14, boxSizing: "border-box" as const,
-          minHeight: 80,
         }}>
           <div style={{ flexShrink: 0, transition: "transform 0.3s", transform: hov ? "scale(1.15)" : "none" }}>
             <cat.Icon s={24} c={hov ? C.dark : C.amber} />
@@ -227,33 +226,43 @@ export default function HomePage() {
         .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
         .pcard:hover  { transform:translateY(-5px) !important; box-shadow:0 24px 48px rgba(0,0,0,0.2) !important; border-color:${C.amber} !important; }
         .pcard:hover .pcard-img { transform:scale(1.05) !important; }
-        .tk  { display:flex; animation:ticker 18s linear infinite; white-space:nowrap; width:max-content; }
+        .tk  { display:flex; animation:ticker 16s linear infinite; white-space:nowrap; width:max-content; }
         .bts { display:flex; white-space:nowrap; width:max-content; animation:bigtxt var(--spd,28s) linear infinite; }
-        @media(max-width:900px){ .bts { animation-duration:calc(var(--spd,28s) * 0.45) !important; } }
-        @media(max-width:900px){ .tk  { animation-duration:12s !important; } }
         .catgrid   { grid-template-columns:repeat(4,1fr); }
         .tgrid     { grid-template-columns:repeat(3,1fr); }
         .pillars   { grid-template-columns:repeat(4,1fr); }
         .comptable { grid-template-columns:1.4fr 1fr 1fr; }
         .rgrid     { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
         @media(max-width:700px){ .rgrid { grid-template-columns:repeat(2,1fr)!important; } }
-        @media(max-width:480px){ .rgrid { grid-template-columns:1fr!important; } }
+        @media(max-width:360px){ .rgrid { grid-template-columns:1fr!important; } }
         @media(max-width:1024px){ .catgrid{grid-template-columns:repeat(2,1fr)!important} .pillars{grid-template-columns:repeat(2,1fr)!important} }
         @media(max-width:768px){
           .catgrid{grid-template-columns:repeat(2,1fr)!important}
-          .tgrid{grid-template-columns:1fr!important}
+          .tgrid{grid-template-columns:repeat(2,1fr)!important}
           .pillars{grid-template-columns:1fr 1fr!important}
           .comptable{grid-template-columns:1fr 1fr 1fr!important}
           .hero-btns{flex-direction:column!important}
           .hero-btns a{text-align:center!important;width:100%;box-sizing:border-box}
           .badge-svg{display:none!important}
+          /* Section cadeau → 1 colonne sur mobile */
+          .cadeau-grid { grid-template-columns:1fr!important; gap:24px!important; }
+          /* Boutons pleine largeur */
+          .gift-btns { flex-direction:column!important; }
+          .gift-btns a { width:100%!important; text-align:center!important; box-sizing:border-box!important; }
+          /* Grid cadeau → 1 colonne */
+          .gift-grid { grid-template-columns:1fr!important; }
+          /* tgrid produits → 2 colonnes */
+          .tgrid { grid-template-columns:repeat(2,1fr)!important; }
+          /* Texte BigText plus rapide */
+          .bts { animation-duration:calc(var(--spd,28s) * 0.35)!important; }
+          .tk  { animation-duration:8s!important; }
         }
       `}</style>
 
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"clamp(60vh,80vh,100vh)", display:"flex", alignItems:"center", overflow:"hidden" }}>
         <div ref={heroRef} style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
-          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 30%" }}/>
+          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 60%" }}/>
         </div>
         <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.88) 0%,rgba(13,11,9,0.5) 50%,rgba(13,11,9,0.75) 100%)" }}/>
         <div className="hero-content" style={{ position:"relative", zIndex:2, padding:"clamp(110px,15vh,180px) 5vw 80px", width:"100%", boxSizing:"border-box" }}>
@@ -283,7 +292,7 @@ export default function HomePage() {
             <Link href="/produits" style={{ padding:"16px 30px", borderRadius:14, background:C.warm, color:C.dark, fontWeight:900, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Découvrir la collection →</Link>
             <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
           </div>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:"8px 0", marginBottom:28 }}>
+          <div style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
             {[{val:"500+",label:"familles satisfaites"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
               <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
                 <div style={{ fontSize:"clamp(22px,3vw,40px)", fontWeight:950, letterSpacing:-1.5, color:C.warm, lineHeight:1 }}>{k.val}</div>
@@ -349,7 +358,7 @@ export default function HomePage() {
           })}
         </div>
         <div style={{ marginTop:40, marginLeft:"-5vw", marginRight:"-5vw" }}>
-          <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={28} bg={C.light}/>
+          <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={14} bg={C.light}/>
         </div>
       </div>
 
@@ -377,7 +386,7 @@ export default function HomePage() {
             <p style={{ margin:0, fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.</p>
           </Reveal>
         </div>
-        <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={30} bg={C.light}/>
+        <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={15} bg={C.light}/>
         <div style={{ padding:"32px 5vw 48px" }}>
           <Reveal>
             <p style={{ margin:"0 0 6px", fontSize:"clamp(18px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>M!LK n'est pas une marque de vêtements.</p>
@@ -392,18 +401,18 @@ export default function HomePage() {
       {/* ── CADEAU ── */}
       <div style={{ background:C.taupe, padding:"56px 5vw" }}>
         <Reveal>
-          <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"center" }}>
+          <div className="cadeau-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"center" }}>
             <div>
               <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:12 }}>Idée cadeau</div>
               <h2 style={{ margin:"0 0 16px", fontSize:"clamp(24px,3.5vw,42px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1.05 }}>Le cadeau de naissance qui change vraiment la vie.</h2>
               <p style={{ margin:"0 0 16px", fontSize:"clamp(14px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>Pas un énième doudou. Pas un vêtement trop petit en trois semaines. M!LK, c'est le cadeau qu'on n'ose pas s'offrir soi-même — mais qu'on utilise toutes les nuits.</p>
               <p style={{ margin:"0 0 24px", fontSize:"clamp(13px,1.3vw,15px)", color:"rgba(26,20,16,0.5)", lineHeight:1.75 }}>Parfait pour les listes de naissance, les baby showers, les coffrets nouveau-né. En bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.</p>
-              <div style={{ display:"flex", gap:12, flexWrap:"wrap" }}>
+              <div style={{ display:"flex", gap:12, flexWrap:"wrap" }} className="gift-btns">
                 <Link href="/produits" style={{ padding:"14px 24px", borderRadius:12, background:C.dark, color:C.warm, fontWeight:900, fontSize:15, textDecoration:"none", display:"inline-block" }}>Voir les essentiels →</Link>
                 <Link href="/produits" style={{ padding:"14px 24px", borderRadius:12, border:`2px solid ${C.dark}`, color:C.dark, fontWeight:700, fontSize:15, textDecoration:"none", display:"inline-block" }}>Liste de naissance</Link>
               </div>
             </div>
-            <div style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+            <div className="gift-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
               {[{titre:"Liste de naissance",desc:"Ajoutez M!LK à votre liste. Les futurs parents vous remercieront."},{titre:"Baby shower",desc:"Un coffret 2-3 pièces bambou. Pratique, beau, zéro déchet de style."},{titre:"Cadeau de naissance",desc:"Livraison rapide. Le bon cadeau pour les premières semaines."},{titre:"Coffret nouveau-né",desc:"Body + gigoteuse + lange. L'essentiel réuni dans un coffret simplifié."}].map(item=>(
                 <Reveal key={item.titre}>
                   <div style={{ padding:"18px 16px", borderRadius:14, background:C.light, border:"1px solid rgba(26,20,16,0.1)", boxShadow:"0 4px 14px rgba(0,0,0,0.1)", transform:"translateY(-2px)" }}>

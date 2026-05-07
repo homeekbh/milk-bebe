@@ -449,9 +449,9 @@ export default function ProductPage() {
 
       <style>{`
         * { box-sizing:border-box; }
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; }
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#d8c8b0; }
         .pl-left  { padding:16px 24px 80px 4vw; }
-        .pl-right-outer { background:#d8c8b0; } .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
+        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; align-self:start; }
         .pl-right::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
@@ -460,7 +460,7 @@ export default function ProductPage() {
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
-          .pl-right  { position:static!important; max-height:none!important; padding:0 16px 80px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; }
+          .pl-right  { position:static!important; max-height:none!important; padding:0 16px 80px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; background:transparent!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
@@ -524,7 +524,7 @@ export default function ProductPage() {
         </div>
 
         {/* ─── DROITE : panneau achat ─── */}
-        <div className="pl-right-outer"><div className="pl-right">
+        <div className="pl-right">
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX
@@ -728,7 +728,7 @@ export default function ProductPage() {
           </div>
 
         </div>
-        </div>{/* /pl-right-outer */}
+
       </div>
 
       {/* ─── BAS DE PAGE ─── */}

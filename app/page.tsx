@@ -373,8 +373,8 @@ export default function HomePage() {
           <Reveal delay={0.1}>
             <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
               <Image
-                src="/images/home/milk_col_body_boule_tag.webp"
-                alt="M!LK — bonnet damier tag"
+                src="/images/home/milk_pieds_chaussettes_logo_sol.webp"
+                alt="M!LK — pieds bébé"
                 fill
                 sizes="50vw"
                 style={{ objectFit:"cover", objectPosition:"center" }}
@@ -394,7 +394,7 @@ export default function HomePage() {
                 className="photo-hover"
                 style={{
                   position:"relative",
-                  aspectRatio: i === 1 ? "3/4" : "1/1",
+                  aspectRatio: "1/1",
                   overflow:"hidden",
                   borderRadius:4,
                   cursor:"pointer",
@@ -506,8 +506,8 @@ export default function HomePage() {
               <Reveal delay={0.1}>
                 <div style={{ position:"relative", width:"100%", aspectRatio:"4/3", borderRadius:20, overflow:"hidden", marginBottom:16 }}>
                   <Image
-                    src="/images/home/milk_baby_shower_plateau_rotin.webp"
-                    alt="M!LK — coffret cadeau naissance"
+                    src="/images/home/milk_baby_shower_ventre_bodysuit.webp"
+                    alt="M!LK — cadeau de naissance"
                     fill
                     sizes="45vw"
                     style={{ objectFit:"cover", objectPosition:"center" }}

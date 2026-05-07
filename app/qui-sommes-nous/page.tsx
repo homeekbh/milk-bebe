@@ -34,7 +34,7 @@ export default function QuiSommesNousPage() {
 
       {/* HERO */}
       <section style={{ position: "relative", height: "clamp(52vh,60vh,70vh)", minHeight: 300, overflow: "hidden" }}>
-        <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero_table_dark.webp" alt="M!LK — collection bodies et pyjamas bambou sur table" fill priority sizes="100vw"
+        <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero_banner.webp" alt="Collection M!LK — bodies, pyjamas et bonnet bambou sur table sombre" fill priority sizes="100vw"
           style={{ objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.45) saturate(0.7)" }} />
         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to bottom, rgba(45,26,14,0.1), rgba(45,26,14,0.92))` }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 44px" }}>

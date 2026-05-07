@@ -15,7 +15,6 @@ const C = {
   dark:  "#1a1410",
 };
 
-// ── Gradient de transition — hauteur réduite ──
 function Divider({ from, to }: { from: string; to: string }) {
   return <div style={{ height: 16, background: `linear-gradient(to bottom, ${from}, ${to})`, flexShrink: 0 }} />;
 }
@@ -57,39 +56,6 @@ function useInView(threshold = 0.1) {
     obs.observe(el); return () => obs.disconnect();
   }, [threshold]);
   return { ref, visible };
-}
-
-// ── Texte scrollant — net, effet 3D extrusion ──
-function BigTextScroll({ text, speed = 28, bg }: { text: string; speed?: number; bg?: string }) {
-  const bgColor   = bg ?? C.light;
-  const isDark    = bgColor === C.bg;
-  const textColor = isDark ? "rgba(242,237,230,0.18)" : "rgba(26,20,16,0.13)";
-  const shadow    = isDark
-    ? `1px 1px 0 rgba(196,154,74,0.35), 2px 2px 0 rgba(196,154,74,0.25), 3px 3px 0 rgba(196,154,74,0.15), 4px 4px 10px rgba(0,0,0,0.6)`
-    : `1px 1px 0 rgba(26,20,16,0.22), 2px 2px 0 rgba(26,20,16,0.14), 3px 3px 0 rgba(26,20,16,0.08), 4px 4px 10px rgba(0,0,0,0.15)`;
-  const repeated = `${text}   ✦   ${text}   ✦   `;
-  return (
-    <div style={{ overflow: "hidden", height: "clamp(60px,8vw,110px)", display: "flex", alignItems: "center", userSelect: "none", background: bgColor }}>
-      <div className="bts" style={{ "--spd": `${speed}s` } as React.CSSProperties}>
-        {[...Array(2)].map((_, i) => (
-          <span key={i} style={{
-            fontSize: "clamp(28px,5.5vw,80px)",
-            fontWeight: 950,
-            letterSpacing: "-0.01em",
-            color: textColor,
-            textTransform: "uppercase",
-            paddingRight: "4vw",
-            lineHeight: 1,
-            textShadow: shadow,
-            WebkitFontSmoothing: "antialiased",
-            MozOsxFontSmoothing: "grayscale",
-          } as React.CSSProperties}>
-            {repeated}
-          </span>
-        ))}
-      </div>
-    </div>
-  );
 }
 
 function CatCardAnimated({ cat, index, visible }: { cat: { label: string; desc: string; href: string; Icon: any }; index: number; visible: boolean }) {
@@ -150,10 +116,9 @@ function IconPyjama({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg widt
 function IconGigoteuse({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3c-3.5 0-6 2-6 5v8c0 2.5 2.5 5 6 5s6-2.5 6-5V8c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M9 3.5c0-1 1.3-1.5 3-1.5s3 .5 3 1.5" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>; }
 function IconAccessoires({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={c} strokeWidth="1.6"/></svg>; }
 
-const TICKER_ITEMS = ["✦ Bambou certifié OEKO-TEX","✦ 3× plus doux que le coton","✦ Thermorégulateur naturel","✦ Livraison offerte dès 60€","✦ Retour gratuit 15 jours","✦ Antibactérien naturel","✦ Des essentiels bébé. Sans le superflu.","✦ Bodies · Pyjamas · Gigoteuses"];
-
 function Ticker() {
-  const str = TICKER_ITEMS.join("   ");
+  const items = ["✦ Bambou certifié OEKO-TEX","✦ 3× plus doux que le coton","✦ Thermorégulateur naturel","✦ Livraison offerte dès 60€","✦ Retour gratuit 15 jours","✦ Antibactérien naturel","✦ Bodies · Pyjamas · Gigoteuses"];
+  const str = items.join("   ");
   return (
     <div style={{ overflow: "hidden", background: C.amber, padding: "11px 0" }}>
       <div className="tk">{[...Array(2)].map((_,i) => <span key={i} style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: C.dark, paddingRight: 60 }}>{str}</span>)}</div>
@@ -175,6 +140,14 @@ const acard = (content: React.ReactNode, key?: string) => (
     {content}
   </div>
 );
+
+// ── Galerie de photos lifestyle ──
+const PHOTOS = [
+  { src: "/images/home/milk_baby_shower_etagere_nursery.webp",  alt: "M!LK — étagère nursery baby shower",   label: "Pensé pour la nursery" },
+  { src: "/images/home/milk_baby_shower_ventre_bodysuit.webp",  alt: "M!LK — body bambou et ventre de grossesse", label: "Le cadeau idéal" },
+  { src: "/images/home/milk_pieds_chaussettes_logo_sol.webp",   alt: "M!LK — pieds bébé chaussettes sol bois",  label: "Doux dès le premier jour" },
+  { src: "/images/home/milk_rouleaux_tissu_mur_jouets.webp",    alt: "M!LK — rouleaux tissu bambou motifs",     label: "Le bambou, notre matière" },
+];
 
 export default function HomePage() {
   const heroRef  = useRef<HTMLDivElement>(null);
@@ -223,18 +196,19 @@ export default function HomePage() {
         @keyframes badge-spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
         @keyframes bounce-arr { 0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)} }
         @keyframes ticker     { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        @keyframes bigtxt     { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes slideUp    { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
         .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
         .pgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,280px)); gap:16px; justify-content:center; }
         .pcard:hover  { transform:translateY(-5px) !important; box-shadow:0 24px 48px rgba(0,0,0,0.2) !important; border-color:${C.amber} !important; }
         .pcard:hover .pcard-img { transform:scale(1.05) !important; }
         .tk  { display:flex; animation:ticker 16s linear infinite; white-space:nowrap; width:max-content; }
-        .bts { display:flex; white-space:nowrap; width:max-content; animation:bigtxt var(--spd,28s) linear infinite; }
         .catgrid   { grid-template-columns:repeat(4,1fr); width:100%; box-sizing:border-box; }
         .tgrid     { grid-template-columns:repeat(3,1fr); }
         .pillars   { grid-template-columns:repeat(4,1fr); }
         .comptable { grid-template-columns:1.4fr 1fr 1fr; }
         .rgrid     { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
+        .photo-hover:hover { transform:scale(1.03) !important; }
+        .photo-hover:hover .photo-label { opacity:1 !important; transform:translateY(0) !important; }
         @media(max-width:700px){ .rgrid { grid-template-columns:repeat(2,1fr)!important; } }
         @media(max-width:360px){ .rgrid { grid-template-columns:1fr!important; } }
         @media(max-width:1024px){ .catgrid{grid-template-columns:repeat(2,1fr)!important} .pillars{grid-template-columns:repeat(2,1fr)!important} }
@@ -256,7 +230,8 @@ export default function HomePage() {
           .gift-grid   { grid-template-columns:1fr!important; }
           .gift-btns   { flex-direction:column!important; }
           .gift-btns a { width:100%!important; text-align:center!important; box-sizing:border-box!important; }
-          .bts { animation-duration:calc(var(--spd,28s) * 0.35)!important; }
+          .split-section { grid-template-columns:1fr!important; }
+          .photos-masonry { grid-template-columns:1fr 1fr!important; }
           .tk  { animation-duration:8s!important; }
         }
       `}</style>
@@ -273,11 +248,12 @@ export default function HomePage() {
               <span key={tag} style={{ padding:"6px 14px", borderRadius:99, border:`1px solid ${C.amber}`, color:C.amber, fontSize:12, fontWeight:800 }}>{tag}</span>
             ))}
           </div>
+
+          {/* CORRECTION 1 : "Sans compromis." en BLANC */}
           <h1 style={{ margin:"0 0 22px", fontSize:"clamp(38px,7.5vw,96px)", fontWeight:950, letterSpacing:-3, lineHeight:0.95, color:C.warm }}>
-            L'essentiel.<br/><span style={{ color:C.amber }}>Sans compromis.</span>
+            L'essentiel.<br/><span style={{ color:C.warm }}>Sans compromis.</span>
           </h1>
 
-          {/* ── Badge — cercle fermé, texte centré ── */}
           <div className="badge-svg" style={{ position:"absolute", top:"50%", right:"6%", transform:"translateY(-50%)", zIndex:3 }}>
             <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation:"badge-spin 14s linear infinite" }}>
               <path id="bc" d="M 70,70 m -52,0 a 52,52 0 1,1 104,0 a 52,52 0 1,1 -104,0" fill="none"/>
@@ -359,9 +335,6 @@ export default function HomePage() {
             );
           })}
         </div>
-        <div style={{ marginTop:40, marginLeft:"-5vw", marginRight:"-5vw" }}>
-          <BigTextScroll text="M!LK RÉDUIT LES GALÈRES DU QUOTIDIEN" speed={14} bg={C.light}/>
-        </div>
       </div>
 
       <Divider from={C.light} to={C.bg}/>
@@ -379,23 +352,136 @@ export default function HomePage() {
 
       <Divider from={C.bg} to={C.light}/>
 
-      {/* ── BANDEAU ERIKA ── */}
+      {/* ══════════════════════════════════════════════════════════════════════
+          ── SECTION 1 : ÉDITO GAUCHE + PHOTO DROITE ──
+          "Parce que les parents n'ont pas besoin de plus de mignon"
+      ══════════════════════════════════════════════════════════════════════ */}
       <div style={{ background:C.light }}>
-        <div style={{ padding:"48px 5vw 32px" }}>
-          <Reveal>
-            <p style={{ margin:"0 0 6px", fontSize:"clamp(18px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>Parce que les parents n'ont pas besoin de plus de "mignon",</p>
-            <p style={{ margin:"0 0 20px", fontSize:"clamp(18px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.amber, letterSpacing:-1 }}>mais de moins de charge mentale.</p>
-            <p style={{ margin:0, fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.</p>
+        <div className="split-section" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", minHeight:480, alignItems:"stretch" }}>
+
+          {/* Texte gauche */}
+          <div style={{ padding:"clamp(40px,6vw,80px) 5vw clamp(40px,6vw,80px) 5vw", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+            <Reveal>
+              {/* CORRECTION 2a : texte amber → blanc */}
+              <p style={{ margin:"0 0 6px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>Parce que les parents n'ont pas besoin de plus de "mignon",</p>
+              <p style={{ margin:"0 0 20px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>mais de moins de charge mentale.</p>
+              <p style={{ margin:0, fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.</p>
+            </Reveal>
+          </div>
+
+          {/* Photo droite — pieds bébé */}
+          <Reveal delay={0.1}>
+            <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
+              <Image
+                src="/images/home/milk_pieds_chaussettes_logo_sol.webp"
+                alt="M!LK — pieds bébé"
+                fill
+                sizes="50vw"
+                style={{ objectFit:"cover", objectPosition:"center" }}
+              />
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right, rgba(216,200,176,0.3) 0%, transparent 40%)" }}/>
+            </div>
           </Reveal>
         </div>
-        <BigTextScroll text="MOINS D'IRRITATIONS. PLUS DE CALME." speed={15} bg={C.light}/>
-        <div style={{ padding:"32px 5vw 48px" }}>
-          <Reveal>
-            <p style={{ margin:"0 0 6px", fontSize:"clamp(18px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>M!LK n'est pas une marque de vêtements.</p>
-            <p style={{ margin:"0 0 20px", fontSize:"clamp(18px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.amber, letterSpacing:-1 }}>C'est une réponse aux petites galères répétées.</p>
-            <p style={{ margin:0, fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.5)", lineHeight:1.7 }}>Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.</p>
-          </Reveal>
+
+        {/* ══════════════════════════════════════════════════════════════════
+            ── GALERIE MASONRY 4 photos ──
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="photos-masonry" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:3, padding:"3px" }}>
+          {PHOTOS.map((photo, i) => (
+            <Reveal key={i} delay={i * 0.08}>
+              <div
+                className="photo-hover"
+                style={{
+                  position:"relative",
+                  aspectRatio: i === 1 ? "3/4" : "1/1",
+                  overflow:"hidden",
+                  borderRadius:4,
+                  cursor:"pointer",
+                  transition:"transform 0.4s cubic-bezier(0.34,1.56,0.64,1)",
+                }}
+              >
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  fill
+                  sizes="25vw"
+                  style={{ objectFit:"cover", transition:"transform 0.6s ease" }}
+                />
+                <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(26,20,16,0.65) 0%, transparent 50%)" }}/>
+                <div
+                  className="photo-label"
+                  style={{
+                    position:"absolute", bottom:0, left:0, right:0,
+                    padding:"12px 14px",
+                    fontSize:12, fontWeight:800, color:C.warm,
+                    letterSpacing:0.5,
+                    opacity:0,
+                    transform:"translateY(8px)",
+                    transition:"opacity 0.3s ease, transform 0.3s ease",
+                  }}
+                >
+                  {photo.label}
+                </div>
+              </div>
+            </Reveal>
+          ))}
         </div>
+
+        {/* ══════════════════════════════════════════════════════════════════
+            ── SECTION 2 : PHOTO GAUCHE + ÉDITO DROITE ──
+            "M!LK n'est pas une marque de vêtements."
+        ══════════════════════════════════════════════════════════════════ */}
+        <div className="split-section" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", minHeight:480, alignItems:"stretch" }}>
+
+          {/* Photo gauche — étagère nursery */}
+          <Reveal>
+            <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
+              <Image
+                src="/images/home/milk_baby_shower_etagere_nursery.webp"
+                alt="M!LK — nursery étagère"
+                fill
+                sizes="50vw"
+                style={{ objectFit:"cover", objectPosition:"center" }}
+              />
+              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to left, rgba(216,200,176,0.3) 0%, transparent 40%)" }}/>
+            </div>
+          </Reveal>
+
+          {/* Texte droite */}
+          <div style={{ padding:"clamp(40px,6vw,80px) 5vw", display:"flex", flexDirection:"column", justifyContent:"center" }}>
+            <Reveal delay={0.1}>
+              {/* CORRECTION 2b : texte amber → blanc */}
+              <p style={{ margin:"0 0 6px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>M!LK n'est pas une marque de vêtements.</p>
+              <p style={{ margin:"0 0 20px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>C'est une réponse aux petites galères répétées.</p>
+              <p style={{ margin:"0 0 28px", fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.5)", lineHeight:1.7 }}>Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.</p>
+              <Link href="/produits" style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"14px 24px", borderRadius:12, background:C.dark, color:C.warm, fontWeight:900, fontSize:14, textDecoration:"none", width:"fit-content" }}>
+                Voir la collection →
+              </Link>
+            </Reveal>
+          </div>
+        </div>
+
+        {/* ── BANNER ARTISAN ── */}
+        <Reveal>
+          <div style={{ position:"relative", height:"clamp(200px,25vw,380px)", overflow:"hidden", margin:"3px 0" }}>
+            <Image
+              src="/images/home/milk_banner_artisan.jpg"
+              alt="M!LK — atelier bambou"
+              fill
+              sizes="100vw"
+              style={{ objectFit:"cover", objectPosition:"center 40%" }}
+            />
+            <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg, rgba(26,20,16,0.7) 0%, rgba(26,20,16,0.3) 60%, transparent 100%)" }}/>
+            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", padding:"0 6vw" }}>
+              <div>
+                <div style={{ fontSize:10, fontWeight:800, letterSpacing:4, textTransform:"uppercase", color:C.amber, marginBottom:10 }}>Notre matière signature</div>
+                <p style={{ margin:"0 0 16px", fontSize:"clamp(22px,3.5vw,52px)", fontWeight:950, color:C.warm, letterSpacing:-1, lineHeight:1, maxWidth:600 }}>Le bambou,<br/>certifié OEKO-TEX.</p>
+                <Link href="/pourquoi-bambou" style={{ fontSize:14, fontWeight:800, color:C.amber, textDecoration:"none" }}>Découvrir pourquoi →</Link>
+              </div>
+            </div>
+          </div>
+        </Reveal>
       </div>
 
       <Divider from={C.light} to={C.taupe}/>
@@ -414,15 +500,30 @@ export default function HomePage() {
                 <Link href="/produits" style={{ padding:"14px 24px", borderRadius:12, border:`2px solid ${C.dark}`, color:C.dark, fontWeight:700, fontSize:15, textDecoration:"none", display:"inline-block" }}>Liste de naissance</Link>
               </div>
             </div>
-            <div className="gift-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-              {[{titre:"Liste de naissance",desc:"Ajoutez M!LK à votre liste. Les futurs parents vous remercieront."},{titre:"Baby shower",desc:"Un coffret 2-3 pièces bambou. Pratique, beau, zéro déchet de style."},{titre:"Cadeau de naissance",desc:"Livraison rapide. Le bon cadeau pour les premières semaines."},{titre:"Coffret nouveau-né",desc:"Body + gigoteuse + lange. L'essentiel réuni dans un coffret simplifié."}].map(item=>(
-                <Reveal key={item.titre}>
-                  <div style={{ padding:"18px 16px", borderRadius:14, background:C.light, border:"1px solid rgba(26,20,16,0.1)", boxShadow:"0 4px 14px rgba(0,0,0,0.1)", transform:"translateY(-2px)" }}>
-                    <div style={{ fontWeight:900, fontSize:13, color:C.dark, marginBottom:6 }}>{item.titre}</div>
-                    <div style={{ fontSize:12, color:"rgba(26,20,16,0.55)", lineHeight:1.6 }}>{item.desc}</div>
-                  </div>
-                </Reveal>
-              ))}
+
+            {/* Photo ventre + cards */}
+            <div>
+              <Reveal delay={0.1}>
+                <div style={{ position:"relative", width:"100%", aspectRatio:"4/3", borderRadius:20, overflow:"hidden", marginBottom:16 }}>
+                  <Image
+                    src="/images/home/milk_baby_shower_ventre_bodysuit.webp"
+                    alt="M!LK — cadeau de naissance"
+                    fill
+                    sizes="45vw"
+                    style={{ objectFit:"cover", objectPosition:"center" }}
+                  />
+                </div>
+              </Reveal>
+              <div className="gift-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
+                {[{titre:"Liste de naissance",desc:"Ajoutez M!LK à votre liste. Les futurs parents vous remercieront."},{titre:"Baby shower",desc:"Un coffret 2-3 pièces bambou. Pratique, beau, zéro déchet de style."},{titre:"Cadeau de naissance",desc:"Livraison rapide. Le bon cadeau pour les premières semaines."},{titre:"Coffret nouveau-né",desc:"Body + gigoteuse + lange. L'essentiel réuni dans un coffret simplifié."}].map(item=>(
+                  <Reveal key={item.titre}>
+                    <div style={{ padding:"18px 16px", borderRadius:14, background:C.light, border:"1px solid rgba(26,20,16,0.1)", boxShadow:"0 4px 14px rgba(0,0,0,0.1)", transform:"translateY(-2px)" }}>
+                      <div style={{ fontWeight:900, fontSize:13, color:C.dark, marginBottom:6 }}>{item.titre}</div>
+                      <div style={{ fontSize:12, color:"rgba(26,20,16,0.55)", lineHeight:1.6 }}>{item.desc}</div>
+                    </div>
+                  </Reveal>
+                ))}
+              </div>
             </div>
           </div>
         </Reveal>

@@ -438,8 +438,8 @@ export default function HomePage() {
           <Reveal>
             <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
               <Image
-                src="/images/home/milk_baby_shower_etagere_nursery.webp"
-                alt="M!LK — nursery étagère"
+                src="/images/home/milk_pyjamas_flatlay_blanc.webp"
+                alt="M!LK — pyjamas flatlay"
                 fill
                 sizes="50vw"
                 style={{ objectFit:"cover", objectPosition:"center" }}

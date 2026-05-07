@@ -144,8 +144,8 @@ const acard = (content: React.ReactNode, key?: string) => (
 // ── Galerie de photos lifestyle ──
 const PHOTOS = [
   { src: "/images/home/milk_baby_shower_etagere_nursery.webp",  alt: "M!LK — étagère nursery baby shower",   label: "Pensé pour la nursery" },
-  { src: "/images/home/milk_baby_shower_ventre_bodysuit.webp",  alt: "M!LK — body bambou et ventre de grossesse", label: "Le cadeau idéal" },
-  { src: "/images/home/milk_pieds_chaussettes_logo_sol.webp",   alt: "M!LK — pieds bébé chaussettes sol bois",  label: "Doux dès le premier jour" },
+  { src: "/images/home/milk_baby_shower_plateau_rotin.webp",    alt: "M!LK — coffret cadeau naissance rotin",     label: "Le cadeau idéal" },
+  { src: "/images/home/milk_col_body_boule_tag.webp",           alt: "M!LK — bonnet damier tag bois",           label: "Chaque détail compte" },
   { src: "/images/home/milk_rouleaux_tissu_mur_jouets.webp",    alt: "M!LK — rouleaux tissu bambou motifs",     label: "Le bambou, notre matière" },
 ];
 
@@ -239,9 +239,9 @@ export default function HomePage() {
       {/* ── HERO ── */}
       <section style={{ position:"relative", minHeight:"clamp(60vh,80vh,100vh)", display:"flex", alignItems:"center", overflow:"hidden" }}>
         <div ref={heroRef} className="hero-parallax" style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
-          <Image src="/images/hero/hero-papa-bebe.png" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 60%" }}/>
+          <Image src="/images/home/milk_banner_artisan.jpg" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 45%" }}/>
         </div>
-        <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.88) 0%,rgba(13,11,9,0.5) 50%,rgba(13,11,9,0.75) 100%)" }}/>
+        <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.82) 0%,rgba(13,11,9,0.45) 50%,rgba(13,11,9,0.70) 100%)" }}/>
         <div className="hero-content" style={{ position:"relative", zIndex:2, padding:"clamp(110px,15vh,180px) 5vw 80px", width:"100%", boxSizing:"border-box" }}>
           <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:24 }}>
             {["Nouveau-né","0-3 mois","3-6 mois"].map(tag=>(
@@ -373,8 +373,8 @@ export default function HomePage() {
           <Reveal delay={0.1}>
             <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
               <Image
-                src="/images/home/milk_pieds_chaussettes_logo_sol.webp"
-                alt="M!LK — pieds bébé"
+                src="/images/home/milk_col_body_boule_tag.webp"
+                alt="M!LK — bonnet damier tag"
                 fill
                 sizes="50vw"
                 style={{ objectFit:"cover", objectPosition:"center" }}
@@ -466,7 +466,7 @@ export default function HomePage() {
         <Reveal>
           <div style={{ position:"relative", height:"clamp(200px,25vw,380px)", overflow:"hidden", margin:"3px 0" }}>
             <Image
-              src="/images/home/milk_banner_artisan.jpg"
+              src="/images/home/milk_col_pyjama_table_ciseaux.webp"
               alt="M!LK — atelier bambou"
               fill
               sizes="100vw"
@@ -506,8 +506,8 @@ export default function HomePage() {
               <Reveal delay={0.1}>
                 <div style={{ position:"relative", width:"100%", aspectRatio:"4/3", borderRadius:20, overflow:"hidden", marginBottom:16 }}>
                   <Image
-                    src="/images/home/milk_baby_shower_ventre_bodysuit.webp"
-                    alt="M!LK — cadeau de naissance"
+                    src="/images/home/milk_baby_shower_plateau_rotin.webp"
+                    alt="M!LK — coffret cadeau naissance"
                     fill
                     sizes="45vw"
                     style={{ objectFit:"cover", objectPosition:"center" }}

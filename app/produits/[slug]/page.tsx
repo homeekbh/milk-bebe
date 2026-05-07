@@ -451,7 +451,7 @@ export default function ProductPage() {
         * { box-sizing:border-box; }
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; }
         .pl-left  { padding:16px 24px 80px 4vw; }
-        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; align-self:stretch; background:${BG}; }
+        .pl-right-outer { background:#d8c8b0; } .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; }
         .pl-right::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
@@ -524,7 +524,7 @@ export default function ProductPage() {
         </div>
 
         {/* ─── DROITE : panneau achat ─── */}
-        <div className="pl-right">
+        <div className="pl-right-outer"><div className="pl-right">
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX
@@ -728,6 +728,7 @@ export default function ProductPage() {
           </div>
 
         </div>
+        </div>{/* /pl-right-outer */}
       </div>
 
       {/* ─── BAS DE PAGE ─── */}

@@ -370,6 +370,9 @@ export default function ProductPage() {
   const [added,       setAdded]       = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [guideOpen,   setGuideOpen]   = useState(false);
+  const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
+  const leftColRef  = useRef<HTMLDivElement>(null);
+  const rightInnerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -384,6 +387,19 @@ export default function ProductPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [slug]);
+
+  // Synchronise la hauteur du panneau droit avec la colonne gauche
+  useEffect(() => {
+    if (!leftColRef.current) return;
+    const sync = () => {
+      const leftH = leftColRef.current?.offsetHeight ?? 0;
+      setRightMaxH(`${leftH}px`);
+    };
+    sync();
+    const ro = new ResizeObserver(sync);
+    ro.observe(leftColRef.current);
+    return () => ro.disconnect();
+  }, [product]);
 
   function handleAddToCart() {
     if (!product) return;
@@ -452,7 +468,7 @@ export default function ProductPage() {
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#d8c8b0; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { display:flex; flex-direction:column; }
-        .pl-right-inner { position:sticky; top:84px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
+        .pl-right-inner { position:sticky; top:84px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; scrollbar-width:none; }
         .pl-right-inner::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
@@ -490,7 +506,7 @@ export default function ProductPage() {
       <div className="pl-outer">
 
         {/* ─── GAUCHE : photos ─── */}
-        <div className="pl-left">
+        <div className="pl-left" ref={leftColRef}>
           <div style={{ position: "relative" }}>
             <DiagonalBadge label={badgeLabel} out={out} />
             {photoRows.map((row, ri) => (
@@ -525,7 +541,7 @@ export default function ProductPage() {
         </div>
 
         {/* ─── DROITE : panneau achat ─── */}
-        <div className="pl-right"><div className="pl-right-inner">
+        <div className="pl-right"><div className="pl-right-inner" ref={rightInnerRef} style={{ maxHeight: rightMaxH, overflowY: "auto" }}>
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX

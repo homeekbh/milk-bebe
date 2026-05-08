@@ -1,6 +1,19 @@
 ﻿@import "tailwindcss/preflight";
 @import "tailwindcss/utilities";
+@font-face {
+  font-family: "BoldinBold";
+  src: url("/fonts/boldin-bold.otf") format("opentype");
+  font-weight: 900;
+  font-style: normal;
+  font-display: block;
+}
 
+.milk-logo-text {
+  font-family: "BoldinBold", system-ui, sans-serif;
+  font-weight: 900;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
 :root {
   --milk-night:    #2a2018;
   --milk-night-2:  #332619;

@@ -126,7 +126,6 @@ function Ticker() {
   );
 }
 
-const HIGHLIGHT_LABELS: Record<string,string> = { meilleure_vente:"Meilleures ventes", selection:"Sélection du moment", nouveaute:"Nouveautés", default:"Nos essentiels du moment" };
 
 const CATS = [
   { label:"Bodies",      desc:"L'essentiel du quotidien",      href:"/categorie/bodies",      Icon:IconBodies      },
@@ -149,26 +148,163 @@ const PHOTOS = [
   { src: "/images/home/milk_rouleaux_tissu_mur_jouets.webp",    alt: "M!LK — rouleaux tissu bambou motifs",     label: "Le bambou, notre matière" },
 ];
 
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Carousel produits homepage — hover scroll (desktop) + swipe (mobile)
+───────────────────────────────────────────────────────────────────────────── */
+function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:string; isPromo:(p:any)=>boolean }) {
+  const trackRef  = useRef<HTMLDivElement>(null);
+  const animRef   = useRef<number|null>(null);
+  const hoverRef  = useRef<"left"|"right"|null>(null);
+
+  // Scroll auto au survol des zones gauche/droite
+  const startScroll = (dir: "left"|"right") => {
+    hoverRef.current = dir;
+    const step = () => {
+      const el = trackRef.current;
+      if (!el || hoverRef.current !== dir) return;
+      el.scrollLeft += dir === "right" ? 4 : -4;
+      animRef.current = requestAnimationFrame(step);
+    };
+    animRef.current = requestAnimationFrame(step);
+  };
+  const stopScroll = () => {
+    hoverRef.current = null;
+    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+  };
+
+  // Swipe tactile mobile
+  const touchStart = useRef(0);
+  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const onTouchMove  = (e: React.TouchEvent) => {
+    const el = trackRef.current; if (!el) return;
+    const dx = touchStart.current - e.touches[0].clientX;
+    el.scrollLeft += dx * 0.8;
+    touchStart.current = e.touches[0].clientX;
+  };
+
+  const CARD_W = 260;
+  const showArrows = products.length > 4;
+
+  return (
+    <div style={{ background:C.light, padding:"32px 0 40px" }}>
+      <style>{`
+        .pcarousel-track { scroll-behavior:smooth; -webkit-overflow-scrolling:touch; }
+        .pcarousel-track::-webkit-scrollbar { display:none; }
+        .pcarousel-zone { position:absolute; top:0; bottom:0; width:80px; z-index:10; pointer-events:all; cursor:none; }
+        .pcarousel-zone-l { left:0; background:linear-gradient(to right,rgba(237,232,223,0.9),transparent); }
+        .pcarousel-zone-r { right:0; background:linear-gradient(to left,rgba(237,232,223,0.9),transparent); }
+        .pcarousel-arrow { position:absolute; top:50%; transform:translateY(-50%); width:36px; height:36px; borderRadius:99px; background:rgba(26,20,16,0.85); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; }
+        .pcarousel-zone-l .pcarousel-arrow { left:12px; }
+        .pcarousel-zone-r .pcarousel-arrow { right:12px; }
+        .pcarousel-zone:hover .pcarousel-arrow { opacity:1; }
+        @media (hover:none) { .pcarousel-zone { display:none !important; } }
+      `}</style>
+
+      {/* Header */}
+      <div style={{ padding:"0 5vw", display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24, flexWrap:"wrap", gap:12 }}>
+        <Reveal>
+          <div>
+            <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:8 }}>Sélection</div>
+            <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1 }}>{lbl}</h2>
+          </div>
+        </Reveal>
+        <Link href="/produits" style={{ fontSize:15, fontWeight:800, color:C.amber, textDecoration:"none", paddingRight:"5vw" }}>Voir tout →</Link>
+      </div>
+
+      {/* Carousel */}
+      <div style={{ position:"relative" }}>
+        {/* Zone gauche */}
+        {showArrows && (
+          <div className="pcarousel-zone pcarousel-zone-l"
+            onMouseEnter={()=>startScroll("left")} onMouseLeave={stopScroll}>
+            <div className="pcarousel-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          </div>
+        )}
+        {/* Zone droite */}
+        {showArrows && (
+          <div className="pcarousel-zone pcarousel-zone-r"
+            onMouseEnter={()=>startScroll("right")} onMouseLeave={stopScroll}>
+            <div className="pcarousel-arrow">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+            </div>
+          </div>
+        )}
+
+        {/* Track scrollable */}
+        <div
+          ref={trackRef}
+          className="pcarousel-track"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          style={{
+            display:"flex", gap:16, overflowX:"auto", overflowY:"visible",
+            padding:"8px 5vw 16px",
+            scrollSnapType:"x mandatory",
+          }}
+        >
+          {products.map((p:any) => {
+            const promo = isPromo(p);
+            const price = promo ? p.promo_price : p.price_ttc;
+            const badge = p.label==="bestseller"?"Best seller":p.label==="nouveau"?"Nouveau":null;
+            return (
+              <Link key={p.id} href={`/produits/${p.slug}`}
+                style={{ textDecoration:"none", flexShrink:0, width:CARD_W, scrollSnapAlign:"start" }}>
+                <div className="pcard" style={{ borderRadius:16, overflow:"visible", background:C.taupe, border:`1.5px solid rgba(26,20,16,0.12)`, position:"relative", transition:"all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.12)" }}>
+                  {badge&&(<div style={{ position:"absolute", top:0, right:0, width:90, height:90, overflow:"hidden", zIndex:10, borderRadius:"0 16px 0 0", pointerEvents:"none" }}><div style={{ position:"absolute", top:18, right:-26, background:C.amber, color:C.dark, fontSize:9, fontWeight:900, padding:"6px 36px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap" }}>{badge}</div></div>)}
+                  <div style={{ borderRadius:"14px 14px 0 0", overflow:"hidden", position:"relative", aspectRatio:"1/1", background:C.light }}>
+                    {p.image_url
+                      ? <Image src={p.image_url} alt={p.name} fill sizes="260px" className="pcard-img" style={{ objectFit:"cover", transition:"transform 0.4s ease" }}/>
+                      : <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", fontSize:20, fontWeight:950, color:"rgba(26,20,16,0.2)" }}>M!LK</div>
+                    }
+                    {promo&&<div style={{ position:"absolute", top:10, left:10 }}><span style={{ padding:"4px 9px", borderRadius:99, background:C.amber, color:C.dark, fontSize:10, fontWeight:900 }}>PROMO</span></div>}
+                  </div>
+                  <div style={{ padding:"12px 14px 16px" }}>
+                    <div style={{ fontWeight:900, fontSize:15, color:C.dark, marginBottom:4, lineHeight:1.3 }}>{p.name}</div>
+                    <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
+                      <span style={{ fontWeight:950, fontSize:18, color:promo?C.amber:C.dark }}>{Number(price).toFixed(2)} €</span>
+                      {promo&&<span style={{ fontSize:12, textDecoration:"line-through", color:"rgba(26,20,16,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+
+        {/* Indicateur dots mobile */}
+        {products.length > 1 && (
+          <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:8 }}>
+            {products.map((_:any,i:number)=>(
+              <div key={i} style={{ width:6, height:6, borderRadius:99, background:i===0?C.amber:"rgba(26,20,16,0.15)", transition:"background 0.2s" }}/>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function HomePage() {
   const heroRef  = useRef<HTMLDivElement>(null);
   const catSec   = useInView(0.1);
   const [catVisible, setCatVisible] = useState(false);
   const [products, setProducts]     = useState<any[]>([]);
-  const [lbl, setLbl]               = useState("Nos essentiels du moment");
+  const [lbl, setLbl]               = useState("Sélection du moment");
 
   useEffect(() => {
-    fetch("/api/produits").then(r=>r.json()).then((data:any[])=>{
-      if(!Array.isArray(data))return;
-      const m=data.filter(p=>p.highlight==="meilleure_vente"&&p.stock>0);
-      const s=data.filter(p=>p.highlight==="selection"&&p.stock>0);
-      const n=data.filter(p=>p.highlight==="nouveaute"&&p.stock>0);
-      const a=data.filter(p=>p.stock>0);
-      let chosen=a,label="default";
-      if(m.length){chosen=m;label="meilleure_vente";}
-      else if(s.length){chosen=s;label="selection";}
-      else if(n.length){chosen=n;label="nouveaute";}
-      setProducts(chosen.slice(0,4));
-      setLbl(HIGHLIGHT_LABELS[label]??HIGHLIGHT_LABELS.default);
+    fetch("/api/home/config").then(r=>r.json()).then((data:any)=>{
+      if(data?.products&&Array.isArray(data.products)&&data.products.length>0){
+        setProducts(data.products);
+        setLbl(data.section_title??"Sélection du moment");
+      } else {
+        fetch("/api/produits").then(r=>r.json()).then((all:any[])=>{
+          if(!Array.isArray(all))return;
+          setProducts(all.filter((p:any)=>p.stock>0).slice(0,8));
+        }).catch(()=>{});
+      }
     }).catch(()=>{});
   },[]);
 
@@ -298,44 +434,8 @@ export default function HomePage() {
       <Ticker/>
       <Divider from={C.bg} to={C.light}/>
 
-      {/* ── PRODUITS ── */}
-      <div style={{ background:C.light, padding:"32px 5vw" }}>
-        <Reveal>
-          <div style={{ display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24, flexWrap:"wrap", gap:12 }}>
-            <div>
-              <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:8 }}>Sélection</div>
-              <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1 }}>{lbl}</h2>
-            </div>
-            <Link href="/produits" style={{ fontSize:15, fontWeight:800, color:C.amber, textDecoration:"none" }}>Voir tout →</Link>
-          </div>
-        </Reveal>
-        <div className="pgrid" style={{ display:"grid", gridTemplateColumns:"repeat(auto-fit,minmax(220px,280px))", gap:16, justifyContent:"center" }}>
-          {products.map((p,i)=>{
-            const promo=isPromo(p);const price=promo?p.promo_price:p.price_ttc;
-            const badge=p.label==="bestseller"?"Best seller":p.label==="nouveau"?"Nouveau":p.highlight==="meilleure_vente"?"Best seller":p.highlight==="nouveaute"?"Nouveau":null;
-            return(
-              <Reveal key={p.id} delay={i*0.08}>
-                <Link href={`/produits/${p.slug}`} style={{ textDecoration:"none", display:"block" }}>
-                  <div className="pcard" style={{ borderRadius:16, overflow:"visible", background:C.taupe, border:`1.5px solid rgba(26,20,16,0.12)`, position:"relative", transition:"all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.12)", transform:"translateY(-2px)" }}>
-                    {badge&&(<div style={{ position:"absolute", top:0, right:0, width:90, height:90, overflow:"hidden", zIndex:10, borderRadius:"0 16px 0 0", pointerEvents:"none" }}><div style={{ position:"absolute", top:18, right:-26, background:C.amber, color:C.dark, fontSize:9, fontWeight:900, padding:"6px 36px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap" }}>{badge}</div></div>)}
-                    <div style={{ borderRadius:"14px 14px 0 0", overflow:"hidden", position:"relative", aspectRatio:"1/1", background:C.light }}>
-                      {p.image_url?<Image src={p.image_url} alt={p.name} fill sizes="280px" className="pcard-img" style={{ objectFit:"cover", transition:"transform 0.4s ease" }}/>:<div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", fontSize:20, fontWeight:950, color:"rgba(26,20,16,0.2)" }}>M!LK</div>}
-                      {promo&&<div style={{ position:"absolute", top:10, left:10 }}><span style={{ padding:"4px 9px", borderRadius:99, background:C.amber, color:C.dark, fontSize:10, fontWeight:900 }}>PROMO</span></div>}
-                    </div>
-                    <div style={{ padding:"12px 14px 16px" }}>
-                      <div style={{ fontWeight:900, fontSize:"clamp(12px,1.3vw,15px)", color:C.dark, marginBottom:4, lineHeight:1.3 }}>{p.name}</div>
-                      <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
-                        <span style={{ fontWeight:950, fontSize:"clamp(15px,1.6vw,18px)", color:promo?C.amber:C.dark }}>{Number(price).toFixed(2)} €</span>
-                        {promo&&<span style={{ fontSize:12, textDecoration:"line-through", color:"rgba(26,20,16,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
-                      </div>
-                    </div>
-                  </div>
-                </Link>
-              </Reveal>
-            );
-          })}
-        </div>
-      </div>
+      {/* ── PRODUITS — Carousel hover+swipe ── */}
+      <ProductsCarousel products={products} lbl={lbl} isPromo={isPromo} />
 
       <Divider from={C.light} to={C.bg}/>
 

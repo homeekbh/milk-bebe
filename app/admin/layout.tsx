@@ -5,9 +5,11 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import SearchGlobal from "@/components/admin/SearchGlobal";
+import { MilkLogo, MilkLogoAdmin } from "@/components/shared/MilkLogo";
 
 const NAV = [
   { href: "/admin",              label: "Dashboard",    icon: "▦"  },
+  { href: "/admin/homepage",     label: "Homepage",     icon: "🏠" },
   { href: "/admin/produits",     label: "Produits",     icon: "🏷" },
   { href: "/admin/commandes",    label: "Commandes",    icon: "📦" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
@@ -82,7 +84,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside style={{ width: 240, flexShrink: 0, background: "#1a1410", display: mobile ? "none" : "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, overflowY: "auto", zIndex: 100 }}>
         <div style={{ padding: "24px 20px", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>
           <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22, letterSpacing: -1 }}>M!LK</span>
+            <MilkLogo color="#1a1410" size={22} />
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.6)" }}>ADMIN</span>
           </div>
         </div>
@@ -122,8 +124,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div onClick={() => setOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 200 }}>
           <div onClick={e => e.stopPropagation()}
             style={{ width: 260, height: "100%", background: "#1a1410", padding: "24px 12px", display: "flex", flexDirection: "column", overflowY: "auto" }}>
-            <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", marginBottom: 20 }}>
-              <span style={{ color: "#1a1410", fontWeight: 950, fontSize: 22 }}>M!LK ADMIN</span>
+            <div style={{ background: "#c49a4a", borderRadius: 14, padding: "12px 16px", marginBottom: 20, display: "flex", alignItems: "center", gap: 8 }}>
+              <MilkLogo color="#1a1410" size={22} />
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.6)" }}>ADMIN</span>
             </div>
             {NAV.map(item => {
               const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);

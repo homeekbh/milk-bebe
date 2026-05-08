@@ -1090,19 +1090,11 @@ export default function AdminProductForm() {
             <Field label="Référence fournisseur" fieldKey="supplier_ref" placeholder="ES-001" value={form.supplier_ref} onChange={set} />
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div style={{ display: "grid", gap: 6 }}>
-              <label style={LS}>Badge produit</label>
-              <select value={form.label} onChange={e => set("label", e.target.value)} style={IS}>
-                {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-              </select>
-            </div>
-            <div style={{ display: "grid", gap: 6 }}>
-              <label style={LS}>Mise en avant homepage</label>
-              <select value={form.highlight} onChange={e => set("highlight", e.target.value)} style={IS}>
-                {HIGHLIGHTS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
-              </select>
-            </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={LS}>Badge produit</label>
+            <select value={form.label} onChange={e => set("label", e.target.value)} style={IS}>
+              {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+            </select>
           </div>
 
           <Field label="Poids (grammes)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />

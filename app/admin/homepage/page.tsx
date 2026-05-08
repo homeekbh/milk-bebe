@@ -107,9 +107,13 @@ export default function AdminHomePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ section_title: sectionTitle, product_ids: selectedIds }),
       });
-      if (res.ok) showToast("Homepage sauvegardée !");
-      else showToast("Erreur lors de la sauvegarde", false);
-    } catch { showToast("Erreur réseau", false); }
+      if (res.ok) {
+        showToast("Homepage sauvegardée !");
+      } else {
+        const err = await res.json().catch(() => ({}));
+        showToast("Erreur " + res.status + " : " + (err.error ?? "inconnue"), false);
+      }
+    } catch (e: any) { showToast("Erreur réseau : " + e.message, false); }
     finally { setSaving(false); }
   };
 

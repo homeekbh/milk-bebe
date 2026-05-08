@@ -391,6 +391,7 @@ export default function ProductPage() {
   // Synchronise la hauteur du panneau droit avec la colonne gauche
   useEffect(() => {
     if (!leftColRef.current) return;
+    if (window.innerWidth <= 900) return; // pas de sync sur mobile
     const sync = () => {
       const leftH = leftColRef.current?.offsetHeight ?? 0;
       setRightMaxH(`${leftH}px`);
@@ -477,8 +478,8 @@ export default function ProductPage() {
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
-          .pl-right  { display:flex!important; flex-direction:column!important; background:#ede8df!important; } 
-          .pl-right-inner { position:static!important; align-self:auto!important; padding:0 16px 80px!important; width:100%!important; }
+          .pl-right  { display:contents!important; }
+          .pl-right-inner { position:static!important; align-self:auto!important; padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; max-height:none!important; overflow:visible!important; }
           .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }

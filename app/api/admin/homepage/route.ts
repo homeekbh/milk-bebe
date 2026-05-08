@@ -1,23 +1,48 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
-/**
- * Table Supabase nécessaire (à créer si absente) :
- *
- * CREATE TABLE IF NOT EXISTS homepage_config (
- *   id          text PRIMARY KEY DEFAULT 'main',
- *   section_title text NOT NULL DEFAULT 'Sélection du moment',
- *   product_ids   jsonb NOT NULL DEFAULT '[]',
- *   updated_at  timestamptz DEFAULT now()
- * );
- * INSERT INTO homepage_config (id) VALUES ('main') ON CONFLICT DO NOTHING;
- */
+// Vérifie que l'utilisateur est admin via son email
+// (contourne le problème de cookie avec requireAdmin)
+async function checkAdmin(req: NextRequest): Promise<boolean> {
+  try {
+    // Récupérer le token depuis le header Authorization ou les cookies
+    const authHeader = req.headers.get("authorization") ?? "";
+    let token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+
+    if (!token) {
+      const cookie = req.headers.get("cookie") ?? "";
+      const match = cookie.match(/sb-[^=]+-auth-token(?:\.\d+)?=([^;]+)/);
+      if (match) {
+        try {
+          const val = decodeURIComponent(match[1]);
+          const parsed = JSON.parse(val);
+          token = parsed.access_token ?? parsed[0]?.access_token ?? null;
+        } catch {
+          token = null;
+        }
+      }
+    }
+
+    if (!token) return false;
+
+    const { data: { user } } = await supabaseServer.auth.getUser(token);
+    if (!user) return false;
+
+    const { data: profile } = await supabaseServer
+      .from("profiles")
+      .select("is_admin")
+      .eq("id", user.id)
+      .single();
+
+    return profile?.is_admin === true;
+  } catch {
+    return false;
+  }
+}
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
+  // Pour le GET on retourne la config même sans auth
+  // (les données ne sont pas sensibles)
   const { data, error } = await supabaseServer
     .from("homepage_config")
     .select("*")
@@ -28,28 +53,33 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  // Valeur par défaut si aucune config
-  return Response.json(data ?? { id: "main", section_title: "Sélection du moment", product_ids: [] });
+  return Response.json(
+    data ?? { id: "main", section_title: "Sélection du moment", product_ids: [] }
+  );
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
+  const isAdmin = await checkAdmin(req);
+  if (!isAdmin) {
+    return Response.json({ error: "Non authentifié" }, { status: 401 });
+  }
 
   const body = await req.json();
   const { section_title, product_ids } = body;
 
-  if (!section_title) return Response.json({ error: "section_title requis" }, { status: 400 });
-  if (!Array.isArray(product_ids)) return Response.json({ error: "product_ids doit être un tableau" }, { status: 400 });
+  if (!section_title) {
+    return Response.json({ error: "section_title requis" }, { status: 400 });
+  }
+  if (!Array.isArray(product_ids)) {
+    return Response.json({ error: "product_ids doit être un tableau" }, { status: 400 });
+  }
 
   const { data, error } = await supabaseServer
     .from("homepage_config")
-    .upsert({
-      id:            "main",
-      section_title,
-      product_ids,
-      updated_at:    new Date().toISOString(),
-    }, { onConflict: "id" })
+    .upsert(
+      { id: "main", section_title, product_ids, updated_at: new Date().toISOString() },
+      { onConflict: "id" }
+    )
     .select()
     .single();
 

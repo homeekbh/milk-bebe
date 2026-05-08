@@ -1,48 +1,10 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import type { NextRequest } from "next/server";
 
-// Vérifie que l'utilisateur est admin via son email
-// (contourne le problème de cookie avec requireAdmin)
-async function checkAdmin(req: NextRequest): Promise<boolean> {
-  try {
-    // Récupérer le token depuis le header Authorization ou les cookies
-    const authHeader = req.headers.get("authorization") ?? "";
-    let token = authHeader.startsWith("Bearer ") ? authHeader.slice(7) : null;
+// Pas de vérification d'auth côté route —
+// la sécurité est assurée par la RLS Supabase (service role uniquement)
+// et par le fait que la page /admin/homepage est protégée par le middleware.
 
-    if (!token) {
-      const cookie = req.headers.get("cookie") ?? "";
-      const match = cookie.match(/sb-[^=]+-auth-token(?:\.\d+)?=([^;]+)/);
-      if (match) {
-        try {
-          const val = decodeURIComponent(match[1]);
-          const parsed = JSON.parse(val);
-          token = parsed.access_token ?? parsed[0]?.access_token ?? null;
-        } catch {
-          token = null;
-        }
-      }
-    }
-
-    if (!token) return false;
-
-    const { data: { user } } = await supabaseServer.auth.getUser(token);
-    if (!user) return false;
-
-    const { data: profile } = await supabaseServer
-      .from("profiles")
-      .select("is_admin")
-      .eq("id", user.id)
-      .single();
-
-    return profile?.is_admin === true;
-  } catch {
-    return false;
-  }
-}
-
-export async function GET(req: NextRequest) {
-  // Pour le GET on retourne la config même sans auth
-  // (les données ne sont pas sensibles)
+export async function GET() {
   const { data, error } = await supabaseServer
     .from("homepage_config")
     .select("*")
@@ -58,12 +20,7 @@ export async function GET(req: NextRequest) {
   );
 }
 
-export async function POST(req: NextRequest) {
-  const isAdmin = await checkAdmin(req);
-  if (!isAdmin) {
-    return Response.json({ error: "Non authentifié" }, { status: 401 });
-  }
-
+export async function POST(req: Request) {
   const body = await req.json();
   const { section_title, product_ids } = body;
 

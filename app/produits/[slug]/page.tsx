@@ -277,7 +277,7 @@ function IconBandeau() {
   ];
   return (
     <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
+      <div className="bandeau-inner" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
         {items.map(item => (
           <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
             <img
@@ -477,13 +477,15 @@ export default function ProductPage() {
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
-          .pl-right  { display:flex!important; flex-direction:column!important; } .pl-right-inner { position:static!important; align-self:auto!important; padding:0 16px 80px!important; width:100%!important; }
+          .pl-right  { display:flex!important; flex-direction:column!important; } 
+          .pl-right-inner { position:static!important; align-self:auto!important; padding:0 16px 80px!important; width:100%!important; }
+          .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
         @media(max-width:600px){
-          .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; }
-          .icon-bandeau-grid img { width:28px!important; height:28px!important; }
+          .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; row-gap:12px!important; }
+          .icon-bandeau-grid img { width:26px!important; height:26px!important; }
           .icon-bandeau-grid span { font-size:6.5px!important; }
         }
       `}</style>
@@ -615,7 +617,7 @@ export default function ProductPage() {
           )}
 
           {taillesDispos.length > 0 && (
-            <div style={{ display: "grid", gap: 10 }}>
+            <div id="taille-selector" style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
                 Taille {taille && <span style={{ color: DARK }}>— {taille}</span>}
               </span>
@@ -625,7 +627,7 @@ export default function ProductPage() {
                   const epuise = stockT <= 0;
                   const selected = taille === t;
                   return (
-                    <button key={t} onClick={() => { if (!epuise) setTaille(t); }}
+                    <button key={t} onClick={() => { if (!epuise) setTaille(selected ? "" : t); }}
                       style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
                       {t}
                       {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
@@ -789,9 +791,17 @@ export default function ProductPage() {
 
       {/* CTA mobile */}
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>
-        <button onClick={handleAddToCart} disabled={outTaille}
+        <button
+          onClick={() => {
+            if (needsTaille) {
+              document.getElementById("taille-selector")?.scrollIntoView({ behavior: "smooth", block: "center" });
+            } else {
+              handleAddToCart();
+            }
+          }}
+          disabled={outTaille}
           style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM }}>
-          {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
+          {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
         </button>
       </div>
       <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}`}</style>

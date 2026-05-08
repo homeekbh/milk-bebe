@@ -153,50 +153,51 @@ const PHOTOS = [
    Carousel produits homepage — hover scroll (desktop) + swipe (mobile)
 ───────────────────────────────────────────────────────────────────────────── */
 function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:string; isPromo:(p:any)=>boolean }) {
-  const trackRef  = useRef<HTMLDivElement>(null);
-  const animRef   = useRef<number|null>(null);
-  const hoverRef  = useRef<"left"|"right"|null>(null);
+  const trackRef   = useRef<HTMLDivElement>(null);
+  const rafRef     = useRef<number|null>(null);
+  const speedRef   = useRef(0); // vitesse courante px/frame
 
-  // Scroll auto au survol des zones gauche/droite
+  // Démarre le scroll dans une direction
   const startScroll = (dir: "left"|"right") => {
-    hoverRef.current = dir;
-    const step = () => {
+    speedRef.current = dir === "right" ? 6 : -6;
+    const tick = () => {
       const el = trackRef.current;
-      if (!el || hoverRef.current !== dir) return;
-      el.scrollLeft += dir === "right" ? 4 : -4;
-      animRef.current = requestAnimationFrame(step);
+      if (!el || speedRef.current === 0) return;
+      el.scrollLeft += speedRef.current;
+      rafRef.current = requestAnimationFrame(tick);
     };
-    animRef.current = requestAnimationFrame(step);
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(tick);
   };
+
   const stopScroll = () => {
-    hoverRef.current = null;
-    if (animRef.current) { cancelAnimationFrame(animRef.current); animRef.current = null; }
+    speedRef.current = 0;
+    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
   };
 
   // Swipe tactile mobile
-  const touchStart = useRef(0);
-  const onTouchStart = (e: React.TouchEvent) => { touchStart.current = e.touches[0].clientX; };
+  const touchStartX = useRef(0);
+  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
   const onTouchMove  = (e: React.TouchEvent) => {
     const el = trackRef.current; if (!el) return;
-    const dx = touchStart.current - e.touches[0].clientX;
-    el.scrollLeft += dx * 0.8;
-    touchStart.current = e.touches[0].clientX;
+    const dx = touchStartX.current - e.touches[0].clientX;
+    el.scrollLeft += dx;
+    touchStartX.current = e.touches[0].clientX;
   };
 
   const CARD_W = 260;
-  const showArrows = products.length > 4;
 
   return (
     <div style={{ background:C.light, padding:"32px 0 40px" }}>
       <style>{`
-        .pcarousel-track { scroll-behavior:smooth; -webkit-overflow-scrolling:touch; }
-        .pcarousel-track::-webkit-scrollbar { display:none; }
-        .pcarousel-zone { position:absolute; top:0; bottom:0; width:100px; z-index:10; pointer-events:all; cursor:pointer; display:flex; align-items:center; }
-        .pcarousel-zone-l { left:0; background:linear-gradient(to right,rgba(237,232,223,0.95) 30%,transparent); justify-content:flex-start; padding-left:12px; }
-        .pcarousel-zone-r { right:0; background:linear-gradient(to left,rgba(237,232,223,0.95) 30%,transparent); justify-content:flex-end; padding-right:12px; }
-        .pcarousel-arrow { width:38px; height:38px; border-radius:99px; background:rgba(26,20,16,0.8); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; flex-shrink:0; }
-        .pcarousel-zone:hover .pcarousel-arrow { opacity:1; }
-        @media (hover:none) { .pcarousel-zone { display:none !important; } }
+        .pct { overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; }
+        .pct::-webkit-scrollbar { display:none; }
+        .pzone { position:absolute; top:0; bottom:0; width:110px; z-index:20; cursor:pointer; display:flex; align-items:center; }
+        .pzone-l { left:0; background:linear-gradient(90deg,rgba(237,232,223,1) 40%,rgba(237,232,223,0)); justify-content:flex-start; padding-left:14px; }
+        .pzone-r { right:0; background:linear-gradient(270deg,rgba(237,232,223,1) 40%,rgba(237,232,223,0)); justify-content:flex-end; padding-right:14px; }
+        .parr { width:40px; height:40px; border-radius:50%; background:rgba(26,20,16,0.85); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.18s; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
+        .pzone:hover .parr { opacity:1; }
+        @media(hover:none){ .pzone{display:none!important;} }
       `}</style>
 
       {/* Header */}
@@ -212,32 +213,32 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
 
       {/* Carousel */}
       <div style={{ position:"relative" }}>
-        {/* Zone gauche — hover scroll */}
-        <div className="pcarousel-zone pcarousel-zone-l"
-          onMouseEnter={()=>startScroll("left")} onMouseLeave={stopScroll}>
-          <div className="pcarousel-arrow">
+
+        {/* Zone gauche */}
+        <div className="pzone pzone-l"
+          onMouseEnter={()=>startScroll("left")}
+          onMouseLeave={stopScroll}>
+          <div className="parr">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
         </div>
-        {/* Zone droite — hover scroll */}
-        <div className="pcarousel-zone pcarousel-zone-r"
-          onMouseEnter={()=>startScroll("right")} onMouseLeave={stopScroll}>
-          <div className="pcarousel-arrow">
+
+        {/* Zone droite */}
+        <div className="pzone pzone-r"
+          onMouseEnter={()=>startScroll("right")}
+          onMouseLeave={stopScroll}>
+          <div className="parr">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
         </div>
 
-        {/* Track scrollable */}
+        {/* Track — PAS de scroll-behavior:smooth, sinon RAF bloqué */}
         <div
           ref={trackRef}
-          className="pcarousel-track"
+          className="pct"
           onTouchStart={onTouchStart}
           onTouchMove={onTouchMove}
-          style={{
-            display:"flex", gap:16, overflowX:"auto", overflowY:"visible",
-            padding:"8px 5vw 16px",
-            scrollSnapType:"x mandatory",
-          }}
+          style={{ display:"flex", gap:16, padding:"8px 5vw 16px" }}
         >
           {products.map((p:any) => {
             const promo = isPromo(p);
@@ -245,7 +246,7 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
             const badge = p.label==="bestseller"?"Best seller":p.label==="nouveau"?"Nouveau":null;
             return (
               <Link key={p.id} href={`/produits/${p.slug}`}
-                style={{ textDecoration:"none", flexShrink:0, width:CARD_W, scrollSnapAlign:"start" }}>
+                style={{ textDecoration:"none", flexShrink:0, width:CARD_W }}>
                 <div className="pcard" style={{ borderRadius:16, overflow:"visible", background:C.taupe, border:`1.5px solid rgba(26,20,16,0.12)`, position:"relative", transition:"all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.12)" }}>
                   {badge&&(<div style={{ position:"absolute", top:0, right:0, width:90, height:90, overflow:"hidden", zIndex:10, borderRadius:"0 16px 0 0", pointerEvents:"none" }}><div style={{ position:"absolute", top:18, right:-26, background:C.amber, color:C.dark, fontSize:9, fontWeight:900, padding:"6px 36px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap" }}>{badge}</div></div>)}
                   <div style={{ borderRadius:"14px 14px 0 0", overflow:"hidden", position:"relative", aspectRatio:"1/1", background:C.light }}>
@@ -268,11 +269,11 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
           })}
         </div>
 
-        {/* Indicateur dots mobile */}
+        {/* Dots mobile */}
         {products.length > 1 && (
           <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:8 }}>
             {products.map((_:any,i:number)=>(
-              <div key={i} style={{ width:6, height:6, borderRadius:99, background:i===0?C.amber:"rgba(26,20,16,0.15)", transition:"background 0.2s" }}/>
+              <div key={i} style={{ width:6, height:6, borderRadius:99, background:i===0?C.amber:"rgba(26,20,16,0.15)" }}/>
             ))}
           </div>
         )}

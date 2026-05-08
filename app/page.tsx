@@ -191,12 +191,10 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
       <style>{`
         .pcarousel-track { scroll-behavior:smooth; -webkit-overflow-scrolling:touch; }
         .pcarousel-track::-webkit-scrollbar { display:none; }
-        .pcarousel-zone { position:absolute; top:0; bottom:0; width:80px; z-index:10; pointer-events:all; cursor:none; }
-        .pcarousel-zone-l { left:0; background:linear-gradient(to right,rgba(237,232,223,0.9),transparent); }
-        .pcarousel-zone-r { right:0; background:linear-gradient(to left,rgba(237,232,223,0.9),transparent); }
-        .pcarousel-arrow { position:absolute; top:50%; transform:translateY(-50%); width:36px; height:36px; borderRadius:99px; background:rgba(26,20,16,0.85); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; }
-        .pcarousel-zone-l .pcarousel-arrow { left:12px; }
-        .pcarousel-zone-r .pcarousel-arrow { right:12px; }
+        .pcarousel-zone { position:absolute; top:0; bottom:0; width:100px; z-index:10; pointer-events:all; cursor:pointer; display:flex; align-items:center; }
+        .pcarousel-zone-l { left:0; background:linear-gradient(to right,rgba(237,232,223,0.95) 30%,transparent); justify-content:flex-start; padding-left:12px; }
+        .pcarousel-zone-r { right:0; background:linear-gradient(to left,rgba(237,232,223,0.95) 30%,transparent); justify-content:flex-end; padding-right:12px; }
+        .pcarousel-arrow { width:38px; height:38px; border-radius:99px; background:rgba(26,20,16,0.8); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.2s; flex-shrink:0; }
         .pcarousel-zone:hover .pcarousel-arrow { opacity:1; }
         @media (hover:none) { .pcarousel-zone { display:none !important; } }
       `}</style>
@@ -214,24 +212,20 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
 
       {/* Carousel */}
       <div style={{ position:"relative" }}>
-        {/* Zone gauche */}
-        {showArrows && (
-          <div className="pcarousel-zone pcarousel-zone-l"
-            onMouseEnter={()=>startScroll("left")} onMouseLeave={stopScroll}>
-            <div className="pcarousel-arrow">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
+        {/* Zone gauche — hover scroll */}
+        <div className="pcarousel-zone pcarousel-zone-l"
+          onMouseEnter={()=>startScroll("left")} onMouseLeave={stopScroll}>
+          <div className="pcarousel-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
-        )}
-        {/* Zone droite */}
-        {showArrows && (
-          <div className="pcarousel-zone pcarousel-zone-r"
-            onMouseEnter={()=>startScroll("right")} onMouseLeave={stopScroll}>
-            <div className="pcarousel-arrow">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-            </div>
+        </div>
+        {/* Zone droite — hover scroll */}
+        <div className="pcarousel-zone pcarousel-zone-r"
+          onMouseEnter={()=>startScroll("right")} onMouseLeave={stopScroll}>
+          <div className="pcarousel-arrow">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
           </div>
-        )}
+        </div>
 
         {/* Track scrollable */}
         <div

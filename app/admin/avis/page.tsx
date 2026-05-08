@@ -192,7 +192,7 @@ export default function AdminAvis() {
                   </button>
                   <button
                     onClick={() => { setReplyId(r.id); setReplyText(r.reply ?? ""); }}
-                    style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", fontWeight: 800, fontSize: 13, background: "#f5f0e8", color: "#1a1410" }}
+                    style={{ padding: "8px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", fontWeight: 800, fontSize: 13, background: "#ede8df", color: "#1a1410" }}
                   >
                     Répondre
                   </button>
@@ -239,7 +239,7 @@ export default function AdminAvis() {
                     </button>
                     <button
                       onClick={() => { setReplyId(null); setReplyText(""); }}
-                      style={{ padding: "10px 16px", borderRadius: 10, background: "#f5f0e8", color: "#1a1410", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
+                      style={{ padding: "10px 16px", borderRadius: 10, background: "#ede8df", color: "#1a1410", fontWeight: 700, fontSize: 14, border: "none", cursor: "pointer" }}
                     >
                       Annuler
                     </button>

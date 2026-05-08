@@ -122,7 +122,7 @@ function printLabel(order: Order, type: "expedition" | "retour") {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      background: #f5f0e8;
+      background: #ede8df;
     }
     .order-ref { font-size: 13px; font-weight: 800; color: #1a1410; font-family: monospace; letter-spacing: 1px; }
     .tracking  { font-size: 13px; color: #666; }
@@ -140,7 +140,7 @@ function printLabel(order: Order, type: "expedition" | "retour") {
     <button onclick="window.print()" style="padding:12px 32px;background:#1a1410;color:#c49a4a;border:none;border-radius:10px;font-size:16px;font-weight:900;cursor:pointer;margin-right:10px">
       🖨️ Imprimer
     </button>
-    <button onclick="window.close()" style="padding:12px 24px;background:#f5f0e8;color:#1a1410;border:2px solid #1a1410;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer">
+    <button onclick="window.close()" style="padding:12px 24px;background:#ede8df;color:#1a1410;border:2px solid #1a1410;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer">
       Fermer
     </button>
     <p style="margin-top:12px;font-size:12px;color:#999">Format recommandé : 15×10 cm ou A6</p>
@@ -373,7 +373,7 @@ export default function AdminCommandes() {
                       <div style={{ display: "grid", gap: 16 }}>
 
                         {/* Articles */}
-                        <div style={{ background: "#f5f0e8", borderRadius: 12, padding: "16px 18px" }}>
+                        <div style={{ background: "#ede8df", borderRadius: 12, padding: "16px 18px" }}>
                           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 12 }}>Articles</div>
                           {(Array.isArray(order.items) ? order.items : []).map((item: any, i: number) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(26,20,16,0.06)" }}>
@@ -391,7 +391,7 @@ export default function AdminCommandes() {
 
                         {/* Adresse livraison */}
                         {addr && (
-                          <div style={{ background: "#f5f0e8", borderRadius: 12, padding: "16px 18px" }}>
+                          <div style={{ background: "#ede8df", borderRadius: 12, padding: "16px 18px" }}>
                             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>Adresse de livraison</div>
                             <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.8, color: "#1a1410" }}>
                               {addr.name ?? order.customer_name}<br />
@@ -412,7 +412,7 @@ export default function AdminCommandes() {
                           </button>
                           <button
                             onClick={() => printLabel(order, "retour")}
-                            style={{ padding: "12px 16px", borderRadius: 12, background: "#f5f0e8", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                            style={{ padding: "12px 16px", borderRadius: 12, background: "#ede8df", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                           >
                             ↩️ Étiquette retour
                           </button>

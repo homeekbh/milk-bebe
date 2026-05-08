@@ -1,6 +1,6 @@
 export default function MentionsLegales() {
   return (
-    <div style={{ background: "#f5f0e8", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
+    <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
         <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410", marginBottom: 8 }}>
           Mentions légales

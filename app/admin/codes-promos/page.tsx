@@ -227,7 +227,7 @@ export default function AdminCodes() {
                 return (
                   <tr key={c.id} style={{ borderBottom: i < codes.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", opacity: isActive ? 1 : 0.6 }}>
                     <td style={{ padding: "14px 16px" }}>
-                      <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 16, color: "#1a1410", letterSpacing: 1.5, background: "#f5f0e8", padding: "4px 10px", borderRadius: 6 }}>
+                      <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 16, color: "#1a1410", letterSpacing: 1.5, background: "#ede8df", padding: "4px 10px", borderRadius: 6 }}>
                         {c.code}
                       </span>
                     </td>

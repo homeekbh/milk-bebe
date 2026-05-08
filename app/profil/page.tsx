@@ -38,11 +38,11 @@ type Order = {
 };
 
 // ── Constantes ─────────────────────────────────────────────────────────────
-const BG    = "#f5f0e8";
+const BG    = "#ede8df";
 const DARK  = "#1a1410";
 const AMBER = "#c49a4a";
 const WARM  = "#f2ede6";
-const TAUPE = "#d8c8b0";
+const TAUPE = "#ede8df";
 
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", postal_code: "", country: "FR" };
 
@@ -334,7 +334,7 @@ export default function ProfilPage() {
                           </div>
                         )}
                         {order.tracking_number && (
-                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "#f5f0e8" }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "#ede8df" }}>
                             <span style={{ fontSize: 14, fontWeight: 700, color: DARK }}>📦 Suivi :</span>
                             <span style={{ fontFamily: "monospace", letterSpacing: 1, fontSize: 14, color: DARK }}>{order.tracking_number}</span>
                           </div>
@@ -369,7 +369,7 @@ export default function ProfilPage() {
             <div>
               <label style={LS}>Email</label>
               <input value={user.email ?? ""} disabled
-                style={{ ...IS, background: "#f5f0e8", color: "rgba(26,20,16,0.45)", cursor: "not-allowed" }} />
+                style={{ ...IS, background: "#ede8df", color: "rgba(26,20,16,0.45)", cursor: "not-allowed" }} />
               <div style={{ fontSize: 11, color: "rgba(26,20,16,0.35)", marginTop: 5 }}>
                 L'email ne peut pas être modifié ici. Contacte-nous si besoin.
               </div>

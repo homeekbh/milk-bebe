@@ -125,7 +125,7 @@ export default function SearchGlobal() {
           onFocus={() => results.length > 0 && setOpen(true)}
           onKeyDown={handleKey}
           placeholder="Rechercher commande, client, produit... (Ctrl+K)"
-          style={{ width: "100%", padding: "10px 14px 10px 40px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#f5f0e8", outline: "none", boxSizing: "border-box", color: "#1a1410" }}
+          style={{ width: "100%", padding: "10px 14px 10px 40px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#ede8df", outline: "none", boxSizing: "border-box", color: "#1a1410" }}
         />
         <div style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, opacity: 0.4 }}>🔍</div>
         {loading && <div style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 12, opacity: 0.4 }}>⏳</div>}
@@ -137,7 +137,7 @@ export default function SearchGlobal() {
             <div
               key={r.id + r.type}
               onClick={() => { router.push(r.href); setOpen(false); setQuery(""); }}
-              style={{ padding: "12px 16px", cursor: "pointer", background: idx === i ? "#f5f0e8" : "#fff", borderBottom: i < results.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", display: "flex", gap: 12, alignItems: "center", transition: "background 0.1s" }}
+              style={{ padding: "12px 16px", cursor: "pointer", background: idx === i ? "#ede8df" : "#fff", borderBottom: i < results.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", display: "flex", gap: 12, alignItems: "center", transition: "background 0.1s" }}
               onMouseEnter={() => setIdx(i)}
             >
               <span style={{ fontSize: 18, flexShrink: 0 }}>{icons[r.type]}</span>
@@ -145,7 +145,7 @@ export default function SearchGlobal() {
                 <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.title}</div>
                 <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)", marginTop: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{r.subtitle}</div>
               </div>
-              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", padding: "3px 8px", borderRadius: 6, background: r.type === "produit" ? "#f5f0e8" : r.type === "commande" ? "#dcfce7" : "#e0f2fe", color: "rgba(26,20,16,0.5)", flexShrink: 0 }}>
+              <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", padding: "3px 8px", borderRadius: 6, background: r.type === "produit" ? "#ede8df" : r.type === "commande" ? "#dcfce7" : "#e0f2fe", color: "rgba(26,20,16,0.5)", flexShrink: 0 }}>
                 {r.type}
               </span>
             </div>

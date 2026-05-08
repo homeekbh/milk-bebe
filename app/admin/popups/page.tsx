@@ -226,7 +226,7 @@ export default function AdminPopups() {
                     {p.active ? "Désactiver" : "Activer"}
                   </button>
                   <button onClick={() => startEdit(p)}
-                    style={{ padding: "10px 16px", borderRadius: 10, background: "#f5f0e8", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
+                    style={{ padding: "10px 16px", borderRadius: 10, background: "#ede8df", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
                     Modifier
                   </button>
                   <button onClick={() => del(p.id)}

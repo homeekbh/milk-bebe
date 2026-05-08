@@ -288,7 +288,7 @@ export default function AdminProduitsListe() {
 
                     {/* Photo */}
                     <td style={{ padding: "13px 14px" }}>
-                      <div style={{ width: 46, height: 46, borderRadius: 10, background: "#f5f0e8", overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
+                      <div style={{ width: 46, height: 46, borderRadius: 10, background: "#ede8df", overflow: "hidden", border: "1px solid rgba(0,0,0,0.07)" }}>
                         {p.image_url
                           ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
                           : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontSize: 18, opacity: 0.2 }}>📦</div>
@@ -322,7 +322,7 @@ export default function AdminProduitsListe() {
 
                     {/* Catégorie */}
                     <td style={{ padding: "13px 14px" }}>
-                      <span style={{ padding: "4px 10px", borderRadius: 99, background: "#f5f0e8", fontSize: 12, fontWeight: 700, color: "#1a1410", whiteSpace: "nowrap" }}>
+                      <span style={{ padding: "4px 10px", borderRadius: 99, background: "#ede8df", fontSize: 12, fontWeight: 700, color: "#1a1410", whiteSpace: "nowrap" }}>
                         {CATEGORY_LABEL[p.category_slug] ?? p.category_slug}
                       </span>
                     </td>
@@ -344,7 +344,7 @@ export default function AdminProduitsListe() {
                     <td style={{ padding: "13px 14px" }}>
                       <div style={{ display: "flex", gap: 8 }}>
                         <button onClick={() => router.push(`/admin/produits/${p.id}`)}
-                          style={{ padding: "7px 14px", borderRadius: 8, background: "#f5f0e8", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
+                          style={{ padding: "7px 14px", borderRadius: 8, background: "#ede8df", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
                           Modifier
                         </button>
                         <button onClick={() => handleDelete(p.id, p.name)} disabled={deleting === p.id}

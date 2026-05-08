@@ -110,7 +110,7 @@ export default function CartPage() {
   }
 
   return (
-    <div style={{ background: "#f5f0e8", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
+    <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <style>{`
         .cart-layout { display: grid; grid-template-columns: 1fr 360px; gap: 24px; align-items: start; }
         .cart-sticky  { position: sticky; top: 100px; }
@@ -190,7 +190,7 @@ export default function CartPage() {
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>{item.name}</div>
                     <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} € / unité</div>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", background: "#f5f0e8", borderRadius: 10, padding: 4, flexShrink: 0 }}>
+                  <div style={{ display: "flex", alignItems: "center", background: "#ede8df", borderRadius: 10, padding: 4, flexShrink: 0 }}>
                     <button onClick={() => updateQuantity(item.id, item.quantity - 1)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>−</button>
                     <span style={{ width: 34, textAlign: "center", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{item.quantity}</span>
                     <button onClick={() => updateQuantity(item.id, item.quantity + 1)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>+</button>
@@ -226,7 +226,7 @@ export default function CartPage() {
                       onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }}
                       onKeyDown={e => e.key === "Enter" && applyPromo()}
                       placeholder="Ex : BIENVENUE10"
-                      style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#f5f0e8" }}
+                      style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
                     />
                     <button onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
                       style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: promoLoading || !promoCode.trim() ? 0.5 : 1 }}>

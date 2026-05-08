@@ -201,7 +201,7 @@ export default function AdminComptabilite() {
                 ))}
 
                 {/* Ligne total */}
-                <tr style={{ background: "#f5f0e8", borderTop: "2px solid rgba(0,0,0,0.1)" }}>
+                <tr style={{ background: "#ede8df", borderTop: "2px solid rgba(0,0,0,0.1)" }}>
                   <td style={{ padding: "16px 18px", fontWeight: 950, fontSize: 15, color: "#1a1410" }}>TOTAL {year}</td>
                   <td style={{ padding: "16px 18px", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{yearOrders.length}</td>
                   <td style={{ padding: "16px 18px", fontWeight: 950, fontSize: 18, color: "#c49a4a" }}>{totalCA.toFixed(2)} €</td>

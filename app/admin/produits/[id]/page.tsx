@@ -302,7 +302,7 @@ function ColorEntryRow({ color, index, onUpdate, onRemove }: {
   }
 
   return (
-    <div style={{ display: "grid", gap: 14, padding: "18px 20px", borderRadius: 14, background: "#f5f0e8", border: "2px solid #1a1410" }}>
+    <div style={{ display: "grid", gap: 14, padding: "18px 20px", borderRadius: 14, background: "#ede8df", border: "2px solid #1a1410" }}>
       <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto auto", gap: 14, alignItems: "start" }}>
         {/* Pastille */}
         <div>
@@ -481,10 +481,10 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
             {/* Subtitle / Description / Coloris / Motif / Philosophie */}
             {(card.type === "subtitle" || card.type === "description" || card.type === "coloris" || card.type === "motif" || card.type === "philosophy") && (
               <>
-                {card.type === "subtitle" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Phrase en gras juste sous le nom du produit</div>}
-                {card.type === "motif"    && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Format : Motif [Nom] — [description]</div>}
-                {card.type === "coloris"  && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Ex : Terre cuite — brun chaud aux nuances naturelles</div>}
-                {card.type === "philosophy" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8, lineHeight: 1.5 }}>Phrases avec "?" = mises en valeur · "Ici :" = bloc encadré · La conclusion finale s'affiche auto.</div>}
+                {card.type === "subtitle" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Phrase en gras juste sous le nom du produit</div>}
+                {card.type === "motif"    && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Format : Motif [Nom] — [description]</div>}
+                {card.type === "coloris"  && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Ex : Terre cuite — brun chaud aux nuances naturelles</div>}
+                {card.type === "philosophy" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8, lineHeight: 1.5 }}>Phrases avec "?" = mises en valeur · "Ici :" = bloc encadré · La conclusion finale s'affiche auto.</div>}
                 <label style={LS}>{typeDef?.label}</label>
                 <textarea value={card.content} onChange={e => onUpdate(card.id, "content", e.target.value)}
                   rows={card.type === "philosophy" ? 9 : card.type === "description" ? 4 : 2}
@@ -495,7 +495,7 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
             {/* Features */}
             {card.type === "features" && (
               <>
-                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#f5f0e8", padding: "6px 10px", borderRadius: 8 }}>Format : <strong>Titre</strong> : description · Ex : "Double zip inversé : change par le bas"</div>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Format : <strong>Titre</strong> : description · Ex : "Double zip inversé : change par le bas"</div>
                 <label style={LS}>Points forts ({featuresArr.length})</label>
                 {featuresArr.map((f, i) => (
                   <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -554,7 +554,7 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
           </div>
 
           {/* COLONNE DROITE — aperçu de cette card exacte */}
-          <div style={{ padding: "14px 14px", background: "#d8c8b0", display: "flex", flexDirection: "column", gap: 10 }}>
+          <div style={{ padding: "14px 14px", background: "#ede8df", display: "flex", flexDirection: "column", gap: 10 }}>
             <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Aperçu sur la fiche</div>
 
             {/* Subtitle */}
@@ -691,7 +691,7 @@ function FaqEditor({ faq, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isL
               style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
           </div>
           {faq.reponse && (
-            <div style={{ padding: "10px 12px", borderRadius: 8, background: "#f5f0e8", fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-line" }}>
+            <div style={{ padding: "10px 12px", borderRadius: 8, background: "#ede8df", fontSize: 13, lineHeight: 1.7, whiteSpace: "pre-line" }}>
               {faq.reponse}
             </div>
           )}
@@ -1176,7 +1176,7 @@ export default function AdminProductForm() {
                 const stockVal = parseInt(sizesStock[t] ?? "0") || 0;
                 const isSuggested = TAILLES_SUGGESTIONS.includes(t);
                 return (
-                  <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center", padding: "14px 18px", borderRadius: 12, background: "#f5f0e8", border: "2px solid #1a1410" }}>
+                  <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center", padding: "14px 18px", borderRadius: 12, background: "#ede8df", border: "2px solid #1a1410" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                       <span style={{ fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{t}</span>
                       {!isSuggested && (
@@ -1230,7 +1230,7 @@ export default function AdminProductForm() {
           </div>
 
           {colors.length === 0 ? (
-            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
+            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
               Aucune couleur définie — le stock global sera utilisé
             </div>
           ) : (
@@ -1310,7 +1310,7 @@ export default function AdminProductForm() {
           </div>
 
           {ficheCards.length === 0 ? (
-            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
+            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
               Aucun bloc défini — la fiche affichera le contenu par défaut selon la catégorie
             </div>
           ) : (
@@ -1369,7 +1369,7 @@ export default function AdminProductForm() {
           </div>
 
           {faqs.length === 0 ? (
-            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#f5f0e8", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
+            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
               Aucune FAQ — les questions par défaut selon la catégorie seront utilisées
             </div>
           ) : (
@@ -1459,7 +1459,7 @@ export default function AdminProductForm() {
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginTop: 3 }}>Les blocs de contenu et FAQs seront copiés. Les photos et prix ne changent pas.</div>
             </div>
             <button onClick={() => setShowDuplicateModal(false)}
-              style={{ width: 32, height: 32, borderRadius: 99, background: "#f5f0e8", border: "none", cursor: "pointer", fontSize: 16, display: "grid", placeItems: "center" }}>✕</button>
+              style={{ width: 32, height: 32, borderRadius: 99, background: "#ede8df", border: "none", cursor: "pointer", fontSize: 16, display: "grid", placeItems: "center" }}>✕</button>
           </div>
           {loadingProds ? (
             <div style={{ padding: "30px", textAlign: "center", color: "rgba(26,20,16,0.4)" }}>Chargement…</div>
@@ -1503,7 +1503,7 @@ export default function AdminProductForm() {
 
     {/* ── PANNEAU APERÇU STICKY ── */}
     {showPreview && (
-      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#d8c8b0", borderLeft: "2px solid rgba(26,20,16,0.12)", boxSizing: "border-box", scrollbarWidth: "none" }}>
+      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#ede8df", borderLeft: "2px solid rgba(26,20,16,0.12)", boxSizing: "border-box", scrollbarWidth: "none" }}>
         {/* Header aperçu */}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 14px", borderBottom: "1px solid rgba(26,20,16,0.12)", background: "#c4ae94", position: "sticky", top: 0, zIndex: 10 }}>
           <div>

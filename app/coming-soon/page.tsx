@@ -62,7 +62,7 @@ export default function ComingSoonPage() {
 
       <div style={{
         minHeight: "100vh",
-        background: "#f5f0e8",
+        background: "#ede8df",
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
@@ -194,7 +194,7 @@ export default function ComingSoonPage() {
               style={{
                 padding: "13px 20px",
                 background: "#1a1410",
-                color: "#f5f0e8",
+                color: "#ede8df",
                 border: "none",
                 fontSize: 10,
                 fontFamily: "Boldin, Arial Black, sans-serif",

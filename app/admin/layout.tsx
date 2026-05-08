@@ -77,7 +77,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#f5f0e8" }}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#ede8df" }}>
 
       <aside style={{ width: 240, flexShrink: 0, background: "#1a1410", display: mobile ? "none" : "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, overflowY: "auto", zIndex: 100 }}>
         <div style={{ padding: "24px 20px", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>

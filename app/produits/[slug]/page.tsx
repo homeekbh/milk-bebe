@@ -7,7 +7,7 @@ import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
 
 // ── Palette unifiée ──
-const BG    = "#d8c8b0"; // taupe clair = fond principal fiche
+const BG    = "#ede8df"; // taupe clair = fond principal fiche
 const TAUPE = "#c4ae94"; // taupe moyen
 const AMBER = "#c49a4a";
 const DARK  = "#1a1410";
@@ -277,7 +277,7 @@ function IconBandeau() {
   ];
   return (
     <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
-      <div className="bandeau-inner" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
         {items.map(item => (
           <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
             <img
@@ -370,9 +370,6 @@ export default function ProductPage() {
   const [added,       setAdded]       = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [guideOpen,   setGuideOpen]   = useState(false);
-  const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
-  const leftColRef  = useRef<HTMLDivElement>(null);
-  const rightInnerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -387,19 +384,6 @@ export default function ProductPage() {
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [slug]);
-
-  // Synchronise la hauteur du panneau droit avec la colonne gauche
-  useEffect(() => {
-    if (!leftColRef.current) return;
-    const sync = () => {
-      const leftH = leftColRef.current?.offsetHeight ?? 0;
-      setRightMaxH(`${leftH}px`);
-    };
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(leftColRef.current);
-    return () => ro.disconnect();
-  }, [product]);
 
   function handleAddToCart() {
     if (!product) return;
@@ -465,11 +449,10 @@ export default function ProductPage() {
 
       <style>{`
         * { box-sizing:border-box; }
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#d8c8b0; }
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:start; max-width:1800px; margin:0 auto; overflow:hidden; }
         .pl-left  { padding:16px 24px 80px 4vw; }
-        .pl-right { display:flex; flex-direction:column; }
-        .pl-right-inner { position:sticky; top:84px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; scrollbar-width:none; }
-        .pl-right-inner::-webkit-scrollbar { display:none; }
+        .pl-right { position:sticky; top:84px; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; height:calc(100% - 84px); max-height:calc(100vh - 84px); overflow-y:auto; scrollbar-width:none; align-self:start; }
+        .pl-right::-webkit-scrollbar { display:none; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
@@ -477,15 +460,13 @@ export default function ProductPage() {
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
-          .pl-right  { display:flex!important; flex-direction:column!important; } 
-          .pl-right-inner { position:static!important; align-self:auto!important; padding:0 16px 80px!important; width:100%!important; }
-          .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; }
+          .pl-right  { position:static!important; max-height:none!important; padding:0 16px 80px!important; overflow:visible!important; display:flex!important; flex-direction:column!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
         @media(max-width:600px){
-          .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; row-gap:12px!important; }
-          .icon-bandeau-grid img { width:26px!important; height:26px!important; }
+          .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; }
+          .icon-bandeau-grid img { width:28px!important; height:28px!important; }
           .icon-bandeau-grid span { font-size:6.5px!important; }
         }
       `}</style>
@@ -508,7 +489,7 @@ export default function ProductPage() {
       <div className="pl-outer">
 
         {/* ─── GAUCHE : photos ─── */}
-        <div className="pl-left" ref={leftColRef}>
+        <div className="pl-left">
           <div style={{ position: "relative" }}>
             <DiagonalBadge label={badgeLabel} out={out} />
             {photoRows.map((row, ri) => (
@@ -543,7 +524,7 @@ export default function ProductPage() {
         </div>
 
         {/* ─── DROITE : panneau achat ─── */}
-        <div className="pl-right"><div className="pl-right-inner" ref={rightInnerRef} style={{ maxHeight: rightMaxH, overflowY: "auto" }}>
+        <div className="pl-right">
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX
@@ -617,7 +598,7 @@ export default function ProductPage() {
           )}
 
           {taillesDispos.length > 0 && (
-            <div id="taille-selector" style={{ display: "grid", gap: 10 }}>
+            <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
                 Taille {taille && <span style={{ color: DARK }}>— {taille}</span>}
               </span>
@@ -627,7 +608,7 @@ export default function ProductPage() {
                   const epuise = stockT <= 0;
                   const selected = taille === t;
                   return (
-                    <button key={t} onClick={() => { if (!epuise) setTaille(selected ? "" : t); }}
+                    <button key={t} onClick={() => { if (!epuise) setTaille(t); }}
                       style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
                       {t}
                       {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
@@ -746,9 +727,7 @@ export default function ProductPage() {
             </div>
           </div>
 
-          </div>{/* /pl-right-inner */}
         </div>
-
       </div>
 
       {/* ─── BAS DE PAGE ─── */}
@@ -791,17 +770,9 @@ export default function ProductPage() {
 
       {/* CTA mobile */}
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>
-        <button
-          onClick={() => {
-            if (needsTaille) {
-              document.getElementById("taille-selector")?.scrollIntoView({ behavior: "smooth", block: "center" });
-            } else {
-              handleAddToCart();
-            }
-          }}
-          disabled={outTaille}
+        <button onClick={handleAddToCart} disabled={outTaille}
           style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM }}>
-          {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
+          {added ? "✓ Ajouté !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
         </button>
       </div>
       <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}`}</style>

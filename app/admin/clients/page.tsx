@@ -77,7 +77,7 @@ export default async function AdminClients() {
 
                   {/* Adresse */}
                   {c.lastAddress && (
-                    <div style={{ fontSize: 13, color: "rgba(26,20,16,0.6)", lineHeight: 1.7, padding: "10px 14px", borderRadius: 10, background: "#f5f0e8", marginBottom: 12 }}>
+                    <div style={{ fontSize: 13, color: "rgba(26,20,16,0.6)", lineHeight: 1.7, padding: "10px 14px", borderRadius: 10, background: "#ede8df", marginBottom: 12 }}>
                       📍 {c.lastAddress.line1}{c.lastAddress.line2 ? `, ${c.lastAddress.line2}` : ""} · {c.lastAddress.postal_code} {c.lastAddress.city}
                     </div>
                   )}

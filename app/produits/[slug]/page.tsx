@@ -7,7 +7,7 @@ import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
 
 // ── Palette unifiée ──
-const BG    = "#d8c8b0"; // taupe clair = fond principal fiche
+const BG    = "#ede8df"; // taupe pastel = fond principal fiche
 const TAUPE = "#c4ae94"; // taupe moyen
 const AMBER = "#c49a4a";
 const DARK  = "#1a1410";
@@ -277,9 +277,9 @@ function IconBandeau() {
   ];
   return (
     <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
-      <div className="bandeau-inner" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, overflowX: "auto", scrollbarWidth: "none" }}>
+      <div className="bandeau-inner" style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 4, scrollbarWidth: "none" }}>
         {items.map(item => (
-          <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 56, padding: "0 4px" }}>
+          <div key={item.label} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 8, flex: "1 1 0", minWidth: 0, padding: "0 4px" }}>
             <img
               src={item.src}
               alt={item.label.replace("\n", " ")}
@@ -465,7 +465,7 @@ export default function ProductPage() {
 
       <style>{`
         * { box-sizing:border-box; }
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; }
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { display:flex; flex-direction:column; background:#ede8df; }
         .pl-right-inner { position:sticky; top:84px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; scrollbar-width:none; }
@@ -479,7 +479,7 @@ export default function ProductPage() {
           .pl-left   { padding:12px 16px 0!important; }
           .pl-right  { display:flex!important; flex-direction:column!important; background:#ede8df!important; } 
           .pl-right-inner { position:static!important; align-self:auto!important; padding:0 16px 80px!important; width:100%!important; }
-          .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; }
+          .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
@@ -794,7 +794,11 @@ export default function ProductPage() {
         <button
           onClick={() => {
             if (needsTaille) {
-              document.getElementById("taille-selector")?.scrollIntoView({ behavior: "smooth", block: "center" });
+              const el = document.getElementById("taille-selector");
+            if (el) {
+              const y = el.getBoundingClientRect().top + window.scrollY - 100;
+              window.scrollTo({ top: y, behavior: "smooth" });
+            }
             } else {
               handleAddToCart();
             }

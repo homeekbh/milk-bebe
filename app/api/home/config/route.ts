@@ -1,0 +1,33 @@
+import { supabaseServer } from "@/lib/server/supabase";
+import { NextResponse } from "next/server";
+
+export async function GET() {
+  try {
+    const { data: config } = await supabaseServer
+      .from("homepage_config")
+      .select("section_title, product_ids")
+      .eq("id", "main")
+      .single();
+
+    if (!config || !Array.isArray(config.product_ids) || config.product_ids.length === 0) {
+      return NextResponse.json({ section_title: "Sélection du moment", products: [] });
+    }
+
+    const { data: products } = await supabaseServer
+      .from("products")
+      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, image_url, label, category_slug")
+      .in("id", config.product_ids)
+      .gt("stock", 0);
+
+    const ordered = config.product_ids
+      .map((id: string) => (products ?? []).find((p: any) => p.id === id))
+      .filter(Boolean);
+
+    return NextResponse.json({
+      section_title: config.section_title ?? "Sélection du moment",
+      products: ordered,
+    });
+  } catch {
+    return NextResponse.json({ section_title: "Sélection du moment", products: [] });
+  }
+}

@@ -62,7 +62,7 @@ export default function AdminHomePage() {
       setApiError("");
       try {
         // Config homepage
-        const cfgRes = await fetch("/api/admin/homepage", { credentials: "include" });
+        const cfgRes = await fetch("/api/admin/homepage", {});
         if (cfgRes.ok) {
           const cfg = await cfgRes.json();
           setSectionTitle(cfg.section_title ?? "Sélection du moment");
@@ -71,7 +71,7 @@ export default function AdminHomePage() {
 
         // Catalogue produits — on essaie les deux routes possibles
         let prods: any[] = [];
-        const r1 = await fetch("/api/admin/products", { credentials: "include" });
+        const r1 = await fetch("/api/admin/products", {});
         if (r1.ok) {
           const j = await r1.json();
           prods = Array.isArray(j) ? j : [];
@@ -103,7 +103,6 @@ export default function AdminHomePage() {
     try {
       const res = await fetch("/api/admin/homepage", {
         method: "POST",
-        credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ section_title: sectionTitle, product_ids: selectedIds }),
       });

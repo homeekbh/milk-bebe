@@ -1131,8 +1131,8 @@ export default function AdminProductForm() {
   const hasPreviewContent = form.name || previewSubtitle || previewFeatures.length > 0 || previewWR || ficheCards.length > 0;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: showPreview ? "820px 1fr" : "1fr", gap: 0, minHeight: "100vh", alignItems: "start" }}>
-    <div style={{ padding: "32px 40px", maxWidth: 820 }}>
+    <div style={{ display: "grid", gridTemplateColumns: showPreview ? "1fr 1fr" : "1fr", gap: 0, minHeight: "100vh", alignItems: "start" }}>
+    <div style={{ padding: "32px 40px" }}>
 
       {/* ── En-tête ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
@@ -1221,7 +1221,7 @@ export default function AdminProductForm() {
         {/* -- 2. PHOTOS -- glisser-deposer */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Photos (8 max)</div>
+            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>Photos (8 max)</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
               Glisse les lignes pour reordonner -- la premiere est toujours la photo principale
             </div>
@@ -1232,7 +1232,7 @@ export default function AdminProductForm() {
         {/* ── 3. TAILLES ── */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Tailles disponibles</div>
+            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>Tailles disponibles</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
               Coche les tailles suggérées ou crée une taille libre
             </div>
@@ -1317,7 +1317,7 @@ export default function AdminProductForm() {
         <div style={SECTION}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Couleurs & motifs</div>
+              <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>Couleurs & motifs</div>
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6, maxWidth: 420 }}>
                 Ajoute une couleur ou un motif. Clique sur la pastille pour uploader l'image du motif coloré.
               </div>
@@ -1372,6 +1372,40 @@ export default function AdminProductForm() {
           )}
         </div>
 
+        {/* Espace pour la barre fixe en bas */}
+        <div style={{ height: 80 }} />
+
+      </div>
+    </div>
+
+    {/* ── Barre fixe bas de page ── */}
+    <div style={{
+      position: "fixed", bottom: 0, left: 240, right: 0, zIndex: 100,
+      background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
+      borderTop: "2px solid rgba(26,20,16,0.1)",
+      padding: "16px 32px", display: "flex", alignItems: "center", gap: 14,
+      boxShadow: "0 -6px 24px rgba(0,0,0,0.1)",
+    }}>
+      {/* Bouton enregistrer — à GAUCHE en grand */}
+      <button onClick={handleSave} disabled={saving}
+        style={{ padding: "16px 40px", borderRadius: 14, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 17, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 4px 16px rgba(0,0,0,0.25)", transition: "all 0.15s", letterSpacing: -0.3 }}>
+        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
+      </button>
+      {/* Bouton supprimer */}
+      {!isNew && (
+        <button onClick={handleDelete}
+          style={{ padding: "16px 24px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer" }}>
+          🗑 Supprimer
+        </button>
+      )}
+      {/* Statut */}
+      <div style={{ marginLeft: "auto", fontSize: 13, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
+        Pense à enregistrer après chaque modification
+      </div>
+    </div>
+
+    {/* ── Sections droite : Promo, Contenu, FAQ, SEO ── */}
+    <div style={{ padding: "24px 32px", display: "grid", gap: 20, paddingBottom: 100 }}>
         {/* ── 5. PROMO ── */}
         <div style={{ padding: 24, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
@@ -1399,7 +1433,7 @@ export default function AdminProductForm() {
         {/* ── 6. CONTENU FICHE PRODUIT ── */}
         <div style={{ ...SECTION, border: "2px solid rgba(196,154,74,0.25)", background: "#fffdf8" }}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>
+            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>
               🎨 Contenu de la fiche produit
             </div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>
@@ -1454,7 +1488,7 @@ export default function AdminProductForm() {
         <div style={{ ...SECTION, border: "2px solid rgba(26,20,16,0.1)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>
+              <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>
                 ❓ FAQ — Questions fréquentes
               </div>
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6 }}>
@@ -1492,7 +1526,7 @@ export default function AdminProductForm() {
         {/* ── 8. SEO ── */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>SEO — Référencement Google</div>
+            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>SEO — Référencement Google</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le nom et la description sont utilisés</div>
           </div>
           <Field label="Titre SEO" fieldKey="seo_title"
@@ -1530,36 +1564,9 @@ export default function AdminProductForm() {
               : "Modifications non enregistrées"}
         </div>
 
-        {/* Espace pour la barre fixe en bas */}
-        <div style={{ height: 80 }} />
 
-      </div>
-    </div>
-
-    {/* ── Barre fixe bas de page ── */}
-    <div style={{
-      position: "fixed", bottom: 0, left: 240, right: 0, zIndex: 100,
-      background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
-      borderTop: "2px solid rgba(26,20,16,0.1)",
-      padding: "16px 32px", display: "flex", alignItems: "center", gap: 14,
-      boxShadow: "0 -6px 24px rgba(0,0,0,0.1)",
-    }}>
-      {/* Bouton enregistrer — à GAUCHE en grand */}
-      <button onClick={handleSave} disabled={saving}
-        style={{ padding: "16px 40px", borderRadius: 14, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 17, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 4px 16px rgba(0,0,0,0.25)", transition: "all 0.15s", letterSpacing: -0.3 }}>
-        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
-      </button>
-      {/* Bouton supprimer */}
-      {!isNew && (
-        <button onClick={handleDelete}
-          style={{ padding: "16px 24px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer" }}>
-          🗑 Supprimer
-        </button>
-      )}
-      {/* Statut */}
-      <div style={{ marginLeft: "auto", fontSize: 13, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
-        Pense à enregistrer après chaque modification
-      </div>
+      {/* Espace barre fixe */}
+      <div style={{ height: 20 }} />
     </div>
 
     {/* -- MODALE DUPLICATION -- */}

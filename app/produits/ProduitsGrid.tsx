@@ -118,7 +118,6 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   products: Product[]; title: string; subtitle?: string; defaultCategory?: string;
 }) {
   const router = useRouter();
-  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState(defaultCategory ?? "");
   const [sortValue,      setSortValue]      = useState("position");
   const [search,         setSearch]         = useState("");

@@ -59,14 +59,27 @@ const TRANSPORTEURS = [
 ];
 
 const ADRESSE_EXPEDITEUR = {
-  nom:     "M!LK — Essentiels Bébé",
-  ligne1:  "À compléter après SIRET",
-  cp:      "—",
-  ville:   "—",
+  nom:     "M!LK — Essentiels Bébé (EKBH)",
+  ligne1:  "6 Impasse des Cabrolles",
+  cp:      "06500",
+  ville:   "Menton",
   pays:    "France",
   email:   "contact@milkbebe.fr",
   tel:     "07 45 27 21 34",
 };
+
+// Lien de suivi selon le transporteur
+function getTrackingUrl(transporteur: string, tracking: string): string | null {
+  if (!tracking) return null;
+  const t = transporteur.toLowerCase();
+  if (t.includes("colissimo") || t.includes("poste")) return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
+  if (t.includes("chronopost")) return `https://www.chronopost.fr/fr/chrono_suivi_display?listeNumerosLT=${tracking}`;
+  if (t.includes("dhl")) return `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${tracking}`;
+  if (t.includes("dpd")) return `https://trace.dpd.fr/fr/trace/${tracking}`;
+  if (t.includes("gls")) return `https://gls-group.com/FR/fr/suivi-colis?match=${tracking}`;
+  if (t.includes("mondial relay") || t.includes("mondial")) return `https://www.mondialrelay.fr/suivi-de-colis/?NumeroExpedition=${tracking}`;
+  return null;
+}
 
 // ── Fenêtre impression étiquette ─────────────────────────────────────────────
 function printLabel(order: Order, type: "expedition" | "retour") {
@@ -237,15 +250,16 @@ export default function AdminCommandes() {
         notes:           `Transporteur: ${transporteur}${notes ? " — " + notes : ""}`,
       }),
     });
-    // Envoyer email expédition au client
+    // Envoyer email expédition au client avec le lien de tracking
     await adminFetch("/api/emails/shipped", {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
-        email:    order.customer_email,
-        prenom:   order.customer_name?.split(" ")[0] ?? "",
-        tracking: tracking.trim(),
-        items:    order.items,
+        email:        order.customer_email,
+        prenom:       order.customer_name?.split(" ")[0] ?? "",
+        tracking:     tracking.trim(),
+        transporteur: transporteur,
+        items:        order.items,
       }),
     }).catch(() => {});
     await load();
@@ -468,6 +482,26 @@ export default function AdminCommandes() {
                             style={{ padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff", resize: "vertical", fontFamily: "inherit" }}
                           />
                         </div>
+
+                        {/* Lien de suivi si déjà expédiée */}
+                        {order.shipping_status === "shipped" && order.tracking_number && (
+                          <div style={{ padding: "12px 14px", borderRadius: 10, background: "#dcfce7", border: "1px solid #bbf7d0" }}>
+                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#166534", marginBottom: 6 }}>Numéro de suivi</div>
+                            <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15, color: "#1a1410", marginBottom: 6 }}>{order.tracking_number}</div>
+                            {(() => {
+                              const notes = order.notes ?? "";
+                              const transporteurMatch = notes.match(/^Transporteur: ([^—]+)/);
+                              const transporteurName = transporteurMatch ? transporteurMatch[1].trim() : "";
+                              const url = getTrackingUrl(transporteurName, order.tracking_number);
+                              return url ? (
+                                <a href={url} target="_blank" rel="noopener noreferrer"
+                                  style={{ fontSize: 13, fontWeight: 800, color: "#166534", textDecoration: "underline" }}>
+                                  Suivre le colis →
+                                </a>
+                              ) : null;
+                            })()}
+                          </div>
+                        )}
 
                         {/* ✅ Bouton expédier — bloqué si champs manquants */}
                         {!canShip && (

@@ -3,8 +3,20 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+function getTrackingUrl(transporteur: string, tracking: string): string | null {
+  if (!tracking) return null;
+  const t = (transporteur ?? "").toLowerCase();
+  if (t.includes("colissimo") || t.includes("poste")) return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
+  if (t.includes("chronopost")) return `https://www.chronopost.fr/fr/chrono_suivi_display?listeNumerosLT=${tracking}`;
+  if (t.includes("dhl")) return `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${tracking}`;
+  if (t.includes("dpd")) return `https://trace.dpd.fr/fr/trace/${tracking}`;
+  if (t.includes("gls")) return `https://gls-group.com/FR/fr/suivi-colis?match=${tracking}`;
+  if (t.includes("mondial")) return `https://www.mondialrelay.fr/suivi-de-colis/?NumeroExpedition=${tracking}`;
+  return null;
+}
+
 export async function POST(req: Request) {
-  const { email, prenom, tracking, items } = await req.json();
+  const { email, prenom, tracking, transporteur, items } = await req.json();
   if (!email) return Response.json({ error: "email manquant" }, { status: 400 });
 
   const itemsList = (Array.isArray(items) ? items : []).map((i: any) =>

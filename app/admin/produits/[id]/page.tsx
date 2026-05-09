@@ -189,18 +189,18 @@ function slugify(s: string) {
 }
 
 const IS: React.CSSProperties = {
-  padding: "12px 14px", borderRadius: 10,
-  border: "2px solid rgba(0,0,0,0.1)", fontSize: 15,
+  padding: "13px 16px", borderRadius: 10,
+  border: "2px solid rgba(0,0,0,0.1)", fontSize: 16,
   fontWeight: 600, background: "#fff", width: "100%",
   boxSizing: "border-box", outline: "none",
 };
 const LS: React.CSSProperties = {
-  fontSize: 14, fontWeight: 800, letterSpacing: 1,
+  fontSize: 13, fontWeight: 800, letterSpacing: 1,
   textTransform: "uppercase", color: "rgba(26,20,16,0.5)",
 };
 const SECTION: React.CSSProperties = {
   background: "#fff", borderRadius: 16,
-  border: "1px solid rgba(0,0,0,0.08)", padding: 32, display: "grid", gap: 22,
+  border: "1px solid rgba(0,0,0,0.08)", padding: 28, display: "grid", gap: 18,
 };
 
 // ── PhotosDragDrop ─────────────────────────────────────────────────────────────
@@ -212,7 +212,7 @@ function PhotosDragDrop({ photoKeys, form, set }: {
   const [dragIdx,   setDragIdx]   = React.useState<number | null>(null);
   const [dragOver,  setDragOver]  = React.useState<number | null>(null);
   const [uploading, setUploading] = React.useState<number | null>(null);
-  const [msgs, setMsgs] = React.useState<Record<number, {ok:boolean;txt:string}>>({});
+  const [msgs, setMsgs] = React.useState<Record<number,{ok:boolean;txt:string}>>({});
   const photos = photoKeys.map(k => form[k] ?? "");
   function reorder(from: number, to: number) {
     const arr = [...photos]; const [moved] = arr.splice(from, 1); arr.splice(to, 0, moved);
@@ -223,7 +223,7 @@ function PhotosDragDrop({ photoKeys, form, set }: {
     try {
       const fd = new FormData(); fd.append("file", file);
       let token = "";
-      try { for (let i=0;i<localStorage.length;i++){const key=localStorage.key(i)??"";if(key.startsWith("sb-")&&key.endsWith("-auth-token")){const p=JSON.parse(localStorage.getItem(key)??"{}");token=p.access_token??"";if(token)break;}} } catch {}
+      try { for (let i=0;i<localStorage.length;i++){const k=localStorage.key(i)??"";if(k.startsWith("sb-")&&k.endsWith("-auth-token")){const p=JSON.parse(localStorage.getItem(k)??"{}");token=p.access_token??"";if(token)break;}} } catch {}
       const res = await fetch("/api/admin/upload",{method:"POST",body:fd,headers:token?{Authorization:"Bearer "+token}:{}});
       const data = await res.json();
       if (!res.ok) throw new Error(data.error??"Erreur");
@@ -237,7 +237,7 @@ function PhotosDragDrop({ photoKeys, form, set }: {
       {photoKeys.map((k,i) => {
         const url=photos[i]; const isMain=i===0;
         return (
-          <div key={k} draggable
+          <div key={String(k)} draggable
             onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setDragOver(null);}}
             onDragOver={e=>{e.preventDefault();setDragOver(i);}}
             onDrop={e=>{e.preventDefault();if(dragIdx!==null&&dragIdx!==i)reorder(dragIdx,i);setDragOver(null);setDragIdx(null);}}
@@ -247,9 +247,9 @@ function PhotosDragDrop({ photoKeys, form, set }: {
             <span style={{fontSize:20,color:"rgba(26,20,16,0.2)",flexShrink:0}}>&#8801;</span>
             <div style={{flexShrink:0,width:36,textAlign:"center"}}>
               {isMain?<span style={{fontSize:10,fontWeight:900,color:"#c49a4a",background:"rgba(196,154,74,0.12)",padding:"2px 6px",borderRadius:5}}>MAIN</span>
-                     :<span style={{fontSize:13,fontWeight:700,color:"rgba(26,20,16,0.3)"}}>{i+1}</span>}
+                     :<span style={{fontSize:14,fontWeight:700,color:"rgba(26,20,16,0.3)"}}>{i+1}</span>}
             </div>
-            <div style={{width:56,height:56,borderRadius:8,overflow:"hidden",background:"#ede8df",flexShrink:0}}>
+            <div style={{width:60,height:60,borderRadius:8,overflow:"hidden",background:"#ede8df",flexShrink:0}}>
               {url?<img src={url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
                   :<div style={{width:"100%",height:"100%",display:"grid",placeItems:"center",fontSize:9,color:"rgba(26,20,16,0.15)",fontWeight:900}}>M!LK</div>}
             </div>
@@ -259,12 +259,12 @@ function PhotosDragDrop({ photoKeys, form, set }: {
             <label style={{flexShrink:0,cursor:"pointer"}}>
               <input type="file" accept="image/*" style={{display:"none"}}
                 onChange={e=>{const f=e.target.files?.[0];if(f)handleUpload(i,f);e.target.value="";}}/>
-              <div style={{padding:"10px 14px",borderRadius:8,background:uploading===i?"#e5e7eb":"#1a1410",color:uploading===i?"#9ca3af":"#f2ede6",fontWeight:800,fontSize:13}}>
+              <div style={{padding:"10px 16px",borderRadius:8,background:uploading===i?"#e5e7eb":"#1a1410",color:uploading===i?"#9ca3af":"#f2ede6",fontWeight:800,fontSize:14,whiteSpace:"nowrap"}}>
                 {uploading===i?"...":"⬆ Upload"}
               </div>
             </label>
             {url&&<button type="button" onClick={()=>set(k as string,"")}
-              style={{width:30,height:30,borderRadius:6,border:"1px solid rgba(220,38,38,0.2)",background:"rgba(220,38,38,0.05)",cursor:"pointer",color:"#dc2626",fontSize:16,fontWeight:900,flexShrink:0}}>×</button>}
+              style={{width:32,height:32,borderRadius:6,border:"1px solid rgba(220,38,38,0.2)",background:"rgba(220,38,38,0.05)",cursor:"pointer",color:"#dc2626",fontSize:16,fontWeight:900,flexShrink:0}}>×</button>}
             {msgs[i]?.txt&&<span style={{fontSize:11,fontWeight:700,color:msgs[i].ok?"#166534":"#b91c1c",flexShrink:0}}>{msgs[i].ok?"✅":"❌ "+msgs[i].txt}</span>}
           </div>
         );
@@ -1089,421 +1089,404 @@ export default function AdminProductForm() {
   const priceDisplay     = form.promo_price ? Number(form.promo_price) : Number(form.price_ttc || 0);
   const hasPreviewContent = form.name || previewSubtitle || previewFeatures.length > 0 || previewWR || ficheCards.length > 0;
 
-  return (
-    <div style={{ minHeight: "100vh" }}>
-    <div style={{ padding: "32px 48px 120px", maxWidth: 1400, margin: "0 auto" }}>
+  const TABS = [
+    { id: "general",  label: "Infos générales" },
+    { id: "photos",   label: "Photos" },
+    { id: "stock",    label: "Tailles · Couleurs · Stock" },
+    { id: "promo",    label: "Promos" },
+    { id: "contenu",  label: "Contenu fiche" },
+    { id: "faq",      label: "FAQ" },
+    { id: "seo",      label: "SEO" },
+  ];
+  const [activeTab, setActiveTab] = React.useState("general");
 
-      {/* ── En-tête ── */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
+  return (
+  <div style={{ minHeight: "100vh", background: "#f5f0e8" }}>
+
+    {/* ── ONGLETS FIXES EN HAUT ── */}
+    <div style={{ position: "sticky", top: 60, zIndex: 90, background: "#fff", borderBottom: "2px solid rgba(26,20,16,0.1)", display: "flex", alignItems: "stretch", overflowX: "auto", scrollbarWidth: "none" }}>
+      {/* Header avec nom produit */}
+      <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "0 20px", borderRight: "1px solid rgba(26,20,16,0.08)", flexShrink: 0 }}>
         <button onClick={() => router.push("/admin/produits")}
-          style={{ padding: "10px 16px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", cursor: "pointer", fontSize: 15, fontWeight: 800 }}>
+          style={{ padding: "8px 14px", borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", background: "#fff", cursor: "pointer", fontSize: 14, fontWeight: 800, whiteSpace: "nowrap" }}>
           ← Retour
         </button>
-        <h1 style={{ margin: 0, fontSize: 24, fontWeight: 950, letterSpacing: -0.5, color: "#1a1410", flex: 1 }}>
-          {isNew ? "Nouveau produit" : `Modifier : ${form.name || "..."}`}
-        </h1>
-        <button onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
-          style={{ padding: "10px 18px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", color: "#1a1410", cursor: "pointer", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
-          <span style={{ fontSize: 16 }}>📋</span>
-          Copier depuis…
-        </button>
-
-
-        {!isNew && (
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 14px", borderRadius: 99, background: published ? "rgba(22,163,74,0.1)" : "rgba(107,114,128,0.1)", border: `1px solid ${published ? "rgba(22,163,74,0.3)" : "rgba(107,114,128,0.2)"}` }}>
-              <div style={{ width: 10, height: 10, borderRadius: "50%", background: published ? "#16a34a" : "#9ca3af", boxShadow: published ? "0 0 8px rgba(22,163,74,0.6)" : "none" }} />
-              <span style={{ fontSize: 13, fontWeight: 800, color: published ? "#16a34a" : "#9ca3af" }}>
-                {published ? "En ligne" : "Hors ligne"}
-              </span>
-            </div>
-            <button onClick={togglePublish} disabled={publishing}
-              style={{ padding: "12px 22px", borderRadius: 12, border: "none", fontWeight: 900, fontSize: 14, cursor: publishing ? "not-allowed" : "pointer", background: published ? "#fee2e2" : "#1a1410", color: published ? "#b91c1c" : "#c49a4a", opacity: publishing ? 0.6 : 1, boxShadow: published ? "none" : "0 4px 16px rgba(0,0,0,0.2)" }}>
-              {publishing ? "..." : published ? "⏸ Dépublier" : "🚀 Publier"}
-            </button>
-          </div>
-        )}
+        <div style={{ fontSize: 15, fontWeight: 900, color: "#1a1410", whiteSpace: "nowrap", maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis" }}>
+          {isNew ? "Nouveau produit" : (form.name || "...")}
+        </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+      {/* Onglets */}
+      <div style={{ display: "flex", flex: 1 }}>
+        {TABS.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
+            style={{ padding: "16px 20px", border: "none", borderBottom: activeTab === tab.id ? "3px solid #c49a4a" : "3px solid transparent", background: "transparent", cursor: "pointer", fontWeight: activeTab === tab.id ? 900 : 600, fontSize: 14, color: activeTab === tab.id ? "#1a1410" : "rgba(26,20,16,0.45)", whiteSpace: "nowrap", transition: "all 0.15s", marginBottom: -2 }}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
 
-        {/* ── 1. GÉNÉRAL ── */}
-        <div style={SECTION}>
-          <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Informations générales</div>
-
-          <Field label="Nom du produit *" fieldKey="name"
-            placeholder="Ex : Pyjama Bambou — Tropical" value={form.name} onChange={set} />
-          <Field label="Slug (URL)" fieldKey="slug"
-            placeholder="pyjama-bambou-tropical" value={form.slug} onChange={set}
-            hint="Généré depuis le nom. Convention : type-bambou — motif" />
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 14 }}>
-            <Field label="Prix TTC (€) *" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
-            <Field label="Stock total" fieldKey="stock" type="number" placeholder="0"
-              value={computedStock !== null ? String(computedStock) : form.stock} onChange={set}
-              hint={computedStock !== null ? `Calculé : ${computedStock} u.` : undefined} />
-            <Field label="Position" fieldKey="position" type="number" placeholder="0" value={form.position} onChange={set}
-              hint="0 = premier" />
+      {/* Statut publié */}
+      {!isNew && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "0 20px", borderLeft: "1px solid rgba(26,20,16,0.08)", flexShrink: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "6px 12px", borderRadius: 99, background: published ? "rgba(22,163,74,0.1)" : "rgba(107,114,128,0.1)" }}>
+            <div style={{ width: 8, height: 8, borderRadius: "50%", background: published ? "#16a34a" : "#9ca3af" }} />
+            <span style={{ fontSize: 12, fontWeight: 800, color: published ? "#16a34a" : "#9ca3af" }}>{published ? "En ligne" : "Hors ligne"}</span>
           </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-            <div style={{ display: "grid", gap: 6 }}>
-              <label style={LS}>Catégorie</label>
-              <select value={form.category_slug} onChange={e => set("category_slug", e.target.value)} style={IS}>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <Field label="Référence fournisseur" fieldKey="supplier_ref" placeholder="ES-001" value={form.supplier_ref} onChange={set} />
-          </div>
-
-          <div style={{ display: "grid", gap: 6 }}>
-            <label style={LS}>Badge produit</label>
-            <select value={form.label} onChange={e => set("label", e.target.value)} style={IS}>
-              {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
-            </select>
-          </div>
-
-          <Field label="Poids (grammes)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />
-
-          <div style={{ display: "grid", gap: 6 }}>
-            <label style={LS}>Description courte (interne / fallback SEO)</label>
-            <textarea value={form.description} onChange={e => set("description", e.target.value)}
-              placeholder="Description courte interne..."
-              rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
-          </div>
+          <button onClick={togglePublish} disabled={publishing}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", fontWeight: 900, fontSize: 13, cursor: "pointer", background: published ? "#fee2e2" : "#1a1410", color: published ? "#b91c1c" : "#c49a4a", whiteSpace: "nowrap" }}>
+            {publishing ? "..." : published ? "⏸ Dépublier" : "🚀 Publier"}
+          </button>
         </div>
+      )}
+    </div>
 
-        {/* ── 2. PHOTOS ── drag & drop */}
-        <div style={SECTION}>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Photos (8 max)</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Glisse pour réordonner — la 1re = photo principale</div>
-          </div>
-          <PhotosDragDrop photoKeys={photoKeys} form={form} set={set} />
-        </div>
+    {/* ── CONTENU ONGLET ── */}
+    <div style={{ maxWidth: 1100, margin: "0 auto", padding: "32px 40px 120px" }}>
 
-        {/* ── 3. TAILLES ── */}
-        <div style={SECTION}>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Tailles disponibles</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
-              Coche les tailles suggérées ou crée une taille libre
+      {/* Erreur / succès */}
+      {error   && <div style={{ marginBottom: 20, padding: "14px 18px", borderRadius: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 15, fontWeight: 700 }}>❌ {error}</div>}
+      {success && <div style={{ marginBottom: 20, padding: "14px 18px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontSize: 15, fontWeight: 700 }}>{success}</div>}
+
+      {/* ═══ ONGLET 1 : INFOS GÉNÉRALES ═══ */}
+      {activeTab === "general" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+
+          {/* Colonne gauche */}
+          <div style={{ display: "grid", gap: 20 }}>
+            <div style={SECTION}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Identité du produit</div>
+              <Field label="Nom du produit *" fieldKey="name" placeholder="Ex : Pyjama Bambou — Éclair" value={form.name} onChange={set} />
+              <Field label="Slug (URL)" fieldKey="slug" placeholder="pyjama-bambou-eclair" value={form.slug} onChange={set} hint="Généré depuis le nom" />
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Catégorie</label>
+                <select value={form.category_slug} onChange={e => set("category_slug", e.target.value)} style={IS}>
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <Field label="Référence fournisseur" fieldKey="supplier_ref" placeholder="ES-001" value={form.supplier_ref} onChange={set} />
+            </div>
+
+            <div style={SECTION}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Prix & Stock</div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <Field label="Prix TTC (€) *" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
+                <Field label="Stock total" fieldKey="stock" type="number" placeholder="0"
+                  value={computedStock !== null ? String(computedStock) : form.stock} onChange={set}
+                  hint={computedStock !== null ? `Calculé depuis couleurs : ${computedStock} u.` : undefined} />
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+                <Field label="Position" fieldKey="position" type="number" placeholder="0" value={form.position} onChange={set} hint="0 = premier" />
+                <Field label="Poids (g)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />
+              </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {TAILLES_SUGGESTIONS.map(t => {
-              const checked = sizes.includes(t);
-              return (
-                <button key={t} onClick={() => toggleSize(t)}
-                  style={{ padding: "9px 16px", borderRadius: 99, border: `2px solid ${checked ? "#1a1410" : "rgba(0,0,0,0.12)"}`, background: checked ? "#1a1410" : "#fff", color: checked ? "#c49a4a" : "rgba(26,20,16,0.5)", fontWeight: 800, fontSize: 14, cursor: "pointer", transition: "all 0.15s" }}>
-                  {checked ? "✓ " : ""}{t}
-                </button>
-              );
-            })}
-          </div>
+          {/* Colonne droite */}
+          <div style={{ display: "grid", gap: 20 }}>
+            <div style={SECTION}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Badge & Mise en avant</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Badge produit</label>
+                <select value={form.label} onChange={e => set("label", e.target.value)} style={IS}>
+                  {LABELS.map(l => <option key={l.value} value={l.value}>{l.label}</option>)}
+                </select>
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Mise en avant</label>
+                <select value={form.highlight} onChange={e => set("highlight", e.target.value)} style={IS}>
+                  {HIGHLIGHTS.map(h => <option key={h.value} value={h.value}>{h.label}</option>)}
+                </select>
+              </div>
+            </div>
 
-          <div style={{ display: "grid", gap: 6 }}>
-            <label style={LS}>Ajouter une taille personnalisée</label>
-            <div style={{ display: "flex", gap: 10 }}>
-              <input type="text" value={customTaille}
-                onChange={e => setCustomTaille(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); addCustomTaille(); } }}
-                placeholder="Ex : 6-9 mois, 4 ans, XS, 50 cm..."
-                style={{ ...IS, flex: 1 }} />
-              <button onClick={addCustomTaille}
-                style={{ padding: "12px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-                + Ajouter
+            <div style={SECTION}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Description interne</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Description courte (fallback SEO)</label>
+                <textarea value={form.description} onChange={e => set("description", e.target.value)}
+                  placeholder="Description courte interne..." rows={5}
+                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+              </div>
+            </div>
+
+            <div style={SECTION}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Duplication</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Copier les blocs de contenu et FAQs depuis un autre produit</div>
+              <button onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
+                style={{ padding: "12px 20px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.12)", background: "#fff", color: "#1a1410", cursor: "pointer", fontSize: 15, fontWeight: 800 }}>
+                📋 Copier depuis un autre produit…
               </button>
             </div>
-            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
-              Appuie sur Entrée ou clique "+ Ajouter" pour créer n'importe quelle taille
-            </div>
           </div>
+        </div>
+      )}
 
-          {sizes.length > 0 && (
-            <div style={{ display: "grid", gap: 10 }}>
-              <label style={LS}>Stock par taille</label>
-              {sizes.map(t => {
-                const stockVal = parseInt(sizesStock[t] ?? "0") || 0;
-                const isSuggested = TAILLES_SUGGESTIONS.includes(t);
+      {/* ═══ ONGLET 2 : PHOTOS ═══ */}
+      {activeTab === "photos" && (
+        <div style={{ maxWidth: 700 }}>
+          <div style={SECTION}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Photos produit (8 max)</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Glisse pour réordonner — la 1re ligne est toujours la photo principale</div>
+            </div>
+            <PhotosDragDrop photoKeys={photoKeys} form={form} set={set} />
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ONGLET 3 : TAILLES / COULEURS / STOCK ═══ */}
+      {activeTab === "stock" && (
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+
+          {/* Tailles */}
+          <div style={SECTION}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Tailles disponibles</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Coche les tailles et renseigne le stock par taille</div>
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {TAILLES_SUGGESTIONS.map(t => {
+                const checked = sizes.includes(t);
                 return (
-                  <div key={t} style={{ display: "grid", gridTemplateColumns: "1fr auto auto auto", gap: 12, alignItems: "center", padding: "14px 18px", borderRadius: 12, background: "#ede8df", border: "2px solid #1a1410" }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                      <span style={{ fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{t}</span>
-                      {!isSuggested && (
-                        <span style={{ fontSize: 10, fontWeight: 800, background: "rgba(196,154,74,0.2)", color: "#c49a4a", padding: "2px 7px", borderRadius: 99 }}>
-                          personnalisée
-                        </span>
-                      )}
-                    </div>
-                    <div style={{ width: 100, height: 6, background: "rgba(0,0,0,0.08)", borderRadius: 99, overflow: "hidden" }}>
-                      <div style={{ height: "100%", borderRadius: 99, background: stockVal === 0 ? "#9ca3af" : stockVal <= 5 ? "#f59e0b" : "#c49a4a", width: `${Math.min(100, (stockVal / 100) * 100)}%`, transition: "width 0.3s" }} />
-                    </div>
-                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                      <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>Stock :</span>
-                      <input type="number" min="0" value={sizesStock[t] ?? "0"}
-                        onChange={e => setSizeStock(t, e.target.value)}
-                        style={{ width: 72, padding: "8px 10px", borderRadius: 8, border: "2px solid rgba(0,0,0,0.1)", fontSize: 16, fontWeight: 900, textAlign: "center", outline: "none", background: "#fff" }} />
-                    </div>
-                    <button onClick={() => removeSize(t)}
-                      style={{ padding: "8px 10px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
-                      ✕
-                    </button>
-                  </div>
+                  <button key={t} onClick={() => toggleSize(t)}
+                    style={{ padding: "9px 16px", borderRadius: 99, border: `2px solid ${checked ? "#1a1410" : "rgba(0,0,0,0.12)"}`, background: checked ? "#1a1410" : "#fff", color: checked ? "#c49a4a" : "rgba(26,20,16,0.5)", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+                    {checked ? "✓ " : ""}{t}
+                  </button>
                 );
               })}
             </div>
-          )}
-
-          {totalFromSizes !== null && (
-            <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", fontSize: 14, fontWeight: 700, color: "#166534" }}>
-              Stock total tailles : <strong>{totalFromSizes} unités</strong>
-              <span style={{ fontSize: 12, fontWeight: 600, opacity: 0.7, marginLeft: 8 }}>
-                ({sizes.map(t => `${t}: ${sizesStock[t] ?? 0}`).join(" · ")})
-              </span>
+            {/* Taille personnalisée */}
+            <div style={{ display: "flex", gap: 10 }}>
+              <input value={customTaille} onChange={e => setCustomTaille(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && customTaille.trim()) { toggleSize(customTaille.trim()); setCustomTaille(""); } }}
+                placeholder="Autre taille..." style={{ ...IS, flex: 1 }} />
+              <button onClick={() => { if (customTaille.trim()) { toggleSize(customTaille.trim()); setCustomTaille(""); } }}
+                style={{ padding: "12px 16px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>+</button>
             </div>
-          )}
-        </div>
-
-        {/* ── 4. COULEURS / MOTIFS ── */}
-        <div style={SECTION}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Couleurs & motifs</div>
-              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6, maxWidth: 420 }}>
-                Ajoute une couleur ou un motif. Clique sur la pastille pour uploader l'image du motif coloré.
-              </div>
-            </div>
-            <button onClick={addColor}
-              style={{ padding: "10px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-              + Ajouter une couleur
-            </button>
-          </div>
-
-          {colors.length === 0 ? (
-            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
-              Aucune couleur définie — le stock global sera utilisé
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 14 }}>
-              {colors.map((c, i) => (
-                <ColorEntryRow key={i} color={c} index={i} onUpdate={updateColor} onRemove={removeColor} />
-              ))}
-            </div>
-          )}
-
-          {colors.length > 0 && (
-            <div style={{ padding: "16px 18px", borderRadius: 12, background: "#fafafa", border: "1px solid rgba(0,0,0,0.07)" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 12 }}>
-                Aperçu pastilles (affichage fiche produit)
-              </div>
-              <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                {colors.map((c, i) => (
-                  <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                    <div style={{ width: 44, height: 44, borderRadius: 99, overflow: "hidden", border: "2px solid rgba(0,0,0,0.12)", background: c.hex }}>
-                      {c.image_url && (
-                        <img src={c.image_url} alt={c.name}
-                          style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                          onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
-                        />
-                      )}
-                    </div>
-                    <span style={{ fontSize: 10, fontWeight: 700, color: "rgba(26,20,16,0.5)", maxWidth: 54, textAlign: "center", lineHeight: 1.3, wordBreak: "break-word" }}>
-                      {c.name || "—"}
-                    </span>
+            {/* Stock par taille */}
+            {sizes.length > 0 && (
+              <div style={{ display: "grid", gap: 10 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Stock par taille</div>
+                {sizes.map(t => (
+                  <div key={t} style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                    <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "#1a1410" }}>{t}</div>
+                    <input type="number" min="0" value={sizesStock[t] ?? "0"}
+                      onChange={e => setSizesStock(s => ({ ...s, [t]: e.target.value }))}
+                      style={{ ...IS, width: 100, textAlign: "center" }} />
+                    <span style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>u.</span>
                   </div>
                 ))}
+                {computedStock !== null && (
+                  <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", fontSize: 15, fontWeight: 700, color: "#166534" }}>
+                    Stock total calculé : {computedStock} unités
+                  </div>
+                )}
               </div>
-            </div>
-          )}
-
-          {totalFromColors !== null && (
-            <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", fontSize: 14, fontWeight: 700, color: "#166534" }}>
-              Stock couleurs : <strong>{totalFromColors} unités</strong>
-            </div>
-          )}
-        </div>
-
-        {/* ── 5. PROMO ── */}
-        <div style={{ padding: 24, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 16 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-            <div>
-              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>
-                Prix promotionnel
-                {hasPromo && <span style={{ marginLeft: 10, padding: "3px 10px", borderRadius: 99, background: "#f59e0b", color: "#fff", fontSize: 12, fontWeight: 800 }}>ACTIVE</span>}
-              </div>
-              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>S'applique automatiquement entre les dates</div>
-            </div>
-            {hasPromo && (
-              <button onClick={() => setForm(f => ({ ...f, promo_price: "", promo_start: "", promo_end: "" }))}
-                style={{ padding: "9px 18px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
-                Supprimer la promo
-              </button>
             )}
           </div>
-          <Field label="Prix promo (€)" fieldKey="promo_price" type="number" placeholder="24.90" value={form.promo_price} onChange={set} />
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-            <Field label="Début" fieldKey="promo_start" type="date" value={form.promo_start} onChange={set} />
-            <Field label="Fin"   fieldKey="promo_end"   type="date" value={form.promo_end}   onChange={set} />
+
+          {/* Couleurs */}
+          <div style={SECTION}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Couleurs & motifs</div>
+                <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Clique sur la pastille pour uploader l'image du motif</div>
+              </div>
+              <button onClick={addColor}
+                style={{ padding: "10px 16px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                + Couleur
+              </button>
+            </div>
+            {colors.length === 0 ? (
+              <div style={{ padding: "24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 15, color: "rgba(26,20,16,0.5)" }}>
+                Aucune couleur — le stock global sera utilisé
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 14 }}>
+                {colors.map((c, i) => <ColorEntryRow key={i} color={c} index={i} onUpdate={updateColor} onRemove={removeColor} />)}
+              </div>
+            )}
+            {colors.length > 0 && (
+              <div style={{ padding: "16px 18px", borderRadius: 12, background: "#fafafa", border: "1px solid rgba(0,0,0,0.07)" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 12 }}>Aperçu pastilles</div>
+                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
+                  {colors.map((c, i) => (
+                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                      <div style={{ width: 44, height: 44, borderRadius: 99, overflow: "hidden", border: "2px solid rgba(0,0,0,0.12)", background: c.hex }}>
+                        {c.image_url && <img src={c.image_url} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.5)", maxWidth: 54, textAlign: "center", lineHeight: 1.3 }}>{c.name || "—"}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
+      )}
 
-        {/* ── 6. CONTENU FICHE PRODUIT ── */}
-        <div style={{ ...SECTION, border: "2px solid rgba(196,154,74,0.25)", background: "#fffdf8" }}>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>
-              🎨 Contenu de la fiche produit
+      {/* ═══ ONGLET 4 : PROMOS ═══ */}
+      {activeTab === "promo" && (
+        <div style={{ maxWidth: 600 }}>
+          <div style={{ padding: 32, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 20 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410" }}>
+                  Prix promotionnel
+                  {hasPromo && <span style={{ marginLeft: 10, padding: "3px 10px", borderRadius: 99, background: "#f59e0b", color: "#fff", fontSize: 13, fontWeight: 800 }}>ACTIVE</span>}
+                </div>
+                <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>S'applique automatiquement entre les dates sélectionnées</div>
+              </div>
+              {hasPromo && (
+                <button onClick={() => setForm(f => ({ ...f, promo_price: "", promo_start: "", promo_end: "" }))}
+                  style={{ padding: "10px 20px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
+                  Supprimer la promo
+                </button>
+              )}
             </div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>
-              Crée et ordonne les blocs qui s'afficheront sur la fiche produit. Chaque bloc a son propre style sur le site.
-              <br />Ces données remplacent le contenu généré automatiquement depuis la catégorie/slug.
+            <Field label="Prix promo (€)" fieldKey="promo_price" type="number" placeholder="24.90" value={form.promo_price} onChange={set} />
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <Field label="Date début" fieldKey="promo_start" type="date" value={form.promo_start} onChange={set} />
+              <Field label="Date fin"   fieldKey="promo_end"   type="date" value={form.promo_end}   onChange={set} />
+            </div>
+            {hasPromo && form.price_ttc && (
+              <div style={{ padding: "16px 20px", borderRadius: 12, background: "#fff", border: "1px solid #fde68a", fontSize: 15, fontWeight: 700, color: "#92400e" }}>
+                Prix normal : {parseFloat(form.price_ttc).toFixed(2)} € → Prix promo : <span style={{ color: "#dc2626" }}>{parseFloat(form.promo_price).toFixed(2)} €</span>
+                {" "}(-{Math.round((1 - parseFloat(form.promo_price) / parseFloat(form.price_ttc)) * 100)}%)
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ONGLET 5 : CONTENU FICHE ═══ */}
+      {activeTab === "contenu" && (
+        <div style={{ display: "grid", gap: 24 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div>
+              <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>🎨 Contenu de la fiche produit</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.55)" }}>Crée et ordonne les blocs affichés sur la fiche produit</div>
             </div>
           </div>
 
-          {ficheCards.length === 0 ? (
-            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
-              Aucun bloc défini — la fiche affichera le contenu par défaut selon la catégorie
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 12 }}>
+          {/* Cards en 2 colonnes */}
+          {ficheCards.length > 0 && (
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
               {ficheCards.map((card, idx) => (
-                <FicheCardEditor
-                  key={card.id}
-                  card={card}
-                  onUpdate={updateCard}
-                  onRemove={removeCard}
-                  onMoveUp={(id) => moveCard(id, "up")}
-                  onMoveDown={(id) => moveCard(id, "down")}
-                  isFirst={idx === 0}
-                  isLast={idx === ficheCards.length - 1}
-                />
+                <FicheCardEditor key={card.id} card={card} onUpdate={updateCard} onRemove={removeCard}
+                  onMoveUp={(id) => moveCard(id, "up")} onMoveDown={(id) => moveCard(id, "down")}
+                  isFirst={idx === 0} isLast={idx === ficheCards.length - 1} />
               ))}
             </div>
           )}
+          {ficheCards.length === 0 && (
+            <div style={{ padding: "32px", borderRadius: 16, background: "#fff", border: "1.5px dashed rgba(26,20,16,0.15)", textAlign: "center", fontSize: 15, color: "rgba(26,20,16,0.4)" }}>
+              Aucun bloc — la fiche affichera le contenu par défaut selon la catégorie
+            </div>
+          )}
 
-          {/* Ajout de blocs — visuels avec preview */}
-          <div style={{ display: "grid", gap: 10 }}>
-            <label style={{ ...LS, color: "rgba(196,154,74,0.8)" }}>Ajouter un bloc à la fiche</label>
-            <div style={{ display: "grid", gap: 8 }}>
+          {/* Ajout de blocs */}
+          <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid rgba(0,0,0,0.08)" }}>
+            <div style={{ fontWeight: 900, fontSize: 16, color: "#1a1410", marginBottom: 14 }}>Ajouter un bloc</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
               {CARD_TYPES.map(t => (
                 <button key={t.value} type="button" onClick={() => addCard(t.value)}
-                  style={{ display: "grid", gridTemplateColumns: "36px 1fr auto", gap: 10, alignItems: "center", padding: "12px 14px", borderRadius: 12, border: "1.5px dashed rgba(196,154,74,0.35)", background: "rgba(196,154,74,0.04)", cursor: "pointer", textAlign: "left", transition: "all 0.15s" }}
-                  onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(196,154,74,0.1)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(196,154,74,0.6)"; }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(196,154,74,0.04)"; (e.currentTarget as HTMLButtonElement).style.borderColor = "rgba(196,154,74,0.35)"; }}>
-                  <div style={{ fontSize: 20, textAlign: "center" }}>{t.icon}</div>
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: "1.5px dashed rgba(196,154,74,0.4)", background: "rgba(196,154,74,0.04)", cursor: "pointer", textAlign: "left" }}>
+                  <span style={{ fontSize: 20 }}>{t.icon}</span>
                   <div>
-                    <div style={{ fontWeight: 900, fontSize: 13, color: "#1a1410", marginBottom: 2 }}>{t.label}</div>
-                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", lineHeight: 1.4 }}>{t.desc}</div>
+                    <div style={{ fontWeight: 800, fontSize: 13, color: "#1a1410" }}>{t.label}</div>
+                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)" }}>{t.desc}</div>
                   </div>
-                  <div style={{ fontSize: 18, color: "#c49a4a", fontWeight: 300, paddingRight: 4 }}>+</div>
                 </button>
               ))}
             </div>
           </div>
         </div>
+      )}
 
-        {/* ── 7. FAQ ── */}
-        <div style={{ ...SECTION, border: "2px solid rgba(26,20,16,0.1)" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+      {/* ═══ ONGLET 6 : FAQ ═══ */}
+      {activeTab === "faq" && (
+        <div style={{ maxWidth: 800 }}>
+          <div style={{ ...SECTION, border: "2px solid rgba(26,20,16,0.1)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>❓ FAQ — Questions fréquentes</div>
+                <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Ces questions s'afficheront dans l'accordéon FAQ de la fiche produit</div>
+              </div>
+              <button type="button" onClick={addFaq}
+                style={{ padding: "12px 22px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
+                + Ajouter une question
+              </button>
+            </div>
+            {faqs.length === 0 ? (
+              <div style={{ padding: "32px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 15, color: "rgba(26,20,16,0.5)" }}>
+                Aucune FAQ — les questions par défaut selon la catégorie seront utilisées
+              </div>
+            ) : (
+              <div style={{ display: "grid", gap: 10 }}>
+                {faqs.map((faq, idx) => (
+                  <FaqEditor key={faq.id} faq={faq} onUpdate={updateFaq} onRemove={removeFaq}
+                    onMoveUp={(id) => moveFaq(id, "up")} onMoveDown={(id) => moveFaq(id, "down")}
+                    isFirst={idx === 0} isLast={idx === faqs.length - 1} />
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ═══ ONGLET 7 : SEO ═══ */}
+      {activeTab === "seo" && (
+        <div style={{ maxWidth: 700 }}>
+          <div style={SECTION}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>
-                ❓ FAQ — Questions fréquentes
+              <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>SEO — Référencement Google</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le nom et la description du produit sont utilisés</div>
+            </div>
+            <Field label="Titre SEO" fieldKey="seo_title"
+              placeholder="Ex : Pyjama bambou nourrisson motif éclair — M!LK"
+              value={form.seo_title} onChange={set}
+              hint={`${form.seo_title.length}/60 caractères`} />
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={LS}>Description SEO</label>
+              <textarea value={form.seo_description} onChange={e => set("seo_description", e.target.value)}
+                placeholder="Ex : Pyjama nourrisson en bambou certifié OEKO-TEX..."
+                rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>{form.seo_description.length}/155 caractères</div>
+            </div>
+            {(form.seo_title || form.name) && (
+              <div style={{ padding: 20, borderRadius: 12, background: "#f8f9fa", border: "1px solid rgba(0,0,0,0.08)" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(0,0,0,0.35)", marginBottom: 10 }}>Aperçu Google</div>
+                <div style={{ fontSize: 15, color: "#1a0dab", fontWeight: 600, marginBottom: 3 }}>{form.seo_title || form.name} | M!LK</div>
+                <div style={{ fontSize: 13, color: "#006621", marginBottom: 5 }}>milkbebe.fr › produits › {form.slug || "..."}</div>
+                <div style={{ fontSize: 14, color: "#545454", lineHeight: 1.6 }}>{form.seo_description || form.description || "Aucune description."}</div>
               </div>
-              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6 }}>
-                Ajoute les questions/réponses spécifiques à ce produit. Elles s'afficheront dans l'accordéon FAQ de la fiche.
-              </div>
-            </div>
-            <button type="button" onClick={addFaq}
-              style={{ padding: "10px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-              + Ajouter une question
-            </button>
+            )}
           </div>
-
-          {faqs.length === 0 ? (
-            <div style={{ padding: "20px 24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
-              Aucune FAQ — les questions par défaut selon la catégorie seront utilisées
-            </div>
-          ) : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {faqs.map((faq, idx) => (
-                <FaqEditor
-                  key={faq.id}
-                  faq={faq}
-                  onUpdate={updateFaq}
-                  onRemove={removeFaq}
-                  onMoveUp={(id) => moveFaq(id, "up")}
-                  onMoveDown={(id) => moveFaq(id, "down")}
-                  isFirst={idx === 0}
-                  isLast={idx === faqs.length - 1}
-                />
-              ))}
-            </div>
-          )}
         </div>
+      )}
 
-        {/* ── 8. SEO ── */}
-        <div style={SECTION}>
-          <div>
-            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>SEO — Référencement Google</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le nom et la description sont utilisés</div>
-          </div>
-          <Field label="Titre SEO" fieldKey="seo_title"
-            placeholder="Ex : Pyjama bambou nourrisson motif éclair — M!LK"
-            value={form.seo_title} onChange={set}
-            hint={`${form.seo_title.length}/60 caractères`} />
-          <div style={{ display: "grid", gap: 6 }}>
-            <label style={LS}>Description SEO</label>
-            <textarea value={form.seo_description} onChange={e => set("seo_description", e.target.value)}
-              placeholder="Ex : Pyjama nourrisson en bambou certifié OEKO-TEX..."
-              rows={2} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
-            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>{form.seo_description.length}/155 caractères</div>
-          </div>
-          {(form.seo_title || form.name) && (
-            <div style={{ padding: 16, borderRadius: 12, background: "#f8f9fa", border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(0,0,0,0.35)", marginBottom: 8 }}>Aperçu Google</div>
-              <div style={{ fontSize: 14, color: "#1a0dab", fontWeight: 600, marginBottom: 2 }}>{form.seo_title || form.name} | M!LK</div>
-              <div style={{ fontSize: 12, color: "#006621", marginBottom: 4 }}>milkbebe.fr › produits › {form.slug || "..."}</div>
-              <div style={{ fontSize: 13, color: "#545454", lineHeight: 1.5 }}>{form.seo_description || form.description || "Aucune description."}</div>
-            </div>
-          )}
-        </div>
-
-        {/* Messages */}
-        {error   && <div style={{ padding: "14px 18px", borderRadius: 12, background: "#fee2e2", color: "#b91c1c", fontSize: 15, fontWeight: 700 }}>❌ {error}</div>}
-        {success && <div style={{ padding: "14px 18px", borderRadius: 12, background: "#dcfce7", color: "#166534", fontSize: 15, fontWeight: 700 }}>{success}</div>}
-
-        {/* Auto-save indicator */}
-        <div style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
-          <div style={{ width: 6, height: 6, borderRadius: 99, background: autoSaved ? "#22c55e" : "rgba(26,20,16,0.2)", transition: "background 0.3s", flexShrink: 0 }} />
-          {autoSaved
-            ? "Brouillon sauvegardé automatiquement"
-            : lastSaved
-              ? `Dernier enregistrement : ${lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`
-              : "Modifications non enregistrées"}
-        </div>
-
-      </div>
-    </div>
+    </div>{/* fin contenu onglet */}
 
     {/* ── BARRE FIXE BAS ── */}
-    <div style={{ position:"fixed", bottom:0, left:240, right:0, zIndex:100, background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderTop:"2px solid rgba(26,20,16,0.1)", padding:"14px 32px", display:"flex", alignItems:"center", gap:14, boxShadow:"0 -4px 20px rgba(0,0,0,0.1)" }}>
+    <div style={{ position: "fixed", bottom: 0, left: 240, right: 0, zIndex: 100, background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)", borderTop: "2px solid rgba(26,20,16,0.1)", padding: "14px 32px", display: "flex", alignItems: "center", gap: 14, boxShadow: "0 -4px 20px rgba(0,0,0,0.1)" }}>
       <button onClick={handleSave} disabled={saving}
-        style={{ padding:"15px 40px", borderRadius:12, background:saving?"#e5e7eb":"#1a1410", color:saving?"#9ca3af":"#c49a4a", fontWeight:900, fontSize:18, border:"none", cursor:saving?"not-allowed":"pointer", boxShadow:saving?"none":"0 4px 16px rgba(0,0,0,0.25)", transition:"all 0.15s" }}>
-        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer" : "✅ Enregistrer"}
+        style={{ padding: "15px 40px", borderRadius: 12, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 18, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 4px 16px rgba(0,0,0,0.25)", transition: "all 0.15s" }}>
+        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer"}
       </button>
       <button onClick={() => setShowPreview(v => !v)}
-        style={{ padding:"15px 28px", borderRadius:12, background:showPreview?"#c49a4a":"rgba(26,20,16,0.08)", color:"#1a1410", fontWeight:800, fontSize:16, border:"2px solid rgba(26,20,16,0.12)", cursor:"pointer", transition:"all 0.15s" }}>
+        style={{ padding: "15px 28px", borderRadius: 12, background: showPreview ? "#c49a4a" : "rgba(26,20,16,0.08)", color: "#1a1410", fontWeight: 800, fontSize: 16, border: "2px solid rgba(26,20,16,0.12)", cursor: "pointer", transition: "all 0.15s" }}>
         👁 Aperçu
       </button>
       {!isNew && (
         <button onClick={handleDelete}
-          style={{ padding:"15px 24px", borderRadius:12, background:"#fee2e2", color:"#b91c1c", fontWeight:800, fontSize:16, border:"none", cursor:"pointer" }}>
+          style={{ padding: "15px 24px", borderRadius: 12, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer" }}>
           🗑 Supprimer
         </button>
       )}
-      <div style={{ marginLeft:"auto", fontSize:13, color:"rgba(26,20,16,0.35)", fontWeight:600 }}>
-        {lastSaved ? `Enregistré à ${lastSaved.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}` : "Pense à enregistrer"}
+      <div style={{ marginLeft: "auto", fontSize: 13, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
+        {autoSaved ? "✓ Brouillon sauvegardé" : lastSaved ? `Enregistré à ${lastSaved.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}` : "Pense à enregistrer"}
       </div>
     </div>
 
@@ -1560,20 +1543,20 @@ export default function AdminProductForm() {
       </div>
     )}
 
-    {/* ── MODALE APERÇU ── */}
+    {/* ── PANNEAU APERÇU STICKY ── */}
     {showPreview && (
-      <div onClick={e=>{if(e.target===e.currentTarget)setShowPreview(false);}}
-        style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(26,20,16,0.8)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
-        <div style={{ width:"100%", maxWidth:1100, height:"92vh", borderRadius:20, overflow:"hidden", background:"#ede8df", boxShadow:"0 32px 80px rgba(0,0,0,0.5)", display:"flex", flexDirection:"column" }}>
-          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 28px", borderBottom:"1px solid rgba(26,20,16,0.12)", background:"#c4ae94", flexShrink:0 }}>
-            <div>
-              <div style={{ fontSize:13, fontWeight:800, letterSpacing:2, textTransform:"uppercase", color:"#1a1410" }}>Aperçu fiche produit</div>
-              <div style={{ fontSize:12, color:"rgba(26,20,16,0.5)", fontWeight:600 }}>Format desktop — temps réel — clique en dehors pour fermer</div>
-            </div>
-            <button onClick={()=>setShowPreview(false)}
-              style={{ width:38, height:38, borderRadius:99, background:"rgba(26,20,16,0.15)", border:"none", cursor:"pointer", color:"#1a1410", fontSize:22, display:"grid", placeItems:"center", fontWeight:900 }}>✕</button>
+      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#ede8df", borderLeft: "2px solid rgba(26,20,16,0.12)", boxSizing: "border-box", scrollbarWidth: "none" }}>
+        {/* Header aperçu */}
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 14px", borderBottom: "1px solid rgba(26,20,16,0.12)", background: "#c4ae94", position: "sticky", top: 0, zIndex: 10 }}>
+          <div>
+            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#1a1410", marginBottom: 1 }}>Aperçu fiche produit</div>
+            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>Temps réel — panneau droit</div>
           </div>
-          <div style={{ overflowY:"auto", flex:1, padding:"32px 40px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:40, alignItems:"start", scrollbarWidth:"none" }}>
+          <button onClick={() => setShowPreview(false)}
+            style={{ width: 28, height: 28, borderRadius: 99, background: "rgba(26,20,16,0.1)", border: "none", cursor: "pointer", color: "#1a1410", fontSize: 14, display: "grid", placeItems: "center" }}>
+            ✕
+          </button>
+        </div>
 
         {!hasPreviewContent ? (
           <div style={{ padding: "60px 20px", textAlign: "center", color: "rgba(26,20,16,0.3)", fontSize: 13 }}>
@@ -1753,10 +1736,9 @@ export default function AdminProductForm() {
 
           </div>
         )}
-          </div>
-        </div>
       </div>
     )}
   </div>
+
   );
 }

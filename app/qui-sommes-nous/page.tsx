@@ -34,7 +34,7 @@ export default function QuiSommesNousPage() {
 
       {/* HERO */}
       <section style={{ position: "relative", height: "clamp(52vh,60vh,70vh)", minHeight: 300, overflow: "hidden" }}>
-        <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero_banner.webp" alt="Collection M!LK — bodies, pyjamas et bonnet bambou sur table sombre" fill priority sizes="100vw"
+        <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero.jpg" alt="Collection M!LK — bodies, pyjamas et bonnet bambou sur table sombre" fill priority sizes="100vw"
           style={{ objectFit: "cover", objectPosition: "center 40%", filter: "brightness(0.45) saturate(0.7)" }} />
         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to bottom, rgba(45,26,14,0.1), rgba(45,26,14,0.92))` }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 44px" }}>
@@ -159,7 +159,7 @@ export default function QuiSommesNousPage() {
       <div style={{ background: C.light, padding: "0 5vw 56px" }}>
         <Reveal>
           <div style={{ position: "relative", borderRadius: 24, overflow: "hidden", height: "clamp(300px,40vh,480px)" }}>
-            <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero_table_dark.webp" alt="Collection M!LK — bodies et pyjamas bambou" fill sizes="100vw" style={{ objectFit: "cover", filter: "brightness(0.6) saturate(0.7)" }} />
+            <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero.jpg" alt="Collection M!LK — bodies et pyjamas bambou" fill sizes="100vw" style={{ objectFit: "cover", filter: "brightness(0.6) saturate(0.7)" }} />
             <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(45,26,14,0.92) 0%, rgba(45,26,14,0.15) 70%)", display: "flex", alignItems: "center" }}>
               <div style={{ padding: "0 6vw", maxWidth: 520 }}>
                 <h2 style={{ margin: "0 0 14px", fontSize: "clamp(22px,3vw,38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: C.warm }}>Des essentiels bébé.<br />Sans le superflu.</h2>

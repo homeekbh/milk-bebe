@@ -1131,8 +1131,8 @@ export default function AdminProductForm() {
   const hasPreviewContent = form.name || previewSubtitle || previewFeatures.length > 0 || previewWR || ficheCards.length > 0;
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: showPreview ? "1fr 1fr" : "1fr", gap: 0, minHeight: "100vh", alignItems: "start" }}>
-    <div style={{ padding: "32px 40px" }}>
+    <div style={{ minHeight: "100vh" }}>
+    <div style={{ padding: "32px 40px", maxWidth: 1100, margin: "0 auto" }}>
 
       {/* ── En-tête ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
@@ -1170,7 +1170,7 @@ export default function AdminProductForm() {
         )}
       </div>
 
-      <div style={{ display: "grid", gap: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
 
         {/* ── 1. GÉNÉRAL ── */}
         <div style={SECTION}>
@@ -1390,6 +1390,11 @@ export default function AdminProductForm() {
       <button onClick={handleSave} disabled={saving}
         style={{ padding: "16px 40px", borderRadius: 14, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 17, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 4px 16px rgba(0,0,0,0.25)", transition: "all 0.15s", letterSpacing: -0.3 }}>
         {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
+      </button>
+      {/* Bouton aperçu */}
+      <button onClick={() => setShowPreview(v => !v)}
+        style={{ padding: "16px 24px", borderRadius: 14, background: showPreview ? "#c49a4a" : "rgba(26,20,16,0.08)", color: "#1a1410", fontWeight: 800, fontSize: 16, border: "2px solid rgba(26,20,16,0.12)", cursor: "pointer", transition: "all 0.15s" }}>
+        👁 Aperçu
       </button>
       {/* Bouton supprimer */}
       {!isNew && (
@@ -1622,20 +1627,24 @@ export default function AdminProductForm() {
       </div>
     )}
 
-    {/* ── PANNEAU APERÇU STICKY ── */}
+    {/* ── MODALE APERÇU PLEIN ÉCRAN ── */}
     {showPreview && (
-      <div style={{ position: "sticky", top: 0, height: "100vh", overflowY: "auto", background: "#ede8df", borderLeft: "2px solid rgba(26,20,16,0.12)", boxSizing: "border-box", scrollbarWidth: "none" }}>
-        {/* Header aperçu */}
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px 14px", borderBottom: "1px solid rgba(26,20,16,0.12)", background: "#c4ae94", position: "sticky", top: 0, zIndex: 10 }}>
-          <div>
-            <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#1a1410", marginBottom: 1 }}>Aperçu fiche produit</div>
-            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>Temps réel — panneau droit</div>
+      <div
+        onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }}
+        style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(26,20,16,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
+        <div style={{ width: "100%", maxWidth: 520, height: "90vh", borderRadius: 20, overflow: "hidden", background: "#ede8df", boxShadow: "0 24px 64px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column" }}>
+          {/* Header modale */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(26,20,16,0.12)", background: "#c4ae94", flexShrink: 0 }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#1a1410" }}>Aperçu fiche produit</div>
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>Temps réel</div>
+            </div>
+            <button onClick={() => setShowPreview(false)}
+              style={{ width: 32, height: 32, borderRadius: 99, background: "rgba(26,20,16,0.15)", border: "none", cursor: "pointer", color: "#1a1410", fontSize: 18, display: "grid", placeItems: "center", fontWeight: 900 }}>
+              ✕
+            </button>
           </div>
-          <button onClick={() => setShowPreview(false)}
-            style={{ width: 28, height: 28, borderRadius: 99, background: "rgba(26,20,16,0.1)", border: "none", cursor: "pointer", color: "#1a1410", fontSize: 14, display: "grid", placeItems: "center" }}>
-            ✕
-          </button>
-        </div>
+          <div style={{ overflowY: "auto", flex: 1, scrollbarWidth: "none" }}>
 
         {!hasPreviewContent ? (
           <div style={{ padding: "60px 20px", textAlign: "center", color: "rgba(26,20,16,0.3)", fontSize: 13 }}>
@@ -1815,6 +1824,8 @@ export default function AdminProductForm() {
 
           </div>
         )}
+          </div>
+        </div>
       </div>
     )}
   </div>

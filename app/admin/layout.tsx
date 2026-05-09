@@ -1,4 +1,5 @@
 ﻿"use client";
+import React from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
@@ -6,6 +7,62 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
 import SearchGlobal from "@/components/admin/SearchGlobal";
 import { MilkLogo, MilkLogoAdmin } from "@/components/shared/MilkLogo";
+
+// ── Horloge temps réel ────────────────────────────────────────────────────────
+function AdminClock() {
+  const [now, setNow] = React.useState(new Date());
+  React.useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
+
+  const JOURS  = ["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+  const MOIS   = ["jan","fév","mar","avr","mai","juin","juil","aoû","sep","oct","nov","déc"];
+
+  // Numéro de semaine ISO
+  function getWeek(d: Date) {
+    const date = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+    const day  = date.getUTCDay() || 7;
+    date.setUTCDate(date.getUTCDate() + 4 - day);
+    const yearStart = new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
+    return Math.ceil((((date.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
+  }
+
+  const jour    = JOURS[now.getDay()];
+  const date    = now.getDate();
+  const mois    = MOIS[now.getMonth()];
+  const annee   = now.getFullYear();
+  const semaine = getWeek(now);
+  const heure   = now.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+
+  return (
+    <div style={{
+      display: "flex", alignItems: "center", gap: 10,
+      padding: "6px 14px", borderRadius: 12,
+      background: "rgba(26,20,16,0.06)",
+      border: "1px solid rgba(26,20,16,0.08)",
+    }}>
+      {/* Heure */}
+      <div style={{
+        fontFamily: "monospace", fontSize: 18, fontWeight: 900,
+        color: "#1a1410", letterSpacing: 1, lineHeight: 1,
+      }}>
+        {heure}
+      </div>
+      {/* Séparateur */}
+      <div style={{ width: 1, height: 28, background: "rgba(26,20,16,0.12)" }} />
+      {/* Date */}
+      <div style={{ lineHeight: 1.3 }}>
+        <div style={{ fontSize: 12, fontWeight: 800, color: "#1a1410" }}>
+          {jour} {date} {mois} {annee}
+        </div>
+        <div style={{ fontSize: 10, fontWeight: 700, color: "#c49a4a", letterSpacing: 1, textTransform: "uppercase" }}>
+          Semaine {semaine}
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const NAV = [
   { href: "/admin",              label: "Dashboard",    icon: "▦"  },
@@ -155,6 +212,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
           <SearchGlobal />
           <div style={{ marginLeft: "auto", display: "flex", gap: 12, alignItems: "center", flexShrink: 0 }}>
+            <AdminClock />
             <Link href="/produits" target="_blank"
               style={{ padding: "7px 14px", borderRadius: 8, background: "rgba(26,20,16,0.08)", color: "rgba(26,20,16,0.6)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
               ↗ Site

@@ -15,7 +15,8 @@ SIREN : 104 298 260
 SIRET : 104 298 260 00019
 Siège social : Menton (06500), France
 Email : contact@milkbebe.fr
-Design & développement : BHK — Design & Graphisme`,
+Design & développement : BHK — Design & Graphisme
+Contact BHK : +33 7 45 27 21 34`,
           },
           {
             title: "Hébergement",

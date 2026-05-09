@@ -5,16 +5,16 @@
         <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410", marginBottom: 8 }}>
           Conditions Générales de Vente
         </h1>
-        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Dernière mise à jour : avril 2026</p>
+        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Dernière mise à jour : mai 2026</p>
 
         {[
           {
             title: "1. Identification du vendeur",
-            content: `M!LK — Essentiels Bébé Bambou
-SIRET : En cours d'obtention
-Adresse : À compléter après obtention du SIRET
-Email : contact@milkbebe.fr
-Téléphone : 07 45 27 21 34`,
+            content: `M!LK est une marque exploitée par EKBH, SAS au capital variable
+SIREN : 104 298 260
+SIRET : 104 298 260 00019
+Siège social : Menton (06500), France
+Email : contact@milkbebe.fr`,
           },
           {
             title: "2. Objet",
@@ -34,7 +34,7 @@ Téléphone : 07 45 27 21 34`,
           },
           {
             title: "6. Paiement",
-            content: "Le paiement s'effectue en ligne via la plateforme sécurisée Stripe. Les données bancaires ne transitent pas par nos serveurs. M!LK accepte les cartes Visa, Mastercard et American Express.",
+            content: "Le paiement s'effectue en ligne via la plateforme sécurisée Stripe. Les données bancaires ne transitent pas par nos serveurs. M!LK accepte les cartes Visa, Mastercard, American Express ainsi que PayPal.",
           },
           {
             title: "7. Livraison",
@@ -58,7 +58,7 @@ Téléphone : 07 45 27 21 34`,
           },
           {
             title: "12. Litiges",
-            content: "En cas de litige, une solution amiable sera recherchée en priorité. À défaut, les tribunaux compétents du ressort du siège de M!LK seront saisis. La loi française est applicable.",
+            content: "En cas de litige, une solution amiable sera recherchée en priorité. À défaut, les tribunaux compétents du ressort du siège social d'EKBH seront saisis. La loi française est applicable.",
           },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: 36, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>

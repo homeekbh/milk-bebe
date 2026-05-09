@@ -10,24 +10,23 @@ export default function MentionsLegales() {
         {[
           {
             title: "Éditeur du site",
-            content: `Raison sociale : M!LK — Essentiels Bébé Bambou
-SIRET : En cours d'obtention
-Adresse : À compléter
+            content: `M!LK est une marque exploitée par EKBH, SAS
+SIREN : 104 298 260
+SIRET : 104 298 260 00019
+Siège social : Menton (06500), France
 Email : contact@milkbebe.fr
-Téléphone : 07 45 27 21 34
-Directeur de publication : BHK — Design & Graphisme`,
+Design & développement : BHK — Design & Graphisme`,
           },
           {
             title: "Hébergement",
             content: `Vercel Inc.
 340 Pine Street, Suite 900
-San Francisco, CA 94104
-États-Unis
+San Francisco, CA 94104 — États-Unis
 Site : vercel.com`,
           },
           {
             title: "Propriété intellectuelle",
-            content: "L'ensemble du contenu du site milkbebe.fr (textes, images, graphismes, logo, icônes, etc.) est la propriété exclusive de M!LK. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.",
+            content: "L'ensemble du contenu du site milkbebe.fr (textes, images, graphismes, logo, icônes, etc.) est la propriété exclusive de M!LK / EKBH. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.",
           },
           {
             title: "Données personnelles",
@@ -35,11 +34,15 @@ Site : vercel.com`,
           },
           {
             title: "Cookies",
-            content: "Le site utilise des cookies techniques nécessaires au bon fonctionnement du service (panier, session). Aucun cookie publicitaire n'est utilisé. Vous pouvez gérer vos préférences cookies via le bandeau dédié.",
+            content: "Le site utilise des cookies techniques nécessaires au bon fonctionnement du service (panier, session). Vous pouvez gérer vos préférences cookies via le bandeau dédié.",
           },
           {
             title: "Responsabilité",
-            content: "M!LK s'efforce d'assurer l'exactitude des informations publiées. Cependant, M!LK ne saurait être tenu responsable des erreurs, omissions ou indisponibilités du site. L'utilisation du site se fait sous la seule responsabilité de l'utilisateur.",
+            content: "M!LK s'efforce d'assurer l'exactitude des informations publiées. Cependant, EKBH ne saurait être tenu responsable des erreurs, omissions ou indisponibilités du site. L'utilisation du site se fait sous la seule responsabilité de l'utilisateur.",
+          },
+          {
+            title: "Droit applicable",
+            content: "Les présentes mentions légales sont soumises au droit français. En cas de litige, les tribunaux compétents du ressort du siège social d'EKBH seront saisis.",
           },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: 28, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>

@@ -1540,26 +1540,26 @@ export default function AdminProductForm() {
     <div style={{
       position: "fixed", bottom: 0, left: 240, right: 0, zIndex: 100,
       background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
-      borderTop: "1px solid rgba(26,20,16,0.1)",
-      padding: "12px 32px", display: "flex", alignItems: "center", gap: 12,
-      boxShadow: "0 -4px 20px rgba(0,0,0,0.08)",
+      borderTop: "2px solid rgba(26,20,16,0.1)",
+      padding: "16px 32px", display: "flex", alignItems: "center", gap: 14,
+      boxShadow: "0 -6px 24px rgba(0,0,0,0.1)",
     }}>
-      {/* Statut modif */}
-      <div style={{ flex: 1, fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
-        <span style={{ color: "rgba(26,20,16,0.4)" }}>Modifications non enregistrées tant que tu n'as pas cliqué Enregistrer</span>
-      </div>
+      {/* Bouton enregistrer — à GAUCHE en grand */}
+      <button onClick={handleSave} disabled={saving}
+        style={{ padding: "16px 40px", borderRadius: 14, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 17, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 4px 16px rgba(0,0,0,0.25)", transition: "all 0.15s", letterSpacing: -0.3 }}>
+        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
+      </button>
       {/* Bouton supprimer */}
       {!isNew && (
         <button onClick={handleDelete}
-          style={{ padding: "10px 20px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
+          style={{ padding: "16px 24px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer" }}>
           🗑 Supprimer
         </button>
       )}
-      {/* Bouton enregistrer */}
-      <button onClick={handleSave} disabled={saving}
-        style={{ padding: "11px 28px", borderRadius: 10, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 2px 12px rgba(0,0,0,0.2)", transition: "all 0.15s" }}>
-        {saving ? "Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer"}
-      </button>
+      {/* Statut */}
+      <div style={{ marginLeft: "auto", fontSize: 13, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
+        Pense à enregistrer après chaque modification
+      </div>
     </div>
 
     {/* -- MODALE DUPLICATION -- */}

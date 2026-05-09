@@ -195,119 +195,77 @@ const IS: React.CSSProperties = {
   boxSizing: "border-box", outline: "none",
 };
 const LS: React.CSSProperties = {
-  fontSize: 12, fontWeight: 800, letterSpacing: 1,
+  fontSize: 14, fontWeight: 800, letterSpacing: 1,
   textTransform: "uppercase", color: "rgba(26,20,16,0.5)",
 };
 const SECTION: React.CSSProperties = {
   background: "#fff", borderRadius: 16,
-  border: "1px solid rgba(0,0,0,0.08)", padding: 28, display: "grid", gap: 18,
+  border: "1px solid rgba(0,0,0,0.08)", padding: 32, display: "grid", gap: 22,
 };
 
-// ── PhotoField ────────────────────────────────────────────────────────────────
+// ── PhotosDragDrop ─────────────────────────────────────────────────────────────
 function PhotosDragDrop({ photoKeys, form, set }: {
   photoKeys: readonly string[];
   form: any;
   set: (k: string, v: string) => void;
 }) {
-  const [dragIdx,  setDragIdx]  = React.useState<number | null>(null);
-  const [dragOver, setDragOver] = React.useState<number | null>(null);
+  const [dragIdx,   setDragIdx]   = React.useState<number | null>(null);
+  const [dragOver,  setDragOver]  = React.useState<number | null>(null);
   const [uploading, setUploading] = React.useState<number | null>(null);
-  const [msgs, setMsgs] = React.useState<Record<number, { ok: boolean; txt: string }>>({});
-
+  const [msgs, setMsgs] = React.useState<Record<number, {ok:boolean;txt:string}>>({});
   const photos = photoKeys.map(k => form[k] ?? "");
-
   function reorder(from: number, to: number) {
-    const arr = [...photos];
-    const [moved] = arr.splice(from, 1);
-    arr.splice(to, 0, moved);
+    const arr = [...photos]; const [moved] = arr.splice(from, 1); arr.splice(to, 0, moved);
     photoKeys.forEach((k, i) => set(k as string, arr[i] ?? ""));
   }
-
   async function handleUpload(idx: number, file: File) {
-    setUploading(idx);
-    setMsgs(m => ({ ...m, [idx]: { ok: false, txt: "" } }));
+    setUploading(idx); setMsgs(m => ({ ...m, [idx]: {ok:false,txt:""} }));
     try {
-      const fd = new FormData();
-      fd.append("file", file);
+      const fd = new FormData(); fd.append("file", file);
       let token = "";
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i) ?? "";
-          if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
-            const p = JSON.parse(localStorage.getItem(key) ?? "{}");
-            token = p.access_token ?? ""; if (token) break;
-          }
-        }
-      } catch {}
-      const res  = await fetch("/api/admin/upload", { method: "POST", body: fd, headers: token ? { Authorization: "Bearer " + token } : {} });
+      try { for (let i=0;i<localStorage.length;i++){const key=localStorage.key(i)??"";if(key.startsWith("sb-")&&key.endsWith("-auth-token")){const p=JSON.parse(localStorage.getItem(key)??"{}");token=p.access_token??"";if(token)break;}} } catch {}
+      const res = await fetch("/api/admin/upload",{method:"POST",body:fd,headers:token?{Authorization:"Bearer "+token}:{}});
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Erreur upload");
+      if (!res.ok) throw new Error(data.error??"Erreur");
       set(photoKeys[idx] as string, data.url);
-      setMsgs(m => ({ ...m, [idx]: { ok: true, txt: "Uploadee" } }));
-    } catch (e: any) {
-      setMsgs(m => ({ ...m, [idx]: { ok: false, txt: e.message } }));
-    } finally { setUploading(null); }
+      setMsgs(m => ({ ...m, [idx]: {ok:true,txt:"OK"} }));
+    } catch(e:any){ setMsgs(m => ({ ...m, [idx]: {ok:false,txt:e.message} })); }
+    finally { setUploading(null); }
   }
-
   return (
-    <div style={{ display: "grid", gap: 10 }}>
-      {photoKeys.map((k, i) => {
-        const url    = photos[i];
-        const isMain = i === 0;
-        const isDrag = dragIdx === i;
-        const isOver = dragOver === i;
+    <div style={{ display:"grid", gap:10 }}>
+      {photoKeys.map((k,i) => {
+        const url=photos[i]; const isMain=i===0;
         return (
-          <div key={k}
-            draggable
-            onDragStart={() => setDragIdx(i)}
-            onDragEnd={() => { setDragIdx(null); setDragOver(null); }}
-            onDragOver={e => { e.preventDefault(); setDragOver(i); }}
-            onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== i) reorder(dragIdx, i); setDragOver(null); setDragIdx(null); }}
-            style={{
-              display: "flex", alignItems: "center", gap: 12,
-              padding: "10px 14px", borderRadius: 12,
-              border: isOver ? "2px solid #c49a4a" : isMain ? "2px solid rgba(196,154,74,0.35)" : "1.5px solid rgba(26,20,16,0.08)",
-              background: isMain ? "rgba(196,154,74,0.04)" : isDrag ? "rgba(26,20,16,0.03)" : "#faf8f4",
-              cursor: "grab", opacity: isDrag ? 0.5 : 1, transition: "all 0.15s",
-            }}
-          >
-            <span style={{ fontSize: 20, color: "rgba(26,20,16,0.2)", cursor: "grab", flexShrink: 0 }}>&#8801;</span>
-            <div style={{ flexShrink: 0, width: 30, textAlign: "center" }}>
-              {isMain
-                ? <span style={{ fontSize: 10, fontWeight: 900, color: "#c49a4a", background: "rgba(196,154,74,0.12)", padding: "2px 5px", borderRadius: 5 }}>MAIN</span>
-                : <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.28)" }}>{i + 1}</span>
-              }
+          <div key={k} draggable
+            onDragStart={()=>setDragIdx(i)} onDragEnd={()=>{setDragIdx(null);setDragOver(null);}}
+            onDragOver={e=>{e.preventDefault();setDragOver(i);}}
+            onDrop={e=>{e.preventDefault();if(dragIdx!==null&&dragIdx!==i)reorder(dragIdx,i);setDragOver(null);setDragIdx(null);}}
+            style={{display:"flex",alignItems:"center",gap:12,padding:"12px 14px",borderRadius:12,
+              border:dragOver===i?"2px solid #c49a4a":isMain?"2px solid rgba(196,154,74,0.4)":"1.5px solid rgba(26,20,16,0.08)",
+              background:isMain?"rgba(196,154,74,0.04)":"#faf8f4",cursor:"grab",opacity:dragIdx===i?0.5:1}}>
+            <span style={{fontSize:20,color:"rgba(26,20,16,0.2)",flexShrink:0}}>&#8801;</span>
+            <div style={{flexShrink:0,width:36,textAlign:"center"}}>
+              {isMain?<span style={{fontSize:10,fontWeight:900,color:"#c49a4a",background:"rgba(196,154,74,0.12)",padding:"2px 6px",borderRadius:5}}>MAIN</span>
+                     :<span style={{fontSize:13,fontWeight:700,color:"rgba(26,20,16,0.3)"}}>{i+1}</span>}
             </div>
-            <div style={{ width: 52, height: 52, borderRadius: 8, overflow: "hidden", background: "#ede8df", flexShrink: 0, border: "1px solid rgba(26,20,16,0.08)" }}>
-              {url
-                ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
-                : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontSize: 9, color: "rgba(26,20,16,0.15)", fontWeight: 900 }}>M!LK</div>
-              }
+            <div style={{width:56,height:56,borderRadius:8,overflow:"hidden",background:"#ede8df",flexShrink:0}}>
+              {url?<img src={url} alt="" style={{width:"100%",height:"100%",objectFit:"cover"}}/>
+                  :<div style={{width:"100%",height:"100%",display:"grid",placeItems:"center",fontSize:9,color:"rgba(26,20,16,0.15)",fontWeight:900}}>M!LK</div>}
             </div>
-            <input
-              value={url}
-              onChange={e => set(k as string, e.target.value)}
-              placeholder={isMain ? "URL photo principale..." : `URL photo ${i + 1}...`}
-              style={{ ...IS, flex: 1, fontSize: 13 }}
-            />
-            <label style={{ flexShrink: 0, cursor: "pointer" }}>
-              <input type="file" accept="image/*" style={{ display: "none" }}
-                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(i, f); e.target.value = ""; }} />
-              <div style={{ padding: "9px 13px", borderRadius: 8, background: uploading === i ? "#e5e7eb" : "#1a1410", color: uploading === i ? "#9ca3af" : "#f2ede6", fontWeight: 800, fontSize: 12 }}>
-                {uploading === i ? "..." : "Uploader"}
+            <input value={url} onChange={e=>set(k as string,e.target.value)}
+              placeholder={isMain?"URL photo principale...":`URL photo ${i+1}...`}
+              style={{...IS,flex:1,fontSize:14}}/>
+            <label style={{flexShrink:0,cursor:"pointer"}}>
+              <input type="file" accept="image/*" style={{display:"none"}}
+                onChange={e=>{const f=e.target.files?.[0];if(f)handleUpload(i,f);e.target.value="";}}/>
+              <div style={{padding:"10px 14px",borderRadius:8,background:uploading===i?"#e5e7eb":"#1a1410",color:uploading===i?"#9ca3af":"#f2ede6",fontWeight:800,fontSize:13}}>
+                {uploading===i?"...":"⬆ Upload"}
               </div>
             </label>
-            {url && (
-              <button type="button" onClick={() => set(k as string, "")}
-                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.05)", cursor: "pointer", color: "#dc2626", fontSize: 16, fontWeight: 900, flexShrink: 0 }}>
-                x
-              </button>
-            )}
-            {msgs[i]?.txt && (
-              <span style={{ fontSize: 11, fontWeight: 700, color: msgs[i].ok ? "#166534" : "#b91c1c", flexShrink: 0 }}>
-                {msgs[i].ok ? "OK" : msgs[i].txt}
-              </span>
-            )}
+            {url&&<button type="button" onClick={()=>set(k as string,"")}
+              style={{width:30,height:30,borderRadius:6,border:"1px solid rgba(220,38,38,0.2)",background:"rgba(220,38,38,0.05)",cursor:"pointer",color:"#dc2626",fontSize:16,fontWeight:900,flexShrink:0}}>×</button>}
+            {msgs[i]?.txt&&<span style={{fontSize:11,fontWeight:700,color:msgs[i].ok?"#166534":"#b91c1c",flexShrink:0}}>{msgs[i].ok?"✅":"❌ "+msgs[i].txt}</span>}
           </div>
         );
       })}
@@ -315,6 +273,7 @@ function PhotosDragDrop({ photoKeys, form, set }: {
   );
 }
 
+// ── PhotoField ────────────────────────────────────────────────────────────────
 function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   label: string; fieldKey: string; value: string;
   isMain: boolean; onSetMain: () => void;
@@ -1132,7 +1091,7 @@ export default function AdminProductForm() {
 
   return (
     <div style={{ minHeight: "100vh" }}>
-    <div style={{ padding: "32px 40px", maxWidth: 1100, margin: "0 auto" }}>
+    <div style={{ padding: "32px 48px 120px", maxWidth: 1400, margin: "0 auto" }}>
 
       {/* ── En-tête ── */}
       <div style={{ display: "flex", alignItems: "center", gap: 16, marginBottom: 32, flexWrap: "wrap" }}>
@@ -1148,11 +1107,7 @@ export default function AdminProductForm() {
           <span style={{ fontSize: 16 }}>📋</span>
           Copier depuis…
         </button>
-        <button onClick={() => setShowPreview(v => !v)}
-          style={{ padding: "10px 18px", borderRadius: 10, border: `2px solid ${showPreview ? "#c49a4a" : "rgba(0,0,0,0.12)"}`, background: showPreview ? "#1a1410" : "#fff", color: showPreview ? "#c49a4a" : "#1a1410", cursor: "pointer", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", gap: 7, whiteSpace: "nowrap" }}>
-          <span style={{ fontSize: 16 }}>👁</span>
-          {showPreview ? "Masquer l'aperçu" : "Aperçu fiche"}
-        </button>
+
 
         {!isNew && (
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -1170,11 +1125,11 @@ export default function AdminProductForm() {
         )}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, alignItems: "start" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
 
         {/* ── 1. GÉNÉRAL ── */}
         <div style={SECTION}>
-          <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410" }}>Informations générales</div>
+          <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Informations générales</div>
 
           <Field label="Nom du produit *" fieldKey="name"
             placeholder="Ex : Pyjama Bambou — Tropical" value={form.name} onChange={set} />
@@ -1218,13 +1173,11 @@ export default function AdminProductForm() {
           </div>
         </div>
 
-        {/* -- 2. PHOTOS -- glisser-deposer */}
+        {/* ── 2. PHOTOS ── drag & drop */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>Photos (8 max)</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
-              Glisse les lignes pour reordonner -- la premiere est toujours la photo principale
-            </div>
+            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Photos (8 max)</div>
+            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Glisse pour réordonner — la 1re = photo principale</div>
           </div>
           <PhotosDragDrop photoKeys={photoKeys} form={form} set={set} />
         </div>
@@ -1232,7 +1185,7 @@ export default function AdminProductForm() {
         {/* ── 3. TAILLES ── */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>Tailles disponibles</div>
+            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Tailles disponibles</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
               Coche les tailles suggérées ou crée une taille libre
             </div>
@@ -1317,7 +1270,7 @@ export default function AdminProductForm() {
         <div style={SECTION}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>Couleurs & motifs</div>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Couleurs & motifs</div>
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6, maxWidth: 420 }}>
                 Ajoute une couleur ou un motif. Clique sur la pastille pour uploader l'image du motif coloré.
               </div>
@@ -1372,50 +1325,11 @@ export default function AdminProductForm() {
           )}
         </div>
 
-        {/* Espace pour la barre fixe en bas */}
-        <div style={{ height: 80 }} />
-
-      </div>
-    </div>
-
-    {/* ── Barre fixe bas de page ── */}
-    <div style={{
-      position: "fixed", bottom: 0, left: 240, right: 0, zIndex: 100,
-      background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
-      borderTop: "2px solid rgba(26,20,16,0.1)",
-      padding: "16px 32px", display: "flex", alignItems: "center", gap: 14,
-      boxShadow: "0 -6px 24px rgba(0,0,0,0.1)",
-    }}>
-      {/* Bouton enregistrer — à GAUCHE en grand */}
-      <button onClick={handleSave} disabled={saving}
-        style={{ padding: "16px 40px", borderRadius: 14, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 17, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 4px 16px rgba(0,0,0,0.25)", transition: "all 0.15s", letterSpacing: -0.3 }}>
-        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
-      </button>
-      {/* Bouton aperçu */}
-      <button onClick={() => setShowPreview(v => !v)}
-        style={{ padding: "16px 24px", borderRadius: 14, background: showPreview ? "#c49a4a" : "rgba(26,20,16,0.08)", color: "#1a1410", fontWeight: 800, fontSize: 16, border: "2px solid rgba(26,20,16,0.12)", cursor: "pointer", transition: "all 0.15s" }}>
-        👁 Aperçu
-      </button>
-      {/* Bouton supprimer */}
-      {!isNew && (
-        <button onClick={handleDelete}
-          style={{ padding: "16px 24px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 16, border: "none", cursor: "pointer" }}>
-          🗑 Supprimer
-        </button>
-      )}
-      {/* Statut */}
-      <div style={{ marginLeft: "auto", fontSize: 13, color: "rgba(26,20,16,0.35)", fontWeight: 600 }}>
-        Pense à enregistrer après chaque modification
-      </div>
-    </div>
-
-    {/* ── Sections droite : Promo, Contenu, FAQ, SEO ── */}
-    <div style={{ padding: "24px 32px", display: "grid", gap: 20, paddingBottom: 100 }}>
         {/* ── 5. PROMO ── */}
         <div style={{ padding: 24, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 16 }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410" }}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>
                 Prix promotionnel
                 {hasPromo && <span style={{ marginLeft: 10, padding: "3px 10px", borderRadius: 99, background: "#f59e0b", color: "#fff", fontSize: 12, fontWeight: 800 }}>ACTIVE</span>}
               </div>
@@ -1438,7 +1352,7 @@ export default function AdminProductForm() {
         {/* ── 6. CONTENU FICHE PRODUIT ── */}
         <div style={{ ...SECTION, border: "2px solid rgba(196,154,74,0.25)", background: "#fffdf8" }}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>
+            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>
               🎨 Contenu de la fiche produit
             </div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>
@@ -1493,7 +1407,7 @@ export default function AdminProductForm() {
         <div style={{ ...SECTION, border: "2px solid rgba(26,20,16,0.1)" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>
                 ❓ FAQ — Questions fréquentes
               </div>
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", lineHeight: 1.6 }}>
@@ -1531,7 +1445,7 @@ export default function AdminProductForm() {
         {/* ── 8. SEO ── */}
         <div style={SECTION}>
           <div>
-            <div style={{ fontWeight: 900, fontSize: 19, color: "#1a1410", marginBottom: 5 }}>SEO — Référencement Google</div>
+            <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>SEO — Référencement Google</div>
             <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Optionnel — si vide, le nom et la description sont utilisés</div>
           </div>
           <Field label="Titre SEO" fieldKey="seo_title"
@@ -1569,12 +1483,31 @@ export default function AdminProductForm() {
               : "Modifications non enregistrées"}
         </div>
 
-
-      {/* Espace barre fixe */}
-      <div style={{ height: 20 }} />
+      </div>
     </div>
 
-    {/* -- MODALE DUPLICATION -- */}
+    {/* ── BARRE FIXE BAS ── */}
+    <div style={{ position:"fixed", bottom:0, left:240, right:0, zIndex:100, background:"rgba(255,255,255,0.97)", backdropFilter:"blur(12px)", borderTop:"2px solid rgba(26,20,16,0.1)", padding:"14px 32px", display:"flex", alignItems:"center", gap:14, boxShadow:"0 -4px 20px rgba(0,0,0,0.1)" }}>
+      <button onClick={handleSave} disabled={saving}
+        style={{ padding:"15px 40px", borderRadius:12, background:saving?"#e5e7eb":"#1a1410", color:saving?"#9ca3af":"#c49a4a", fontWeight:900, fontSize:18, border:"none", cursor:saving?"not-allowed":"pointer", boxShadow:saving?"none":"0 4px 16px rgba(0,0,0,0.25)", transition:"all 0.15s" }}>
+        {saving ? "⏳ Enregistrement..." : isNew ? "✅ Créer" : "✅ Enregistrer"}
+      </button>
+      <button onClick={() => setShowPreview(v => !v)}
+        style={{ padding:"15px 28px", borderRadius:12, background:showPreview?"#c49a4a":"rgba(26,20,16,0.08)", color:"#1a1410", fontWeight:800, fontSize:16, border:"2px solid rgba(26,20,16,0.12)", cursor:"pointer", transition:"all 0.15s" }}>
+        👁 Aperçu
+      </button>
+      {!isNew && (
+        <button onClick={handleDelete}
+          style={{ padding:"15px 24px", borderRadius:12, background:"#fee2e2", color:"#b91c1c", fontWeight:800, fontSize:16, border:"none", cursor:"pointer" }}>
+          🗑 Supprimer
+        </button>
+      )}
+      <div style={{ marginLeft:"auto", fontSize:13, color:"rgba(26,20,16,0.35)", fontWeight:600 }}>
+        {lastSaved ? `Enregistré à ${lastSaved.toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"})}` : "Pense à enregistrer"}
+      </div>
+    </div>
+
+    {/* ── MODALE DUPLICATION ── */}
     {showDuplicateModal && (
       <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
         onClick={e => { if (e.target === e.currentTarget) setShowDuplicateModal(false); }}>
@@ -1627,24 +1560,20 @@ export default function AdminProductForm() {
       </div>
     )}
 
-    {/* ── MODALE APERÇU PLEIN ÉCRAN ── */}
+    {/* ── MODALE APERÇU ── */}
     {showPreview && (
-      <div
-        onClick={e => { if (e.target === e.currentTarget) setShowPreview(false); }}
-        style={{ position: "fixed", inset: 0, zIndex: 200, background: "rgba(26,20,16,0.7)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "24px" }}>
-        <div style={{ width: "100%", maxWidth: 520, height: "90vh", borderRadius: 20, overflow: "hidden", background: "#ede8df", boxShadow: "0 24px 64px rgba(0,0,0,0.4)", display: "flex", flexDirection: "column" }}>
-          {/* Header modale */}
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 20px", borderBottom: "1px solid rgba(26,20,16,0.12)", background: "#c4ae94", flexShrink: 0 }}>
+      <div onClick={e=>{if(e.target===e.currentTarget)setShowPreview(false);}}
+        style={{ position:"fixed", inset:0, zIndex:200, background:"rgba(26,20,16,0.8)", backdropFilter:"blur(6px)", display:"flex", alignItems:"center", justifyContent:"center", padding:40 }}>
+        <div style={{ width:"100%", maxWidth:1100, height:"92vh", borderRadius:20, overflow:"hidden", background:"#ede8df", boxShadow:"0 32px 80px rgba(0,0,0,0.5)", display:"flex", flexDirection:"column" }}>
+          <div style={{ display:"flex", alignItems:"center", justifyContent:"space-between", padding:"18px 28px", borderBottom:"1px solid rgba(26,20,16,0.12)", background:"#c4ae94", flexShrink:0 }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#1a1410" }}>Aperçu fiche produit</div>
-              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>Temps réel</div>
+              <div style={{ fontSize:13, fontWeight:800, letterSpacing:2, textTransform:"uppercase", color:"#1a1410" }}>Aperçu fiche produit</div>
+              <div style={{ fontSize:12, color:"rgba(26,20,16,0.5)", fontWeight:600 }}>Format desktop — temps réel — clique en dehors pour fermer</div>
             </div>
-            <button onClick={() => setShowPreview(false)}
-              style={{ width: 32, height: 32, borderRadius: 99, background: "rgba(26,20,16,0.15)", border: "none", cursor: "pointer", color: "#1a1410", fontSize: 18, display: "grid", placeItems: "center", fontWeight: 900 }}>
-              ✕
-            </button>
+            <button onClick={()=>setShowPreview(false)}
+              style={{ width:38, height:38, borderRadius:99, background:"rgba(26,20,16,0.15)", border:"none", cursor:"pointer", color:"#1a1410", fontSize:22, display:"grid", placeItems:"center", fontWeight:900 }}>✕</button>
           </div>
-          <div style={{ overflowY: "auto", flex: 1, scrollbarWidth: "none" }}>
+          <div style={{ overflowY:"auto", flex:1, padding:"32px 40px", display:"grid", gridTemplateColumns:"1fr 1fr", gap:40, alignItems:"start", scrollbarWidth:"none" }}>
 
         {!hasPreviewContent ? (
           <div style={{ padding: "60px 20px", textAlign: "center", color: "rgba(26,20,16,0.3)", fontSize: 13 }}>

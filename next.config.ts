@@ -1,8 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  // Force Webpack — désactive Turbopack qui a un bug sur Vercel
-  webpack: (config) => config,
+  turbopack: {},
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "ntkqmnenczltlwplswka.supabase.co" },

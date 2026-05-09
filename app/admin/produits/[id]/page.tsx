@@ -799,6 +799,17 @@ export default function AdminProductForm() {
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [allProducts,  setAllProducts]  = useState<any[]>([]);
   const [loadingProds, setLoadingProds] = useState(false);
+  const [activeTab,    setActiveTab]    = useState("general");
+
+  const TABS = [
+    { id: "general",  label: "Infos générales" },
+    { id: "photos",   label: "Photos" },
+    { id: "stock",    label: "Tailles · Couleurs · Stock" },
+    { id: "promo",    label: "Promos" },
+    { id: "contenu",  label: "Contenu fiche" },
+    { id: "faq",      label: "FAQ" },
+    { id: "seo",      label: "SEO" },
+  ];
 
   // Chargement produit existant
   useEffect(() => {
@@ -1088,17 +1099,6 @@ export default function AdminProductForm() {
   const previewPhilo     = ficheCards.find(c => c.type === "philosophy")?.content ?? "";
   const priceDisplay     = form.promo_price ? Number(form.promo_price) : Number(form.price_ttc || 0);
   const hasPreviewContent = form.name || previewSubtitle || previewFeatures.length > 0 || previewWR || ficheCards.length > 0;
-
-  const TABS = [
-    { id: "general",  label: "Infos générales" },
-    { id: "photos",   label: "Photos" },
-    { id: "stock",    label: "Tailles · Couleurs · Stock" },
-    { id: "promo",    label: "Promos" },
-    { id: "contenu",  label: "Contenu fiche" },
-    { id: "faq",      label: "FAQ" },
-    { id: "seo",      label: "SEO" },
-  ];
-  const [activeTab, setActiveTab] = React.useState("general");
 
   return (
   <div style={{ minHeight: "100vh", background: "#f5f0e8" }}>

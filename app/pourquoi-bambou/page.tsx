@@ -5,10 +5,9 @@ import Link  from "next/link";
 import { C, Divider, Reveal, BigTextScroll, Ticker, MILK_STYLES } from "@/components/shared/MilkDesign";
 
 const PROPRIETES = [
-  { titre: "Thermorégulation naturelle", texte: "La fibre de bambou absorbe et évacue l'humidité 3× plus vite que le coton. Votre nourrisson reste à la bonne température, été comme hiver. Moins de surchauffe, moins de sueurs, moins de réveils nocturnes.", stat: "3×", statLabel: "plus respirant que le coton", image: "/images/pourquoi-bambou/milk_pkoi_bambou_thermoregulation_tissu_macro.webp", imageAlt: "Macro tissu bambou M!LK — thermorégulation naturelle certifiée OEKO-TEX" },
+  { titre: "Thermorégulation naturelle", texte: "La fibre de bambou absorbe et évacue l'humidité 3× plus vite que le coton. Votre nourrisson reste à la bonne température, été comme hiver. Moins de surchauffe, moins de sueurs, moins de réveils nocturnes.", stat: "3×", statLabel: "plus respirant que le coton", image: "/images/pourquoi-bambou/bambou-thermoregulation.jpg", imageAlt: "Macro tissu bambou M!LK — thermorégulation naturelle certifiée OEKO-TEX" },
   { titre: "Douceur extrême", texte: "Les microfibres de bambou sont naturellement rondes, sans aspérités. La sensation est comparable à la soie. Pour la peau d'un nourrisson — 5× plus fine que celle d'un adulte — chaque frottement compte.", stat: "5×", statLabel: "plus doux que le coton classique", image: "/images/pourquoi-bambou/milk_pkoi_bambou_douceur_main_bebe.webp", imageAlt: "Main bébé sur tissu waffle bambou M!LK — douceur extrême" },
   { titre: "Antibactérien naturel", texte: "Le bambou contient une substance naturelle qui inhibe la croissance des bactéries. Moins de bactéries : moins d'odeurs, moins d'irritations cutanées, moins de risques pour la peau ultra-sensible de votre nourrisson.", stat: "70%", statLabel: "de bactéries en moins vs coton", image: "/images/pourquoi-bambou/milk_pkoi_bambou_naturel_hypoallergenique_stack.webp", imageAlt: "Stack vêtements bambou M!LK pliés tons naturels — antibactérien hypoallergénique" },
-  { titre: "Certifié OEKO-TEX Standard 100", texte: "Chaque produit M!LK est certifié OEKO-TEX Standard 100. Plus de 100 substances nocives testées. Résultat : zéro compromis sur la sécurité de votre nourrisson.", stat: "0", statLabel: "substance nocive détectée", image: "/images/pourquoi-bambou/milk_pkoi_bambou_doux_reves_lit_bebe.webp", imageAlt: "Lit bébé bois lumineux avec vêtements M!LK bambou — certifié OEKO-TEX, zéro substance nocive" },
 ];
 
 const COMPARATIF = [
@@ -136,7 +135,7 @@ export default function PourquoiBambouPage() {
         <div className="pb-otg" style={{ maxWidth: 1200, margin: "0 auto" }}>
           <Reveal>
             <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", aspectRatio: "1", boxShadow: "0 16px 48px rgba(0,0,0,0.15)" }}>
-              <Image src="/images/pourquoi-bambou/milk_pkoi_bambou_oekotex_rouleau_pierres.webp" alt="Tissu bambou roulé avec pierres naturelles — certification OEKO-TEX M!LK" fill sizes="50vw" style={{ objectFit: "cover" }} />
+              <Image src="/images/pourquoi-bambou/bambou-oekotex.webp" alt="Tissu bambou roulé avec pierres naturelles — certification OEKO-TEX M!LK" fill sizes="50vw" style={{ objectFit: "cover" }} />
             </div>
           </Reveal>
           <Reveal delay={0.12}>

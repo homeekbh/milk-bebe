@@ -1,30 +1,21 @@
-import { NextResponse } from "next/server";
-import type { NextRequest } from "next/server";
+import type { MetadataRoute } from "next";
 
-export async function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-  // ── COMING SOON ──────────────────────────────────────────────────────────
-  // Décommenter ce bloc pour activer le coming-soon sur milkbebe.fr
-  // Commenter ce bloc pour mettre le site en ligne
-  //
-  // const host   = req.headers.get("host") ?? "";
-  // const isProd = host.includes("milkbebe.fr");
-  // if (
-  //   isProd &&
-  //   !pathname.startsWith("/coming-soon") &&
-  //   !pathname.startsWith("/api") &&
-  //   !pathname.startsWith("/admin") &&
-  //   !pathname.startsWith("/_next") &&
-  //   !pathname.startsWith("/favicon")
-  // ) {
-  //   return NextResponse.redirect(new URL("/coming-soon", req.url));
-  // }
-  // ─────────────────────────────────────────────────────────────────────────
-
-  return NextResponse.next();
+export default function sitemap(): MetadataRoute.Sitemap {
+  return [
+    { url: BASE,                                lastModified: new Date(), changeFrequency: "weekly",  priority: 1.0 },
+    { url: `${BASE}/produits`,                  lastModified: new Date(), changeFrequency: "daily",   priority: 0.9 },
+    { url: `${BASE}/categorie/bodies`,          lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${BASE}/categorie/pyjamas`,         lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${BASE}/categorie/gigoteuses`,      lastModified: new Date(), changeFrequency: "weekly",  priority: 0.8 },
+    { url: `${BASE}/categorie/accessoires`,     lastModified: new Date(), changeFrequency: "weekly",  priority: 0.7 },
+    { url: `${BASE}/qui-sommes-nous`,           lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/pourquoi-bambou`,           lastModified: new Date(), changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE}/contact`,                   lastModified: new Date(), changeFrequency: "monthly", priority: 0.5 },
+    { url: `${BASE}/livraison`,                 lastModified: new Date(), changeFrequency: "monthly", priority: 0.4 },
+    { url: `${BASE}/cgv`,                       lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+    { url: `${BASE}/mentions-legales`,          lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+    { url: `${BASE}/politique-confidentialite`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+  ];
 }
-
-export const config = {
-  matcher: ["/((?!_next/static|_next/image|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)).*)" ],
-};

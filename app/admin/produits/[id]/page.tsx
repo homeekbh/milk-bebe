@@ -1530,24 +1530,39 @@ export default function AdminProductForm() {
               : "Modifications non enregistrées"}
         </div>
 
-        {/* ── Actions sticky ── */}
-        <div style={{ display: "flex", gap: 12, position: "sticky", bottom: 20 }}>
-          <button onClick={handleSave} disabled={saving}
-            style={{ flex: 1, padding: "16px", borderRadius: 14, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1, boxShadow: "0 4px 20px rgba(0,0,0,0.2)" }}>
-            {saving ? "Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer les modifications"}
-          </button>
-          {!isNew && (
-            <button onClick={handleDelete}
-              style={{ padding: "16px 22px", borderRadius: 14, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
-              🗑 Supprimer
-            </button>
-          )}
-        </div>
+        {/* Espace pour la barre fixe en bas */}
+        <div style={{ height: 80 }} />
 
       </div>
     </div>
 
-    {/* ── MODALE DUPLICATION ── */}
+    {/* ── Barre fixe bas de page ── */}
+    <div style={{
+      position: "fixed", bottom: 0, left: 240, right: 0, zIndex: 100,
+      background: "rgba(255,255,255,0.97)", backdropFilter: "blur(12px)",
+      borderTop: "1px solid rgba(26,20,16,0.1)",
+      padding: "12px 32px", display: "flex", alignItems: "center", gap: 12,
+      boxShadow: "0 -4px 20px rgba(0,0,0,0.08)",
+    }}>
+      {/* Statut modif */}
+      <div style={{ flex: 1, fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
+        <span style={{ color: "rgba(26,20,16,0.4)" }}>Modifications non enregistrées tant que tu n'as pas cliqué Enregistrer</span>
+      </div>
+      {/* Bouton supprimer */}
+      {!isNew && (
+        <button onClick={handleDelete}
+          style={{ padding: "10px 20px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>
+          🗑 Supprimer
+        </button>
+      )}
+      {/* Bouton enregistrer */}
+      <button onClick={handleSave} disabled={saving}
+        style={{ padding: "11px 28px", borderRadius: 10, background: saving ? "#e5e7eb" : "#1a1410", color: saving ? "#9ca3af" : "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: saving ? "not-allowed" : "pointer", boxShadow: saving ? "none" : "0 2px 12px rgba(0,0,0,0.2)", transition: "all 0.15s" }}>
+        {saving ? "Enregistrement..." : isNew ? "✅ Créer le produit" : "✅ Enregistrer"}
+      </button>
+    </div>
+
+    {/* -- MODALE DUPLICATION -- */}
     {showDuplicateModal && (
       <div style={{ position: "fixed", inset: 0, zIndex: 99999, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
         onClick={e => { if (e.target === e.currentTarget) setShowDuplicateModal(false); }}>

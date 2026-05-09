@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link  from "next/link";
 import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign";
@@ -116,6 +117,8 @@ const ESSENTIELS = [
 export default function ProduitsGrid({ products, title, subtitle, defaultCategory }: {
   products: Product[]; title: string; subtitle?: string; defaultCategory?: string;
 }) {
+  const router = useRouter();
+  const router = useRouter();
   const [activeCategory, setActiveCategory] = useState(defaultCategory ?? "");
   const [sortValue,      setSortValue]      = useState("position");
   const [search,         setSearch]         = useState("");
@@ -138,7 +141,15 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);
 
-  function changeCat(slug: string)    { setActiveCategory(slug); setPage(1); }
+  function changeCat(slug: string) {
+    // Si on est sur une page /categorie/[slug], naviguer vers la nouvelle catégorie
+    if (defaultCategory && slug && slug !== defaultCategory) {
+      router.push(slug === "" ? "/produits" : `/categorie/${slug}`);
+      return;
+    }
+    setActiveCategory(slug);
+    setPage(1);
+  }
   function changeSort(v: string)      { setSortValue(v);          setPage(1); }
   function changeSearch(v: string)    { setSearch(v);             setPage(1); }
 

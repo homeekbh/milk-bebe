@@ -1,8 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
-
-// Pas de vérification d'auth côté route —
-// la sécurité est assurée par la RLS Supabase (service role uniquement)
-// et par le fait que la page /admin/homepage est protégée par le middleware.
+import { requireAdmin }   from "@/lib/admin-auth";
+import type { NextRequest } from "next/server";
 
 export async function GET() {
   const { data, error } = await supabaseServer
@@ -20,7 +18,11 @@ export async function GET() {
   );
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  // ✅ Protection admin
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const body = await req.json();
   const { section_title, product_ids } = body;
 

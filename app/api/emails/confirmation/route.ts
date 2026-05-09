@@ -98,7 +98,8 @@ function emailConfirmation(
 
 export async function POST(req: Request) {
   try {
-    const { email, prenom, items, amount_total, order_id } = await req.json();
+    const { email, prenom, customer_name, items, amount_total, order_id } = await req.json();
+    const firstName = prenom || (customer_name ? customer_name.split(' ')[0] : "");
 
     if (!email) return Response.json({ error: "Email manquant" }, { status: 400 });
 
@@ -106,7 +107,7 @@ export async function POST(req: Request) {
       from:    "M!LK <contact@milkbebe.fr>",
       to:      email,
       subject: `✅ Commande confirmée — M!LK #${order_id?.slice(0, 8).toUpperCase()}`,
-      html:    emailConfirmation(prenom ?? "", email, items ?? [], amount_total ?? 0, order_id ?? ""),
+      html:    emailConfirmation(firstName, email, items ?? [], amount_total ?? 0, order_id ?? ""),
     });
 
     if (error) {

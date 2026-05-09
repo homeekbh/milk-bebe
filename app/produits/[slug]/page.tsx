@@ -426,7 +426,7 @@ export default function ProductPage() {
   const lowStock       = !out && Number(product.stock ?? 0) <= 5;
   const displayPrice   = promo ? product.promo_price : product.price_ttc;
   const badgeLabel     = out ? undefined : (product.label || (promo ? "promo" : undefined));
-  const allImages      = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4].filter(Boolean) as string[];
+  const allImages      = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4, product.image_url_5, product.image_url_6, product.image_url_7, product.image_url_8].filter(Boolean) as string[];
   const taillesDispos  : string[]              = Array.isArray(product.sizes)  ? product.sizes  : [];
   const sizesStock     : Record<string,number> = product.sizes_stock ?? {};
   const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
@@ -498,7 +498,7 @@ export default function ProductPage() {
           <span>/</span>
           <Link href="/produits" style={{ textDecoration: "none", color: "inherit" }}>Produits</Link>
           <span>/</span>
-          <Link href={`/produits?categorie=${productCat}`} style={{ textDecoration: "none", color: "inherit" }}>
+          <Link href={`/categorie/${productCat}`} style={{ textDecoration: "none", color: "inherit" }}>
             {({ bodies: "Bodies", pyjamas: "Pyjamas", gigoteuses: "Gigoteuses", accessoires: "Accessoires", bonnets: "Bonnets", langes: "Langes" } as Record<string,string>)[productCat] || productCat}
           </Link>
           <span>/</span>

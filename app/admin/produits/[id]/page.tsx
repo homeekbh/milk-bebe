@@ -204,6 +204,117 @@ const SECTION: React.CSSProperties = {
 };
 
 // ── PhotoField ────────────────────────────────────────────────────────────────
+function PhotosDragDrop({ photoKeys, form, set }: {
+  photoKeys: readonly string[];
+  form: any;
+  set: (k: string, v: string) => void;
+}) {
+  const [dragIdx,  setDragIdx]  = React.useState<number | null>(null);
+  const [dragOver, setDragOver] = React.useState<number | null>(null);
+  const [uploading, setUploading] = React.useState<number | null>(null);
+  const [msgs, setMsgs] = React.useState<Record<number, { ok: boolean; txt: string }>>({});
+
+  const photos = photoKeys.map(k => form[k] ?? "");
+
+  function reorder(from: number, to: number) {
+    const arr = [...photos];
+    const [moved] = arr.splice(from, 1);
+    arr.splice(to, 0, moved);
+    photoKeys.forEach((k, i) => set(k as string, arr[i] ?? ""));
+  }
+
+  async function handleUpload(idx: number, file: File) {
+    setUploading(idx);
+    setMsgs(m => ({ ...m, [idx]: { ok: false, txt: "" } }));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      let token = "";
+      try {
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i) ?? "";
+          if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+            const p = JSON.parse(localStorage.getItem(key) ?? "{}");
+            token = p.access_token ?? ""; if (token) break;
+          }
+        }
+      } catch {}
+      const res  = await fetch("/api/admin/upload", { method: "POST", body: fd, headers: token ? { Authorization: "Bearer " + token } : {} });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Erreur upload");
+      set(photoKeys[idx] as string, data.url);
+      setMsgs(m => ({ ...m, [idx]: { ok: true, txt: "Uploadee" } }));
+    } catch (e: any) {
+      setMsgs(m => ({ ...m, [idx]: { ok: false, txt: e.message } }));
+    } finally { setUploading(null); }
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {photoKeys.map((k, i) => {
+        const url    = photos[i];
+        const isMain = i === 0;
+        const isDrag = dragIdx === i;
+        const isOver = dragOver === i;
+        return (
+          <div key={k}
+            draggable
+            onDragStart={() => setDragIdx(i)}
+            onDragEnd={() => { setDragIdx(null); setDragOver(null); }}
+            onDragOver={e => { e.preventDefault(); setDragOver(i); }}
+            onDrop={e => { e.preventDefault(); if (dragIdx !== null && dragIdx !== i) reorder(dragIdx, i); setDragOver(null); setDragIdx(null); }}
+            style={{
+              display: "flex", alignItems: "center", gap: 12,
+              padding: "10px 14px", borderRadius: 12,
+              border: isOver ? "2px solid #c49a4a" : isMain ? "2px solid rgba(196,154,74,0.35)" : "1.5px solid rgba(26,20,16,0.08)",
+              background: isMain ? "rgba(196,154,74,0.04)" : isDrag ? "rgba(26,20,16,0.03)" : "#faf8f4",
+              cursor: "grab", opacity: isDrag ? 0.5 : 1, transition: "all 0.15s",
+            }}
+          >
+            <span style={{ fontSize: 20, color: "rgba(26,20,16,0.2)", cursor: "grab", flexShrink: 0 }}>&#8801;</span>
+            <div style={{ flexShrink: 0, width: 30, textAlign: "center" }}>
+              {isMain
+                ? <span style={{ fontSize: 10, fontWeight: 900, color: "#c49a4a", background: "rgba(196,154,74,0.12)", padding: "2px 5px", borderRadius: 5 }}>MAIN</span>
+                : <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.28)" }}>{i + 1}</span>
+              }
+            </div>
+            <div style={{ width: 52, height: 52, borderRadius: 8, overflow: "hidden", background: "#ede8df", flexShrink: 0, border: "1px solid rgba(26,20,16,0.08)" }}>
+              {url
+                ? <img src={url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />
+                : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontSize: 9, color: "rgba(26,20,16,0.15)", fontWeight: 900 }}>M!LK</div>
+              }
+            </div>
+            <input
+              value={url}
+              onChange={e => set(k as string, e.target.value)}
+              placeholder={isMain ? "URL photo principale..." : `URL photo ${i + 1}...`}
+              style={{ ...IS, flex: 1, fontSize: 13 }}
+            />
+            <label style={{ flexShrink: 0, cursor: "pointer" }}>
+              <input type="file" accept="image/*" style={{ display: "none" }}
+                onChange={e => { const f = e.target.files?.[0]; if (f) handleUpload(i, f); e.target.value = ""; }} />
+              <div style={{ padding: "9px 13px", borderRadius: 8, background: uploading === i ? "#e5e7eb" : "#1a1410", color: uploading === i ? "#9ca3af" : "#f2ede6", fontWeight: 800, fontSize: 12 }}>
+                {uploading === i ? "..." : "Uploader"}
+              </div>
+            </label>
+            {url && (
+              <button type="button" onClick={() => set(k as string, "")}
+                style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.05)", cursor: "pointer", color: "#dc2626", fontSize: 16, fontWeight: 900, flexShrink: 0 }}>
+                x
+              </button>
+            )}
+            {msgs[i]?.txt && (
+              <span style={{ fontSize: 11, fontWeight: 700, color: msgs[i].ok ? "#166534" : "#b91c1c", flexShrink: 0 }}>
+                {msgs[i].ok ? "OK" : msgs[i].txt}
+              </span>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function PhotoField({ label, fieldKey, value, isMain, onSetMain, onChange }: {
   label: string; fieldKey: string; value: string;
   isMain: boolean; onSetMain: () => void;
@@ -1107,19 +1218,15 @@ export default function AdminProductForm() {
           </div>
         </div>
 
-        {/* ── 2. PHOTOS ── */}
+        {/* -- 2. PHOTOS -- glisser-deposer */}
         <div style={SECTION}>
           <div>
             <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410", marginBottom: 4 }}>Photos (8 max)</div>
-            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Coche ⭐ pour définir la photo principale</div>
+            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
+              Glisse les lignes pour reordonner -- la premiere est toujours la photo principale
+            </div>
           </div>
-          {photoKeys.map((k, i) => (
-            <PhotoField key={k} label={photoLabels[i]} fieldKey={k}
-              value={form[k] ?? ""}
-              isMain={parseInt(form.main_image_index) === i}
-              onSetMain={() => set("main_image_index", String(i))}
-              onChange={set} />
-          ))}
+          <PhotosDragDrop photoKeys={photoKeys} form={form} set={set} />
         </div>
 
         {/* ── 3. TAILLES ── */}

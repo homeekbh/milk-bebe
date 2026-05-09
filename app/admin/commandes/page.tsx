@@ -212,9 +212,12 @@ export default function AdminCommandes() {
   const [saved,      setSaved]      = useState(false);
 
   // Données du formulaire d'expédition
-  const [tracking,     setTracking]     = useState("");
-  const [transporteur, setTransporteur] = useState("");
-  const [notes,        setNotes]        = useState("");
+  const [tracking,       setTracking]       = useState("");
+  const [transporteur,   setTransporteur]   = useState("");
+  const [notes,          setNotes]          = useState("");
+  const [labelUrl,       setLabelUrl]       = useState<string | null>(null);
+  const [generatingLabel, setGeneratingLabel] = useState(false);
+  const [labelError,     setLabelError]     = useState("");
 
   async function load() {
     setLoading(true);
@@ -236,6 +239,43 @@ export default function AdminCommandes() {
       setTransporteur("");
     }
   }, [selected, orders]);
+
+  // Générer l'étiquette Sendcloud automatiquement
+  async function generateLabel(order: Order) {
+    if (!transporteur) { setLabelError("Choisis un transporteur d'abord"); return; }
+    setGeneratingLabel(true);
+    setLabelError("");
+    setLabelUrl(null);
+    try {
+      const res = await adminFetch("/api/admin/sendcloud/create-label", {
+        method: "POST",
+        body: JSON.stringify({
+          order_id:    order.id,
+          transporteur,
+          customer: {
+            name:     order.customer_name,
+            email:    order.customer_email,
+            address:  order.shipping_address?.line1 ?? "",
+            city:     order.shipping_address?.city ?? "",
+            zip:      order.shipping_address?.postal_code ?? "",
+            country:  order.shipping_address?.country ?? "FR",
+          },
+          items: order.items,
+        }),
+      });
+      const data = await res.json();
+      if (data.tracking_number) {
+        setTracking(data.tracking_number);
+        if (data.label_url) setLabelUrl(data.label_url);
+      } else {
+        setLabelError(data.error ?? "Erreur génération étiquette");
+      }
+    } catch (e: any) {
+      setLabelError("Erreur réseau : " + e.message);
+    } finally {
+      setGeneratingLabel(false);
+    }
+  }
 
   async function handleShip(order: Order) {
     if (!tracking.trim() || !transporteur) return;
@@ -500,6 +540,40 @@ export default function AdminCommandes() {
                                 </a>
                               ) : null;
                             })()}
+                          </div>
+                        )}
+
+                        {/* ✅ Bouton Sendcloud — génération étiquette automatique */}
+                        {order.shipping_status !== "shipped" && (
+                          <div style={{ display: "grid", gap: 8 }}>
+                            <button
+                              onClick={() => generateLabel(order)}
+                              disabled={!transporteur || generatingLabel}
+                              style={{
+                                padding: "12px 16px",
+                                borderRadius: 12,
+                                border: "none",
+                                fontWeight: 900,
+                                fontSize: 14,
+                                cursor: (!transporteur || generatingLabel) ? "not-allowed" : "pointer",
+                                background: (!transporteur || generatingLabel) ? "#e5e7eb" : "#1d4ed8",
+                                color: (!transporteur || generatingLabel) ? "#9ca3af" : "#fff",
+                                transition: "all 0.2s",
+                              }}
+                            >
+                              {generatingLabel ? "⏳ Génération..." : "📦 Générer l'étiquette Sendcloud"}
+                            </button>
+                            {labelError && (
+                              <div style={{ padding: "8px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
+                                ✕ {labelError}
+                              </div>
+                            )}
+                            {labelUrl && (
+                              <a href={labelUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center", display: "block" }}>
+                                🖨️ Imprimer l'étiquette PDF →
+                              </a>
+                            )}
                           </div>
                         )}
 

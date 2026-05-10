@@ -818,7 +818,7 @@ export default function AdminProductForm() {
     { id: "general",  label: "Infos générales" },
     { id: "photos",   label: "Photos" },
     { id: "stock",    label: "Tailles · Couleurs · Stock" },
-    { id: "promo",    label: "Promos" },
+    { id: "promo",    label: "Tarif & Promos" },
     { id: "contenu",  label: "Contenu fiche" },
     { id: "faq",      label: "FAQ" },
     { id: "seo",      label: "SEO" },
@@ -1078,7 +1078,7 @@ export default function AdminProductForm() {
     setSaving(true); setError(""); setSuccess("");
     try {
       if (!form.name.trim()) throw new Error("Le nom est obligatoire");
-      if (!form.price_ttc)   throw new Error("Le prix est obligatoire");
+      if (!form.price_ttc)   throw new Error("Le prix est obligatoire — va dans l'onglet Tarif & Promos");
 
       const body = {
         ...form,
@@ -1229,16 +1229,16 @@ export default function AdminProductForm() {
             </div>
 
             <div style={SECTION}>
-              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Prix & Stock</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                <Field label="Prix TTC (€) *" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
-                <Field label="Stock total" fieldKey="stock" type="number" placeholder="0"
-                  value={computedStock !== null ? String(computedStock) : form.stock} onChange={set}
-                  hint={computedStock !== null ? `Calculé depuis couleurs : ${computedStock} u.` : undefined} />
-              </div>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Logistique</div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <Field label="Position" fieldKey="position" type="number" placeholder="0" value={form.position} onChange={set} hint="0 = premier" />
                 <Field label="Poids (g)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />
+              </div>
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Stock total</label>
+                <Field label="" fieldKey="stock" type="number" placeholder="0"
+                  value={computedStock !== null ? String(computedStock) : form.stock} onChange={set}
+                  hint={computedStock !== null ? `Calculé depuis motifs : ${computedStock} u.` : "Saisi manuellement si pas de motifs"} />
               </div>
             </div>
           </div>
@@ -1466,36 +1466,105 @@ export default function AdminProductForm() {
         </div>
       )}
 
-      {/* ═══ ONGLET 4 : PROMOS ═══ */}
+      {/* ═══ ONGLET 4 : TARIF & PROMOS ═══ */}
       {activeTab === "promo" && (
-        <div style={{ maxWidth: 600 }}>
-          <div style={{ padding: 32, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 20 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410" }}>
-                  Prix promotionnel
-                  {hasPromo && <span style={{ marginLeft: 10, padding: "3px 10px", borderRadius: 99, background: "#f59e0b", color: "#fff", fontSize: 13, fontWeight: 800 }}>ACTIVE</span>}
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start", maxWidth: 900 }}>
+
+          {/* Colonne gauche : Prix de vente */}
+          <div style={{ display: "grid", gap: 20 }}>
+            <div style={{ ...SECTION, border: "2px solid rgba(26,20,16,0.15)" }}>
+              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 4 }}>💶 Prix de vente</div>
+              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginBottom: 8 }}>Prix affiché sur la fiche produit</div>
+
+              <Field label="Prix TTC (€) *" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
+
+              {/* Aperçu prix */}
+              {form.price_ttc && (
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "#f5f0e8", border: "1px solid rgba(26,20,16,0.1)" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(26,20,16,0.5)", marginBottom: 6 }}>Aperçu affiché</div>
+                  <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+                    {hasPromo ? (
+                      <>
+                        <span style={{ fontSize: 28, fontWeight: 950, color: "#dc2626" }}>{parseFloat(form.promo_price).toFixed(2)} €</span>
+                        <span style={{ fontSize: 18, color: "rgba(26,20,16,0.35)", textDecoration: "line-through" }}>{parseFloat(form.price_ttc).toFixed(2)} €</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, background: "#dc2626", color: "#fff", padding: "2px 8px", borderRadius: 6 }}>
+                          -{Math.round((1 - parseFloat(form.promo_price) / parseFloat(form.price_ttc)) * 100)}%
+                        </span>
+                      </>
+                    ) : (
+                      <span style={{ fontSize: 28, fontWeight: 950, color: "#1a1410" }}>{parseFloat(form.price_ttc).toFixed(2)} €</span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 4 }}>Prix TTC — TVA incluse</div>
                 </div>
-                <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>S'applique automatiquement entre les dates sélectionnées</div>
-              </div>
-              {hasPromo && (
-                <button onClick={() => setForm(f => ({ ...f, promo_price: "", promo_start: "", promo_end: "" }))}
-                  style={{ padding: "10px 20px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 15, border: "none", cursor: "pointer" }}>
-                  Supprimer la promo
-                </button>
               )}
             </div>
-            <Field label="Prix promo (€)" fieldKey="promo_price" type="number" placeholder="24.90" value={form.promo_price} onChange={set} />
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-              <Field label="Date début" fieldKey="promo_start" type="date" value={form.promo_start} onChange={set} />
-              <Field label="Date fin"   fieldKey="promo_end"   type="date" value={form.promo_end}   onChange={set} />
-            </div>
-            {hasPromo && form.price_ttc && (
-              <div style={{ padding: "16px 20px", borderRadius: 12, background: "#fff", border: "1px solid #fde68a", fontSize: 15, fontWeight: 700, color: "#92400e" }}>
-                Prix normal : {parseFloat(form.price_ttc).toFixed(2)} € → Prix promo : <span style={{ color: "#dc2626" }}>{parseFloat(form.promo_price).toFixed(2)} €</span>
-                {" "}(-{Math.round((1 - parseFloat(form.promo_price) / parseFloat(form.price_ttc)) * 100)}%)
+          </div>
+
+          {/* Colonne droite : Prix promotionnel */}
+          <div style={{ display: "grid", gap: 20 }}>
+            <div style={{ padding: 28, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 20 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
+                <div>
+                  <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>
+                    🏷 Prix promotionnel
+                    {hasPromo && <span style={{ marginLeft: 10, padding: "3px 10px", borderRadius: 99, background: "#f59e0b", color: "#fff", fontSize: 12, fontWeight: 800 }}>ACTIVE</span>}
+                  </div>
+                  <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>
+                    S'applique automatiquement entre les dates choisies
+                  </div>
+                </div>
+                {hasPromo && (
+                  <button onClick={() => setForm(f => ({ ...f, promo_price: "", promo_start: "", promo_end: "" }))}
+                    style={{ padding: "8px 16px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
+                    ✕ Supprimer
+                  </button>
+                )}
               </div>
-            )}
+
+              <Field label="Prix promo (€)" fieldKey="promo_price" type="number" placeholder="24.90" value={form.promo_price} onChange={set} />
+
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
+                <Field label="Date début" fieldKey="promo_start" type="date" value={form.promo_start} onChange={set} />
+                <Field label="Date fin"   fieldKey="promo_end"   type="date" value={form.promo_end}   onChange={set} />
+              </div>
+
+              {/* Récap économie */}
+              {hasPromo && form.price_ttc && (
+                <div style={{ padding: "14px 18px", borderRadius: 12, background: "#fff", border: "1px solid #fde68a" }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: "#92400e", marginBottom: 8 }}>Résumé de la promotion</div>
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                      <span style={{ color: "rgba(26,20,16,0.6)" }}>Prix normal</span>
+                      <span style={{ fontWeight: 700 }}>{parseFloat(form.price_ttc).toFixed(2)} €</span>
+                    </div>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                      <span style={{ color: "rgba(26,20,16,0.6)" }}>Prix promo</span>
+                      <span style={{ fontWeight: 900, color: "#dc2626" }}>{parseFloat(form.promo_price).toFixed(2)} €</span>
+                    </div>
+                    <div style={{ height: 1, background: "rgba(0,0,0,0.08)", margin: "4px 0" }} />
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+                      <span style={{ color: "rgba(26,20,16,0.6)" }}>Économie client</span>
+                      <span style={{ fontWeight: 900, color: "#16a34a" }}>
+                        -{(parseFloat(form.price_ttc) - parseFloat(form.promo_price)).toFixed(2)} €
+                        ({Math.round((1 - parseFloat(form.promo_price) / parseFloat(form.price_ttc)) * 100)}%)
+                      </span>
+                    </div>
+                    {form.promo_start && form.promo_end && (
+                      <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)", marginTop: 4 }}>
+                        📅 Du {new Date(form.promo_start).toLocaleDateString("fr-FR", { day:"2-digit", month:"long" })} au {new Date(form.promo_end).toLocaleDateString("fr-FR", { day:"2-digit", month:"long", year:"numeric" })}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {!hasPromo && (
+                <div style={{ textAlign: "center", padding: "8px 0", fontSize: 13, color: "rgba(26,20,16,0.35)" }}>
+                  Renseigne un prix promo pour activer la promotion
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

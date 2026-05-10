@@ -1,5 +1,24 @@
 ﻿"use client";
 
+async function logActivity(type: string, message: string, opts?: { entity_name?: string; entity_id?: string }) {
+  try {
+    let token = "";
+    try { for (let i=0;i<localStorage.length;i++){const k=localStorage.key(i)??"";if(k.startsWith("sb-")&&k.endsWith("-auth-token")){const p=JSON.parse(localStorage.getItem(k)??"{}");token=p.access_token??"";if(token)break;}} } catch {}
+    await fetch("/api/admin/activity", { method: "POST", headers: { "Content-Type": "application/json", ...(token?{Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({ type, message, entity_name: opts?.entity_name, entity_id: opts?.entity_id }) });
+  } catch {}
+}
+
+
+// ── Logger d'activité ──────────────────────────────────────────────────────────
+async function logActivity(type: string, message: string, opts?: { entity_name?: string; entity_id?: string }) {
+  try {
+    let token = "";
+    try { for (let i=0;i<localStorage.length;i++){const k=localStorage.key(i)??"";if(k.startsWith("sb-")&&k.endsWith("-auth-token")){const p=JSON.parse(localStorage.getItem(k)??"{}");token=p.access_token??"";if(token)break;}} } catch {}
+    await fetch("/api/admin/activity", { method: "POST", headers: { "Content-Type": "application/json", ...(token?{Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({ type, message, entity_name: opts?.entity_name, entity_id: opts?.entity_id }) });
+  } catch {}
+}
+
+
 import { useEffect, useState } from "react";
 // Helper inline — lit le token Supabase depuis localStorage
 function adminFetch(url: string, options: RequestInit = {}) {
@@ -303,6 +322,7 @@ export default function AdminCommandes() {
       }),
     }).catch(() => {});
     await load();
+    await logActivity("order_shipped", `Commande expédiée via ${transporteur}`, { entity_id: selectedOrder?.id ?? "" });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);

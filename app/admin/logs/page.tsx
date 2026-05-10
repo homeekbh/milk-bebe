@@ -1,68 +1,188 @@
-import { supabaseServer } from "@/lib/server/supabase";
+"use client";
 
-export const dynamic = "force-dynamic";
+import { useEffect, useState, useCallback } from "react";
 
-async function getLogs() {
-  const { data } = await supabaseServer
-    .from("admin_logs")
-    .select("*")
-    .order("created_at", { ascending: false })
-    .limit(200);
-  return data ?? [];
-}
-
-const ACTION_STYLE: Record<string, { bg: string; color: string; icon: string }> = {
-  create:  { bg: "#dcfce7", color: "#166534", icon: "✚" },
-  update:  { bg: "#fef3c7", color: "#92400e", icon: "✎" },
-  delete:  { bg: "#fee2e2", color: "#b91c1c", icon: "✕" },
-  publish: { bg: "#e0f2fe", color: "#0369a1", icon: "↑" },
-  ship:    { bg: "#ede9fe", color: "#7c3aed", icon: "🚚" },
-  login:   { bg: "#f3f4f6", color: "#6b7280", icon: "→" },
+type LogEntry = {
+  id:          string;
+  created_at:  string;
+  type:        string;
+  message:     string;
+  entity_name: string | null;
+  entity_id:   string | null;
+  user_email:  string | null;
+  meta:        Record<string, unknown> | null;
 };
 
-export default async function AdminLogs() {
-  const logs = await getLogs();
+const TYPE_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
+  product_create:  { bg: "#dcfce7", color: "#166534", icon: "✚", label: "Création" },
+  product_update:  { bg: "#fef3c7", color: "#92400e", icon: "✎", label: "Modification" },
+  product_delete:  { bg: "#fee2e2", color: "#b91c1c", icon: "✕", label: "Suppression" },
+  product_publish: { bg: "#e0f2fe", color: "#0369a1", icon: "↑", label: "Publication" },
+  product_photo:   { bg: "#faf5ff", color: "#7c3aed", icon: "📷", label: "Photo" },
+  product_stock:   { bg: "#fff7ed", color: "#c2410c", icon: "📦", label: "Stock" },
+  product_promo:   { bg: "#fef9c3", color: "#854d0e", icon: "🏷", label: "Promo" },
+  product_text:    { bg: "#f0fdf4", color: "#15803d", icon: "✏️", label: "Texte" },
+  order_shipped:   { bg: "#ede9fe", color: "#6d28d9", icon: "🚚", label: "Expédition" },
+  order_status:    { bg: "#f1f5f9", color: "#475569", icon: "🔄", label: "Statut" },
+  promo_create:    { bg: "#fff1f2", color: "#be123c", icon: "🎟", label: "Code promo" },
+  promo_delete:    { bg: "#fee2e2", color: "#b91c1c", icon: "🗑", label: "Code promo" },
+  stock_alert:     { bg: "#fef3c7", color: "#b45309", icon: "⚠️", label: "Alerte stock" },
+};
+
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const p = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = p.access_token ?? ""; if (token) break;
+      }
+    }
+  } catch {}
+  return fetch(url, { ...options, headers: { ...(options.headers ?? {}), ...(token ? { Authorization: `Bearer ${token}` } : {}) } });
+}
+
+function timeAgo(dateStr: string): string {
+  const diff = (Date.now() - new Date(dateStr).getTime()) / 1000;
+  if (diff < 60)    return "À l'instant";
+  if (diff < 3600)  return `Il y a ${Math.floor(diff / 60)} min`;
+  if (diff < 86400) return `Il y a ${Math.floor(diff / 3600)}h`;
+  if (diff < 604800) return `Il y a ${Math.floor(diff / 86400)}j`;
+  return new Date(dateStr).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+export default function AdminLogs() {
+  const [logs,    setLogs]    = useState<LogEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [filter,  setFilter]  = useState("");
+  const [search,  setSearch]  = useState("");
+
+  const loadLogs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const url = `/api/admin/activity?limit=200${filter ? `&type=${filter}` : ""}`;
+      const res  = await adminFetch(url);
+      const data = await res.json();
+      setLogs(Array.isArray(data) ? data : []);
+    } catch {}
+    setLoading(false);
+  }, [filter]);
+
+  useEffect(() => { loadLogs(); }, [loadLogs]);
+
+  const filtered = logs.filter(l =>
+    !search ||
+    l.message.toLowerCase().includes(search.toLowerCase()) ||
+    (l.entity_name ?? "").toLowerCase().includes(search.toLowerCase())
+  );
+
+  // Grouper par jour
+  const groups: Record<string, LogEntry[]> = {};
+  filtered.forEach(l => {
+    const day = new Date(l.created_at).toLocaleDateString("fr-FR", { weekday: "long", day: "2-digit", month: "long", year: "numeric" });
+    if (!groups[day]) groups[day] = [];
+    groups[day].push(l);
+  });
+
+  const FILTERS = [
+    { value: "",               label: "Tout" },
+    { value: "product_photo",  label: "📷 Photos" },
+    { value: "product_stock",  label: "📦 Stock" },
+    { value: "product_text",   label: "✏️ Textes" },
+    { value: "product_promo",  label: "🏷 Promos" },
+    { value: "order_shipped",  label: "🚚 Expéditions" },
+    { value: "product_create", label: "✚ Créations" },
+    { value: "product_delete", label: "✕ Suppressions" },
+  ];
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 900 }}>
+
+      {/* Header */}
       <div style={{ marginBottom: 28 }}>
-        <h1 style={{ margin: 0, fontSize: 34, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Journal d'activité</h1>
+        <h1 style={{ margin: 0, fontSize: 32, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Journal d'activité</h1>
         <div style={{ fontSize: 15, color: "rgba(26,20,16,0.5)", marginTop: 4, fontWeight: 600 }}>
-          {logs.length} action{logs.length > 1 ? "s" : ""} enregistrée{logs.length > 1 ? "s" : ""}
+          Historique complet de toutes les modifications
         </div>
       </div>
 
-      {logs.length === 0 ? (
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: 60, textAlign: "center", color: "rgba(26,20,16,0.4)" }}>
-          <div style={{ fontSize: 36, marginBottom: 16 }}>📋</div>
-          <div style={{ fontSize: 16, fontWeight: 700 }}>Aucune activité enregistrée</div>
-          <div style={{ fontSize: 14, marginTop: 8, opacity: 0.6 }}>Le journal sera alimenté automatiquement dès les premières actions admin</div>
-        </div>
-      ) : (
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
-          {logs.map((log: any, i: number) => {
-            const s = ACTION_STYLE[log.action] ?? ACTION_STYLE.update;
-            return (
-              <div key={log.id} style={{ display: "flex", gap: 16, alignItems: "flex-start", padding: "16px 20px", borderBottom: i < logs.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}>
-                <div style={{ width: 32, height: 32, borderRadius: 99, background: s.bg, color: s.color, display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900, flexShrink: 0, marginTop: 2 }}>
-                  {s.icon}
-                </div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{log.description}</div>
-                  {log.meta && (
-                    <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2, fontFamily: "monospace" }}>
-                      {typeof log.meta === "object" ? JSON.stringify(log.meta).slice(0, 80) : log.meta}
-                    </div>
-                  )}
-                </div>
-                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.35)", fontWeight: 600, whiteSpace: "nowrap", flexShrink: 0 }}>
-                  {new Date(log.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
-                </div>
-              </div>
-            );
-          })}
+      {/* Filtres */}
+      <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+        {FILTERS.map(f => (
+          <button key={f.value} onClick={() => setFilter(f.value)}
+            style={{ padding: "8px 14px", borderRadius: 99, border: `2px solid ${filter === f.value ? "#1a1410" : "rgba(26,20,16,0.1)"}`, background: filter === f.value ? "#1a1410" : "#fff", color: filter === f.value ? "#c49a4a" : "rgba(26,20,16,0.6)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Recherche */}
+      <input value={search} onChange={e => setSearch(e.target.value)}
+        placeholder="Rechercher dans le journal..."
+        style={{ width: "100%", padding: "12px 16px", borderRadius: 12, border: "1.5px solid rgba(26,20,16,0.12)", fontSize: 15, background: "#fff", marginBottom: 24, boxSizing: "border-box" }} />
+
+      {/* Bouton refresh */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 16 }}>
+        <button onClick={loadLogs}
+          style={{ padding: "8px 16px", borderRadius: 10, border: "1.5px solid rgba(26,20,16,0.1)", background: "#fff", color: "#1a1410", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
+          🔄 Actualiser
+        </button>
+      </div>
+
+      {loading && (
+        <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(26,20,16,0.35)", fontSize: 15 }}>Chargement...</div>
+      )}
+
+      {!loading && filtered.length === 0 && (
+        <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(26,20,16,0.35)", fontSize: 15 }}>
+          Aucune activité enregistrée
         </div>
       )}
+
+      {/* Logs groupés par jour */}
+      {!loading && Object.entries(groups).map(([day, entries]) => (
+        <div key={day} style={{ marginBottom: 32 }}>
+          <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(26,20,16,0.4)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 10, paddingBottom: 8, borderBottom: "1px solid rgba(26,20,16,0.08)" }}>
+            {day}
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            {entries.map(log => {
+              const style = TYPE_STYLE[log.type] ?? { bg: "#f5f5f5", color: "#666", icon: "•", label: log.type };
+              return (
+                <div key={log.id} style={{ display: "flex", alignItems: "flex-start", gap: 12, padding: "14px 16px", borderRadius: 14, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
+                  {/* Badge type */}
+                  <div style={{ width: 36, height: 36, borderRadius: 10, background: style.bg, color: style.color, display: "grid", placeItems: "center", fontSize: 16, flexShrink: 0 }}>
+                    {style.icon}
+                  </div>
+                  {/* Contenu */}
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginBottom: 3 }}>
+                      <span style={{ fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 99, background: style.bg, color: style.color, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                        {style.label}
+                      </span>
+                      {log.entity_name && (
+                        <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>{log.entity_name}</span>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.75)", lineHeight: 1.5 }}>{log.message}</div>
+                    {log.user_email && (
+                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.35)", marginTop: 4 }}>par {log.user_email}</div>
+                    )}
+                  </div>
+                  {/* Heure */}
+                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.35)", fontWeight: 600, flexShrink: 0, textAlign: "right" }}>
+                    <div>{timeAgo(log.created_at)}</div>
+                    <div style={{ fontSize: 11, marginTop: 2 }}>
+                      {new Date(log.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }

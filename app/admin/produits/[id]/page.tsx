@@ -772,6 +772,16 @@ function FaqEditor({ faq, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isL
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+// ── Logger d'activité ──────────────────────────────────────────────────────────
+async function logActivity(type: string, message: string, opts?: { entity_name?: string; entity_id?: string; meta?: Record<string, unknown> }) {
+  try {
+    let token = "";
+    try { for (let i=0;i<localStorage.length;i++){const k=localStorage.key(i)??"";if(k.startsWith("sb-")&&k.endsWith("-auth-token")){const p=JSON.parse(localStorage.getItem(k)??"{}");token=p.access_token??"";if(token)break;}} } catch {}
+    await fetch("/api/admin/activity", { method: "POST", headers: { "Content-Type": "application/json", ...(token?{Authorization:`Bearer ${token}`}:{}) }, body: JSON.stringify({ type, message, entity_name: opts?.entity_name, entity_id: opts?.entity_id, meta: opts?.meta }) });
+  } catch {}
+}
+
 export default function AdminProductForm() {
   const { id }   = useParams<{ id: string }>();
   const router   = useRouter();
@@ -1018,6 +1028,7 @@ export default function AdminProductForm() {
     if (res.ok) {
       setPublished(newPub);
       setSuccess(newPub ? "✅ Produit publié !" : "⏸ Produit dépublié");
+      await logActivity("product_publish", `Produit ${published ? "dépublié" : "publié"} : ${form.name}`, { entity_name: form.name, entity_id: id });
       setTimeout(() => setSuccess(""), 3000);
     }
     setPublishing(false);
@@ -1069,6 +1080,12 @@ export default function AdminProductForm() {
       try { localStorage.removeItem(draftKey); } catch {}
       setSuccess(isNew ? "✅ Produit créé !" : "✅ Enregistré !");
       setLastSaved(new Date());
+      // Log activité
+      await logActivity(
+        isNew ? "product_create" : "product_update",
+        isNew ? `Produit créé : ${form.name}` : `Produit modifié : ${form.name}`,
+        { entity_name: form.name, entity_id: isNew ? undefined : id }
+      );
       if (isNew) router.push("/admin/produits");
     } catch (e: any) { setError(e.message); }
     finally { setSaving(false); }
@@ -1076,11 +1093,13 @@ export default function AdminProductForm() {
 
   async function handleDelete() {
     if (!confirm(`Supprimer "${form.name}" définitivement ?`)) return;
+    const deletedName = form.name;
     await adminFetch("/api/admin/products", {
       method: "DELETE", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id }),
     });
     try { localStorage.removeItem(draftKey); } catch {}
+    await logActivity("product_delete", `Produit supprimé : ${deletedName}`, { entity_name: deletedName, entity_id: id });
     router.push("/admin/produits");
   }
 

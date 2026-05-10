@@ -634,21 +634,49 @@ export default function ProductPage() {
             </div>
           )}
 
-          {couleursDispos.length > 0 && (
+          {(couleursDispos.length > 0 || related.length > 0) && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
                 Couleur {couleur && <span style={{ color: DARK }}>— {couleur}</span>}
               </span>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                {couleursDispos.map((c: any) => {
-                  const epuise = Number(c.stock ?? 0) <= 0;
-                  const selected = couleur === c.name;
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+
+                {/* Pastilles couleurs du produit courant */}
+                {couleursDispos.map((col: any) => {
+                  const epuise  = Number(col.stock ?? 0) <= 0;
+                  const selected = couleur === col.name;
                   return (
-                    <button key={c.name} onClick={() => { if (!epuise) setCouleur(c.name); }} title={c.name}
-                      style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? `3px solid ${DARK}` : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: c.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` : "none" }}>
-                      {c.image_url && <img src={c.image_url} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                    <button key={col.name} onClick={() => { if (!epuise) setCouleur(col.name); }} title={col.name}
+                      style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? `3px solid ${DARK}` : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: col.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` : "none" }}>
+                      {col.image_url && <img src={col.image_url} alt={col.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
                       {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: AMBER, transform: "rotate(45deg)" }} /></div>}
                     </button>
+                  );
+                })}
+
+                {/* Séparateur si couleurs ET autres motifs */}
+                {couleursDispos.length > 0 && related.length > 0 && (
+                  <div style={{ width: 1, height: 32, background: "rgba(26,20,16,0.12)", margin: "0 4px" }} />
+                )}
+
+                {/* Pastilles autres motifs (même catégorie) — dans le même sélecteur */}
+                {related.map((p: any) => {
+                  const motifLabel = (() => { const parts = (p.name ?? "").split("—"); return parts.length > 1 ? parts[parts.length-1].trim() : p.name; })();
+                  const pColors    = Array.isArray(p.colors) ? p.colors : [];
+                  const motifImg   = pColors[0]?.image_url || null;
+                  const motifHex   = pColors[0]?.hex || TAUPE;
+                  return (
+                    <Link key={p.id} href={`/produits/${p.slug}`} title={motifLabel}
+                      style={{ display: "block", textDecoration: "none" }}>
+                      <button
+                        style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: motifHex, cursor: "pointer", padding: 0, transition: "all 0.15s" }}
+                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = `3px solid ${DARK}`; el.style.boxShadow = `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}`; }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "2px solid rgba(0,0,0,0.15)"; el.style.boxShadow = "none"; }}>
+                        {motifImg
+                          ? <img src={motifImg} alt={motifLabel} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 7, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
+                      </button>
+                    </Link>
                   );
                 })}
               </div>
@@ -844,56 +872,6 @@ export default function ProductPage() {
                     <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? rev.content ?? ""}</p>
                   </div>
                 ))}
-              </div>
-            </div>
-          )}
-
-          {/* ── Sélecteur de motifs : pastilles identiques au sélecteur COULEUR ── */}
-          {related.length > 0 && (
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: AMBER, marginBottom: 12 }}>
-                Autres motifs disponibles
-              </div>
-              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
-
-                {/* Pastille active = produit courant — image du motif (colors[0]) */}
-                {(() => {
-                  const motifImg   = couleursDispos[0]?.image_url || couleursDispos[0]?.hex || null;
-                  const motifHex   = couleursDispos[0]?.hex || TAUPE;
-                  const motifLabel = (() => { const p = product.name.split("—"); return p.length > 1 ? p[p.length-1].trim() : product.name; })();
-                  return (
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: `3px solid ${DARK}`, overflow: "hidden", background: motifHex, boxShadow: `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` }}>
-                        {couleursDispos[0]?.image_url
-                          ? <img src={couleursDispos[0].image_url} alt={motifLabel} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 7, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 900, color: DARK, textAlign: "center", maxWidth: 56, lineHeight: 1.3 }}>{motifLabel}</span>
-                    </div>
-                  );
-                })()}
-
-                {/* Pastilles cliquables — image du motif de chaque produit lié */}
-                {related.map((p: any) => {
-                  const motifLabel = (() => { const parts = (p.name ?? "").split("—"); return parts.length > 1 ? parts[parts.length-1].trim() : p.name; })();
-                  const pColors    = Array.isArray(p.colors) ? p.colors : [];
-                  const motifImg   = pColors[0]?.image_url || null;
-                  const motifHex   = pColors[0]?.hex || TAUPE;
-                  return (
-                    <Link key={p.id} href={`/produits/${p.slug}`}
-                      style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textDecoration: "none" }}>
-                      <button title={motifLabel}
-                        style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: motifHex, cursor: "pointer", padding: 0, transition: "all 0.15s" }}
-                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = `3px solid ${DARK}`; el.style.boxShadow = `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}`; }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "2px solid rgba(0,0,0,0.15)"; el.style.boxShadow = "none"; }}>
-                        {motifImg
-                          ? <img src={motifImg} alt={motifLabel} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
-                          : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 7, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
-                      </button>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.55)", textAlign: "center", maxWidth: 56, lineHeight: 1.3 }}>{motifLabel}</span>
-                    </Link>
-                  );
-                })}
               </div>
             </div>
           )}

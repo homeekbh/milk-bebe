@@ -135,7 +135,7 @@ export default function Header() {
   }, [theme, scrolled]);
 
   function cancel() { if (userTimer.current) clearTimeout(userTimer.current); }
-  function delay(fn: () => void, ms = 180) { cancel(); userTimer.current = setTimeout(fn, ms); }
+  function delay(fn: () => void, ms = 400) { cancel(); userTimer.current = setTimeout(fn, ms); }
 
   async function handleSignOut() { await signOut(); setOpenUser(false); router.push("/"); }
 

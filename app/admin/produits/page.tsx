@@ -31,6 +31,7 @@ type Product = {
   stock: number; category_slug: string;
   image_url?: string; published: boolean;
   label?: string; supplier_ref?: string;
+  colors?: { name: string; hex: string; image_url?: string; stock?: number }[];
 };
 
 const CATEGORY_LABEL: Record<string, string> = {
@@ -38,9 +39,13 @@ const CATEGORY_LABEL: Record<string, string> = {
   gigoteuses: "Gigoteuses", accessoires: "Accessoires",
 };
 
-// ✅ Extraction du motif depuis le nom "Produit — Motif"
-// Fonctionne avec N'IMPORTE QUEL motif, même inédit
-function extractMotif(name: string): string | null {
+// ✅ Extraction du motif : colors[0].name en priorité, sinon depuis le nom "Produit — Motif"
+function extractMotif(name: string, colors?: any[]): string | null {
+  // Priorité 1 : nom du premier motif/couleur défini dans colors
+  if (Array.isArray(colors) && colors.length > 0 && colors[0]?.name) {
+    return colors[0].name;
+  }
+  // Fallback : extraire depuis le titre après "—"
   const parts = name.split(" — ");
   return parts.length > 1 ? parts[parts.length - 1].trim() : null;
 }
@@ -122,7 +127,7 @@ export default function AdminProduitsListe() {
     const q           = search.toLowerCase();
     const matchSearch = !q || p.name.toLowerCase().includes(q) || (p.slug ?? "").includes(q);
     const matchCat    = !catFilter   || p.category_slug === catFilter;
-    const matchMotif  = !motifFilter || extractMotif(p.name) === motifFilter;
+    const matchMotif  = !motifFilter || extractMotif(p.name, p.colors) === motifFilter;
     const matchPub    = !pubFilter   || (pubFilter === "online" ? p.published !== false : p.published === false);
     return matchSearch && matchCat && matchMotif && matchPub;
   });
@@ -229,7 +234,7 @@ export default function AdminProduitsListe() {
                 style={{ padding: "8px 14px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 700, background: motifFilter === m ? "#1a1410" : "rgba(26,20,16,0.07)", color: motifFilter === m ? "#c49a4a" : "rgba(26,20,16,0.6)", transition: "all 0.15s", display: "flex", alignItems: "center", gap: 5 }}>
                 {motifIcon(m)} {m}
                 <span style={{ fontSize: 11, opacity: 0.6, fontWeight: 600 }}>
-                  ({products.filter(p => extractMotif(p.name) === m).length})
+                  ({products.filter(p => extractMotif(p.name, p.colors) === m).length})
                 </span>
               </button>
             ))}
@@ -268,7 +273,7 @@ export default function AdminProduitsListe() {
             </thead>
             <tbody>
               {filtered.map((p, idx) => {
-                const motif = extractMotif(p.name);
+                const motif = extractMotif(p.name, p.colors);
                 return (
                   <tr key={p.id}
                     style={{ borderBottom: idx < filtered.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", opacity: p.published === false ? 0.65 : 1 }}

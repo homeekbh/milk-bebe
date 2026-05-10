@@ -247,19 +247,23 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
             return (
               <Link key={p.id} href={`/produits/${p.slug}`}
                 style={{ textDecoration:"none", flexShrink:0, width:CARD_W }}>
-                <div className="pcard" style={{ borderRadius:16, overflow:"visible", background:C.taupe, border:`1.5px solid rgba(26,20,16,0.12)`, position:"relative", transition:"all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor:"pointer", boxShadow:"0 4px 16px rgba(0,0,0,0.12)" }}>
+                <div className={`pcard${promo?" pcard-promo-home":""}`} style={{ borderRadius:16, overflow:"visible", background:C.taupe, border:promo?"2px solid rgba(220,38,38,0.25)":`1.5px solid rgba(26,20,16,0.12)`, position:"relative", transition:"all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor:"pointer", boxShadow:promo?"0 4px 20px rgba(220,38,38,0.15)":"0 4px 16px rgba(0,0,0,0.12)" }}>
                   {badge&&(<div style={{ position:"absolute", top:0, right:0, width:90, height:90, overflow:"hidden", zIndex:10, borderRadius:"0 16px 0 0", pointerEvents:"none" }}><div style={{ position:"absolute", top:18, right:-26, background:C.amber, color:C.dark, fontSize:9, fontWeight:900, padding:"6px 36px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap" }}>{badge}</div></div>)}
                   <div style={{ borderRadius:"14px 14px 0 0", overflow:"hidden", position:"relative", aspectRatio:"1/1", background:C.light }}>
                     {p.image_url
                       ? <Image src={p.image_url} alt={p.name} fill sizes="260px" className="pcard-img" style={{ objectFit:"cover", transition:"transform 0.4s ease" }}/>
                       : <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", fontSize:20, fontWeight:950, color:"rgba(26,20,16,0.2)" }}>M!LK</div>
                     }
-                    {promo&&<div style={{ position:"absolute", top:10, left:10 }}><span style={{ padding:"4px 9px", borderRadius:99, background:C.amber, color:C.dark, fontSize:10, fontWeight:900 }}>PROMO</span></div>}
+                    {promo&&(
+                    <div style={{ position:"absolute", top:0, right:0, width:100, height:100, overflow:"hidden", zIndex:10, pointerEvents:"none" }}>
+                      <div style={{ position:"absolute", top:20, right:-28, background:"#dc2626", color:"#fff", fontSize:10, fontWeight:900, padding:"7px 40px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap", boxShadow:"0 2px 6px rgba(220,38,38,0.4)" }}>PROMO</div>
+                    </div>
+                  )}
                   </div>
                   <div style={{ padding:"12px 14px 16px" }}>
                     <div style={{ fontWeight:900, fontSize:15, color:C.dark, marginBottom:4, lineHeight:1.3 }}>{p.name}</div>
                     <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
-                      <span style={{ fontWeight:950, fontSize:18, color:promo?C.amber:C.dark }}>{Number(price).toFixed(2)} €</span>
+                      <span style={{ fontWeight:950, fontSize:18, color:promo?"#dc2626":C.dark }}>{Number(price).toFixed(2)} €</span>
                       {promo&&<span style={{ fontSize:12, textDecoration:"line-through", color:"rgba(26,20,16,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
                     </div>
                   </div>
@@ -316,8 +320,15 @@ export default function HomePage() {
   },[]);
 
   function isPromo(p:any){
-    if(!p.promo_price||!p.promo_start||!p.promo_end)return false;
-    const now=new Date();return new Date(p.promo_start)<=now&&new Date(p.promo_end)>=now;
+    if(!p.promo_price) return false;
+    if(!p.promo_start && !p.promo_end) return true;
+    const d=new Date();
+    const today=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+    const start=p.promo_start?String(p.promo_start).slice(0,10):null;
+    const end=p.promo_end?String(p.promo_end).slice(0,10):null;
+    if(start&&today<start)return false;
+    if(end&&today>end)return false;
+    return true;
   }
 
   return (
@@ -330,6 +341,9 @@ export default function HomePage() {
         @keyframes slideUp    { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
         .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
         .pgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,280px)); gap:16px; justify-content:center; }
+        @keyframes milk-promo-shake{0%,100%{transform:translateY(0)}15%{transform:translateY(0) rotate(-0.4deg) scale(1.008)}35%{transform:translateY(0) rotate(0.4deg) scale(1.012)}55%{transform:translateY(0) rotate(-0.3deg) scale(1.008)}75%{transform:translateY(0) rotate(0.2deg)}}
+        .pcard-promo-home{animation:milk-promo-shake 2.2s ease-in-out infinite}
+        .pcard-promo-home:hover{animation:none!important}
         .pcard:hover  { transform:translateY(-5px) !important; box-shadow:0 24px 48px rgba(0,0,0,0.2) !important; border-color:${C.amber} !important; }
         .pcard:hover .pcard-img { transform:scale(1.05) !important; }
         .tk  { display:flex; animation:ticker 16s linear infinite; white-space:nowrap; width:max-content; }

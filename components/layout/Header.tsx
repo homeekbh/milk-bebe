@@ -105,9 +105,11 @@ export default function Header() {
         setOpenUser(false);
       }
     }
-    // setTimeout pour éviter que le click d'ouverture déclenche immédiatement la fermeture
-    const t = setTimeout(() => document.addEventListener("click", onDocClick), 50);
-    return () => { clearTimeout(t); document.removeEventListener("click", onDocClick); };
+    // requestAnimationFrame garantit que le click d'ouverture est déjà traité
+    let raf = requestAnimationFrame(() => {
+      document.addEventListener("click", onDocClick);
+    });
+    return () => { cancelAnimationFrame(raf); document.removeEventListener("click", onDocClick); };
   }, [openUser]);
   const headerRef = useRef<HTMLElement | null>(null);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
@@ -223,7 +225,7 @@ export default function Header() {
 
             <div ref={dropdownRef} style={{ position: "relative" }}>
               <button type="button" className="hdr-icon"
-                onClick={() => setOpenUser(v => !v)}
+                onClick={e => { e.stopPropagation(); setOpenUser(true); }}
                 style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
                 {user ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span> : <ProfileIcon color={C.text} size={22} />}
               </button>

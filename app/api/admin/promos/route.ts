@@ -16,14 +16,16 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   const body  = await req.json();
+  // ✅ Construction explicite — ne jamais faire ...body (risque de colonnes inconnues)
   const clean = {
-    ...body,
     code:           (body.code ?? "").toUpperCase().trim(),
-    discount_value: isNaN(parseFloat(body.discount_value)) ? 0 : parseFloat(body.discount_value),
-    min_order:      isNaN(parseFloat(body.min_order))      ? 0 : parseFloat(body.min_order),
-    max_uses:       body.max_uses ? parseInt(body.max_uses) : null,
+    discount_type:  body.discount_type ?? body.type ?? "percent",
+    discount_value: isNaN(parseFloat(body.discount_value ?? body.value)) ? 0 : parseFloat(body.discount_value ?? body.value),
+    min_order:      body.min_order ? parseFloat(body.min_order) : null,
+    max_uses:       body.max_uses  ? parseInt(body.max_uses)    : null,
     expires_at:     body.expires_at || null,
-    starts_at:     body.starts_at  || null,
+    starts_at:      body.starts_at  || null,
+    active:         body.active !== undefined ? body.active : true,
     uses_count:     0,
   };
 

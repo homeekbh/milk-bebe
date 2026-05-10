@@ -1,5 +1,27 @@
 "use client";
 
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = parsed.access_token ?? "";
+        if (token) break;
+      }
+    }
+  } catch {}
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+}
+
 import { useEffect, useState, useCallback } from "react";
 
 const SECTION_TITLES = [
@@ -62,7 +84,7 @@ export default function AdminHomePage() {
       setApiError("");
       try {
         // Config homepage
-        const cfgRes = await fetch("/api/admin/homepage", {});
+        const cfgRes = await adminFetch("/api/admin/homepage");
         if (cfgRes.ok) {
           const cfg = await cfgRes.json();
           setSectionTitle(cfg.section_title ?? "Sélection du moment");
@@ -71,14 +93,14 @@ export default function AdminHomePage() {
 
         // Catalogue produits — on essaie les deux routes possibles
         let prods: any[] = [];
-        const r1 = await fetch("/api/admin/products", {});
+        const r1 = await adminFetch("/api/admin/products");
         if (r1.ok) {
           const j = await r1.json();
           prods = Array.isArray(j) ? j : [];
         }
         // Fallback sur /api/produits si la route admin ne répond pas
         if (prods.length === 0) {
-          const r2 = await fetch("/api/produits");
+          const r2 = await adminFetch("/api/produits");
           if (r2.ok) {
             const j = await r2.json();
             prods = Array.isArray(j) ? j : [];
@@ -101,9 +123,8 @@ export default function AdminHomePage() {
   const save = async () => {
     setSaving(true);
     try {
-      const res = await fetch("/api/admin/homepage", {
+      const res = await adminFetch("/api/admin/homepage", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ section_title: sectionTitle, product_ids: selectedIds }),
       });
       if (res.ok) {

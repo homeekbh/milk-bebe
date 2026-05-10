@@ -3,6 +3,15 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+function escapeHtml(str: string): string {
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#x27;");
+}
+
 function emailConfirmation(
   prenom: string,
   email: string,
@@ -13,8 +22,8 @@ function emailConfirmation(
   const itemsList = items.map(i => `
     <tr>
       <td style="padding:12px 0;border-bottom:1px solid #2d2419">
-        <div style="color:#f2ede6;font-weight:700;font-size:14px">${i.name}</div>
-        <div style="color:rgba(242,237,230,0.4);font-size:12px;margin-top:3px">${i.category_slug ?? "M!LK"}</div>
+        <div style="color:#f2ede6;font-weight:700;font-size:14px">${escapeHtml(String(i.name ?? ""))}</div>
+        <div style="color:rgba(242,237,230,0.4);font-size:12px;margin-top:3px">${escapeHtml(String(i.category_slug ?? "M!LK"))}</div>
       </td>
       <td style="padding:12px 0;border-bottom:1px solid #2d2419;color:rgba(242,237,230,0.5);text-align:center;font-size:13px">×${i.quantity ?? 1}</td>
       <td style="padding:12px 0;border-bottom:1px solid #2d2419;color:#c49a4a;font-weight:900;text-align:right;font-size:14px">${((i.price ?? 0) * (i.quantity ?? 1)).toFixed(2)} €</td>
@@ -40,7 +49,7 @@ function emailConfirmation(
       Commande confirmée !
     </h1>
     <p style="margin:0;color:rgba(242,237,230,0.5);font-size:15px;line-height:1.7">
-      ${prenom ? `Merci ${prenom} !` : "Merci !"} Ta commande <strong style="color:#c49a4a">#${orderId.slice(0, 8).toUpperCase()}</strong> est bien enregistrée.<br>
+      ${escapeHtml(prenom) ? `Merci ${prenom} !` : "Merci !"} Ta commande <strong style="color:#c49a4a">#${orderId.slice(0, 8).toUpperCase()}</strong> est bien enregistrée.<br>
       On prépare ton colis avec soin 🌿
     </p>
   </div>

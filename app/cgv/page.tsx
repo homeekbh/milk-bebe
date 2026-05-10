@@ -1,3 +1,14 @@
+﻿import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title:       "Conditions Générales de Vente — M!LK",
+  description: "Conditions générales de vente de M!LK — EKBH SAS. Paiement, livraison, retours, garanties et droit de rétractation.",
+  openGraph: {
+    title:       "Conditions Générales de Vente — M!LK",
+    description: "Conditions générales de vente de M!LK — EKBH SAS. Paiement, livraison, retours, garanties et droit de rétractation.",
+  },
+};
+
 ﻿export default function CGV() {
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>

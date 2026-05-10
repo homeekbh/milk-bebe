@@ -1,3 +1,14 @@
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title:       "Politique de confidentialité — M!LK",
+  description: "Comment M!LK collecte et protège vos données personnelles conformément au RGPD.",
+  openGraph: {
+    title:       "Politique de confidentialité — M!LK",
+    description: "Comment M!LK collecte et protège vos données personnelles conformément au RGPD.",
+  },
+};
+
 export default function PolitiqueConfidentialite() {
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>

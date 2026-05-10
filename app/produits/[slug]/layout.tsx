@@ -1,0 +1,50 @@
+import type { Metadata } from "next";
+import { supabaseServer } from "@/lib/server/supabase";
+
+const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+
+export async function generateMetadata(
+  { params }: { params: { slug: string } }
+): Promise<Metadata> {
+  const { data: product } = await supabaseServer
+    .from("products")
+    .select("name, description, seo_title, seo_description, image_url, category_slug, price_ttc, slug")
+    .eq("slug", params.slug)
+    .single();
+
+  if (!product) {
+    return {
+      title:       "Produit — M!LK",
+      description: "Essentiels bébé bambou OEKO-TEX certifiés pour nourrissons 0-6 mois.",
+    };
+  }
+
+  const title       = product.seo_title       ?? `${product.name} — M!LK | Bambou OEKO-TEX`;
+  const description = product.seo_description ?? product.description ?? `${product.name} en bambou certifié OEKO-TEX Standard 100. Pour nourrissons 0-6 mois.`;
+  const url         = `${BASE}/produits/${product.slug}`;
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title,
+      description,
+      url,
+      type:     "website",
+      images:   product.image_url ? [{ url: product.image_url, width: 1200, height: 1600, alt: product.name }] : [],
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title,
+      description,
+      images:      product.image_url ? [product.image_url] : [],
+    },
+    alternates: {
+      canonical: url,
+    },
+  };
+}
+
+export default function ProductSlugLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>;
+}

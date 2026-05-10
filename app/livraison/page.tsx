@@ -1,3 +1,14 @@
+﻿import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title:       "Livraison & Retours — M!LK",
+  description: "Livraison offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-5 jours ouvrés. Retours gratuits sous 15 jours.",
+  openGraph: {
+    title:       "Livraison & Retours — M!LK",
+    description: "Livraison offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-5 jours ouvrés. Retours gratuits sous 15 jours.",
+  },
+};
+
 ﻿export default function LivraisonRetours() {
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>

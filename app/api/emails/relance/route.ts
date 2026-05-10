@@ -4,7 +4,13 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-export async function GET() {
+export async function GET(req: Request) {
+  // ✅ Protection CRON_SECRET
+  const auth = req.headers ? (req as any).headers?.get?.("authorization") : null;
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
   try {
     const now   = new Date();
     const h1    = new Date(now.getTime() - 1  * 60 * 60 * 1000);

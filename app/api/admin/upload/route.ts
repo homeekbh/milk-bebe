@@ -18,13 +18,25 @@ export async function POST(req: NextRequest) {
     const allowed = ["image/jpeg", "image/png", "image/webp"];
     if (!allowed.includes(file.type)) return Response.json({ error: "Format non supporté (JPG, PNG, WEBP uniquement)" }, { status: 400 });
 
+    const arrayBuffer = await file.arrayBuffer();
+    const buffer      = new Uint8Array(arrayBuffer);
+
+    // ✅ Vérification magic bytes — évite le spoofing de Content-Type
+    const MAGIC: Record<string, number[][]> = {
+      "image/jpeg": [[0xFF, 0xD8, 0xFF]],
+      "image/png":  [[0x89, 0x50, 0x4E, 0x47]],
+      "image/webp": [[0x52, 0x49, 0x46, 0x46]], // RIFF....WEBP
+    };
+    const expectedMagic = MAGIC[file.type] ?? [];
+    const isValid = expectedMagic.some(magic =>
+      magic.every((byte, i) => buffer[i] === byte)
+    );
+    if (!isValid) return Response.json({ error: "Contenu du fichier invalide" }, { status: 400 });
+
     // Extension depuis le type MIME (pas depuis le nom fourni par l'user)
     const extMap: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
     const ext      = extMap[file.type];
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
-
-    const arrayBuffer = await file.arrayBuffer();
-    const buffer      = new Uint8Array(arrayBuffer);
 
     const { data, error } = await supabaseServer.storage
       .from("product-images")

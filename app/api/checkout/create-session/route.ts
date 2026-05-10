@@ -44,6 +44,12 @@ export async function POST(req: Request) {
 
       const qty = item.quantity ?? 1;
 
+      // ✅ Validation qty — évite les valeurs négatives, nulles ou excessives
+      if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+        return Response.json({ error: `Quantité invalide pour ${product.name}` }, { status: 400 });
+      }
+
+      // ── Vérification montant minimum Stripe (0.50€)
       // ── Vérification stock global
       if ((product.stock ?? 0) < qty) {
         return Response.json({ error: `Stock insuffisant pour ${product.name}` }, { status: 400 });
@@ -137,11 +143,19 @@ export async function POST(req: Request) {
       sessionParams.discounts = [{ coupon: coupon.id }];
     }
 
+    // ✅ Vérification montant minimum Stripe (0.50€)
+    const totalAfterDiscount = subtotal - discount;
+    const shippingCost = hasFreeShipping ? 0 : 4.90;
+    const finalTotal = Math.max(0, totalAfterDiscount) + shippingCost;
+    if (finalTotal < 0.50) {
+      return Response.json({ error: "Le montant total est trop faible pour être traité (minimum 0.50€)" }, { status: 400 });
+    }
+
     const session = await stripe.checkout.sessions.create(sessionParams);
     return Response.json({ url: session.url });
 
   } catch (error: any) {
-    console.error("Checkout error:", error);
+    process.env.NODE_ENV !== "production" && console.error("Checkout error:", error);
     return Response.json({ error: error.message ?? "Erreur serveur" }, { status: 500 });
   }
 }

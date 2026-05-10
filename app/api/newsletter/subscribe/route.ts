@@ -6,7 +6,8 @@ const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function POST(req: Request) {
   const { email, source, promo_code } = await req.json();
-  if (!email || !email.includes("@")) return Response.json({ error: "Email invalide" }, { status: 400 });
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;
+  if (!email || !emailRegex.test(email)) return Response.json({ error: "Email invalide" }, { status: 400 });
 
   const token = crypto.randomUUID();
 

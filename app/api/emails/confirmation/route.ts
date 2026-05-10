@@ -97,6 +97,12 @@ function emailConfirmation(
 }
 
 export async function POST(req: Request) {
+  // ✅ Protection : vérification secret interne
+  const secret = req.headers ? (req as any).headers?.get?.("x-internal-secret") : null;
+  if (secret !== process.env.INTERNAL_EMAIL_SECRET) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
   try {
     const { email, prenom, customer_name, items, amount_total, order_id } = await req.json();
     const firstName = prenom || (customer_name ? customer_name.split(' ')[0] : "");

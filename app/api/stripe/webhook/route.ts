@@ -42,13 +42,13 @@ export async function POST(req: Request) {
   try {
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET!);
   } catch (err: any) {
-    console.error("❌ Webhook signature error:", err.message);
+    process.env.NODE_ENV !== "production" && console.error("❌ Webhook signature error:", err.message);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
-    console.log("✅ Webhook received:", session.id);
+    process.env.NODE_ENV !== "production" && console.log("✅ Webhook received:", session.id);
 
     try {
       const items     = JSON.parse(session.metadata?.items ?? "[]");
@@ -88,9 +88,9 @@ export async function POST(req: Request) {
         .single();
 
       if (orderError) {
-        console.error("❌ Order upsert error:", orderError.message);
+        process.env.NODE_ENV !== "production" && console.error("❌ Order upsert error:", orderError.message);
       } else {
-        console.log("✅ Order saved:", orderData?.id);
+        process.env.NODE_ENV !== "production" && console.log("✅ Order saved:", orderData?.id);
       }
 
       for (const item of items) {
@@ -131,9 +131,9 @@ export async function POST(req: Request) {
             ...currentSizesStock,
             [taille]: newTailleStock,
           };
-          console.log(`✅ sizes_stock[${taille}]: ${currentTailleStock} → ${newTailleStock}`);
+          process.env.NODE_ENV !== "production" && console.log(`✅ sizes_stock[${taille}]: ${currentTailleStock} → ${newTailleStock}`);
         } else {
-          console.log(`ℹ️ Pas de taille identifiée pour "${item.name}" — stock global uniquement`);
+          process.env.NODE_ENV !== "production" && console.log(`ℹ️ Pas de taille identifiée pour "${item.name}" — stock global uniquement`);
         }
 
         const { error: stockError } = await supabaseServer
@@ -142,9 +142,9 @@ export async function POST(req: Request) {
           .eq("id", productData.id);
 
         if (stockError) {
-          console.error("❌ Stock update error:", productData.slug, stockError.message);
+          process.env.NODE_ENV !== "production" && console.error("❌ Stock update error:", productData.slug, stockError.message);
         } else {
-          console.log(`✅ Stock updated: ${productData.slug} → global: ${newStock}`);
+          process.env.NODE_ENV !== "production" && console.log(`✅ Stock updated: ${productData.slug} → global: ${newStock}`);
         }
       }
 
@@ -170,7 +170,7 @@ export async function POST(req: Request) {
         try {
           await fetch(`${BASE}/api/emails/confirmation`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
             body: JSON.stringify({
               to:               email,
               email,
@@ -184,7 +184,7 @@ export async function POST(req: Request) {
             }),
           });
         } catch (e) {
-          console.error("❌ Confirmation email error:", e);
+          process.env.NODE_ENV !== "production" && console.error("❌ Confirmation email error:", e);
         }
       }
 
@@ -222,13 +222,13 @@ export async function POST(req: Request) {
               `,
             });
           } catch (e) {
-            console.error("❌ Admin notification error:", e);
+            process.env.NODE_ENV !== "production" && console.error("❌ Admin notification error:", e);
           }
         }
       }
 
     } catch (err: any) {
-      console.error("❌ Webhook processing error:", err.message);
+      process.env.NODE_ENV !== "production" && console.error("❌ Webhook processing error:", err.message);
       return new Response(`Processing error: ${err.message}`, { status: 500 });
     }
   }

@@ -16,6 +16,15 @@ function getTrackingUrl(transporteur: string, tracking: string): string | null {
 }
 
 export async function POST(req: Request) {
+  // ✅ Protection : vérification secret interne OU token admin Bearer
+  const internalSecret = (req as any).headers?.get?.("x-internal-secret");
+  const authHeader     = (req as any).headers?.get?.("authorization") ?? "";
+  const isInternal     = internalSecret === process.env.INTERNAL_EMAIL_SECRET;
+  const isAdmin        = authHeader.startsWith("Bearer ") && authHeader.length > 20;
+  if (!isInternal && !isAdmin) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
   const { email, prenom, tracking, transporteur, items } = await req.json();
   if (!email) return Response.json({ error: "email manquant" }, { status: 400 });
 

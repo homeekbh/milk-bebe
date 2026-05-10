@@ -848,40 +848,49 @@ export default function ProductPage() {
             </div>
           )}
 
-          {/* ── Sélecteur de motifs : pastilles rondes ── */}
+          {/* ── Sélecteur de motifs : pastilles identiques au sélecteur COULEUR ── */}
           {related.length > 0 && (
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: AMBER, marginBottom: 12 }}>
                 Autres motifs disponibles
               </div>
-              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
 
-                {/* Pastille active = produit courant */}
-                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                  <div style={{ width: 52, height: 52, borderRadius: "50%", overflow: "hidden", border: `3px solid ${AMBER}`, background: TAUPE, flexShrink: 0, position: "relative", boxShadow: `0 0 0 3px rgba(196,154,74,0.2)` }}>
-                    {product.image_url
-                      ? <Image src={product.image_url} alt={product.name} fill sizes="52px" style={{ objectFit: "cover" }} />
-                      : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 8, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
-                  </div>
-                  <span style={{ fontSize: 11, fontWeight: 900, color: AMBER, textAlign: "center", maxWidth: 60, lineHeight: 1.3 }}>
-                    {(() => { const p = product.name.split("—"); return p.length > 1 ? p[p.length-1].trim() : product.name; })()}
-                  </span>
-                </div>
+                {/* Pastille active = produit courant — image du motif (colors[0]) */}
+                {(() => {
+                  const motifImg   = couleursDispos[0]?.image_url || couleursDispos[0]?.hex || null;
+                  const motifHex   = couleursDispos[0]?.hex || TAUPE;
+                  const motifLabel = (() => { const p = product.name.split("—"); return p.length > 1 ? p[p.length-1].trim() : product.name; })();
+                  return (
+                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                      <div style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: `3px solid ${DARK}`, overflow: "hidden", background: motifHex, boxShadow: `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` }}>
+                        {couleursDispos[0]?.image_url
+                          ? <img src={couleursDispos[0].image_url} alt={motifLabel} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 7, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
+                      </div>
+                      <span style={{ fontSize: 11, fontWeight: 900, color: DARK, textAlign: "center", maxWidth: 56, lineHeight: 1.3 }}>{motifLabel}</span>
+                    </div>
+                  );
+                })()}
 
-                {/* Pastilles cliquables autres motifs */}
+                {/* Pastilles cliquables — image du motif de chaque produit lié */}
                 {related.map((p: any) => {
-                  const motifName = (() => { const parts = (p.name ?? "").split("—"); return parts.length > 1 ? parts[parts.length-1].trim() : p.name; })();
+                  const motifLabel = (() => { const parts = (p.name ?? "").split("—"); return parts.length > 1 ? parts[parts.length-1].trim() : p.name; })();
+                  const pColors    = Array.isArray(p.colors) ? p.colors : [];
+                  const motifImg   = pColors[0]?.image_url || null;
+                  const motifHex   = pColors[0]?.hex || TAUPE;
                   return (
                     <Link key={p.id} href={`/produits/${p.slug}`}
                       style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, textDecoration: "none" }}>
-                      <div style={{ width: 52, height: 52, borderRadius: "50%", overflow: "hidden", border: "2px solid rgba(26,20,16,0.15)", background: TAUPE, flexShrink: 0, position: "relative", transition: "all 0.2s" }}
-                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = AMBER; el.style.transform = "scale(1.1)"; el.style.boxShadow = `0 0 0 3px rgba(196,154,74,0.2)`; }}
-                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.borderColor = "rgba(26,20,16,0.15)"; el.style.transform = ""; el.style.boxShadow = ""; }}>
-                        {p.image_url
-                          ? <Image src={p.image_url} alt={p.name} fill sizes="52px" style={{ objectFit: "cover" }} />
-                          : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 8, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
-                      </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.55)", textAlign: "center", maxWidth: 60, lineHeight: 1.3 }}>{motifName}</span>
+                      <button title={motifLabel}
+                        style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: motifHex, cursor: "pointer", padding: 0, transition: "all 0.15s" }}
+                        onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = `3px solid ${DARK}`; el.style.boxShadow = `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}`; }}
+                        onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "2px solid rgba(0,0,0,0.15)"; el.style.boxShadow = "none"; }}>
+                        {motifImg
+                          ? <img src={motifImg} alt={motifLabel} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 7, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
+                      </button>
+                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.55)", textAlign: "center", maxWidth: 56, lineHeight: 1.3 }}>{motifLabel}</span>
                     </Link>
                   );
                 })}

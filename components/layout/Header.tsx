@@ -94,7 +94,21 @@ export default function Header() {
   const [theme,      setTheme]      = useState<"dark"|"light">("dark");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  const userTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dropdownRef = useRef<HTMLDivElement | null>(null);
+
+  // Fermer le dropdown si clic en dehors
+  useEffect(() => {
+    if (!openUser) return;
+    function onDocClick(e: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenUser(false);
+      }
+    }
+    // setTimeout pour éviter que le click d'ouverture déclenche immédiatement la fermeture
+    const t = setTimeout(() => document.addEventListener("click", onDocClick), 50);
+    return () => { clearTimeout(t); document.removeEventListener("click", onDocClick); };
+  }, [openUser]);
   const headerRef = useRef<HTMLElement | null>(null);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
 
@@ -136,14 +150,6 @@ export default function Header() {
 
   function cancel() { if (userTimer.current) clearTimeout(userTimer.current); }
   function delay(fn: () => void, ms = 400) { cancel(); userTimer.current = setTimeout(fn, ms); }
-
-  // Fermer dropdown au clic en dehors
-  useEffect(() => {
-    if (!openUser) return;
-    function handleClickOutside() { setOpenUser(false); }
-    document.addEventListener("click", handleClickOutside);
-    return () => document.removeEventListener("click", handleClickOutside);
-  }, [openUser]);
 
   async function handleSignOut() { await signOut(); setOpenUser(false); router.push("/"); }
 
@@ -215,9 +221,9 @@ export default function Header() {
               {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center", lineHeight: 1.4 }}>{totalItems}</span>}
             </Link>
 
-            <div style={{ position: "relative" }}>
+            <div ref={dropdownRef} style={{ position: "relative" }}>
               <button type="button" className="hdr-icon"
-                onClick={e => { e.stopPropagation(); setOpenUser(v => !v); }}
+                onClick={() => setOpenUser(v => !v)}
                 style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
                 {user ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span> : <ProfileIcon color={C.text} size={22} />}
               </button>

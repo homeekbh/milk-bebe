@@ -220,30 +220,30 @@ export default function Header() {
                 <div
                   onMouseEnter={() => { cancel(); setOpenUser(true); }}
                   onMouseLeave={() => delay(() => setOpenUser(false))}
-                  style={{ position: "absolute", top: 52, right: 0, width: 230, background: C.dropBg, border: C.dropBdr, borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.3)", display: "grid", gap: 4, zIndex: 100 }}>
+                  style={{ position: "absolute", top: 58, right: 0, width: 240, background: "#fff", border: "1px solid rgba(26,20,16,0.1)", borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.25)", display: "grid", gap: 4, zIndex: 9999 }}>
                   {user ? (
                     <>
                       <div style={{ padding: "10px 12px 8px" }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: C.text }}>{user.email?.split("@")[0]}</div>
-                        <div style={{ fontSize: 12, color: C.muted, marginTop: 2 }}>{user.email}</div>
+                        <div style={{ fontSize: 14, fontWeight: 900, color: "#1a1410" }}>{user.email?.split("@")[0]}</div>
+                        <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginTop: 2 }}>{user.email}</div>
                       </div>
-                      <div style={{ height: 1, background: "rgba(128,128,128,0.1)", margin: "2px 0" }} />
+                      <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "2px 0" }} />
                       {[
-                        { label: "Mon profil",    href: "/profil" },
-                        { label: "Mes commandes", href: "/profil" },
-                        { label: "❤️ Mes favoris",  href: "/favoris" },
+                        { label: "👤 Mon profil",    href: "/profil" },
+                        { label: "🛍 Mes commandes", href: "/profil" },
+                        { label: "❤️ Mes favoris",   href: "/favoris" },
                       ].map(item => (
                         <Link key={item.label} href={item.href} onClick={() => setOpenUser(false)}
-                          style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 15, fontWeight: 700, color: C.text }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "rgba(128,128,128,0.08)"; }}
+                          style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 14, fontWeight: 700, color: "#1a1410" }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#f5f0e8"; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}>
                           {item.label}
                         </Link>
                       ))}
-                      <div style={{ height: 1, background: "rgba(128,128,128,0.1)", margin: "2px 0" }} />
+                      <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "2px 0" }} />
                       <button onClick={handleSignOut}
-                        style={{ width: "100%", padding: "11px 12px", borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontSize: 15, fontWeight: 700, color: "#ef4444", textAlign: "left" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.08)"; }}
+                        style={{ width: "100%", padding: "11px 12px", borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#ef4444", textAlign: "left" }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.06)"; }}
                         onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
                         Se déconnecter
                       </button>

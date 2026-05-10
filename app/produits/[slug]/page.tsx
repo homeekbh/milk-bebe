@@ -10,6 +10,7 @@ import { useParams }                   from "next/navigation";
 import Image                           from "next/image";
 import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
+import { useWishlist }                 from "@/context/WishlistContext";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -364,7 +365,8 @@ function FaqItem({ q, r }: { q: string; r: string }) {
 
 export default function ProductPage() {
   const { slug }             = useParams<{ slug: string }>();
-  const { addToCart, items } = useCart();
+  const { addToCart, items }               = useCart();
+  const { toggle: toggleWishlist, isInList } = useWishlist();
 
   const [product,     setProduct]     = useState<any>(null);
   const [related,     setRelated]     = useState<any[]>([]);
@@ -729,6 +731,14 @@ export default function ProductPage() {
             <button onClick={handleAddToCart} disabled={outTaille}
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? "✓ Ajouté au panier !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
+            </button>
+            {/* ── Bouton Wishlist ── */}
+            <button
+              onClick={() => product && toggleWishlist(product.id)}
+              aria-label={product && isInList(product.id) ? "Retirer des favoris" : "Ajouter aux favoris"}
+              style={{ width: "100%", padding: "13px 24px", borderRadius: 14, border: `1.5px solid ${product && isInList(product.id) ? "rgba(220,38,38,0.3)" : "rgba(26,20,16,0.15)"}`, background: product && isInList(product.id) ? "rgba(220,38,38,0.05)" : "transparent", color: product && isInList(product.id) ? "#dc2626" : "rgba(26,20,16,0.55)", fontWeight: 700, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, transition: "all 0.15s" }}>
+              <span style={{ fontSize: 18 }}>{product && isInList(product.id) ? "❤️" : "🤍"}</span>
+              {product && isInList(product.id) ? "Dans mes favoris" : "Ajouter aux favoris"}
             </button>
             {cartCount > 0 && (
               <Link href="/panier" style={{ padding: "13px 24px", borderRadius: 16, border: `2px solid ${DARK}`, fontWeight: 800, fontSize: 14, textDecoration: "none", color: DARK, textAlign: "center", display: "block" }}>

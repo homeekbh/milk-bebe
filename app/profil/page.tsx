@@ -1,4 +1,5 @@
 ﻿"use client";
+import { useWishlist } from "@/context/WishlistContext";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -105,6 +106,8 @@ function AddressFields({ addr, onChange, prefix }: {
           <option value="LU">🇱🇺 Luxembourg</option>
           <option value="MC">🇲🇨 Monaco</option>
         </select>
+
+
       </div>
     </div>
   );
@@ -115,7 +118,8 @@ export default function ProfilPage() {
   const { user, signOut, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  const [tab,      setTab]      = useState<"infos"|"adresses"|"commandes">("commandes");
+  const { ids: wishIds, toggle } = useWishlist();
+  const [tab,      setTab]      = useState<"infos"|"adresses"|"commandes"|"favoris">("commandes");
   const [profile,  setProfile]  = useState<Profile | null>(null);
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -268,6 +272,9 @@ export default function ProfilPage() {
           </button>
           <button style={TAB_STYLE(tab === "adresses")} onClick={() => setTab("adresses")}>
             📍 Mes adresses
+          </button>
+          <button style={TAB_STYLE(tab === "favoris")} onClick={() => setTab("favoris")}>
+            ❤️ Mes favoris {wishIds.length > 0 && `(${wishIds.length})`}
           </button>
         </div>
 
@@ -472,6 +479,8 @@ export default function ProfilPage() {
             </button>
           </div>
         )}
+
+
 
       </div>
     </div>

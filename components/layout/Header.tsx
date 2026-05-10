@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useCart } from "@/context/CartContext";
+import { useCart }     from "@/context/CartContext";
+import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 
 /* ── Icônes SVG ──────────────────────────────────────────────────────────── */
@@ -28,6 +29,15 @@ function SearchIcon({ size = 20, color = "#fff" }: { size?: number; color?: stri
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="11" cy="11" r="7" stroke={color} strokeWidth="1.8"/>
       <path d="m16.5 16.5 3.5 3.5" stroke={color} strokeWidth="1.8" strokeLinecap="round"/>
+    </svg>
+  );
+}
+
+function HeartIcon({ size = 22, color = "#fff", filled = false }: { size?: number; color?: string; filled?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill={filled ? color : "none"} aria-hidden>
+      <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"
+        stroke={color} strokeWidth="1.8" strokeLinejoin="round"/>
     </svg>
   );
 }
@@ -76,6 +86,7 @@ export default function Header() {
   const pathname          = usePathname();
   const router            = useRouter();
   const { items }         = useCart();
+  const { ids: wishIds }  = useWishlist();
   const { user, signOut } = useAuth();
 
   const [scrolled,   setScrolled]   = useState(false);
@@ -182,6 +193,12 @@ export default function Header() {
             <Link href="/recherche" aria-label="Recherche" className="hdr-icon"
               style={{ width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}>
               <SearchIcon color={C.text} size={20} />
+            </Link>
+
+            <Link href="/favoris" aria-label="Mes favoris" className="hdr-icon"
+              style={{ position: "relative", width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}>
+              <HeartIcon color={C.text} size={22} filled={wishIds.length > 0} />
+              {wishIds.length > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: "#dc2626", color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center", lineHeight: 1.4 }}>{wishIds.length}</span>}
             </Link>
 
             <Link href="/panier" aria-label="Panier" className="hdr-icon"

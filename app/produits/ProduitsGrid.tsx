@@ -6,6 +6,18 @@ import Image from "next/image";
 import Link  from "next/link";
 import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign";
 
+const PROMO_STYLES = `
+  @keyframes milk-promo-shake {
+    0%,100% { transform: translateY(-2px) rotate(0deg); }
+    15%     { transform: translateY(-2px) rotate(-0.5deg) scale(1.01); }
+    35%     { transform: translateY(-2px) rotate(0.5deg) scale(1.015); }
+    55%     { transform: translateY(-2px) rotate(-0.35deg) scale(1.01); }
+    75%     { transform: translateY(-2px) rotate(0.25deg); }
+  }
+  .pcard-promo { animation: milk-promo-shake 2.2s ease-in-out infinite; }
+  .pcard-promo:hover { animation: none !important; transform: translateY(-6px) scale(1.02) !important; }
+`;
+
 const PER_PAGE = 16;
 
 type Product = {
@@ -19,18 +31,28 @@ type Product = {
 };
 
 function isPromoActive(p: Product) {
-  if (!p.promo_price || !p.promo_start || !p.promo_end) return false;
-  const now = new Date();
-  return new Date(p.promo_start) <= now && new Date(p.promo_end) >= now;
+  if (!p.promo_price) return false;
+  if (!p.promo_start && !p.promo_end) return true;
+  const d = new Date();
+  const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const startStr = p.promo_start ? String(p.promo_start).slice(0, 10) : null;
+  const endStr   = p.promo_end   ? String(p.promo_end).slice(0, 10)   : null;
+  if (startStr && todayStr < startStr) return false;
+  if (endStr   && todayStr > endStr)   return false;
+  return true;
 }
-
-function DiagonalBadge({ label, outOfStock }: { label?: string; outOfStock: boolean }) {
+function DiagonalBadge({ label, outOfStock, isPromo }: { label?: string; outOfStock: boolean; isPromo?: boolean }) {
   if (outOfStock) return (
     <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
       <div style={{ position: "absolute", top: 20, right: -30, background: "#6b7280", color: "#fff", fontSize: 10, fontWeight: 900, letterSpacing: 1, padding: "7px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>Épuisé</div>
     </div>
   );
-  const cfg: Record<string,string> = { nouveau:"Nouveau", bestseller:"Best seller", exclusif:"Exclusif", last:"Dernières pièces", bientot:"Bientôt dispo", promo:"Promo", coup_de_coeur:"Coup de cœur" };
+  if (isPromo) return (
+    <div style={{ position: "absolute", top: 0, right: 0, width: 120, height: 120, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
+      <div style={{ position: "absolute", top: 24, right: -34, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, letterSpacing: 1.5, padding: "9px 50px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(220,38,38,0.5)", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>🏷 PROMO</div>
+    </div>
+  );
+  const cfg: Record<string,string> = { nouveau:"Nouveau", bestseller:"Best seller", exclusif:"Exclusif", last:"Dernières pièces", bientot:"Bientôt dispo", coup_de_coeur:"Coup de cœur" };
   const text = label ? cfg[label] : null;
   if (!text) return null;
   return (
@@ -49,8 +71,13 @@ function ProductCard({ p }: { p: Product }) {
 
   return (
     <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-      <div className="pcard-grid" style={{ position: "relative", borderRadius: 18, overflow: "hidden", background: C.taupe, border: `1.5px solid rgba(26,20,16,0.1)`, transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer", boxShadow: "0 4px 16px rgba(0,0,0,0.1)", transform: "translateY(-2px)" }}>
-        <DiagonalBadge label={badgeLabel} outOfStock={outOfStock} />
+      <div className={`pcard-grid${promo ? " pcard-promo" : ""}`}
+        style={{ position: "relative", borderRadius: 18, overflow: "hidden", background: C.taupe,
+          border: promo ? "2px solid rgba(220,38,38,0.35)" : `1.5px solid rgba(26,20,16,0.1)`,
+          transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer",
+          boxShadow: promo ? "0 4px 20px rgba(220,38,38,0.15)" : "0 4px 16px rgba(0,0,0,0.1)",
+          transform: "translateY(-2px)" }}>
+        <DiagonalBadge label={promo ? undefined : badgeLabel} outOfStock={outOfStock} isPromo={promo} />
         <div style={{ position: "relative", aspectRatio: "1/1", background: C.light, overflow: "hidden" }}>
           {p.image_url ? (
             <Image src={p.image_url} alt={p.name} fill sizes="(max-width:640px) 50vw, 25vw"
@@ -157,6 +184,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     <div style={{ background: C.light, minHeight: "100vh", overflowX: "hidden" }}>
       <style>{`
         ${MILK_STYLES}
+        ${PROMO_STYLES}
         .pcard-grid:hover { transform:translateY(-5px)!important; box-shadow:0 20px 40px rgba(0,0,0,0.18)!important; border-color:${C.amber}!important; }
         .pcard-grid:hover .pcard-grid-img { transform:scale(1.05)!important; }
         .pgrid    { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }

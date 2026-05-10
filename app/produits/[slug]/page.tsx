@@ -22,16 +22,16 @@ const MARON = "#2d1a0e";
 
 function isPromoActive(p: any) {
   if (!p?.promo_price) return false;
-  // Si pas de dates : promo toujours active
   if (!p.promo_start && !p.promo_end) return true;
-  const now = new Date();
-  const start = p.promo_start ? new Date(p.promo_start) : null;
-  const end   = p.promo_end   ? new Date(p.promo_end)   : null;
-  if (start && now < start) return false;
-  if (end   && now > end)   return false;
+  // Date locale (pas UTC) pour éviter le décalage horaire
+  const d = new Date();
+  const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  const startStr = p.promo_start ? String(p.promo_start).slice(0, 10) : null;
+  const endStr   = p.promo_end   ? String(p.promo_end).slice(0, 10)   : null;
+  if (startStr && todayStr < startStr) return false;
+  if (endStr   && todayStr > endStr)   return false;
   return true;
 }
-
 function getMotifDetails(slug: string) {
   if (slug.includes("eclair"))  return { motif: "Flash",  desc: "éclairs blancs minimalistes sur fond gris anthracite"      };
   if (slug.includes("smileys")) return { motif: "Smile",  desc: "petits visages souriants, ton beige chaud sur fond caramel" };

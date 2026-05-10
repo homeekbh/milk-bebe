@@ -21,9 +21,15 @@ const WARM  = "#f2ede6";
 const MARON = "#2d1a0e";
 
 function isPromoActive(p: any) {
-  if (!p?.promo_price || !p?.promo_start || !p?.promo_end) return false;
+  if (!p?.promo_price) return false;
+  // Si pas de dates : promo toujours active
+  if (!p.promo_start && !p.promo_end) return true;
   const now = new Date();
-  return new Date(p.promo_start) <= now && new Date(p.promo_end) >= now;
+  const start = p.promo_start ? new Date(p.promo_start) : null;
+  const end   = p.promo_end   ? new Date(p.promo_end)   : null;
+  if (start && now < start) return false;
+  if (end   && now > end)   return false;
+  return true;
 }
 
 function getMotifDetails(slug: string) {
@@ -592,11 +598,51 @@ export default function ProductPage() {
             {product.name}
           </h1>
 
-          <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>{Number(displayPrice).toFixed(2)} €</span>
-            {promo && <span style={{ fontSize: 17, textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>{Number(product.price_ttc).toFixed(2)} €</span>}
-            <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
-          </div>
+          {/* ── Bloc prix — promo clignotante si active ── */}
+          {promo ? (
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <style>{`
+                @keyframes milk-promo-pulse {
+                  0%, 100% { opacity: 1; }
+                  45%       { opacity: 0.35; }
+                }
+                .milk-promo-price {
+                  animation: milk-promo-pulse 1.6s ease-in-out infinite;
+                }
+              `}</style>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+                {/* Prix promo clignotant */}
+                <span className="milk-promo-price"
+                  style={{ fontSize: "clamp(28px,2.8vw,38px)", fontWeight: 950, letterSpacing: -1.5, color: "#dc2626", lineHeight: 1 }}>
+                  {Number(product.promo_price).toFixed(2)} €
+                </span>
+                {/* Badge % */}
+                <span style={{ padding: "4px 10px", borderRadius: 8, background: "#dc2626", color: "#fff", fontSize: 13, fontWeight: 900, letterSpacing: 0.5 }}>
+                  -{Math.round((1 - Number(product.promo_price) / Number(product.price_ttc)) * 100)}%
+                </span>
+              </div>
+              {/* Prix barré */}
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontSize: "clamp(16px,1.5vw,20px)", textDecoration: "line-through", color: "rgba(26,20,16,0.35)", fontWeight: 700 }}>
+                  {Number(product.price_ttc).toFixed(2)} €
+                </span>
+                <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
+                {/* Dates si présentes */}
+                {product.promo_start && product.promo_end && (
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#dc2626", background: "rgba(220,38,38,0.06)", padding: "3px 8px", borderRadius: 6 }}>
+                    jusqu'au {new Date(product.promo_end).toLocaleDateString("fr-FR", { day:"2-digit", month:"long" })}
+                  </span>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
+              <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>
+                {Number(displayPrice).toFixed(2)} €
+              </span>
+              <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
+            </div>
+          )}
 
           {subtitle && <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", fontWeight: 700, color: "rgba(26,20,16,0.7)", lineHeight: 1.5 }}>{subtitle}</p>}
           {extraDesc && <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.8 }}>{extraDesc}</p>}

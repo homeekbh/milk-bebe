@@ -4,12 +4,14 @@ import { supabaseServer } from "@/lib/server/supabase";
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function generateMetadata(
-  { params }: { params: { slug: string } }
+  { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {
+  const { slug } = await params;
+
   const { data: product } = await supabaseServer
     .from("products")
-    .select("name, description, seo_title, seo_description, image_url, category_slug, price_ttc, slug")
-    .eq("slug", params.slug)
+    .select("name, description, seo_title, seo_description, image_url, slug")
+    .eq("slug", slug)
     .single();
 
   if (!product) {
@@ -30,8 +32,8 @@ export async function generateMetadata(
       title,
       description,
       url,
-      type:     "website",
-      images:   product.image_url ? [{ url: product.image_url, width: 1200, height: 1600, alt: product.name }] : [],
+      type:   "website",
+      images: product.image_url ? [{ url: product.image_url, width: 1200, height: 1600, alt: product.name }] : [],
     },
     twitter: {
       card:        "summary_large_image",
@@ -39,9 +41,7 @@ export async function generateMetadata(
       description,
       images:      product.image_url ? [product.image_url] : [],
     },
-    alternates: {
-      canonical: url,
-    },
+    alternates: { canonical: url },
   };
 }
 

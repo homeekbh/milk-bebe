@@ -64,7 +64,7 @@ export default function PopupBienvenue() {
         <style>{`@keyframes popupIn { from { opacity:0; transform:scale(0.9) translateY(20px); } to { opacity:1; transform:none; } }`}</style>
 
         {/* Fermer */}
-        <button onClick={close} style={{ position: "absolute", top: 16, right: 16, background: "rgba(242,237,230,0.1)", border: "none", borderRadius: 8, cursor: "pointer", color: "rgba(242,237,230,0.5)", fontSize: 18, width: 32, height: 32, display: "grid", placeItems: "center" }}>✕</button>
+        <button onClick={close} style={{ position: "absolute", top: 16, right: 16, background: "rgba(242,237,230,0.1)", border: "none", borderRadius: 8, cursor: "pointer", color: "rgba(242,237,230,0.5)", fontSize: 18, width: 32, height: 32, display: "grid", placeItems: "center" }} aria-label="Fermer">✕</button>
 
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 24 }}>

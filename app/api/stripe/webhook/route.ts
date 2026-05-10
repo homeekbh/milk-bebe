@@ -93,25 +93,26 @@ export async function POST(req: Request) {
         process.env.NODE_ENV !== "production" && console.log("✅ Order saved:", orderData?.id);
       }
 
-      for (const item of items) {
-        let productData: any = null;
+      // ✅ Batch load produits — 1 requête au lieu de N
+      const _itemIds   = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
+      const _itemSlugs = [...new Set(items.map((i: any) => i.slug).filter(Boolean))];
+      const { data: _allProds } = await supabaseServer
+        .from("products").select("id, stock, slug, sizes_stock")
+        .in("id", _itemIds.length ? _itemIds : ["none"]);
+      const { data: _allProds2 } = _itemSlugs.length
+        ? await supabaseServer.from("products").select("id, stock, slug, sizes_stock").in("slug", _itemSlugs)
+        : { data: [] };
+      const _prodsMap: Record<string, any> = {};
+      [...(_allProds ?? []), ...(_allProds2 ?? [])].forEach((p: any) => {
+        _prodsMap[p.id]   = p;
+        _prodsMap[p.slug] = p;
+      });
 
-        if (item.id) {
-          const { data } = await supabaseServer
-            .from("products")
-            .select("id, stock, slug, sizes_stock")
-            .eq("id", item.id)
-            .single();
-          if (data) productData = data;
-        }
-        if (!productData && item.slug) {
-          const { data } = await supabaseServer
-            .from("products")
-            .select("id, stock, slug, sizes_stock")
-            .eq("slug", item.slug)
-            .single();
-          if (data) productData = data;
-        }
+      for (const item of items) {
+        let productData: any = _prodsMap[item.id] ?? _prodsMap[item.slug] ?? null;
+        const _skip = false; // batch loaded
+
+        // slug fallback already in batch
 
         if (!productData) {
           console.warn("⚠️ Product not found for item:", item);

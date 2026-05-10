@@ -458,7 +458,27 @@ export default function ProductPage() {
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }
   else { for (let i = 0; i < allImages.length; i += 2) photoRows.push(allImages.slice(i, i + 2)); }
 
+
+  const jsonLdProduct = {
+    "@context": "https://schema.org",
+    "@type":    "Product",
+    name:        product.name,
+    description: product.description ?? product.seo_description ?? "",
+    image:       [product.image_url, product.image_url_2, product.image_url_3].filter(Boolean),
+    brand:       { "@type": "Brand", name: "M!LK" },
+    offers: {
+      "@type":        "Offer",
+      priceCurrency:  "EUR",
+      price:          String(product.promo_price || product.price_ttc || "0"),
+      availability:   (product.stock ?? 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      url:            `${process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr"}/produits/${product.slug}`,
+      seller:         { "@type": "Organization", name: "M!LK" },
+    },
+  };
+
   return (
+    <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdProduct) }} />
     <div style={{ background: BG, minHeight: "100vh" }}>
       {lightboxIdx !== null && allImages.length > 0 && (
         <Lightbox images={allImages} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
@@ -811,5 +831,6 @@ export default function ProductPage() {
       </div>
       <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}`}</style>
     </div>
+    </>
   );
 }

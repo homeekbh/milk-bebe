@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     min_order:      isNaN(parseFloat(body.min_order))      ? 0 : parseFloat(body.min_order),
     max_uses:       body.max_uses ? parseInt(body.max_uses) : null,
     expires_at:     body.expires_at || null,
+    starts_at:     body.starts_at  || null,
     uses_count:     0,
   };
 

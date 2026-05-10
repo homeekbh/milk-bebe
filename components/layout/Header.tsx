@@ -211,6 +211,7 @@ export default function Header() {
               onMouseEnter={() => { cancel(); setOpenUser(true); }}
               onMouseLeave={() => delay(() => setOpenUser(false))}>
               <button className="hdr-icon"
+                onClick={() => setOpenUser(v => !v)}
                 style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
                 {user ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span> : <ProfileIcon color={C.text} size={22} />}
               </button>
@@ -230,6 +231,7 @@ export default function Header() {
                       {[
                         { label: "Mon profil",    href: "/profil" },
                         { label: "Mes commandes", href: "/profil" },
+                        { label: "❤️ Mes favoris",  href: "/favoris" },
                       ].map(item => (
                         <Link key={item.label} href={item.href} onClick={() => setOpenUser(false)}
                           style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 15, fontWeight: 700, color: C.text }}

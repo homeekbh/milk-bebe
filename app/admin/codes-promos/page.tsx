@@ -36,7 +36,9 @@ const LS: React.CSSProperties = {
 };
 
 type PromoCode = {
-  id: string; code: string; type: string; value: number;
+  id: string; code: string;
+  type?: string; value?: number;
+  discount_type?: string; discount_value?: number;
   min_order?: number; max_uses?: number; uses_count: number;
   active: boolean; expires_at?: string; starts_at?: string;
   created_at: string; ca_genere?: number;
@@ -219,7 +221,7 @@ export default function AdminCodes() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res  = await adminFetch("/api/admin/promo-codes");
+      const res  = await adminFetch("/api/admin/promos");
       const data = await res.json();
       setCodes(Array.isArray(data) ? data : []);
     } catch {}
@@ -246,17 +248,16 @@ export default function AdminCodes() {
     }
     setSaving(true); setError(""); setSuccess("");
     const body: Record<string, unknown> = {
-      code:       trimCode.toUpperCase(),
-      type:       form.type,
-      value:      form.type === "free_shipping" ? 4.90 : parseFloat(form.value),
-      min_order:  form.min_order  ? parseFloat(form.min_order) : null,
-      max_uses:   form.max_uses   ? parseInt(form.max_uses)    : null,
-      starts_at:  form.starts_at  || null,
-      expires_at: form.expires_at || null,
-      uses_count: 0,
-      active:     true,
+      code:           trimCode.toUpperCase(),
+      discount_type:  form.type,
+      discount_value: form.type === "free_shipping" ? 4.90 : parseFloat(form.value),
+      min_order:      form.min_order  ? parseFloat(form.min_order) : null,
+      max_uses:       form.max_uses   ? parseInt(form.max_uses)    : null,
+      starts_at:      form.starts_at  || null,
+      expires_at:     form.expires_at || null,
+      active:         true,
     };
-    const res  = await adminFetch("/api/admin/promo-codes", {
+    const res  = await adminFetch("/api/admin/promos", {
       method: "POST", body: JSON.stringify(body),
     });
     const data = await res.json();
@@ -269,7 +270,7 @@ export default function AdminCodes() {
   }
 
   async function toggleActive(c: PromoCode) {
-    await adminFetch("/api/admin/promo-codes", {
+    await adminFetch("/api/admin/promos", {
       method: "PUT", body: JSON.stringify({ id: c.id, active: !c.active }),
     });
     await load();
@@ -277,7 +278,7 @@ export default function AdminCodes() {
 
   async function deleteCode(id: string) {
     if (!confirm("Supprimer ce code promo ?")) return;
-    await adminFetch("/api/admin/promo-codes", {
+    await adminFetch("/api/admin/promos", {
       method: "DELETE", body: JSON.stringify({ id }),
     });
     await load();
@@ -404,7 +405,7 @@ export default function AdminCodes() {
                   <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 18, color: "#1a1410", letterSpacing: 1.5, marginBottom: 6 }}>{c.code}</div>
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f5f0e8", fontSize: 12, fontWeight: 700, color: "#1a1410" }}>
-                      {c.type === "percent" ? `${c.value}% off` : c.type === "fixed" ? `-${c.value}€` : "🚚 Livraison offerte"}
+                      {(c.discount_type ?? c.type) === "percent" ? `${c.discount_value ?? c.value}% off` : (c.discount_type ?? c.type) === "fixed" ? `-${c.discount_value ?? c.value}€` : "🚚 Livraison offerte"}
                     </span>
                     {c.min_order && <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f5f0e8", fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.6)" }}>min. {c.min_order}€</span>}
                     <span style={{ padding: "3px 8px", borderRadius: 6, background: statusColor[status] + "18", fontSize: 12, fontWeight: 800, color: statusColor[status] }}>

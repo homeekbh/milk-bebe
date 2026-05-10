@@ -7,6 +7,7 @@ import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase-client";
 import SearchGlobal from "@/components/admin/SearchGlobal";
 import { MilkLogo } from "@/components/shared/MilkLogo";
+import OrderAlerts from "@/components/admin/OrderAlerts";
 
 const NAV = [
   { href: "/admin",              label: "Dashboard",    icon: "▦"  },
@@ -379,6 +380,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         {/* ── CALENDRIER ── */}
         {showCal && <AdminCalendar onClose={() => setShowCal(false)} />}
 
+        <OrderAlerts />
         <main style={{ flex: 1 }}>
           {children}
         </main>

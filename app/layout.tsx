@@ -11,7 +11,9 @@ import { CartProvider }   from "@/context/CartContext";
 import { LangProvider }   from "@/context/LangContext";
 import { AuthProvider }   from "@/context/AuthContext";
 import PopupBienvenue from "@/components/PopupBienvenue";
-import CookieBanner  from "@/components/CookieBanner";
+import CookieBanner      from "@/components/CookieBanner";
+import ExitIntentPopup     from "@/components/ExitIntentPopup";
+import { WishlistProvider } from "@/context/WishlistContext";
 
 const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
@@ -221,6 +223,29 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
 
       <body>
+        {/* ── Google Analytics 4 ── */}
+        {process.env.NEXT_PUBLIC_GA4_ID && (
+          <>
+            <Script
+              id="ga4"
+              strategy="afterInteractive"
+              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA4_ID}`}
+            />
+            <Script
+              id="ga4-init"
+              strategy="afterInteractive"
+              dangerouslySetInnerHTML={{
+                __html: `
+                  window.dataLayer = window.dataLayer || [];
+                  function gtag(){dataLayer.push(arguments);}
+                  gtag('js', new Date());
+                  gtag('config', '${process.env.NEXT_PUBLIC_GA4_ID}', { page_path: window.location.pathname });
+                `,
+              }}
+            />
+          </>
+        )}
+
         {/* ── Meta Pixel (Facebook / Instagram Ads) ── */}
         {META_PIXEL && (
           <>
@@ -254,7 +279,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           </>
         )}
 
-        <AuthProvider>
+        <WishlistProvider>
+          <AuthProvider>
           <CartProvider>
             <LangProvider>
               <IntroProvider>
@@ -265,10 +291,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <Footer />
                 <ChatWidget />
                 <CookieBanner />
+                <ExitIntentPopup />
               </IntroProvider>
             </LangProvider>
           </CartProvider>
         </AuthProvider>
+          </WishlistProvider>
       </body>
     </html>
   );

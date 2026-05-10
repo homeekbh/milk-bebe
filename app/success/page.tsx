@@ -1,5 +1,11 @@
 "use client";
 
+function fbqTrack(event: string, data?: Record<string, unknown>) {
+  try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
+}
+
+// ── Meta Pixel ──────────────────────────────────────────────────────────────
+
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
@@ -14,6 +20,7 @@ export default function SuccessPage() {
     if (!cleared.current) {
       clearCart();
       cleared.current = true;
+      fbqTrack("Purchase", { currency:"EUR", content_type:"product" });
     }
     // ✅ Désactiver l'intro pour cette session
     if (typeof window !== "undefined") {

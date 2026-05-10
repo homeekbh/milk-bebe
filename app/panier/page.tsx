@@ -1,5 +1,20 @@
 ﻿"use client";
 
+function fbqTrack(event: string, data?: Record<string, unknown>) {
+  try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
+}
+
+// ── Meta Pixel helpers ────────────────────────────────────────────────────────
+// ── Meta Pixel helpers ────────────────────────────────────────────────────────
+function fbq(event: string, data?: Record<string, unknown>) {
+  try {
+    if (typeof window !== "undefined" && (window as any).fbq) {
+      (window as any).fbq("track", event, data);
+    }
+  } catch {}
+}
+
+
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
@@ -89,6 +104,8 @@ export default function CartPage() {
   async function handleCheckout() {
     if (items.length === 0) return;
     if (!user) { router.push("/connexion?redirect=/panier"); return; }
+    fbqTrack("InitiateCheckout", { value: items.reduce((a,it) => a + (it.price??0)*(it.quantity??1), 0), currency: "EUR", num_items: items.reduce((a,it) => a + it.quantity, 0) });
+    fbqTrack("InitiateCheckout", { value: items.reduce((a,it)=>a+(it.price??0)*(it.quantity??1),0), currency:"EUR", num_items: items.reduce((a,it)=>a+it.quantity,0) });
     setLoading(true);
     const res  = await fetch("/api/checkout/create-session", {
       method:  "POST",

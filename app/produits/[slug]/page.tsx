@@ -1,5 +1,10 @@
 "use client";
 
+function fbqTrack(event: string, data?: Record<string, unknown>) {
+  try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
+}
+
+// ── Meta Pixel ────────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from "react";
 import { useParams }                   from "next/navigation";
 import Image                           from "next/image";
@@ -369,6 +374,7 @@ export default function ProductPage() {
   const [qty,         setQty]         = useState(1);
   const [added,       setAdded]       = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
+  const [reviews,    setReviews]    = useState<any[]>([]);
   const [guideOpen,   setGuideOpen]   = useState(false);
   const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
   const leftColRef  = useRef<HTMLDivElement>(null);
@@ -385,6 +391,8 @@ export default function ProductPage() {
         setRelated((Array.isArray(all) ? all : []).filter((p: any) => p.id !== found.id && p.category_slug === found.category_slug).slice(0, 4));
       }
       setLoading(false);
+      // ✅ Meta Pixel — ViewContent
+      if (found) fbqTrack("ViewContent", { content_ids:[found.id], content_name:found.name, content_type:"product", value:found.promo_price||found.price_ttc||0, currency:"EUR" });
     }).catch(() => setLoading(false));
   }, [slug]);
 
@@ -409,6 +417,14 @@ export default function ProductPage() {
       return;
     }
     const name = [product.name, taille, couleur].filter(Boolean).join(" — ");
+    fbqTrack("AddToCart", {
+      content_ids:  [product.id],
+      content_name: product.name,
+      value:        product.promo_price || product.price_ttc || 0,
+      currency:     "EUR",
+      contents:     [{ id: product.id, quantity: qty }],
+    });
+    fbqTrack("AddToCart", { content_ids:[product.id], content_name:product.name, value:product.promo_price||product.price_ttc||0, currency:"EUR", contents:[{id:product.id,quantity:qty}] });
     addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty });
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }
@@ -775,6 +791,53 @@ export default function ProductPage() {
       {/* ─── BAS DE PAGE ─── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
         <div className="bottom-grid" style={{ marginBottom: 24 }}>
+          {/* ── AVIS CLIENTS ── */}
+          {reviews.length > 0 && (
+            <div style={{ marginTop: 48 }}>
+              <h2 style={{ fontSize: "clamp(20px,2vw,26px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 6 }}>
+                Avis clients
+              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const avg = reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length;
+                    return <span key={i} style={{ fontSize: 20, color: i < Math.round(avg) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>;
+                  })}
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1410" }}>
+                  {(reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length).toFixed(1)}/5
+                </span>
+                <span style={{ fontSize: 14, color: "rgba(26,20,16,0.45)" }}>({reviews.length} avis)</span>
+              </div>
+              <div style={{ display: "grid", gap: 16 }}>
+                {reviews.slice(0, 6).map((rev: any) => (
+                  <div key={rev.id} style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900, color: "#1a1410", flexShrink: 0 }}>
+                          {(rev.author_name ?? "?").slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{rev.author_name ?? "Client M!LK"}</div>
+                          <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
+                            {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 2 }}>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <span key={i} style={{ fontSize: 14, color: i < (rev.rating ?? 5) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                    {rev.title && <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1410", marginBottom: 6 }}>{rev.title}</div>}
+                    <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? rev.content ?? ""}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {related.length > 0 ? (
             <div style={{ display: "flex", flexDirection: "column" }}>
               <div style={{ marginBottom: 20 }}>

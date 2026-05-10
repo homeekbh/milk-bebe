@@ -163,8 +163,11 @@ function buildDefaultFaqs(cat: string, slug: string, withId: () => string) {
 type ColorEntry = {
   name:       string;
   hex:        string;
-  stock:      string;
+  stock:      string;     // calculé automatiquement = somme des tailles
   image_url?: string;
+  sizes:      string[];   // tailles valables pour ce motif
+  sizes_stock: Record<string, string>; // stock par taille pour ce motif
+  validated:  boolean;    // motif validé avant de saisir les tailles/stocks
 };
 
 // ── Nouvelles structures pour cards et FAQs éditables ──
@@ -868,6 +871,9 @@ export default function AdminProductForm() {
           setColors(
             Array.isArray(data.colors)
               ? data.colors.map((c: any) => ({
+                  sizes: Array.isArray(c.sizes) ? c.sizes : [],
+                  sizes_stock: (c.sizes_stock && typeof c.sizes_stock === "object") ? Object.fromEntries(Object.entries(c.sizes_stock).map(([k,v]) => [k, String(v)])) : {},
+                  validated: true,
                   name:      c.name      ?? "",
                   hex:       c.hex       ?? "#f2ede6",
                   stock:     String(c.stock ?? 0),
@@ -968,10 +974,44 @@ export default function AdminProductForm() {
   const totalFromColors = colors.length > 0 ? colors.reduce((s, c) => s + (parseInt(c.stock) || 0), 0) : null;
   const computedStock   = totalFromSizes ?? totalFromColors;
 
-  function addColor() { setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0", image_url: "" }]); }
+  function addColor() { setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0", image_url: "", sizes: [], sizes_stock: {}, validated: false }]); }
   function removeColor(i: number) { setColors(p => p.filter((_, idx) => idx !== i)); }
-  function updateColor(i: number, k: keyof ColorEntry, v: string) {
-    setColors(p => p.map((c, idx) => idx === i ? { ...c, [k]: v } : c));
+  function updateColor(i: number, k: keyof ColorEntry, v: string | string[] | Record<string,string> | boolean) {
+    setColors(p => p.map((c, idx) => {
+      if (idx !== i) return c;
+      const updated = { ...c, [k]: v };
+      // Recalculer stock auto depuis sizes_stock
+      if (k === "sizes_stock" || k === "sizes") {
+        const ss = k === "sizes_stock" ? (v as Record<string,string>) : updated.sizes_stock;
+        const total = Object.values(ss).reduce((sum, q) => sum + (parseInt(q) || 0), 0);
+        updated.stock = String(total);
+      }
+      return updated;
+    }));
+  }
+  function validateColor(i: number) {
+    setColors(p => p.map((c, idx) => idx === i ? { ...c, validated: true } : c));
+  }
+  function toggleColorSize(colorIdx: number, taille: string) {
+    setColors(p => p.map((c, idx) => {
+      if (idx !== colorIdx) return c;
+      const newSizes = c.sizes.includes(taille)
+        ? c.sizes.filter(s => s !== taille)
+        : [...c.sizes, taille];
+      const newSizesStock = { ...c.sizes_stock };
+      if (!newSizes.includes(taille)) delete newSizesStock[taille];
+      else if (!newSizesStock[taille]) newSizesStock[taille] = "0";
+      const total = Object.values(newSizesStock).reduce((sum, q) => sum + (parseInt(q) || 0), 0);
+      return { ...c, sizes: newSizes, sizes_stock: newSizesStock, stock: String(total) };
+    }));
+  }
+  function updateColorSizeStock(colorIdx: number, taille: string, qty: string) {
+    setColors(p => p.map((c, idx) => {
+      if (idx !== colorIdx) return c;
+      const newSizesStock = { ...c.sizes_stock, [taille]: qty };
+      const total = Object.values(newSizesStock).reduce((sum, q) => sum + (parseInt(q) || 0), 0);
+      return { ...c, sizes_stock: newSizesStock, stock: String(total) };
+    }));
   }
 
   // ── Cards fiche produit ──
@@ -1059,10 +1099,12 @@ export default function AdminProductForm() {
         sizes,
         sizes_stock: Object.fromEntries(sizes.map(t => [t, parseInt(sizesStock[t] ?? "0") || 0])),
         colors: colors.map(c => ({
-          name:      c.name,
-          hex:       c.hex,
-          stock:     parseInt(c.stock) || 0,
-          image_url: c.image_url || null,
+          name:        c.name,
+          hex:         c.hex,
+          stock:       parseInt(c.stock) || 0,
+          image_url:   c.image_url || null,
+          sizes:       c.sizes ?? [],
+          sizes_stock: Object.fromEntries(Object.entries(c.sizes_stock ?? {}).map(([k,v]) => [k, parseInt(v)||0])),
         })),
         // Nouvelles données fiche produit
         fiche_cards: ficheCards,
@@ -1254,94 +1296,173 @@ export default function AdminProductForm() {
         </div>
       )}
 
-      {/* ═══ ONGLET 3 : TAILLES / COULEURS / STOCK ═══ */}
+      {/* ═══ ONGLET 3 : MOTIFS / TAILLES / STOCK ═══ */}
       {activeTab === "stock" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 24 }}>
 
-          {/* Tailles */}
-          <div style={SECTION}>
+          {/* Header + bouton ajouter */}
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
-              <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Tailles disponibles</div>
-              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Coche les tailles et renseigne le stock par taille</div>
-            </div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {TAILLES_SUGGESTIONS.map(t => {
-                const checked = sizes.includes(t);
-                return (
-                  <button key={t} onClick={() => toggleSize(t)}
-                    style={{ padding: "9px 16px", borderRadius: 99, border: `2px solid ${checked ? "#1a1410" : "rgba(0,0,0,0.12)"}`, background: checked ? "#1a1410" : "#fff", color: checked ? "#c49a4a" : "rgba(26,20,16,0.5)", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
-                    {checked ? "✓ " : ""}{t}
-                  </button>
-                );
-              })}
-            </div>
-            {/* Taille personnalisée */}
-            <div style={{ display: "flex", gap: 10 }}>
-              <input value={customTaille} onChange={e => setCustomTaille(e.target.value)}
-                onKeyDown={e => { if (e.key === "Enter" && customTaille.trim()) { toggleSize(customTaille.trim()); setCustomTaille(""); } }}
-                placeholder="Autre taille..." style={{ ...IS, flex: 1 }} />
-              <button onClick={() => { if (customTaille.trim()) { toggleSize(customTaille.trim()); setCustomTaille(""); } }}
-                style={{ padding: "12px 16px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer" }}>+</button>
-            </div>
-            {/* Stock par taille */}
-            {sizes.length > 0 && (
-              <div style={{ display: "grid", gap: 10 }}>
-                <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Stock par taille</div>
-                {sizes.map(t => (
-                  <div key={t} style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "#1a1410" }}>{t}</div>
-                    <input type="number" min="0" value={sizesStock[t] ?? "0"}
-                      onChange={e => setSizesStock(s => ({ ...s, [t]: e.target.value }))}
-                      style={{ ...IS, width: 100, textAlign: "center" }} />
-                    <span style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>u.</span>
-                  </div>
-                ))}
-                {computedStock !== null && (
-                  <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", fontSize: 15, fontWeight: 700, color: "#166534" }}>
-                    Stock total calculé : {computedStock} unités
-                  </div>
-                )}
+              <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>Motifs & Stock</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>
+                Pour chaque motif : 1️⃣ Valider le motif → 2️⃣ Sélectionner les tailles → 3️⃣ Saisir les quantités
               </div>
-            )}
+            </div>
+            <button onClick={addColor}
+              style={{ padding: "12px 20px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+              + Ajouter un motif
+            </button>
           </div>
 
-          {/* Couleurs */}
-          <div style={SECTION}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
-              <div>
-                <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 6 }}>Couleurs & motifs</div>
-                <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Clique sur la pastille pour uploader l'image du motif</div>
-              </div>
-              <button onClick={addColor}
-                style={{ padding: "10px 16px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-                + Couleur
-              </button>
+          {/* Stock total */}
+          {colors.length > 0 && (
+            <div style={{ padding: "14px 20px", borderRadius: 12, background: "#dcfce7", border: "1px solid #86efac", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <span style={{ fontSize: 15, fontWeight: 700, color: "#166534" }}>
+                Stock total calculé sur tous les motifs
+              </span>
+              <span style={{ fontSize: 22, fontWeight: 950, color: "#166534" }}>
+                {colors.reduce((sum, col) => sum + (parseInt(col.stock) || 0), 0)} unités
+              </span>
             </div>
-            {colors.length === 0 ? (
-              <div style={{ padding: "24px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 15, color: "rgba(26,20,16,0.5)" }}>
-                Aucune couleur — le stock global sera utilisé
-              </div>
-            ) : (
-              <div style={{ display: "grid", gap: 14 }}>
-                {colors.map((c, i) => <ColorEntryRow key={i} color={c} index={i} onUpdate={updateColor} onRemove={removeColor} />)}
-              </div>
-            )}
-            {colors.length > 0 && (
-              <div style={{ padding: "16px 18px", borderRadius: 12, background: "#fafafa", border: "1px solid rgba(0,0,0,0.07)" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 12 }}>Aperçu pastilles</div>
-                <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                  {colors.map((c, i) => (
-                    <div key={i} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-                      <div style={{ width: 44, height: 44, borderRadius: 99, overflow: "hidden", border: "2px solid rgba(0,0,0,0.12)", background: c.hex }}>
-                        {c.image_url && <img src={c.image_url} alt={c.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+          )}
+
+          {colors.length === 0 && (
+            <div style={{ padding: "40px 32px", borderRadius: 16, background: "#fff", border: "1.5px dashed rgba(26,20,16,0.15)", textAlign: "center" }}>
+              <div style={{ fontSize: 40, marginBottom: 12 }}>🎨</div>
+              <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1410", marginBottom: 8 }}>Aucun motif pour l'instant</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Clique sur "+ Ajouter un motif" pour commencer</div>
+            </div>
+          )}
+
+          {/* Liste des motifs */}
+          {colors.map((motif, colorIdx) => (
+            <div key={colorIdx} style={{ background: "#fff", borderRadius: 20, border: `2px solid ${motif.validated ? "rgba(26,20,16,0.1)" : "#c49a4a"}`, overflow: "hidden" }}>
+
+              {/* ── Étape 1 : Identité du motif ── */}
+              <div style={{ padding: "20px 24px", borderBottom: motif.validated ? "1px solid rgba(26,20,16,0.08)" : "none" }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
+                  <div style={{ width: 24, height: 24, borderRadius: 99, background: motif.validated ? "#16a34a" : "#c49a4a", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 900, flexShrink: 0 }}>
+                    {motif.validated ? "✓" : "1"}
+                  </div>
+                  <div style={{ fontWeight: 800, fontSize: 15, color: "#1a1410" }}>
+                    {motif.validated ? `Motif : ${motif.name || "—"}` : "Définir le motif"}
+                  </div>
+                  <button onClick={() => removeColor(colorIdx)}
+                    style={{ marginLeft: "auto", width: 32, height: 32, borderRadius: 8, background: "#fee2e2", border: "none", color: "#dc2626", cursor: "pointer", fontWeight: 900, fontSize: 16 }}>×</button>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 16, alignItems: "end" }}>
+                  {/* Pastille image */}
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" as const, color: "rgba(26,20,16,0.5)" }}>Image</label>
+                    <label style={{ cursor: "pointer" }}>
+                      <input type="file" accept="image/*" style={{ display: "none" }}
+                        onChange={async e => {
+                          const file = e.target.files?.[0]; if (!file) return;
+                          const fd = new FormData(); fd.append("file", file);
+                          const res = await adminFetch("/api/admin/upload", { method: "POST", body: fd });
+                          const data = await res.json();
+                          if (res.ok) updateColor(colorIdx, "image_url", data.url);
+                          e.target.value = "";
+                        }} />
+                      <div style={{ width: 64, height: 64, borderRadius: 14, border: "2px solid rgba(196,154,74,0.4)", overflow: "hidden", background: motif.hex, cursor: "pointer", position: "relative" }}>
+                        {motif.image_url && <img src={motif.image_url} alt={motif.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                        <div style={{ position: "absolute", inset: 0, background: "rgba(0,0,0,0.3)", display: "grid", placeItems: "center", fontSize: 20 }}>⬆</div>
                       </div>
-                      <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.5)", maxWidth: 54, textAlign: "center", lineHeight: 1.3 }}>{c.name || "—"}</span>
-                    </div>
-                  ))}
+                    </label>
+                  </div>
+
+                  {/* Nom */}
+                  <div style={{ display: "grid", gap: 6 }}>
+                    <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" as const, color: "rgba(26,20,16,0.5)" }}>Nom du motif *</label>
+                    <input type="text" value={motif.name}
+                      onChange={e => updateColor(colorIdx, "name", e.target.value)}
+                      placeholder="Ex : Éclair, Smileys, Damier, Uni..."
+                      disabled={motif.validated}
+                      style={{ padding: "13px 16px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.12)", fontSize: 16, color: "#1a1410", background: motif.validated ? "#f5f5f5" : "#faf8f4", outline: "none", width: "100%", boxSizing: "border-box" as const }} />
+                  </div>
+
+                  {/* Bouton valider / modifier */}
+                  {!motif.validated ? (
+                    <button onClick={() => { if (motif.name.trim()) validateColor(colorIdx); }}
+                      disabled={!motif.name.trim()}
+                      style={{ padding: "13px 20px", borderRadius: 10, background: motif.name.trim() ? "#1a1410" : "#e5e7eb", color: motif.name.trim() ? "#c49a4a" : "#9ca3af", fontWeight: 900, fontSize: 14, border: "none", cursor: motif.name.trim() ? "pointer" : "not-allowed", whiteSpace: "nowrap" }}>
+                      ✓ Valider le motif
+                    </button>
+                  ) : (
+                    <button onClick={() => updateColor(colorIdx, "validated", false)}
+                      style={{ padding: "13px 20px", borderRadius: 10, background: "rgba(26,20,16,0.06)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                      ✎ Modifier
+                    </button>
+                  )}
                 </div>
               </div>
-            )}
-          </div>
+
+              {/* ── Étapes 2 & 3 : Tailles + Stock (seulement si motif validé) ── */}
+              {motif.validated && (
+                <div style={{ padding: "20px 24px", display: "grid", gap: 20 }}>
+
+                  {/* Étape 2 : Sélection des tailles */}
+                  <div>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                      <div style={{ width: 24, height: 24, borderRadius: 99, background: motif.sizes.length > 0 ? "#16a34a" : "#f59e0b", color: "#fff", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 900 }}>
+                        {motif.sizes.length > 0 ? "✓" : "2"}
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: 15, color: "#1a1410" }}>Tailles disponibles pour ce motif</div>
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      {TAILLES_SUGGESTIONS.map(t => {
+                        const checked = motif.sizes.includes(t);
+                        return (
+                          <button key={t} onClick={() => toggleColorSize(colorIdx, t)}
+                            style={{ padding: "9px 16px", borderRadius: 99, border: `2px solid ${checked ? "#1a1410" : "rgba(0,0,0,0.12)"}`, background: checked ? "#1a1410" : "#fff", color: checked ? "#c49a4a" : "rgba(26,20,16,0.5)", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+                            {checked ? "✓ " : ""}{t}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Étape 3 : Quantités par taille */}
+                  {motif.sizes.length > 0 && (
+                    <div>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                        <div style={{ width: 24, height: 24, borderRadius: 99, background: "#c49a4a", color: "#1a1410", display: "grid", placeItems: "center", fontSize: 12, fontWeight: 900 }}>3</div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: "#1a1410" }}>Stock par taille — {motif.name}</div>
+                      </div>
+                      <div style={{ display: "grid", gap: 10 }}>
+                        {motif.sizes.map(t => (
+                          <div key={t} style={{ display: "flex", alignItems: "center", gap: 14, padding: "12px 16px", borderRadius: 12, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.08)" }}>
+                            <div style={{ flex: 1, fontWeight: 700, fontSize: 15, color: "#1a1410" }}>{t}</div>
+                            <input type="number" min="0"
+                              value={motif.sizes_stock[t] ?? "0"}
+                              onChange={e => updateColorSizeStock(colorIdx, t, e.target.value)}
+                              style={{ width: 100, padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.12)", fontSize: 16, fontWeight: 700, textAlign: "center", background: "#fff" }} />
+                            <span style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>unités</span>
+                          </div>
+                        ))}
+                        <div style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", border: "1px solid #86efac", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span style={{ fontSize: 14, fontWeight: 700, color: "#166534" }}>Sous-total {motif.name}</span>
+                          <span style={{ fontSize: 18, fontWeight: 950, color: "#166534" }}>{motif.stock || 0} u.</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Aperçu pastille */}
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", borderRadius: 10, background: "rgba(196,154,74,0.06)", border: "1px solid rgba(196,154,74,0.2)" }}>
+                    <div style={{ width: 40, height: 40, borderRadius: 99, overflow: "hidden", border: "2px solid rgba(196,154,74,0.4)", background: motif.hex, flexShrink: 0 }}>
+                      {motif.image_url && <img src={motif.image_url} alt={motif.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                    </div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>{motif.name}</div>
+                    <div style={{ marginLeft: "auto", fontSize: 13, fontWeight: 700, color: "rgba(26,20,16,0.5)" }}>
+                      {motif.sizes.length} taille{motif.sizes.length !== 1 ? "s" : ""} · {motif.stock || 0} unités
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
 

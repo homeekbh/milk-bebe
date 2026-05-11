@@ -25,7 +25,7 @@ function extractTailleFromName(name: string): string | null {
 
 export async function POST(req: Request) {
   try {
-    const { items, promo_code, discount, free_shipping } = await req.json();
+    const { items, promo_code, discount, free_shipping, customer_email } = await req.json();
 
     if (!items || items.length === 0) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
@@ -125,6 +125,7 @@ export async function POST(req: Request) {
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/panier`,
       locale:      "fr",
+      ...(customer_email ? { customer_email } : {}),
       metadata: {
         items:         JSON.stringify(validatedItems),
         promo_code:    promo_code    ?? "",

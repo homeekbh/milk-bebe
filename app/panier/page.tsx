@@ -33,6 +33,8 @@ export default function CartPage() {
   const [promoData,     setPromoData]     = useState<any>(null);
   const [promoError,    setPromoError]    = useState("");
   const [promoLoading,  setPromoLoading]  = useState(false);
+  const [guestEmail,    setGuestEmail]    = useState("");
+  const [guestError,    setGuestError]    = useState("");
 
   const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
 
@@ -103,9 +105,18 @@ export default function CartPage() {
 
   async function handleCheckout() {
     if (items.length === 0) return;
-    if (!user) { router.push("/connexion?redirect=/panier"); return; }
+    setGuestError("");
+
+    // Guest checkout : valider email si non connecté
+    if (!user) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!guestEmail.trim() || !emailRegex.test(guestEmail.trim())) {
+        setGuestError("Saisis un email valide pour continuer.");
+        return;
+      }
+    }
+
     fbqTrack("InitiateCheckout", { value: items.reduce((a,it) => a + (it.price??0)*(it.quantity??1), 0), currency: "EUR", num_items: items.reduce((a,it) => a + it.quantity, 0) });
-    fbqTrack("InitiateCheckout", { value: items.reduce((a,it)=>a+(it.price??0)*(it.quantity??1),0), currency:"EUR", num_items: items.reduce((a,it)=>a+it.quantity,0) });
     setLoading(true);
     const res  = await fetch("/api/checkout/create-session", {
       method:  "POST",
@@ -115,6 +126,7 @@ export default function CartPage() {
         promo_code:    promoData?.code    ?? null,
         discount:      promoData?.discount ?? 0,
         free_shipping: promoData?.free_shipping ?? false,
+        customer_email: user?.email ?? guestEmail.trim(),
       }),
     });
     const data = await res.json();
@@ -178,22 +190,32 @@ export default function CartPage() {
                 )}
               </div>
 
-              {/* Bandeau connexion si non connecté */}
+              {/* Guest checkout ou connexion */}
               {!user && (
                 <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)" }}>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 6 }}>
-                    Connexion requise pour commander
+                  <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 4 }}>
+                    Commander sans créer de compte
                   </div>
-                  <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 16, lineHeight: 1.6 }}>
-                    Crée ton compte M!LK pour finaliser ta commande et suivre tes livraisons.
+                  <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 14, lineHeight: 1.6 }}>
+                    Entre ton email pour recevoir la confirmation et suivre ta livraison.
                   </div>
-                  <div style={{ display: "flex", gap: 10 }}>
+                  <input
+                    type="email"
+                    value={guestEmail}
+                    onChange={e => { setGuestEmail(e.target.value); setGuestError(""); }}
+                    placeholder="ton@email.fr"
+                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: guestError ? "1.5px solid #ef4444" : "1px solid rgba(242,237,230,0.15)", fontSize: 14, fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "#f2ede6", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+                  />
+                  {guestError && (
+                    <div style={{ fontSize: 13, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>⚠ {guestError}</div>
+                  )}
+                  <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
                     <Link href="/connexion?redirect=/panier"
-                      style={{ flex: 1, padding: "12px", borderRadius: 10, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 14, textDecoration: "none", textAlign: "center" }}>
-                      Se connecter
+                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
+                      J'ai un compte
                     </Link>
                     <Link href="/inscription?redirect=/panier"
-                      style={{ flex: 1, padding: "12px", borderRadius: 10, background: "transparent", color: "#f2ede6", fontWeight: 800, fontSize: 14, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.2)" }}>
+                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
                       Créer un compte
                     </Link>
                   </div>
@@ -293,8 +315,8 @@ export default function CartPage() {
                 </div>
 
                 <button onClick={handleCheckout} disabled={loading}
-                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: loading ? "#d1cdc8" : !user ? "#c49a4a" : "#1a1410", color: !user ? "#1a1410" : "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: loading ? "not-allowed" : "pointer", marginBottom: 12 }}>
-                  {loading ? "Redirection..." : !user ? "Se connecter pour commander" : "Passer au paiement →"}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: loading ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: loading ? "not-allowed" : "pointer", marginBottom: 12 }}>
+                  {loading ? "Redirection..." : "Passer au paiement →"}
                 </button>
 
                 <button onClick={clearCart}

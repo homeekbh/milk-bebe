@@ -8,5 +8,18 @@
       "path":     "/api/admin/stock-alerts",
       "schedule": "0 8 * * *"
     }
+  ],
+  "redirects": [
+    {
+      "source":      "/(.*)",
+      "has": [
+        {
+          "type":  "host",
+          "value": "milk-bebe.vercel.app"
+        }
+      ],
+      "destination": "https://www.milkbebe.fr/$1",
+      "permanent":   true
+    }
   ]
 }

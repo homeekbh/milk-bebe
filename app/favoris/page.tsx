@@ -8,7 +8,6 @@ import Image           from "next/image";
 
 const BG   = "#ede8df";
 const DARK = "#1a1410";
-const WARM = "#f2ede6";
 const AMB  = "#c49a4a";
 
 function isPromoActive(p: any) {
@@ -18,19 +17,22 @@ function isPromoActive(p: any) {
 }
 
 export default function FavorisPage() {
-  const { ids, toggle } = useWishlist();
-  const { addToCart }   = useCart();
-  const [products, setProducts] = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const { ids, mounted, toggle } = useWishlist();
+  const { addToCart }            = useCart();
+  const [products, setProducts]  = useState<any[]>([]);
+  const [loading,  setLoading]   = useState(true);
 
   useEffect(() => {
+    // Attendre que localStorage soit lu avant de fetch
+    if (!mounted) return;
     if (ids.length === 0) { setProducts([]); setLoading(false); return; }
+    setLoading(true);
     supabase
       .from("products")
       .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, image_url, category_slug, stock")
       .in("id", ids)
       .then(({ data }) => { setProducts(data ?? []); setLoading(false); });
-  }, [ids]);
+  }, [ids, mounted]);
 
   return (
     <div style={{ background: BG, minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
@@ -42,12 +44,23 @@ export default function FavorisPage() {
             Mes favoris
           </h1>
           <p style={{ fontSize: 16, color: "rgba(26,20,16,0.5)", margin: 0 }}>
-            {ids.length === 0 ? "Aucun article sauvegardé" : `${ids.length} article${ids.length > 1 ? "s" : ""} sauvegardé${ids.length > 1 ? "s" : ""}`}
+            {!mounted
+              ? "Chargement..."
+              : ids.length === 0
+                ? "Aucun article sauvegardé"
+                : `${ids.length} article${ids.length > 1 ? "s" : ""} sauvegardé${ids.length > 1 ? "s" : ""}`}
           </p>
         </div>
 
-        {/* État vide */}
-        {ids.length === 0 && !loading && (
+        {/* Skeleton pendant hydration */}
+        {!mounted && (
+          <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(26,20,16,0.35)", fontSize: 16 }}>
+            Chargement...
+          </div>
+        )}
+
+        {/* État vide — uniquement après que mounted soit true */}
+        {mounted && ids.length === 0 && !loading && (
           <div style={{ background: "#fff", borderRadius: 24, padding: "64px 32px", textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
             <div style={{ fontSize: 56, marginBottom: 16 }}>🤍</div>
             <div style={{ fontSize: 22, fontWeight: 900, color: DARK, marginBottom: 10 }}>Aucun favori pour l'instant</div>
@@ -61,18 +74,19 @@ export default function FavorisPage() {
           </div>
         )}
 
-        {/* Grille produits */}
-        {loading && ids.length > 0 && (
+        {/* Loading après montage */}
+        {mounted && loading && ids.length > 0 && (
           <div style={{ textAlign: "center", padding: "60px 0", color: "rgba(26,20,16,0.35)", fontSize: 16 }}>Chargement...</div>
         )}
 
-        {!loading && products.length > 0 && (
+        {/* Grille produits */}
+        {mounted && !loading && products.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
             {products.map(p => {
-              const promo     = isPromoActive(p);
-              const price     = promo ? p.promo_price : p.price_ttc;
-              const oldPrice  = promo ? p.price_ttc   : null;
-              const inStock   = (p.stock ?? 0) > 0;
+              const promo    = isPromoActive(p);
+              const price    = promo ? p.promo_price : p.price_ttc;
+              const oldPrice = promo ? p.price_ttc   : null;
+              const inStock  = (p.stock ?? 0) > 0;
               return (
                 <div key={p.id}
                   style={{ background: "#fff", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column" }}>

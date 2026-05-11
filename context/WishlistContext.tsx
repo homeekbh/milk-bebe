@@ -3,22 +3,25 @@ import { createContext, useContext, useState, useEffect } from "react";
 
 type WishlistCtx = {
   ids:      string[];
+  mounted:  boolean;
   toggle:   (id: string) => void;
   isInList: (id: string) => boolean;
 };
 
 const WishlistContext = createContext<WishlistCtx>({
-  ids: [], toggle: () => {}, isInList: () => false,
+  ids: [], mounted: false, toggle: () => {}, isInList: () => false,
 });
 
 export function WishlistProvider({ children }: { children: React.ReactNode }) {
-  const [ids, setIds] = useState<string[]>([]);
+  const [ids,     setIds]     = useState<string[]>([]);
+  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(localStorage.getItem("milk_wishlist") ?? "[]");
       setIds(Array.isArray(saved) ? saved : []);
     } catch {}
+    setMounted(true);
   }, []);
 
   function toggle(id: string) {
@@ -32,7 +35,7 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   function isInList(id: string) { return ids.includes(id); }
 
   return (
-    <WishlistContext.Provider value={{ ids, toggle, isInList }}>
+    <WishlistContext.Provider value={{ ids, mounted, toggle, isInList }}>
       {children}
     </WishlistContext.Provider>
   );

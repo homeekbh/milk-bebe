@@ -356,15 +356,20 @@ function Lightbox({ images, startIndex, onClose }: { images: string[]; startInde
   );
 }
 
-function FaqItem({ q, r }: { q: string; r: string }) {
-  const [open, setOpen] = useState(false);
+function FaqItem({ q, r, isOpen, onToggle }: { q: string; r: string; isOpen: boolean; onToggle: () => void }) {
   return (
     <div style={{ borderTop: `1px solid rgba(26,20,16,0.1)` }}>
-      <button onClick={() => setOpen(v => !v)} style={{ width: "100%", padding: "13px 0", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
+      <button onClick={onToggle} style={{ width: "100%", padding: "13px 0", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
         <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.3vw,15px)", color: DARK, lineHeight: 1.3 }}>{q}</span>
-        <span style={{ fontSize: 20, color: AMBER, flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none", lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 20, color: AMBER, flexShrink: 0, transition: "transform 0.25s", transform: isOpen ? "rotate(45deg)" : "none", lineHeight: 1 }}>+</span>
       </button>
-      {open && <div style={{ padding: "0 0 13px", fontSize: "clamp(13px,1.2vw,14px)", lineHeight: 1.75, color: "rgba(26,20,16,0.6)", whiteSpace: "pre-line" }}>{r}</div>}
+      <div style={{
+        overflow: "hidden",
+        maxHeight: isOpen ? "400px" : "0px",
+        transition: "max-height 0.3s ease",
+      }}>
+        <div style={{ padding: "0 0 13px", fontSize: "clamp(13px,1.2vw,14px)", lineHeight: 1.75, color: "rgba(26,20,16,0.6)", whiteSpace: "pre-line" }}>{r}</div>
+      </div>
     </div>
   );
 }
@@ -384,6 +389,7 @@ export default function ProductPage() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [reviews,    setReviews]    = useState<any[]>([]);
   const [guideOpen,   setGuideOpen]   = useState(false);
+  const [openFaqIdx,  setOpenFaqIdx]  = useState<number | null>(null);
   const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
   const leftColRef  = useRef<HTMLDivElement>(null);
   const rightInnerRef = useRef<HTMLDivElement>(null);
@@ -954,7 +960,15 @@ export default function ProductPage() {
         {/* FAQ */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: TAUPE, border: `1px solid rgba(26,20,16,0.1)` }}>
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>
-          {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
+          {FAQ.map((item, idx) => (
+            <FaqItem
+              key={item.q}
+              q={item.q}
+              r={item.r}
+              isOpen={openFaqIdx === idx}
+              onToggle={() => setOpenFaqIdx(openFaqIdx === idx ? null : idx)}
+            />
+          ))}
         </div>
       </div>
 

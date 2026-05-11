@@ -200,7 +200,7 @@ const QUICK = [
 ];
 
 // ─── ChatWindow ───────────────────────────────────────────────────────────────
-export default function ChatWindow({ onClose }: { onClose: () => void }) {
+export default function ChatWindow({ onClose, onUserActivity }: { onClose: () => void; onUserActivity?: () => void }) {
   const [messages, setMessages] = useState<Msg[]>([
     { role: "bot", text: "Bonjour ! 👋 Je suis l'assistant M!LK. Comment puis-je t'aider aujourd'hui ?" },
   ]);
@@ -313,7 +313,7 @@ export default function ChatWindow({ onClose }: { onClose: () => void }) {
       <div style={{ padding: "12px 14px", borderTop: "1px solid rgba(242,237,230,0.08)", display: "flex", gap: 8, background: "#221c16" }}>
         <input
           value={input}
-          onChange={e => setInput(e.target.value)}
+          onChange={e => { setInput(e.target.value); onUserActivity?.(); }}
           onKeyDown={e => e.key === "Enter" && sendMessage(input)}
           placeholder="Pose ta question..."
           style={{ flex: 1, padding: "11px 14px", borderRadius: 12, border: "1px solid rgba(242,237,230,0.1)", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontSize: 14, fontWeight: 600, outline: "none", caretColor: "#c49a4a" }}

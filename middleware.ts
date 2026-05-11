@@ -4,22 +4,24 @@ import type { NextRequest } from "next/server";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ── COMING SOON ──────────────────────────────────────────────────────────
-  // Décommenter ce bloc pour activer le coming-soon sur milkbebe.fr
-  // Commenter ce bloc pour mettre le site en ligne
-  //
-  // const host   = req.headers.get("host") ?? "";
-  // const isProd = host.includes("milkbebe.fr");
-  // if (
-  //   isProd &&
-  //   !pathname.startsWith("/coming-soon") &&
-  //   !pathname.startsWith("/api") &&
-  //   !pathname.startsWith("/admin") &&
-  //   !pathname.startsWith("/_next") &&
-  //   !pathname.startsWith("/favicon")
-  // ) {
-  //   return NextResponse.redirect(new URL("/coming-soon", req.url));
-  // }
+  // ── COMING SOON — uniquement sur milkbebe.fr ─────────────────────────────
+  const host   = req.headers.get("host") ?? "";
+  const isProd = host === "milkbebe.fr" || host === "www.milkbebe.fr";
+
+  if (
+    isProd &&
+    !pathname.startsWith("/coming-soon") &&
+    !pathname.startsWith("/api") &&
+    !pathname.startsWith("/admin") &&
+    !pathname.startsWith("/_next") &&
+    !pathname.startsWith("/favicon") &&
+    !pathname.startsWith("/robots") &&
+    !pathname.startsWith("/sitemap") &&
+    !pathname.startsWith("/images") &&
+    pathname !== "/manifest.json"
+  ) {
+    return NextResponse.redirect(new URL("/coming-soon", req.url));
+  }
   // ─────────────────────────────────────────────────────────────────────────
 
   return NextResponse.next();

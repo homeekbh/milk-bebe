@@ -4,9 +4,9 @@ import type { NextRequest } from "next/server";
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // ── COMING SOON ──────────────────────────────────────────────────────────
+  // ── COMING SOON — uniquement sur milkbebe.fr ─────────────────────────────
   const host   = req.headers.get("host") ?? "";
-  const isProd = host.includes("milkbebe.fr") || host.includes("milk-bebe.vercel.app");
+  const isProd = host.includes("milkbebe.fr");
   if (
     isProd &&
     !pathname.startsWith("/coming-soon") &&

@@ -3,13 +3,15 @@ import type { NextRequest } from "next/server";
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const host = req.headers.get("host") ?? "";
 
-  // ── COMING SOON — uniquement sur milkbebe.fr ─────────────────────────────
-  const host   = req.headers.get("host") ?? "";
-  const isProd = host === "milkbebe.fr" || host === "www.milkbebe.fr";
+  // ── COMING SOON — uniquement sur milkbebe.fr, jamais sur vercel.app ──────
+  const isProd   = host === "milkbebe.fr" || host === "www.milkbebe.fr";
+  const isVercel = host.includes("vercel.app");
 
   if (
     isProd &&
+    !isVercel &&
     !pathname.startsWith("/coming-soon") &&
     !pathname.startsWith("/api") &&
     !pathname.startsWith("/admin") &&
@@ -22,7 +24,6 @@ export async function proxy(req: NextRequest) {
   ) {
     return NextResponse.redirect(new URL("/coming-soon", req.url));
   }
-  // ─────────────────────────────────────────────────────────────────────────
 
   return NextResponse.next();
 }

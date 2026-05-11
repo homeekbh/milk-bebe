@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link  from "next/link";
 import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign";
+import { useWishlist } from "@/context/WishlistContext";
 
 const PROMO_STYLES = `
   @keyframes milk-promo-shake {

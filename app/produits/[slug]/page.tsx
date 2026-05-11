@@ -370,102 +370,35 @@ function FaqItem({ q, r }: { q: string; r: string }) {
 }
 
 
-// ── Apple Pay / Google Pay via Stripe Payment Request ────────────────────────
-function ApplePayButton({ product, taille, couleur, qty, promo }: {
-  product: any; taille: string; couleur: string; qty: number; promo: boolean;
-}) {
-  const [paymentRequest, setPaymentRequest] = useState<any>(null);
-  const [canPay, setCanPay]                 = useState(false);
-  const btnRef = useRef<HTMLDivElement>(null);
+// ── Estimé livraison ─────────────────────────────────────────────────────────
+function getDeliveryEstimate(): string {
+  const now   = new Date();
+  const hour  = now.getHours();
+  const day   = now.getDay(); // 0=dim, 1=lun ... 6=sam
+  const CUTOFF = 16;
 
-  useEffect(() => {
-    if (!product || typeof window === "undefined") return;
-    // Stripe doit être chargé
-    const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-    if (!stripeKey) return;
-
-    let stripe: any;
-    let pr: any;
-
-    async function init() {
-      const { loadStripe } = await import("@stripe/stripe-js");
-      stripe = await loadStripe(stripeKey!);
-      if (!stripe) return;
-
-      const price  = promo ? product.promo_price : product.price_ttc;
-      const amount = Math.round(price * qty * 100);
-      const name   = [product.name, taille, couleur].filter(Boolean).join(" — ");
-
-      pr = stripe.paymentRequest({
-        country:  "FR",
-        currency: "eur",
-        total:    { label: name, amount },
-        requestPayerName:  true,
-        requestPayerEmail: true,
-        requestShipping:   true,
-        shippingOptions: [
-          { id: "standard", label: "Livraison standard", detail: "3-5 jours ouvrés", amount: amount >= 6000 ? 0 : 490 },
-        ],
-      });
-
-      const result = await pr.canMakePayment();
-      if (result) {
-        setPaymentRequest(pr);
-        setCanPay(true);
-      }
-
-      pr.on("paymentmethod", async (ev: any) => {
-        // Créer session Stripe depuis le backend
-        const res = await fetch("/api/checkout/create-session", {
-          method:  "POST",
-          headers: { "Content-Type": "application/json" },
-          body:    JSON.stringify({
-            items: [{ id: product.id, name, quantity: qty }],
-            customer_email: ev.payerEmail,
-          }),
-        });
-        const data = await res.json();
-        if (data.url) {
-          ev.complete("success");
-          window.location.href = data.url;
-        } else {
-          ev.complete("fail");
-        }
-      });
+  // Jours ouvrés : lun-ven. Délai Sendcloud : 2 jours ouvrés
+  function addBusinessDays(date: Date, days: number): Date {
+    const d = new Date(date);
+    let added = 0;
+    while (added < days) {
+      d.setDate(d.getDate() + 1);
+      const wd = d.getDay();
+      if (wd !== 0 && wd !== 6) added++;
     }
+    return d;
+  }
 
-    init();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, taille, couleur, qty, promo]);
+  // Si week-end → livraison à partir de lundi + 2j ouvrés
+  let startDate = new Date(now);
+  if (day === 6) { startDate.setDate(startDate.getDate() + 2); }      // sam → lun
+  else if (day === 0) { startDate.setDate(startDate.getDate() + 1); } // dim → lun
+  else if (hour >= CUTOFF) { startDate.setDate(startDate.getDate() + 1); } // après 16h → lendemain
 
-  useEffect(() => {
-    if (!paymentRequest || !btnRef.current) return;
-    // Monter le bouton Stripe PRB
-    let mounted = false;
-    import("@stripe/stripe-js").then(async ({ loadStripe }) => {
-      if (mounted) return;
-      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
-      if (!stripe || !btnRef.current) return;
-      const elements = stripe.elements();
-      const prButton = elements.create("paymentRequestButton", {
-        paymentRequest,
-        style: { paymentRequestButton: { type: "buy", theme: "dark", height: "52px" } },
-      });
-      prButton.mount(btnRef.current);
-      mounted = true;
-    });
-  }, [paymentRequest]);
-
-  if (!canPay) return null;
-
-  return (
-    <div style={{ marginTop: 4 }}>
-      <div style={{ fontSize: 12, fontWeight: 700, textAlign: "center", color: "rgba(26,20,16,0.4)", marginBottom: 8, letterSpacing: 0.5 }}>
-        — ou payer rapidement avec —
-      </div>
-      <div ref={btnRef} style={{ borderRadius: 14, overflow: "hidden" }} />
-    </div>
-  );
+  const delivery = addBusinessDays(startDate, 2);
+  const jours = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+  const mois  = ["jan","fév","mar","avr","mai","juin","juil","août","sep","oct","nov","déc"];
+  return `${jours[delivery.getDay()]} ${delivery.getDate()} ${mois[delivery.getMonth()]}`;
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -906,16 +839,6 @@ export default function ProductPage() {
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? "✓ Ajouté au panier !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
             </button>
-            {/* ── Apple Pay / Google Pay ── */}
-            {!outTaille && !needsTaille && (
-              <ApplePayButton
-                product={product}
-                taille={taille}
-                couleur={couleur}
-                qty={qty}
-                promo={promo}
-              />
-            )}
             {/* ── Bouton Wishlist ── */}
             <button
               onClick={() => product && toggleWishlist(product.id)}
@@ -930,6 +853,21 @@ export default function ProductPage() {
               </Link>
             )}
           </div>
+
+          {/* ── Estimé livraison ── */}
+          {!out && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)" }}>
+              <span style={{ fontSize: 18 }}>🚚</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#15803d" }}>
+                  Livré {getDeliveryEstimate()}
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", fontWeight: 600, marginTop: 1 }}>
+                  Commandez avant 16h · expédition sous 24h ouvrées
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[

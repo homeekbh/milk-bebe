@@ -370,35 +370,60 @@ function FaqItem({ q, r }: { q: string; r: string }) {
 }
 
 
-// ── Estimé livraison ─────────────────────────────────────────────────────────
-function getDeliveryEstimate(): string {
-  const now   = new Date();
-  const hour  = now.getHours();
-  const day   = now.getDay(); // 0=dim, 1=lun ... 6=sam
-  const CUTOFF = 16;
+// ── Alerte réassort ───────────────────────────────────────────────────────────
+function StockAlertForm({ productId, productName, productSlug, taille }: {
+  productId: string; productName: string; productSlug: string; taille: string;
+}) {
+  const [email,   setEmail]   = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done,    setDone]    = useState(false);
+  const [error,   setError]   = useState("");
 
-  // Jours ouvrés : lun-ven. Délai Sendcloud : 2 jours ouvrés
-  function addBusinessDays(date: Date, days: number): Date {
-    const d = new Date(date);
-    let added = 0;
-    while (added < days) {
-      d.setDate(d.getDate() + 1);
-      const wd = d.getDay();
-      if (wd !== 0 && wd !== 6) added++;
+  async function handleSubmit() {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!email.trim() || !emailRegex.test(email.trim())) {
+      setError("Email invalide"); return;
     }
-    return d;
+    setLoading(true); setError("");
+    try {
+      const res = await fetch("/api/stock-alerts", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ email: email.trim(), product_id: productId, product_name: productName, product_slug: productSlug, taille }),
+      });
+      if (!res.ok) throw new Error("Erreur");
+      setDone(true);
+    } catch { setError("Une erreur est survenue, réessaie."); }
+    finally  { setLoading(false); }
   }
 
-  // Si week-end → livraison à partir de lundi + 2j ouvrés
-  let startDate = new Date(now);
-  if (day === 6) { startDate.setDate(startDate.getDate() + 2); }      // sam → lun
-  else if (day === 0) { startDate.setDate(startDate.getDate() + 1); } // dim → lun
-  else if (hour >= CUTOFF) { startDate.setDate(startDate.getDate() + 1); } // après 16h → lendemain
+  if (done) return (
+    <div style={{ padding: "14px 18px", borderRadius: 12, background: "rgba(22,163,74,0.1)", border: "1px solid rgba(22,163,74,0.25)", fontSize: 14, fontWeight: 700, color: "#15803d", textAlign: "center" }}>
+      ✓ On te prévient dès le retour en stock !
+    </div>
+  );
 
-  const delivery = addBusinessDays(startDate, 2);
-  const jours = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
-  const mois  = ["jan","fév","mar","avr","mai","juin","juil","août","sep","oct","nov","déc"];
-  return `${jours[delivery.getDay()]} ${delivery.getDate()} ${mois[delivery.getMonth()]}`;
+  return (
+    <div style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(26,20,16,0.05)", border: "1px solid rgba(26,20,16,0.12)" }}>
+      <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>🔔 Alertez-moi dès le retour en stock</div>
+      {taille && <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginBottom: 10 }}>Taille sélectionnée : {taille}</div>}
+      <div style={{ display: "flex", gap: 8 }}>
+        <input
+          type="email"
+          value={email}
+          onChange={e => { setEmail(e.target.value); setError(""); }}
+          onKeyDown={e => e.key === "Enter" && handleSubmit()}
+          placeholder="ton@email.fr"
+          style={{ flex: 1, padding: "10px 12px", borderRadius: 10, border: error ? "1.5px solid #ef4444" : "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }}
+        />
+        <button onClick={handleSubmit} disabled={loading}
+          style={{ padding: "10px 16px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 13, border: "none", cursor: "pointer", opacity: loading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+          {loading ? "..." : "Me prévenir"}
+        </button>
+      </div>
+      {error && <div style={{ fontSize: 12, color: "#dc2626", fontWeight: 700, marginTop: 6 }}>⚠ {error}</div>}
+    </div>
+  );
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -839,6 +864,16 @@ export default function ProductPage() {
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? "✓ Ajouté au panier !" : outTaille ? "Épuisé" : needsTaille ? "Choisir une taille ↑" : `Ajouter — ${(Number(displayPrice) * qty).toFixed(2)} €`}
             </button>
+            {/* ── Alerte réassort si épuisé ── */}
+            {outTaille && !needsTaille && (
+              <StockAlertForm
+                productId={String(product.id)}
+                productName={product.name}
+                productSlug={product.slug}
+                taille={taille}
+              />
+            )}
+
             {/* ── Bouton Wishlist ── */}
             <button
               onClick={() => product && toggleWishlist(product.id)}
@@ -853,21 +888,6 @@ export default function ProductPage() {
               </Link>
             )}
           </div>
-
-          {/* ── Estimé livraison ── */}
-          {!out && (
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)" }}>
-              <span style={{ fontSize: 18 }}>🚚</span>
-              <div>
-                <div style={{ fontSize: 13, fontWeight: 800, color: "#15803d" }}>
-                  Livré {getDeliveryEstimate()}
-                </div>
-                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", fontWeight: 600, marginTop: 1 }}>
-                  Commandez avant 16h · expédition sous 24h ouvrées
-                </div>
-              </div>
-            </div>
-          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[

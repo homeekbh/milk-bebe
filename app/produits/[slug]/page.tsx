@@ -356,19 +356,154 @@ function Lightbox({ images, startIndex, onClose }: { images: string[]; startInde
   );
 }
 
-function FaqItem({ q, r }: { q: string; r: string }) {
-  const [open, setOpen] = useState(false);
+function FaqItem({ q, r, isOpen, onToggle }: { q: string; r: string; isOpen: boolean; onToggle: () => void }) {
   return (
     <div style={{ borderTop: `1px solid rgba(26,20,16,0.1)` }}>
-      <button onClick={() => setOpen(v => !v)} style={{ width: "100%", padding: "13px 0", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
+      <button onClick={onToggle} style={{ width: "100%", padding: "13px 0", background: "none", border: "none", cursor: "pointer", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, textAlign: "left" }}>
         <span style={{ fontWeight: 800, fontSize: "clamp(13px,1.3vw,15px)", color: DARK, lineHeight: 1.3 }}>{q}</span>
-        <span style={{ fontSize: 20, color: AMBER, flexShrink: 0, transition: "transform 0.2s", transform: open ? "rotate(45deg)" : "none", lineHeight: 1 }}>+</span>
+        <span style={{ fontSize: 20, color: AMBER, flexShrink: 0, transition: "transform 0.25s", transform: isOpen ? "rotate(45deg)" : "none", lineHeight: 1 }}>+</span>
       </button>
-      {open && <div style={{ padding: "0 0 13px", fontSize: "clamp(13px,1.2vw,14px)", lineHeight: 1.75, color: "rgba(26,20,16,0.6)", whiteSpace: "pre-line" }}>{r}</div>}
+      <div style={{
+        overflow: "hidden",
+        maxHeight: isOpen ? "400px" : "0px",
+        transition: "max-height 0.3s ease",
+      }}>
+        <div style={{ padding: "0 0 13px", fontSize: "clamp(13px,1.2vw,14px)", lineHeight: 1.75, color: "rgba(26,20,16,0.6)", whiteSpace: "pre-line" }}>{r}</div>
+      </div>
     </div>
   );
 }
 
+// ── Apple Pay / Google Pay via Stripe Payment Request ────────────────────────
+function ApplePayButton({ product, taille, couleur, qty, promo }: {
+  product: any; taille: string; couleur: string; qty: number; promo: boolean;
+}) {
+  const [paymentRequest, setPaymentRequest] = useState<any>(null);
+  const [canPay, setCanPay]                 = useState(false);
+  const btnRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!product || typeof window === "undefined") return;
+    // Stripe doit être chargé
+    const stripeKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+    if (!stripeKey) return;
+
+    let stripe: any;
+    let pr: any;
+
+    async function init() {
+      const { loadStripe } = await import("@stripe/stripe-js");
+      stripe = await loadStripe(stripeKey!);
+      if (!stripe) return;
+
+      const price  = promo ? product.promo_price : product.price_ttc;
+      const amount = Math.round(price * qty * 100);
+      const name   = [product.name, taille, couleur].filter(Boolean).join(" — ");
+
+      pr = stripe.paymentRequest({
+        country:  "FR",
+        currency: "eur",
+        total:    { label: name, amount },
+        requestPayerName:  true,
+        requestPayerEmail: true,
+        requestShipping:   true,
+        shippingOptions: [
+          { id: "standard", label: "Livraison standard", detail: "3-5 jours ouvrés", amount: amount >= 6000 ? 0 : 490 },
+        ],
+      });
+
+      const result = await pr.canMakePayment();
+      if (result) {
+        setPaymentRequest(pr);
+        setCanPay(true);
+      }
+
+      pr.on("paymentmethod", async (ev: any) => {
+        // Créer session Stripe depuis le backend
+        const res = await fetch("/api/checkout/create-session", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            items: [{ id: product.id, name, quantity: qty }],
+            customer_email: ev.payerEmail,
+          }),
+        });
+        const data = await res.json();
+        if (data.url) {
+          ev.complete("success");
+          window.location.href = data.url;
+        } else {
+          ev.complete("fail");
+        }
+      });
+    }
+
+    init();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product?.id, taille, couleur, qty, promo]);
+
+  useEffect(() => {
+    if (!paymentRequest || !btnRef.current) return;
+    // Monter le bouton Stripe PRB
+    let mounted = false;
+    import("@stripe/stripe-js").then(async ({ loadStripe }) => {
+      if (mounted) return;
+      const stripe = await loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!);
+      if (!stripe || !btnRef.current) return;
+      const elements = stripe.elements();
+      const prButton = elements.create("paymentRequestButton", {
+        paymentRequest,
+        style: { paymentRequestButton: { type: "buy", theme: "dark", height: "52px" } },
+      });
+      prButton.mount(btnRef.current);
+      mounted = true;
+    });
+  }, [paymentRequest]);
+
+  if (!canPay) return null;
+
+  return (
+    <div style={{ marginTop: 4 }}>
+      <div style={{ fontSize: 12, fontWeight: 700, textAlign: "center", color: "rgba(26,20,16,0.4)", marginBottom: 8, letterSpacing: 0.5 }}>
+        — ou payer rapidement avec —
+      </div>
+      <div ref={btnRef} style={{ borderRadius: 14, overflow: "hidden" }} />
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
+// ── Estimé livraison ─────────────────────────────────────────────────────────
+function getDeliveryEstimate(): string {
+  const now   = new Date();
+  const hour  = now.getHours();
+  const day   = now.getDay(); // 0=dim, 1=lun ... 6=sam
+  const CUTOFF = 16;
+
+  // Jours ouvrés : lun-ven. Délai Sendcloud : 2 jours ouvrés
+  function addBusinessDays(date: Date, days: number): Date {
+    const d = new Date(date);
+    let added = 0;
+    while (added < days) {
+      d.setDate(d.getDate() + 1);
+      const wd = d.getDay();
+      if (wd !== 0 && wd !== 6) added++;
+    }
+    return d;
+  }
+
+  // Si week-end → livraison à partir de lundi + 2j ouvrés
+  let startDate = new Date(now);
+  if (day === 6) { startDate.setDate(startDate.getDate() + 2); }      // sam → lun
+  else if (day === 0) { startDate.setDate(startDate.getDate() + 1); } // dim → lun
+  else if (hour >= CUTOFF) { startDate.setDate(startDate.getDate() + 1); } // après 16h → lendemain
+
+  const delivery = addBusinessDays(startDate, 2);
+  const jours = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+  const mois  = ["jan","fév","mar","avr","mai","juin","juil","août","sep","oct","nov","déc"];
+  return `${jours[delivery.getDay()]} ${delivery.getDate()} ${mois[delivery.getMonth()]}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
 
 // ── Alerte réassort ───────────────────────────────────────────────────────────
 function StockAlertForm({ productId, productName, productSlug, taille }: {
@@ -427,37 +562,6 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-
-// ── Estimé livraison ─────────────────────────────────────────────────────────
-function getDeliveryEstimate(): string {
-  const now    = new Date();
-  const hour   = now.getHours();
-  const day    = now.getDay();
-  const CUTOFF = 16;
-
-  function addBusinessDays(date: Date, days: number): Date {
-    const d = new Date(date);
-    let added = 0;
-    while (added < days) {
-      d.setDate(d.getDate() + 1);
-      const wd = d.getDay();
-      if (wd !== 0 && wd !== 6) added++;
-    }
-    return d;
-  }
-
-  let startDate = new Date(now);
-  if (day === 6)      { startDate.setDate(startDate.getDate() + 2); }
-  else if (day === 0) { startDate.setDate(startDate.getDate() + 1); }
-  else if (hour >= CUTOFF) { startDate.setDate(startDate.getDate() + 1); }
-
-  const delivery = addBusinessDays(startDate, 2);
-  const jours = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
-  const mois  = ["jan","fév","mar","avr","mai","juin","juil","août","sep","oct","nov","déc"];
-  return `${jours[delivery.getDay()]} ${delivery.getDate()} ${mois[delivery.getMonth()]}`;
-}
-// ─────────────────────────────────────────────────────────────────────────────
-
 export default function ProductPage() {
   const { slug }             = useParams<{ slug: string }>();
   const { addToCart, items }               = useCart();
@@ -473,6 +577,7 @@ export default function ProductPage() {
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [reviews,    setReviews]    = useState<any[]>([]);
   const [guideOpen,   setGuideOpen]   = useState(false);
+  const [openFaqIdx,  setOpenFaqIdx]  = useState<number | null>(null);
   const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
   const leftColRef  = useRef<HTMLDivElement>(null);
   const rightInnerRef = useRef<HTMLDivElement>(null);
@@ -905,6 +1010,16 @@ export default function ProductPage() {
               />
             )}
 
+            {/* ── Apple Pay / Google Pay ── */}
+            {!outTaille && !needsTaille && (
+              <ApplePayButton
+                product={product}
+                taille={taille}
+                couleur={couleur}
+                qty={qty}
+                promo={promo}
+              />
+            )}
             {/* ── Bouton Wishlist ── */}
             <button
               onClick={() => product && toggleWishlist(product.id)}
@@ -920,7 +1035,7 @@ export default function ProductPage() {
             )}
           </div>
 
-          {/* ── Estimé livraison ── */}
+{/* ── Estimé livraison ── */}
           {!out && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)" }}>
               <span style={{ fontSize: 18 }}>🚚</span>
@@ -1068,7 +1183,15 @@ export default function ProductPage() {
         {/* FAQ */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: TAUPE, border: `1px solid rgba(26,20,16,0.1)` }}>
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>
-          {FAQ.map(item => <FaqItem key={item.q} q={item.q} r={item.r} />)}
+          {FAQ.map((item, idx) => (
+            <FaqItem
+              key={item.q}
+              q={item.q}
+              r={item.r}
+              isOpen={openFaqIdx === idx}
+              onToggle={() => setOpenFaqIdx(openFaqIdx === idx ? null : idx)}
+            />
+          ))}
         </div>
       </div>
 

@@ -178,7 +178,7 @@ export default function QuiSommesNousPage() {
         <Reveal>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>
             <h2 style={{ margin: "0 0 16px", fontSize: "clamp(24px,3.5vw,38px)", fontWeight: 950, letterSpacing: -1, color: C.warm, lineHeight: 1.15 }}>Moins de galères. Plus de moments.</h2>
-            <p style={{ margin: "0 0 28px", fontSize: "clamp(14px,1.5vw,16px)", color: C.muted, lineHeight: 1.7 }}>Des essentiels conçus pour les 3 premiers mois. Bambou certifié OEKO-TEX.</p>
+            <p style={{ margin: "0 0 28px", fontSize: "clamp(14px,1.5vw,16px)", color: C.muted, lineHeight: 1.7 }}>Des essentiels conçus pour les 6 premiers mois. Bambou certifié OEKO-TEX.</p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
               <Link href="/produits" style={{ padding: "14px 30px", borderRadius: 14, background: C.warm, color: C.dark, fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block" }}>Voir les produits</Link>
               <Link href="/pourquoi-bambou" style={{ padding: "14px 30px", borderRadius: 14, border: `1px solid ${C.faint}`, color: C.warm, fontWeight: 800, fontSize: 15, textDecoration: "none", display: "inline-block" }}>Pourquoi le bambou ?</Link>

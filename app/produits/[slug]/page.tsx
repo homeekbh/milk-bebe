@@ -427,6 +427,37 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
+
+// ── Estimé livraison ─────────────────────────────────────────────────────────
+function getDeliveryEstimate(): string {
+  const now    = new Date();
+  const hour   = now.getHours();
+  const day    = now.getDay();
+  const CUTOFF = 16;
+
+  function addBusinessDays(date: Date, days: number): Date {
+    const d = new Date(date);
+    let added = 0;
+    while (added < days) {
+      d.setDate(d.getDate() + 1);
+      const wd = d.getDay();
+      if (wd !== 0 && wd !== 6) added++;
+    }
+    return d;
+  }
+
+  let startDate = new Date(now);
+  if (day === 6)      { startDate.setDate(startDate.getDate() + 2); }
+  else if (day === 0) { startDate.setDate(startDate.getDate() + 1); }
+  else if (hour >= CUTOFF) { startDate.setDate(startDate.getDate() + 1); }
+
+  const delivery = addBusinessDays(startDate, 2);
+  const jours = ["dimanche","lundi","mardi","mercredi","jeudi","vendredi","samedi"];
+  const mois  = ["jan","fév","mar","avr","mai","juin","juil","août","sep","oct","nov","déc"];
+  return `${jours[delivery.getDay()]} ${delivery.getDate()} ${mois[delivery.getMonth()]}`;
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function ProductPage() {
   const { slug }             = useParams<{ slug: string }>();
   const { addToCart, items }               = useCart();
@@ -888,6 +919,21 @@ export default function ProductPage() {
               </Link>
             )}
           </div>
+
+          {/* ── Estimé livraison ── */}
+          {!out && (
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, background: "rgba(22,163,74,0.08)", border: "1px solid rgba(22,163,74,0.2)" }}>
+              <span style={{ fontSize: 18 }}>🚚</span>
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#15803d" }}>
+                  Livré {getDeliveryEstimate()}
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", fontWeight: 600, marginTop: 1 }}>
+                  Commandez avant 16h · expédition sous 24h ouvrées
+                </div>
+              </div>
+            </div>
+          )}
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[

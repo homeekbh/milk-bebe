@@ -26,7 +26,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
   });
 }
 
-const CATEGORIES = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
+// Catégories chargées dynamiquement depuis Supabase
 
 const TAILLES_SUGGESTIONS = [
   "Naissance", "0-3 mois", "3-6 mois", "6-12 mois",
@@ -965,6 +965,9 @@ export default function AdminProductForm() {
   const [allProducts,  setAllProducts]  = useState<any[]>([]);
   const [loadingProds, setLoadingProds] = useState(false);
   const [activeTab,    setActiveTab]    = useState("general");
+  const [categories,   setCategories]   = useState<string[]>(["bodies", "pyjamas", "gigoteuses", "accessoires"]);
+  const [newCat,       setNewCat]       = useState("");
+  const [addingCat,    setAddingCat]    = useState(false);
 
   const TABS = [
     { id: "general",  label: "Infos générales" },
@@ -1374,8 +1377,42 @@ export default function AdminProductForm() {
               <div style={{ display: "grid", gap: 6 }}>
                 <label style={LS}>Catégorie</label>
                 <select value={form.category_slug} onChange={e => set("category_slug", e.target.value)} style={IS}>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
+                {!addingCat ? (
+                  <button type="button" onClick={() => setAddingCat(true)}
+                    style={{ fontSize: 12, fontWeight: 700, color: "#c49a4a", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
+                    + Nouvelle catégorie
+                  </button>
+                ) : (
+                  <div style={{ display: "flex", gap: 8 }}>
+                    <input
+                      value={newCat}
+                      onChange={e => setNewCat(e.target.value.toLowerCase().trim())}
+                      placeholder="ex: chaussons"
+                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.2)", fontSize: 13 }}
+                    />
+                    <button type="button"
+                      onClick={async () => {
+                        if (!newCat.trim()) return;
+                        await fetch("/api/admin/categories", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ slug: newCat.trim() }),
+                        });
+                        setCategories(prev => [...prev, newCat.trim()]);
+                        set("category_slug", newCat.trim());
+                        setNewCat(""); setAddingCat(false);
+                      }}
+                      style={{ padding: "8px 14px", borderRadius: 8, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
+                      Ajouter
+                    </button>
+                    <button type="button" onClick={() => { setAddingCat(false); setNewCat(""); }}
+                      style={{ padding: "8px 10px", borderRadius: 8, background: "none", border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, cursor: "pointer" }}>
+                      ✕
+                    </button>
+                  </div>
+                )}
               </div>
               <Field label="Référence fournisseur" fieldKey="supplier_ref" placeholder="ES-001" value={form.supplier_ref} onChange={set} />
             </div>

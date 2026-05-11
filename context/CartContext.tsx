@@ -9,13 +9,15 @@ type CartItem = {
   price: number;
   quantity: number;
   image_url?: string;
+  taille?: string;   // taille sélectionnée
+  couleur?: string;  // couleur/motif sélectionné
 };
 
 type CartContextType = {
   items: CartItem[];
   addToCart: (item: Omit<CartItem, "quantity"> & { quantity?: number }) => void;
-  removeFromCart: (id: string) => void;
-  updateQuantity: (id: string, quantity: number) => void;
+  removeFromCart: (id: string, taille?: string, couleur?: string) => void;
+  updateQuantity: (id: string, quantity: number, taille?: string, couleur?: string) => void;
   clearCart: () => void;
 };
 
@@ -46,12 +48,18 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items, hydrated]);
 
+  // Clé unique = id + taille + couleur (pour distinguer 0-3 mois vs 3-6 mois)
+  function cartKey(item: { id: string; taille?: string; couleur?: string }) {
+    return `${item.id}__${item.taille ?? ""}__${item.couleur ?? ""}`;
+  }
+
   function addToCart(item: Omit<CartItem, "quantity"> & { quantity?: number }) {
     setItems(prev => {
-      const existing = prev.find(i => i.id === item.id);
+      const key = cartKey(item);
+      const existing = prev.find(i => cartKey(i) === key);
       if (existing) {
         return prev.map(i =>
-          i.id === item.id
+          cartKey(i) === key
             ? { ...i, quantity: i.quantity + (item.quantity ?? 1) }
             : i
         );
@@ -60,13 +68,15 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     });
   }
 
-  function removeFromCart(id: string) {
-    setItems(prev => prev.filter(i => i.id !== id));
+  function removeFromCart(id: string, taille?: string, couleur?: string) {
+    const key = cartKey({ id, taille, couleur });
+    setItems(prev => prev.filter(i => cartKey(i) !== key));
   }
 
-  function updateQuantity(id: string, quantity: number) {
-    if (quantity <= 0) { removeFromCart(id); return; }
-    setItems(prev => prev.map(i => i.id === id ? { ...i, quantity } : i));
+  function updateQuantity(id: string, quantity: number, taille?: string, couleur?: string) {
+    if (quantity <= 0) { removeFromCart(id, taille, couleur); return; }
+    const key = cartKey({ id, taille, couleur });
+    setItems(prev => prev.map(i => cartKey(i) === key ? { ...i, quantity } : i));
   }
 
   function clearCart() {

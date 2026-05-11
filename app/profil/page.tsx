@@ -321,7 +321,16 @@ export default function ProfilPage() {
                       {Array.isArray(order.items) && order.items.map((item: any, i: number) => (
                         <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 0", borderBottom: i < order.items.length - 1 ? "1px solid rgba(26,20,16,0.05)" : "none" }}>
                           <div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>{item.name}</div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: DARK }}>
+                              {item.name.split(" — ")[0]}
+                            </div>
+                            {item.name.split(" — ").length > 1 && (
+                              <div style={{ display: "flex", gap: 5, marginTop: 3, flexWrap: "wrap" }}>
+                                {item.name.split(" — ").slice(1).map((part: string, pi: number) => (
+                                  <span key={pi} style={{ padding: "1px 8px", borderRadius: 99, background: pi === 0 ? "rgba(196,154,74,0.12)" : "rgba(26,20,16,0.06)", fontSize: 12, fontWeight: 800, color: pi === 0 ? "#92400e" : DARK }}>{part}</span>
+                                ))}
+                              </div>
+                            )}
                             <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 1 }}>Qté : {item.quantity}</div>
                           </div>
                           <div style={{ fontWeight: 800, fontSize: 15, color: DARK }}>

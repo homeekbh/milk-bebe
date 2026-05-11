@@ -444,8 +444,16 @@ export default function AdminCommandes() {
                           {(Array.isArray(order.items) ? order.items : []).map((item: any, i: number) => (
                             <div key={i} style={{ display: "flex", justifyContent: "space-between", padding: "8px 0", borderBottom: "1px solid rgba(26,20,16,0.06)" }}>
                               <div>
-                                <div style={{ fontWeight: 700, fontSize: 14 }}>{item.name}</div>
-                                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>× {item.quantity}</div>
+                                <div style={{ fontWeight: 700, fontSize: 14 }}>
+                                  {item.name.split(" — ")[0]}
+                                  {item.name.split(" — ").slice(1).map((part: string, pi: number) => (
+                                    <span key={pi} style={{ marginLeft: 6, padding: "1px 7px", borderRadius: 99, background: pi === 0 ? "rgba(196,154,74,0.12)" : "rgba(26,20,16,0.07)", fontSize: 12, fontWeight: 800, color: pi === 0 ? "#92400e" : "#1a1410" }}>{part}</span>
+                                  ))}
+                                </div>
+                                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 3 }}>
+                                  × {item.quantity}
+                                  {item.taille && <span style={{ marginLeft: 8, fontWeight: 700, color: "#1a1410" }}>Taille : {item.taille}</span>}
+                                </div>
                               </div>
                               <div style={{ fontWeight: 900, color: "#c49a4a" }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)} €</div>
                             </div>

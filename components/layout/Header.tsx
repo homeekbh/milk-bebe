@@ -90,27 +90,12 @@ export default function Header() {
   const { user, signOut } = useAuth();
 
   const [scrolled,   setScrolled]   = useState(false);
-  const [openUser,   setOpenUser]   = useState(false);
   const [theme,      setTheme]      = useState<"dark"|"light">("dark");
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const userTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const dropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Fermer le dropdown si clic en dehors
-  useEffect(() => {
-    if (!openUser) return;
-    function onDocClick(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
-        setOpenUser(false);
-      }
-    }
-    // requestAnimationFrame garantit que le click d'ouverture est déjà traité
-    let raf = requestAnimationFrame(() => {
-      document.addEventListener("click", onDocClick);
-    });
-    return () => { cancelAnimationFrame(raf); document.removeEventListener("click", onDocClick); };
-  }, [openUser]);
   const headerRef = useRef<HTMLElement | null>(null);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0);
 
@@ -153,7 +138,7 @@ export default function Header() {
   function cancel() { if (userTimer.current) clearTimeout(userTimer.current); }
   function delay(fn: () => void, ms = 400) { cancel(); userTimer.current = setTimeout(fn, ms); }
 
-  async function handleSignOut() { await signOut(); setOpenUser(false); router.push("/"); }
+  async function handleSignOut() { await signOut(); router.push("/"); }
 
   if (pathname.startsWith("/admin")) return null;
 
@@ -223,59 +208,13 @@ export default function Header() {
               {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center", lineHeight: 1.4 }}>{totalItems}</span>}
             </Link>
 
-            <div ref={dropdownRef} style={{ position: "relative" }}>
-              <button type="button" className="hdr-icon"
-                onClick={e => { e.stopPropagation(); setOpenUser(true); }}
-                style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", cursor: "pointer", display: "grid", placeItems: "center" }}>
-                {user ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span> : <ProfileIcon color={C.text} size={22} />}
-              </button>
-
-              {openUser && (
-                <div
-                  style={{ position: "absolute", top: 58, right: 0, width: 240, background: "#fff", border: "1px solid rgba(26,20,16,0.1)", borderRadius: 16, padding: 12, boxShadow: "0 24px 60px rgba(0,0,0,0.25)", display: "grid", gap: 4, zIndex: 9999 }}>
-                  {user ? (
-                    <>
-                      <div style={{ padding: "10px 12px 8px" }}>
-                        <div style={{ fontSize: 14, fontWeight: 900, color: "#1a1410" }}>{user.email?.split("@")[0]}</div>
-                        <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginTop: 2 }}>{user.email}</div>
-                      </div>
-                      <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "2px 0" }} />
-                      {[
-                        { label: "👤 Mon profil",    href: "/profil" },
-                        { label: "🛍 Mes commandes", href: "/profil" },
-                        { label: "❤️ Mes favoris",   href: "/favoris" },
-                      ].map(item => (
-                        <Link key={item.label} href={item.href} onClick={() => setOpenUser(false)}
-                          style={{ display: "block", padding: "11px 12px", borderRadius: 10, textDecoration: "none", fontSize: 14, fontWeight: 700, color: "#1a1410" }}
-                          onMouseEnter={e => { (e.currentTarget as HTMLAnchorElement).style.background = "#f5f0e8"; }}
-                          onMouseLeave={e => { (e.currentTarget as HTMLAnchorElement).style.background = "transparent"; }}>
-                          {item.label}
-                        </Link>
-                      ))}
-                      <div style={{ height: 1, background: "rgba(0,0,0,0.07)", margin: "2px 0" }} />
-                      <button onClick={handleSignOut}
-                        style={{ width: "100%", padding: "11px 12px", borderRadius: 10, background: "none", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#ef4444", textAlign: "left" }}
-                        onMouseEnter={e => { (e.currentTarget as HTMLButtonElement).style.background = "rgba(239,68,68,0.06)"; }}
-                        onMouseLeave={e => { (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}>
-                        Se déconnecter
-                      </button>
-                    </>
-                  ) : (
-                    <>
-                      <div style={{ padding: "8px 12px 8px", fontSize: 13, color: C.muted }}>Connecte-toi pour suivre tes commandes</div>
-                      <Link href="/connexion" onClick={() => setOpenUser(false)}
-                        style={{ display: "block", padding: "12px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", textDecoration: "none", fontSize: 15, fontWeight: 900, textAlign: "center" }}>
-                        Se connecter
-                      </Link>
-                      <Link href="/inscription" onClick={() => setOpenUser(false)}
-                        style={{ display: "block", padding: "12px", borderRadius: 10, border: "1px solid rgba(128,128,128,0.15)", textDecoration: "none", fontSize: 15, fontWeight: 700, color: C.text, textAlign: "center" }}>
-                        Créer un compte
-                      </Link>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
+            <Link href={user ? "/profil" : "/connexion"}
+              aria-label={user ? "Mon profil" : "Se connecter"}
+              style={{ width: 40, height: 40, borderRadius: 10, background: user ? "rgba(196,154,74,0.15)" : "none", border: user ? "1px solid rgba(196,154,74,0.3)" : "1px solid transparent", display: "grid", placeItems: "center", textDecoration: "none" }}>
+              {user
+                ? <span style={{ fontSize: 16, fontWeight: 900, color: C.amber }}>{(user.email ?? "?")[0].toUpperCase()}</span>
+                : <ProfileIcon color={C.text} size={22} />}
+            </Link>
           </div>
 
           {/* Mobile burger */}

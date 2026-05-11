@@ -206,6 +206,158 @@ const SECTION: React.CSSProperties = {
   border: "1px solid rgba(0,0,0,0.08)", padding: 28, display: "grid", gap: 18,
 };
 
+// ── DateRangePicker avec calendrier visuel ────────────────────────────────────
+function DateRangePicker({
+  startDate, endDate, onChangeStart, onChangeEnd,
+}: {
+  startDate: string; endDate: string;
+  onChangeStart: (d: string) => void;
+  onChangeEnd:   (d: string) => void;
+}) {
+  const today = new Date();
+  const [viewYear,  setViewYear]  = React.useState(today.getFullYear());
+  const [viewMonth, setViewMonth] = React.useState(today.getMonth());
+  const [open, setOpen] = React.useState<"start"|"end"|null>(null);
+
+  const MOIS  = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  const JOURS = ["L","M","M","J","V","S","D"];
+
+  const firstDay    = new Date(viewYear, viewMonth, 1);
+  const daysInMonth = new Date(viewYear, viewMonth + 1, 0).getDate();
+  let startDay = firstDay.getDay() - 1; if (startDay < 0) startDay = 6;
+
+  const cells: (number|null)[] = [
+    ...Array(startDay).fill(null),
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  function toStr(y: number, m: number, d: number) {
+    return `${y}-${String(m+1).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+  }
+  function handleDay(day: number) {
+    const d = toStr(viewYear, viewMonth, day);
+    if (open === "start") { onChangeStart(d); setOpen(null); }
+    else if (open === "end") { onChangeEnd(d); setOpen(null); }
+  }
+  function isInRange(day: number) {
+    if (!startDate || !endDate) return false;
+    const d = toStr(viewYear, viewMonth, day);
+    return d > startDate && d < endDate;
+  }
+  function isStart(day: number) { return startDate === toStr(viewYear, viewMonth, day); }
+  function isEnd(day: number)   { return endDate   === toStr(viewYear, viewMonth, day); }
+  function isToday(day: number) {
+    return today.getFullYear() === viewYear && today.getMonth() === viewMonth && today.getDate() === day;
+  }
+
+  const AMBER = "#c49a4a";
+  const DARK  = "#1a1410";
+
+  return (
+    <div style={{ display: "grid", gap: 12 }}>
+      {/* Champs cliquables */}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+        {([
+          { label: "Date début", val: startDate, key: "start" as const },
+          { label: "Date fin",   val: endDate,   key: "end"   as const },
+        ]).map(({ label, val, key }) => (
+          <div key={key} style={{ display: "grid", gap: 6 }}>
+            <label style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase" as const, color: "rgba(26,20,16,0.5)" }}>{label}</label>
+            <div style={{ position: "relative" }}>
+              <input readOnly value={val}
+                placeholder="Cliquer pour choisir"
+                onClick={() => setOpen(open === key ? null : key)}
+                style={{ padding: "13px 40px 13px 16px", borderRadius: 10, border: `2px solid ${open === key ? AMBER : "rgba(26,20,16,0.12)"}`, fontSize: 15, color: val ? DARK : "rgba(26,20,16,0.35)", background: "#faf8f4", outline: "none", width: "100%", boxSizing: "border-box" as const, cursor: "pointer" }} />
+              <span style={{ position: "absolute", right: 12, top: "50%", transform: "translateY(-50%)", fontSize: 16, pointerEvents: "none" }}>📅</span>
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Durée */}
+      {startDate && endDate && (
+        <div style={{ padding: "10px 16px", borderRadius: 10, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 14, fontWeight: 700, color: "#92400e", display: "flex", alignItems: "center", gap: 8 }}>
+          <span>⏱</span>
+          <span>
+            Durée : <strong>{Math.ceil((new Date(endDate).getTime() - new Date(startDate).getTime()) / 86400000)} jours</strong>
+            &nbsp;·&nbsp;
+            du {new Date(startDate).toLocaleDateString("fr-FR", { day:"2-digit", month:"long" })} au {new Date(endDate).toLocaleDateString("fr-FR", { day:"2-digit", month:"long", year:"numeric" })}
+          </span>
+        </div>
+      )}
+
+      {/* Calendrier */}
+      {open !== null && (
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.12)", padding: 20, boxShadow: "0 8px 32px rgba(0,0,0,0.1)" }}>
+          {/* Label */}
+          <div style={{ textAlign: "center", fontSize: 12, fontWeight: 800, color: AMBER, marginBottom: 12, letterSpacing: 1, textTransform: "uppercase" as const }}>
+            {open === "start" ? "📅 Date de début de la promo" : "📅 Date de fin de la promo"}
+          </div>
+          {/* Navigation mois */}
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+            <button type="button"
+              onClick={() => { const d = new Date(viewYear, viewMonth-1); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); }}
+              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: "pointer", fontSize: 18, fontWeight: 900 }}>‹</button>
+            <div style={{ fontWeight: 900, fontSize: 15, color: DARK }}>{MOIS[viewMonth]} {viewYear}</div>
+            <button type="button"
+              onClick={() => { const d = new Date(viewYear, viewMonth+1); setViewYear(d.getFullYear()); setViewMonth(d.getMonth()); }}
+              style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: "pointer", fontSize: 18, fontWeight: 900 }}>›</button>
+          </div>
+          {/* Jours */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 6 }}>
+            {JOURS.map((j, i) => (
+              <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 800, color: "rgba(26,20,16,0.35)", paddingBottom: 4 }}>{j}</div>
+            ))}
+          </div>
+          {/* Cellules */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
+            {cells.map((day, i) => {
+              if (!day) return <div key={i} />;
+              const start   = isStart(day);
+              const end     = isEnd(day);
+              const inRange = isInRange(day);
+              const todayD  = isToday(day);
+              return (
+                <div key={i} onClick={() => handleDay(day)}
+                  style={{
+                    aspectRatio: "1", borderRadius: start || end ? 10 : inRange ? 4 : 8,
+                    display: "grid", placeItems: "center", cursor: "pointer",
+                    background: start || end ? DARK : inRange ? "rgba(196,154,74,0.2)" : "transparent",
+                    border: todayD && !start && !end ? `2px solid ${AMBER}` : "none",
+                    transition: "background 0.1s",
+                  }}
+                  onMouseEnter={e => { if (!start && !end) (e.currentTarget as HTMLElement).style.background = "rgba(26,20,16,0.08)"; }}
+                  onMouseLeave={e => { if (!start && !end) (e.currentTarget as HTMLElement).style.background = inRange ? "rgba(196,154,74,0.2)" : "transparent"; }}>
+                  <span style={{ fontSize: 13, fontWeight: start || end ? 900 : 600, color: start || end ? AMBER : DARK, lineHeight: 1 }}>{day}</span>
+                  {(start || end) && (
+                    <span style={{ position: "absolute", bottom: 2, fontSize: 8, color: AMBER, fontWeight: 900 }}>{start ? "début" : "fin"}</span>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {/* Légende + fermer */}
+          <div style={{ marginTop: 14, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 12, height: 12, borderRadius: 3, background: DARK }} />
+              <span style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Début / Fin</span>
+            </div>
+            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+              <div style={{ width: 12, height: 12, borderRadius: 3, background: "rgba(196,154,74,0.3)" }} />
+              <span style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>Période promo</span>
+            </div>
+            <button type="button" onClick={() => setOpen(null)}
+              style={{ marginLeft: "auto", padding: "6px 14px", borderRadius: 8, background: "rgba(26,20,16,0.06)", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 700, color: DARK }}>
+              Fermer ✕
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── PhotosDragDrop ─────────────────────────────────────────────────────────────
 function PhotosDragDrop({ photoKeys, form, set }: {
   photoKeys: readonly string[];
@@ -1468,7 +1620,7 @@ export default function AdminProductForm() {
 
       {/* ═══ ONGLET 4 : TARIF & PROMOS ═══ */}
       {activeTab === "promo" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start", maxWidth: 900 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start", maxWidth: 900, overflow: "visible" }}>
 
           {/* Colonne gauche : Prix de vente */}
           <div style={{ display: "grid", gap: 20 }}>
@@ -1503,7 +1655,7 @@ export default function AdminProductForm() {
 
           {/* Colonne droite : Prix promotionnel */}
           <div style={{ display: "grid", gap: 20 }}>
-            <div style={{ padding: 28, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 20 }}>
+            <div style={{ padding: 28, borderRadius: 16, background: "#fffbeb", border: `2px solid ${hasPromo ? "#f59e0b" : "#fde68a"}`, display: "grid", gap: 20, overflow: "visible" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 12 }}>
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>
@@ -1524,10 +1676,12 @@ export default function AdminProductForm() {
 
               <Field label="Prix promo (€)" fieldKey="promo_price" type="number" placeholder="24.90" value={form.promo_price} onChange={set} />
 
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                <Field label="Date début" fieldKey="promo_start" type="date" value={form.promo_start} onChange={set} />
-                <Field label="Date fin"   fieldKey="promo_end"   type="date" value={form.promo_end}   onChange={set} />
-              </div>
+              <DateRangePicker
+                startDate={form.promo_start}
+                endDate={form.promo_end}
+                onChangeStart={d => set("promo_start", d)}
+                onChangeEnd={d => set("promo_end", d)}
+              />
 
               {/* Récap économie */}
               {hasPromo && form.price_ttc && (

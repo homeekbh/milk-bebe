@@ -25,6 +25,16 @@ export async function generateMetadata(
   const description = product.seo_description ?? product.description ?? `${product.name} en bambou certifié OEKO-TEX Standard 100. Pour nourrissons 0-6 mois.`;
   const url         = `${BASE}/produits/${product.slug}`;
 
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil",     item: BASE },
+      { "@type": "ListItem", position: 2, name: "Produits",    item: `${BASE}/produits` },
+      { "@type": "ListItem", position: 3, name: product.name,  item: url },
+    ],
+  };
+
   return {
     title,
     description,
@@ -42,6 +52,9 @@ export async function generateMetadata(
       images:      product.image_url ? [product.image_url] : [],
     },
     alternates: { canonical: url },
+    other: {
+      "script:breadcrumb": JSON.stringify(breadcrumbLd),
+    },
   };
 }
 

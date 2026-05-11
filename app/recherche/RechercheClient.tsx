@@ -93,7 +93,7 @@ export default function RechercheClient() {
   const [loading,  setLoading]  = useState(true);
 
   useEffect(() => {
-    fetch("/api/admin/products")
+    fetch("/api/produits")
       .then(r => r.json())
       .then(d => { if (Array.isArray(d)) setProducts(d); setLoading(false); })
       .catch(() => setLoading(false));

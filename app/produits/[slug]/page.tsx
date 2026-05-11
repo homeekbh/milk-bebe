@@ -677,6 +677,10 @@ export default function ProductPage() {
   else { for (let i = 0; i < allImages.length; i += 2) photoRows.push(allImages.slice(i, i + 2)); }
 
 
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s: number, r: any) => s + (r.rating ?? 0), 0) / reviews.length).toFixed(1)
+    : null;
+
   const jsonLdProduct = {
     "@context": "https://schema.org",
     "@type":    "Product",
@@ -684,6 +688,15 @@ export default function ProductPage() {
     description: product.description ?? product.seo_description ?? "",
     image:       [product.image_url, product.image_url_2, product.image_url_3].filter(Boolean),
     brand:       { "@type": "Brand", name: "M!LK" },
+    ...(avgRating && reviews.length >= 1 ? {
+      aggregateRating: {
+        "@type":       "AggregateRating",
+        ratingValue:   avgRating,
+        reviewCount:   String(reviews.length),
+        bestRating:    "5",
+        worstRating:   "1",
+      },
+    } : {}),
     offers: {
       "@type":        "Offer",
       priceCurrency:  "EUR",
@@ -697,6 +710,17 @@ export default function ProductPage() {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdProduct) }} />
+      {FAQ.length > 0 && (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: FAQ.map(f => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.r },
+          })),
+        }) }} />
+      )}
     <div style={{ background: BG, minHeight: "100vh" }}>
       {lightboxIdx !== null && allImages.length > 0 && (
         <Lightbox images={allImages} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />

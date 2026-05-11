@@ -1,0 +1,94 @@
+import { supabaseServer } from "@/lib/server/supabase";
+import { Resend }         from "resend";
+
+const resend = new Resend(process.env.RESEND_API_KEY);
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+
+export const dynamic = "force-dynamic";
+
+// Cron J+7 — demande d'avis post-achat
+// À ajouter dans vercel.json : { "path": "/api/emails/avis", "schedule": "0 10 * * *" }
+export async function GET(req: Request) {
+  const auth = (req as any).headers?.get?.("authorization");
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const now   = new Date();
+  const j7min = new Date(now.getTime() - 8  * 24 * 60 * 60 * 1000); // J-8
+  const j7max = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); // J-7
+
+  // Commandes livrées ou confirmées entre J-8 et J-7, email avis pas encore envoyé
+  const { data: orders } = await supabaseServer
+    .from("orders")
+    .select("id, customer_email, customer_name, items, created_at")
+    .in("status", ["paid", "shipped", "delivered"])
+    .is("review_email_sent_at", null)
+    .gte("created_at", j7min.toISOString())
+    .lte("created_at", j7max.toISOString());
+
+  if (!orders || orders.length === 0) {
+    return Response.json({ ok: true, sent: 0 });
+  }
+
+  let sent = 0;
+
+  for (const order of orders) {
+    const items  = Array.isArray(order.items) ? order.items : [];
+    const prenom = order.customer_name?.split(" ")[0] ?? "toi";
+
+    // Construire les liens d'avis pour chaque produit
+    const productLinks = items.slice(0, 3).map((item: any) =>
+      `<a href="${BASE}/produits/${item.slug ?? ""}"
+        style="display:block;padding:12px 16px;margin-bottom:8px;background:#f5f0e8;border-radius:10px;text-decoration:none;color:#1a1410;font-weight:700;font-size:14px">
+        ⭐ Donner mon avis sur ${item.name}
+      </a>`
+    ).join("");
+
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif">
+<div style="max-width:500px;margin:0 auto;padding:40px 20px;text-align:center">
+  <div style="background:#c49a4a;border-radius:12px;padding:12px 24px;display:inline-block;margin-bottom:28px">
+    <span style="color:#1a1410;font-weight:950;font-size:22px">M!LK</span>
+  </div>
+  <h1 style="color:#f2ede6;font-size:20px;font-weight:950;margin:0 0 12px">
+    ${prenom}, bébé est bien habillé ? 🌿
+  </h1>
+  <p style="color:rgba(242,237,230,0.6);font-size:15px;line-height:1.7;margin:0 0 24px">
+    Cela fait 7 jours que tu as reçu ta commande M!LK. On espère que bébé adore le bambou !
+    Ton avis aide les autres parents à choisir en confiance.
+  </p>
+  <div style="text-align:left;margin-bottom:28px">
+    ${productLinks}
+  </div>
+  <p style="color:rgba(242,237,230,0.3);font-size:12px;line-height:1.7">
+    Ça prend 30 secondes. Ça compte énormément pour nous.
+  </p>
+  <p style="color:rgba(242,237,230,0.2);font-size:11px;margin-top:24px">
+    M!LK — Essentiels bébé en bambou premium<br>
+    <a href="${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(order.customer_email)}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+  </p>
+</div>
+</body>
+</html>`;
+
+    const { error } = await resend.emails.send({
+      from:    "M!LK <bonjour@milkbebe.fr>",
+      to:      order.customer_email,
+      subject: `${prenom}, qu'est-ce que tu penses de ta commande M!LK ? ⭐`,
+      html,
+    });
+
+    if (!error) {
+      await supabaseServer
+        .from("orders")
+        .update({ review_email_sent_at: now.toISOString() })
+        .eq("id", order.id);
+      sent++;
+    }
+  }
+
+  return Response.json({ ok: true, sent });
+}

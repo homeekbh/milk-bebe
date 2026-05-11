@@ -68,6 +68,8 @@ function ProductCard({ p }: { p: Product }) {
   const outOfStock = (p.stock ?? 0) <= 0;
   const lowStock   = !outOfStock && (p.stock ?? 0) <= 5;
   const badgeLabel = outOfStock ? undefined : (p.label || (promo ? "promo" : undefined));
+  const { toggle, isInList } = useWishlist();
+  const inWish = isInList(p.id);
 
   return (
     <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
@@ -78,7 +80,7 @@ function ProductCard({ p }: { p: Product }) {
           boxShadow: promo ? "0 4px 20px rgba(220,38,38,0.15)" : "0 4px 16px rgba(0,0,0,0.1)",
           transform: "translateY(-2px)" }}>
         <DiagonalBadge label={promo ? undefined : badgeLabel} outOfStock={outOfStock} isPromo={promo} />
-        <div style={{ position: "relative", aspectRatio: "1/1", background: C.light, overflow: "hidden" }}>
+        <div style={{ position: "relative", aspectRatio: "3/4", background: C.light, overflow: "hidden" }}>
           {p.image_url ? (
             <Image src={p.image_url} alt={p.name} fill sizes="(max-width:640px) 50vw, 25vw"
               style={{ objectFit: "cover", transition: "transform 0.4s ease" }} className="pcard-grid-img" />
@@ -106,12 +108,20 @@ function ProductCard({ p }: { p: Product }) {
               <span style={{ fontWeight: 950, fontSize: "clamp(15px,1.6vw,18px)", color: promo ? C.amber : C.dark }}>{Number(price).toFixed(2)} €</span>
               {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(26,20,16,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
             </div>
-            {!outOfStock && (
-              <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
-                <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.stock <= 5 ? "#f59e0b" : "#22c55e" }} />
-                <span style={{ fontSize: 10, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>{p.stock <= 5 ? `${p.stock} restants` : "En stock"}</span>
-              </div>
-            )}
+            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              {!outOfStock && (
+                <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.stock <= 5 ? "#f59e0b" : "#22c55e" }} />
+                  <span style={{ fontSize: 10, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>{p.stock <= 5 ? `${p.stock} restants` : "En stock"}</span>
+                </div>
+              )}
+              <button
+                onClick={e => { e.preventDefault(); e.stopPropagation(); toggle(p.id); }}
+                aria-label={inWish ? "Retirer des favoris" : "Ajouter aux favoris"}
+                style={{ width: 30, height: 30, borderRadius: "50%", border: "none", background: inWish ? "rgba(220,38,38,0.08)" : "rgba(26,20,16,0.06)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 15, flexShrink: 0 }}>
+                {inWish ? "❤️" : "🤍"}
+              </button>
+            </div>
           </div>
         </div>
       </div>

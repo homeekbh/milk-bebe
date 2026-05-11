@@ -26,7 +26,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
   });
 }
 
-// Catégories chargées dynamiquement depuis Supabase
+const CATEGORIES = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
 
 const TAILLES_SUGGESTIONS = [
   "Naissance", "0-3 mois", "3-6 mois", "6-12 mois",
@@ -504,14 +504,20 @@ function Field({ label, fieldKey, value, onChange, placeholder, type = "text", h
 }
 
 // ── ColorEntryRow ─────────────────────────────────────────────────────────────
-function ColorEntryRow({ color, index, onUpdate, onRemove }: {
+function ColorEntryRow({ color, index, onUpdate, onRemove, motifsExistants }: {
   color: ColorEntry; index: number;
   onUpdate: (i: number, k: keyof ColorEntry, v: string) => void;
   onRemove: (i: number) => void;
+  motifsExistants: {name:string;hex:string;image_url:string}[];
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploadErr, setUploadErr] = useState("");
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const hasImage = !!color.image_url;
+
+  const suggestions = color.name.length >= 2
+    ? motifsExistants.filter(m => m.name.toLowerCase().includes(color.name.toLowerCase()) && m.name.toLowerCase() !== color.name.toLowerCase())
+    : [];
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
@@ -553,9 +559,36 @@ function ColorEntryRow({ color, index, onUpdate, onRemove }: {
         {/* Nom */}
         <div style={{ display: "grid", gap: 6 }}>
           <label style={LS}>Nom du coloris / motif</label>
-          <input type="text" value={color.name}
-            onChange={e => onUpdate(index, "name", e.target.value)}
-            placeholder="Ex : Noir damier, Caramel uni..." style={IS} />
+          <div style={{ position: "relative" }}>
+            <input type="text" value={color.name}
+              onChange={e => { onUpdate(index, "name", e.target.value); setShowSuggestions(true); }}
+              onFocus={() => setShowSuggestions(true)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
+              placeholder="Ex : Noir damier, Caramel uni..." style={IS} />
+            {showSuggestions && suggestions.length > 0 && (
+              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "#fff", border: "1px solid rgba(26,20,16,0.15)", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", overflow: "hidden", marginTop: 4 }}>
+                {suggestions.map(s => (
+                  <button key={s.name} type="button"
+                    onMouseDown={() => {
+                      onUpdate(index, "name", s.name);
+                      onUpdate(index, "hex", s.hex);
+                      if (s.image_url) onUpdate(index, "image_url", s.image_url);
+                      setShowSuggestions(false);
+                    }}
+                    style={{ width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}
+                    onMouseEnter={e => (e.currentTarget.style.background = "#f5f0e8")}
+                    onMouseLeave={e => (e.currentTarget.style.background = "none")}
+                  >
+                    <div style={{ width: 24, height: 24, borderRadius: 6, background: s.hex, border: "1px solid rgba(0,0,0,0.1)", flexShrink: 0, overflow: "hidden" }}>
+                      {s.image_url && <img src={s.image_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                    </div>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>{s.name}</span>
+                    <span style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", marginLeft: "auto" }}>{s.hex}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Stock */}
@@ -968,6 +1001,7 @@ export default function AdminProductForm() {
   const [categories,   setCategories]   = useState<string[]>(["bodies", "pyjamas", "gigoteuses", "accessoires"]);
   const [newCat,       setNewCat]       = useState("");
   const [addingCat,    setAddingCat]    = useState(false);
+  const [motifsExistants, setMotifsExistants] = useState<{name:string;hex:string;image_url:string}[]>([]);
 
   const TABS = [
     { id: "general",  label: "Infos générales" },
@@ -1377,42 +1411,8 @@ export default function AdminProductForm() {
               <div style={{ display: "grid", gap: 6 }}>
                 <label style={LS}>Catégorie</label>
                 <select value={form.category_slug} onChange={e => set("category_slug", e.target.value)} style={IS}>
-                  {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
-                {!addingCat ? (
-                  <button type="button" onClick={() => setAddingCat(true)}
-                    style={{ fontSize: 12, fontWeight: 700, color: "#c49a4a", background: "none", border: "none", cursor: "pointer", textAlign: "left", padding: 0 }}>
-                    + Nouvelle catégorie
-                  </button>
-                ) : (
-                  <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      value={newCat}
-                      onChange={e => setNewCat(e.target.value.toLowerCase().trim())}
-                      placeholder="ex: chaussons"
-                      style={{ flex: 1, padding: "8px 10px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.2)", fontSize: 13 }}
-                    />
-                    <button type="button"
-                      onClick={async () => {
-                        if (!newCat.trim()) return;
-                        await fetch("/api/admin/categories", {
-                          method: "POST",
-                          headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({ slug: newCat.trim() }),
-                        });
-                        setCategories(prev => [...prev, newCat.trim()]);
-                        set("category_slug", newCat.trim());
-                        setNewCat(""); setAddingCat(false);
-                      }}
-                      style={{ padding: "8px 14px", borderRadius: 8, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
-                      Ajouter
-                    </button>
-                    <button type="button" onClick={() => { setAddingCat(false); setNewCat(""); }}
-                      style={{ padding: "8px 10px", borderRadius: 8, background: "none", border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, cursor: "pointer" }}>
-                      ✕
-                    </button>
-                  </div>
-                )}
               </div>
               <Field label="Référence fournisseur" fieldKey="supplier_ref" placeholder="ES-001" value={form.supplier_ref} onChange={set} />
             </div>

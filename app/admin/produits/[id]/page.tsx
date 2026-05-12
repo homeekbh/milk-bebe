@@ -504,20 +504,14 @@ function Field({ label, fieldKey, value, onChange, placeholder, type = "text", h
 }
 
 // ── ColorEntryRow ─────────────────────────────────────────────────────────────
-function ColorEntryRow({ color, index, onUpdate, onRemove, motifsExistants }: {
+function ColorEntryRow({ color, index, onUpdate, onRemove }: {
   color: ColorEntry; index: number;
   onUpdate: (i: number, k: keyof ColorEntry, v: string) => void;
   onRemove: (i: number) => void;
-  motifsExistants: {name:string;hex:string;image_url:string}[];
 }) {
   const ref = useRef<HTMLInputElement>(null);
   const [uploadErr, setUploadErr] = useState("");
-  const [showSuggestions, setShowSuggestions] = useState(false);
   const hasImage = !!color.image_url;
-
-  const suggestions = color.name.length >= 2
-    ? motifsExistants.filter(m => m.name.toLowerCase().includes(color.name.toLowerCase()) && m.name.toLowerCase() !== color.name.toLowerCase())
-    : [];
 
   async function handleImageUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]; if (!file) return;
@@ -559,36 +553,9 @@ function ColorEntryRow({ color, index, onUpdate, onRemove, motifsExistants }: {
         {/* Nom */}
         <div style={{ display: "grid", gap: 6 }}>
           <label style={LS}>Nom du coloris / motif</label>
-          <div style={{ position: "relative" }}>
-            <input type="text" value={color.name}
-              onChange={e => { onUpdate(index, "name", e.target.value); setShowSuggestions(true); }}
-              onFocus={() => setShowSuggestions(true)}
-              onBlur={() => setTimeout(() => setShowSuggestions(false), 150)}
-              placeholder="Ex : Noir damier, Caramel uni..." style={IS} />
-            {showSuggestions && suggestions.length > 0 && (
-              <div style={{ position: "absolute", top: "100%", left: 0, right: 0, zIndex: 50, background: "#fff", border: "1px solid rgba(26,20,16,0.15)", borderRadius: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.1)", overflow: "hidden", marginTop: 4 }}>
-                {suggestions.map(s => (
-                  <button key={s.name} type="button"
-                    onMouseDown={() => {
-                      onUpdate(index, "name", s.name);
-                      onUpdate(index, "hex", s.hex);
-                      if (s.image_url) onUpdate(index, "image_url", s.image_url);
-                      setShowSuggestions(false);
-                    }}
-                    style={{ width: "100%", padding: "10px 14px", background: "none", border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, textAlign: "left" }}
-                    onMouseEnter={e => (e.currentTarget.style.background = "#f5f0e8")}
-                    onMouseLeave={e => (e.currentTarget.style.background = "none")}
-                  >
-                    <div style={{ width: 24, height: 24, borderRadius: 6, background: s.hex, border: "1px solid rgba(0,0,0,0.1)", flexShrink: 0, overflow: "hidden" }}>
-                      {s.image_url && <img src={s.image_url} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
-                    </div>
-                    <span style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>{s.name}</span>
-                    <span style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", marginLeft: "auto" }}>{s.hex}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
+          <input type="text" value={color.name}
+            onChange={e => onUpdate(index, "name", e.target.value)}
+            placeholder="Ex : Noir damier, Caramel uni..." style={IS} />
         </div>
 
         {/* Stock */}
@@ -672,8 +639,25 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
   onMoveDown: (id: string) => void;
   isFirst: boolean; isLast: boolean;
 }) {
-  const [open, setOpen] = useState(true);
+  const [open,      setOpen]      = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [modalField, setModalField] = useState<"content"|"why"|"result">("content");
+  const [modalValue, setModalValue] = useState("");
   const typeDef = CARD_TYPES.find(t => t.value === card.type);
+
+  function openModal(field: "content"|"why"|"result", value: string) {
+    setModalField(field);
+    setModalValue(value);
+    setModalOpen(true);
+  }
+  function saveModal() {
+    if (modalField === "why" || modalField === "result") {
+      updateWR(modalField as "why"|"result", modalValue);
+    } else {
+      onUpdate(card.id, "content", modalValue);
+    }
+    setModalOpen(false);
+  }
 
   let featuresArr: string[] = [];
   if (card.type === "features") { try { featuresArr = JSON.parse(card.content); } catch { featuresArr = []; } }
@@ -691,6 +675,42 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
   function removeEntretienLine(idx: number) { onUpdate(card.id, "content", JSON.stringify(entretienArr.filter((_, i) => i !== idx))); }
 
   return (
+    <>
+    {/* ── Modale d'édition texte ── */}
+    {modalOpen && (
+      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
+        onClick={() => setModalOpen(false)}>
+        <div style={{ background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 680, boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}
+          onClick={e => e.stopPropagation()}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <div style={{ fontWeight: 900, fontSize: 16, color: "#1a1410" }}>
+              {typeDef?.icon} {typeDef?.label}
+              {modalField === "why" && " — La vraie raison"}
+              {modalField === "result" && " — Ce que tu obtiens"}
+            </div>
+            <button onClick={() => setModalOpen(false)}
+              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", background: "none", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>✕</button>
+          </div>
+          <textarea
+            value={modalValue}
+            onChange={e => setModalValue(e.target.value)}
+            autoFocus
+            rows={14}
+            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: "1.5px solid rgba(196,154,74,0.4)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.7, outline: "none", resize: "vertical", boxSizing: "border-box", background: "#fffdf9" }}
+          />
+          <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
+            <button onClick={() => setModalOpen(false)}
+              style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
+              Annuler
+            </button>
+            <button onClick={saveModal}
+              style={{ padding: "10px 24px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 900 }}>
+              ✓ Enregistrer
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     <div style={{ borderRadius: 16, border: `2px solid ${open ? "#c49a4a" : "rgba(196,154,74,0.25)"}`, overflow: "hidden", background: "#fffdf9", marginBottom: 0 }}>
 
       {/* ── Header accordéon ── */}
@@ -744,9 +764,19 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
                 {card.type === "coloris"  && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Ex : Terre cuite — brun chaud aux nuances naturelles</div>}
                 {card.type === "philosophy" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8, lineHeight: 1.5 }}>Phrases avec "?" = mises en valeur · "Ici :" = bloc encadré · La conclusion finale s'affiche auto.</div>}
                 <label style={LS}>{typeDef?.label}</label>
-                <textarea value={card.content} onChange={e => onUpdate(card.id, "content", e.target.value)}
-                  rows={card.type === "philosophy" ? 9 : card.type === "description" ? 4 : 2}
-                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.65 }} />
+                <div style={{ position: "relative" }}>
+                  <textarea value={card.content}
+                    onChange={e => onUpdate(card.id, "content", e.target.value)}
+                    rows={card.type === "philosophy" ? 5 : card.type === "description" ? 3 : 2}
+                    style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.65, paddingRight: 40 }}
+                    placeholder="Cliquez sur ↗ pour ouvrir l'éditeur plein écran"
+                  />
+                  <button type="button" onClick={() => openModal("content", card.content)}
+                    title="Ouvrir l'éditeur"
+                    style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 6, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", cursor: "pointer", fontSize: 13, color: "#c49a4a", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ↗
+                  </button>
+                </div>
               </>
             )}
 
@@ -779,14 +809,28 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 1 — "La vraie raison / Pourquoi ce produit existe"</div>
                 </div>
                 <label style={LS}>Le problème du parent</label>
-                <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
-                  rows={5} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+                <div style={{ position: "relative" }}>
+                  <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
+                    rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7, paddingRight: 40 }} />
+                  <button type="button" onClick={() => openModal("why", wrObj.why)}
+                    title="Ouvrir l'éditeur"
+                    style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 6, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", cursor: "pointer", fontSize: 13, color: "#c49a4a", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ↗
+                  </button>
+                </div>
                 <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(196,154,74,0.08)", borderLeft: "3px solid #c49a4a", marginTop: 4 }}>
                   <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 2 — "Ce que tu obtiens / Le résultat"</div>
                 </div>
                 <label style={LS}>Le résultat concret</label>
-                <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
-                  rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+                <div style={{ position: "relative" }}>
+                  <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
+                    rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7, paddingRight: 40 }} />
+                  <button type="button" onClick={() => openModal("result", wrObj.result)}
+                    title="Ouvrir l'éditeur"
+                    style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 6, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", cursor: "pointer", fontSize: 13, color: "#c49a4a", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    ↗
+                  </button>
+                </div>
               </>
             )}
 
@@ -905,6 +949,7 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
         </div>
       )}
     </div>
+    </>
   );
 }
 
@@ -998,10 +1043,12 @@ export default function AdminProductForm() {
   const [allProducts,  setAllProducts]  = useState<any[]>([]);
   const [loadingProds, setLoadingProds] = useState(false);
   const [activeTab,    setActiveTab]    = useState("general");
-  const [categories,   setCategories]   = useState<string[]>(["bodies", "pyjamas", "gigoteuses", "accessoires"]);
-  const [newCat,       setNewCat]       = useState("");
-  const [addingCat,    setAddingCat]    = useState(false);
-  const [motifsExistants, setMotifsExistants] = useState<{name:string;hex:string;image_url:string}[]>([]);
+  const [dynCategories, setDynCategories] = useState<{slug:string;label:string}[]>([
+    { slug: "bodies",     label: "Bodies"     },
+    { slug: "pyjamas",    label: "Pyjamas"    },
+    { slug: "gigoteuses", label: "Gigoteuses" },
+    { slug: "accessoires",label: "Accessoires"},
+  ]);
 
   const TABS = [
     { id: "general",  label: "Infos générales" },
@@ -1015,6 +1062,21 @@ export default function AdminProductForm() {
 
   // Chargement produit existant
   useEffect(() => {
+    // Charger les catégories dynamiques
+    adminFetch("/api/admin/categories")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data) && data.length > 0) {
+          const cats = data.map((c: any) =>
+            typeof c === "string"
+              ? { slug: c, label: c }
+              : { slug: c.slug, label: c.label || c.slug }
+          );
+          setDynCategories(cats);
+        }
+      })
+      .catch(() => {}); // garde les défauts si l'API échoue
+
     if (isNew) {
       try { const s = localStorage.getItem(draftKey); if (s) setForm(f => ({ ...f, ...JSON.parse(s) })); } catch {}
       return;
@@ -1411,8 +1473,19 @@ export default function AdminProductForm() {
               <div style={{ display: "grid", gap: 6 }}>
                 <label style={LS}>Catégorie</label>
                 <select value={form.category_slug} onChange={e => set("category_slug", e.target.value)} style={IS}>
-                  {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                  {dynCategories.map(c => (
+                    <option key={c.slug} value={c.slug}>{c.label}</option>
+                  ))}
+                  {/* Option de secours si la catégorie du produit n'est pas dans la liste */}
+                  {form.category_slug && !dynCategories.find(c => c.slug === form.category_slug) && (
+                    <option value={form.category_slug}>{form.category_slug}</option>
+                  )}
                 </select>
+                {!isNew && (
+                  <div style={{ fontSize: 11, color: "rgba(196,154,74,0.8)", marginTop: 2 }}>
+                    ⚠️ Changer la catégorie déplace le produit. Les contenus par défaut de l'onglet "Contenu fiche" s'adapteront à la nouvelle catégorie.
+                  </div>
+                )}
               </div>
               <Field label="Référence fournisseur" fieldKey="supplier_ref" placeholder="ES-001" value={form.supplier_ref} onChange={set} />
             </div>
@@ -1762,7 +1835,7 @@ export default function AdminProductForm() {
 
       {/* ═══ ONGLET 5 : CONTENU FICHE ═══ */}
       {activeTab === "contenu" && (
-        <div style={{ display: "grid", gap: 24 }}>
+        <div style={{ display: "grid", gap: 24, width: "100%" }}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div>
               <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>🎨 Contenu de la fiche produit</div>
@@ -1772,7 +1845,7 @@ export default function AdminProductForm() {
 
           {/* Cards en 2 colonnes */}
           {ficheCards.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: 16, width: "100%" }}>
               {ficheCards.map((card, idx) => (
                 <FicheCardEditor key={card.id} card={card} onUpdate={updateCard} onRemove={removeCard}
                   onMoveUp={(id) => moveCard(id, "up")} onMoveDown={(id) => moveCard(id, "down")}

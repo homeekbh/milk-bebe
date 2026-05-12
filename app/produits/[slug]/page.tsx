@@ -595,7 +595,25 @@ export default function ProductPage() {
       setLoading(false);
       // ✅ Meta Pixel — ViewContent
       if (found) fbqTrack("ViewContent", { content_ids:[found.id], content_name:found.name, content_type:"product", value:found.promo_price||found.price_ttc||0, currency:"EUR" });
-    }).catch(() => setLoading(false));
+    // ✅ Tracker vues produit — analytics interne
+      if (found) {
+        const sid = sessionStorage.getItem("milk_sid") || (() => {
+          const s = Math.random().toString(36).slice(2);
+          sessionStorage.setItem("milk_sid", s);
+          return s;
+        })();
+        fetch("/api/track-view", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            product_id: found.id,
+            slug:       found.slug,
+            name:       found.name,
+            category:   found.category_slug,
+            session_id: sid,
+          }),
+        }).catch(() => {});
+      }}).catch(() => setLoading(false));
   }, [slug]);
 
   // Synchronise la hauteur du panneau droit avec la colonne gauche

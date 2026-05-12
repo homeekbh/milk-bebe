@@ -21,6 +21,7 @@ const NAV = [
   { href: "/admin/popups",       label: "Pop-ups",      icon: "💬" },
   { href: "/admin/newsletter",   label: "Newsletter",   icon: "📧" },
   { href: "/admin/comptabilite", label: "Comptabilité", icon: "📊" },
+  { href: "/admin/analytics",    label: "Statistiques", icon: "📈" },
   { href: "/admin/logs",         label: "Activité",     icon: "📋" },
 ];
 

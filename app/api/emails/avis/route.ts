@@ -75,7 +75,7 @@ export async function GET(req: Request) {
 </html>`;
 
     const { error } = await resend.emails.send({
-      from:    "M!LK <bonjour@milkbebe.fr>",
+      from:    "M!LK <contact@milkbebe.fr>",
       to:      order.customer_email,
       subject: `${prenom}, qu'est-ce que tu penses de ta commande M!LK ? ⭐`,
       html,

@@ -1,87 +1,100 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import { requireAdmin }   from "@/lib/admin-auth";
 import { Resend }         from "resend";
-import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
+const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
 
-// GET — lister les produits sous leur seuil d'alerte
-export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
-  const { data: alerts } = await supabaseServer
-    .from("stock_alerts")
-    .select("*, products(id, name, stock, category_slug, image_url)")
-    .eq("active", true);
-
-  const critical = (alerts ?? []).filter((a: any) => {
-    const stock = a.products?.stock ?? 0;
-    return stock <= a.threshold;
-  });
-
-  return Response.json(critical);
-}
-
-// POST — vérifier les alertes et envoyer les emails si nécessaire (appelé par le cron)
-export async function POST(req: NextRequest) {
-  // Vérifier le secret cron
-  const secret = req.headers.get("x-cron-secret");
-  if (secret !== process.env.CRON_SECRET && !req.headers.get("authorization")) {
+// Cron déclenché automatiquement — vérifie les alertes réassort clients
+// et envoie un email à chaque client dont le produit/taille est revenu en stock
+export async function GET(req: Request) {
+  const auth = (req as any).headers?.get?.("authorization");
+  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  // Récupérer toutes les alertes non notifiées
   const { data: alerts } = await supabaseServer
     .from("stock_alerts")
-    .select("*, products(id, name, stock, category_slug)")
-    .eq("active", true);
+    .select("*")
+    .eq("notified", false);
 
-  const critical = (alerts ?? []).filter((a: any) => {
-    const stock = a.products?.stock ?? 0;
-    return stock <= a.threshold;
-  });
+  if (!alerts || alerts.length === 0) {
+    return Response.json({ ok: true, notified: 0 });
+  }
 
-  if (critical.length === 0) return Response.json({ ok: true, alerts: 0 });
+  let notified = 0;
 
-  // Envoyer un seul email récapitulatif
-  const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
-  const rows = critical.map((a: any) =>
-    `<tr>
-      <td style="padding:10px 16px;font-weight:700;color:#1a1410">${a.products?.name}</td>
-      <td style="padding:10px 16px;color:${a.products?.stock === 0 ? "#dc2626" : "#f59e0b"};font-weight:900;font-size:18px;text-align:center">${a.products?.stock}</td>
-      <td style="padding:10px 16px;color:rgba(26,20,16,0.5);text-align:center">${a.threshold}</td>
-    </tr>`
-  ).join("");
+  for (const alert of alerts) {
+    // Vérifier le stock actuel du produit
+    const { data: product } = await supabaseServer
+      .from("products")
+      .select("id, name, slug, stock, sizes_stock, image_url")
+      .eq("id", alert.product_id)
+      .single();
 
-  await resend.emails.send({
-    from:    "M!LK <contact@milkbebe.fr>",
-    to:      ["contact@milkbebe.fr"],
-    subject: `⚠️ ${critical.length} produit${critical.length > 1 ? "s" : ""} en stock critique — M!LK`,
-    html: `
-      <div style="font-family:sans-serif;max-width:600px;margin:0 auto;padding:32px">
-        <h2 style="color:#1a1410;margin-bottom:8px">⚠️ Alerte stock M!LK</h2>
-        <p style="color:rgba(26,20,16,0.6);margin-bottom:24px">${critical.length} produit${critical.length > 1 ? "s" : ""} ont atteint leur seuil d'alerte.</p>
-        <table style="width:100%;border-collapse:collapse;border-radius:12px;overflow:hidden;border:1px solid rgba(0,0,0,0.08)">
-          <thead>
-            <tr style="background:#1a1410;color:#c49a4a">
-              <th style="padding:12px 16px;text-align:left;font-size:12px;letter-spacing:1px;text-transform:uppercase">Produit</th>
-              <th style="padding:12px 16px;text-align:center;font-size:12px;letter-spacing:1px;text-transform:uppercase">Stock</th>
-              <th style="padding:12px 16px;text-align:center;font-size:12px;letter-spacing:1px;text-transform:uppercase">Seuil</th>
-            </tr>
-          </thead>
-          <tbody>${rows}</tbody>
-        </table>
-        <div style="margin-top:24px;text-align:center">
-          <a href="${BASE}/admin/alerts"
-            style="display:inline-block;padding:14px 28px;background:#1a1410;color:#c49a4a;font-weight:900;text-decoration:none;border-radius:12px;font-size:15px">
-            Gérer les stocks →
-          </a>
-        </div>
-      </div>
-    `,
-  }).catch(() => {});
+    if (!product) continue;
 
-  return Response.json({ ok: true, alerts: critical.length });
+    // Vérifier si le stock est revenu pour la taille concernée
+    let isBack = false;
+    if (alert.taille) {
+      const sizesStock: Record<string, number> = product.sizes_stock ?? {};
+      isBack = (sizesStock[alert.taille] ?? 0) > 0;
+    } else {
+      isBack = (product.stock ?? 0) > 0;
+    }
+
+    if (!isBack) continue;
+
+    // Envoyer l'email de notification
+    const tailleLabel = alert.taille ? ` — taille ${alert.taille}` : "";
+    const html = `
+<!DOCTYPE html>
+<html lang="fr">
+<body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif">
+<div style="max-width:500px;margin:0 auto;padding:40px 20px;text-align:center">
+  <div style="background:#c49a4a;border-radius:12px;padding:12px 24px;display:inline-block;margin-bottom:32px">
+    <span style="color:#1a1410;font-weight:950;font-size:22px">M!LK</span>
+  </div>
+  <h1 style="color:#f2ede6;font-size:22px;font-weight:950;margin:0 0 16px">🎉 De retour en stock !</h1>
+  <p style="color:rgba(242,237,230,0.6);font-size:15px;line-height:1.7;margin:0 0 8px">
+    Tu avais demandé à être alertée pour :
+  </p>
+  <div style="background:#2a2018;border-radius:16px;padding:20px;margin:0 0 28px;border:1px solid rgba(196,154,74,0.2)">
+    <div style="font-size:17px;font-weight:900;color:#f2ede6">${product.name}${tailleLabel}</div>
+    <div style="font-size:13px;color:#c49a4a;margin-top:6px;font-weight:700">Est de nouveau disponible !</div>
+  </div>
+  <p style="color:rgba(242,237,230,0.45);font-size:13px;margin:0 0 24px">
+    Les stocks peuvent s'épuiser rapidement. Ne tarde pas !
+  </p>
+  <a href="${BASE}/produits/${product.slug ?? ""}"
+    style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 36px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none">
+    Commander maintenant →
+  </a>
+  <p style="color:rgba(242,237,230,0.2);font-size:11px;margin-top:32px">
+    M!LK — Essentiels bébé en bambou premium
+  </p>
+</div>
+</body>
+</html>`;
+
+    const { error } = await resend.emails.send({
+      from:    "M!LK <contact@milkbebe.fr>",
+      to:      alert.email,
+      subject: `🎉 ${product.name}${tailleLabel} est de retour en stock !`,
+      html,
+    });
+
+    if (!error) {
+      // Marquer comme notifié
+      await supabaseServer
+        .from("stock_alerts")
+        .update({ notified: true })
+        .eq("id", alert.id);
+      notified++;
+    }
+  }
+
+  return Response.json({ ok: true, notified });
 }

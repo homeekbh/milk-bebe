@@ -58,11 +58,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return { title: meta.seoTitle, description: meta.seoDesc };
 }
 
-async function getProductsByCategory(slug: string) {
+async function getAllProducts() {
   const { data } = await supabaseServer
     .from("products")
     .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, description, featured, published, label, position, sizes, sizes_stock, colors")
-    .eq("category_slug", slug)
     .eq("published", true)
     .order("position", { ascending: true });
   return data ?? [];
@@ -70,8 +69,14 @@ async function getProductsByCategory(slug: string) {
 
 export default async function CategoriePage({ params }: Props) {
   const { slug } = await params;
-  const products = await getProductsByCategory(slug);
-  if (products.length === 0) notFound();
+
+  // Charge tous les produits — ProduitsGrid gère le filtre par catégorie côté client
+  const products = await getAllProducts();
+
+  // 404 si aucun produit dans cette catégorie
+  const hasCategory = products.some(p => p.category_slug === slug);
+  if (!hasCategory) notFound();
+
   const meta = getMeta(slug);
   return (
     <ProduitsGrid

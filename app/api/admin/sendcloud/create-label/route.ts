@@ -1,118 +1,107 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import { Resend }         from "resend";
+import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
-
-/**
- * Webhook Sendcloud → mise à jour statut commande automatique
- *
- * Sendcloud envoie un POST à chaque changement de statut colis.
- * Statuts Sendcloud → statuts M!LK :
- *   11 = En transit      → shipped (déjà fait)
- *   12 = Livraison       → shipped
- *   80 = Livré           → delivered ✅
- *   2000 = Retour        → returned
- *   1 = En attente       → pending
- */
-
-const STATUS_MAP: Record<number, string> = {
-  80:   "delivered",   // Livré
-  2000: "returned",    // Retour reçu
-  2100: "returned",    // Retour en transit
-  11:   "shipped",     // En transit
-  12:   "shipped",     // En cours de livraison
-  1:    "pending",     // En attente
+// Mapping transporteur M!LK → code Sendcloud
+const CARRIER_MAP: Record<string, { name: string; code: string }> = {
+  "La Poste — Colissimo": { name: "Colissimo",   code: "colissimo"   },
+  "Chronopost":           { name: "Chronopost",   code: "chronopost"  },
+  "DHL":                  { name: "DHL",           code: "dhl"         },
+  "UPS":                  { name: "UPS",           code: "ups"         },
+  "Mondial Relay":        { name: "Mondial Relay", code: "mondial_relay" },
+  "TNT":                  { name: "TNT",           code: "tnt"         },
 };
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
 
-    // Sendcloud peut envoyer un tableau ou un objet unique
-    const messages = Array.isArray(body) ? body : [body];
+  const { order_id, transporteur, customer, items } = await req.json();
 
-    for (const msg of messages) {
-      const statusCode    = msg.status?.id ?? msg.parcel?.status?.id;
-      const trackingNumber = msg.parcel?.tracking_number ?? msg.tracking_number;
-      const orderNumber    = msg.parcel?.order_number ?? msg.order_number;
-
-      if (!statusCode || !orderNumber) continue;
-
-      const newStatus = STATUS_MAP[statusCode];
-      if (!newStatus) continue;
-
-      // Trouver la commande par order_id ou tracking_number
-      let query = supabaseServer.from("orders").select("id, customer_email, customer_name, shipping_status");
-
-      if (orderNumber) {
-        query = query.eq("id", orderNumber) as any;
-      } else if (trackingNumber) {
-        query = query.eq("tracking_number", trackingNumber) as any;
-      } else {
-        continue;
-      }
-
-      const { data: orders } = await query.limit(1);
-      const order = orders?.[0];
-      if (!order) continue;
-
-      // Ne pas rétrograder un statut (ex: livré → expédié)
-      const RANK: Record<string, number> = { pending: 0, shipped: 1, delivered: 2, returned: 3 };
-      if ((RANK[newStatus] ?? 0) <= (RANK[order.shipping_status] ?? 0) && newStatus !== "returned") continue;
-
-      // Mettre à jour le statut
-      await supabaseServer
-        .from("orders")
-        .update({ shipping_status: newStatus })
-        .eq("id", order.id);
-
-      // Notification email admin si livré
-      if (newStatus === "delivered") {
-        await resend.emails.send({
-          from:    "M!LK <contact@milkbebe.fr>",
-          to:      ["contact@milkbebe.fr"],
-          subject: `✅ Colis livré — commande #${order.id.slice(0, 8).toUpperCase()}`,
-          html: `
-            <div style="font-family:sans-serif;padding:24px;max-width:500px">
-              <h2 style="color:#1a1410">Colis livré ✅</h2>
-              <p>La commande <strong>#${order.id.slice(0, 8).toUpperCase()}</strong> 
-              de <strong>${order.customer_name}</strong> a été livrée.</p>
-              <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
-              <a href="${process.env.NEXT_PUBLIC_BASE_URL}/admin/commandes" 
-                style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c49a4a;color:#1a1410;font-weight:900;text-decoration:none;border-radius:10px">
-                Voir dans l'admin →
-              </a>
-            </div>
-          `,
-        }).catch(() => {});
-      }
-
-      // Notification email admin si retour
-      if (newStatus === "returned") {
-        await resend.emails.send({
-          from:    "M!LK <contact@milkbebe.fr>",
-          to:      ["contact@milkbebe.fr"],
-          subject: `↩️ Retour reçu — commande #${order.id.slice(0, 8).toUpperCase()}`,
-          html: `
-            <div style="font-family:sans-serif;padding:24px;max-width:500px">
-              <h2 style="color:#b91c1c">Retour reçu ↩️</h2>
-              <p>Un retour a été détecté pour la commande <strong>#${order.id.slice(0, 8).toUpperCase()}</strong> 
-              de <strong>${order.customer_name}</strong>.</p>
-              <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
-              <a href="${process.env.NEXT_PUBLIC_BASE_URL}/admin/commandes"
-                style="display:inline-block;margin-top:16px;padding:12px 24px;background:#1a1410;color:#f2ede6;font-weight:900;text-decoration:none;border-radius:10px">
-                Voir dans l'admin →
-              </a>
-            </div>
-          `,
-        }).catch(() => {});
-      }
-    }
-
-    return Response.json({ ok: true });
-  } catch (e: any) {
-    console.error("Sendcloud webhook error:", e);
-    return Response.json({ error: e.message }, { status: 500 });
+  if (!order_id || !transporteur || !customer) {
+    return Response.json({ error: "Paramètres manquants" }, { status: 400 });
   }
+
+  const publicKey  = process.env.SENDCLOUD_PUBLIC_KEY;
+  const secretKey  = process.env.SENDCLOUD_SECRET_KEY;
+  const senderId   = process.env.SENDCLOUD_SENDER_ADDRESS_ID;
+
+  if (!publicKey || !secretKey) {
+    return Response.json({ error: "Sendcloud non configuré — clés API manquantes" }, { status: 500 });
+  }
+
+  const carrier = CARRIER_MAP[transporteur] ?? { name: transporteur, code: "colissimo" };
+
+  // Calculer le poids total estimé (200g par article par défaut)
+  const totalItems = Array.isArray(items)
+    ? items.reduce((sum: number, i: any) => sum + (i.quantity ?? 1), 0)
+    : 1;
+  const weightKg = Math.max(0.5, totalItems * 0.2);
+
+  // Construire le nom du destinataire
+  const nameParts = (customer.name ?? "").split(" ");
+  const lastName  = nameParts.slice(-1)[0] ?? customer.name ?? "";
+  const firstName = nameParts.slice(0, -1).join(" ") || lastName;
+
+  const parcelBody = {
+    parcel: {
+      name:           firstName,
+      company_name:   "",
+      address:        customer.address ?? "",
+      city:           customer.city ?? "",
+      postal_code:    customer.zip ?? "",
+      country:        { iso_2: customer.country ?? "FR" },
+      email:          customer.email ?? "",
+      telephone:      "",
+      weight:         String(weightKg),
+      order_number:   order_id,
+      shipment: {
+        id:   8,        // Sendcloud shipment type id (8 = standard)
+        name: carrier.name,
+      },
+      ...(senderId ? { sender_address: Number(senderId) } : {}),
+      request_label:  true,
+    },
+  };
+
+  const credentials = Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
+
+  const scRes = await fetch("https://panel.sendcloud.sc/api/v2/parcels", {
+    method:  "POST",
+    headers: {
+      "Authorization": `Basic ${credentials}`,
+      "Content-Type":  "application/json",
+    },
+    body: JSON.stringify(parcelBody),
+  });
+
+  const scData = await scRes.json();
+
+  if (!scRes.ok) {
+    const errMsg = scData?.error?.message ?? scData?.message ?? JSON.stringify(scData);
+    console.error("Sendcloud error:", errMsg);
+    return Response.json({ error: `Sendcloud : ${errMsg}` }, { status: 400 });
+  }
+
+  const parcel        = scData.parcel;
+  const trackingNumber = parcel?.tracking_number ?? "";
+  const labelUrl       = parcel?.label?.normal_printer?.[0] ?? parcel?.label?.label_printer ?? "";
+
+  // Mettre à jour la commande avec le numéro de tracking
+  if (trackingNumber) {
+    await supabaseServer
+      .from("orders")
+      .update({
+        tracking_number:  trackingNumber,
+        shipping_status:  "shipped",
+      })
+      .eq("id", order_id);
+  }
+
+  return Response.json({
+    ok:              true,
+    tracking_number: trackingNumber,
+    label_url:       labelUrl,
+    parcel_id:       parcel?.id,
+  });
 }

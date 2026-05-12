@@ -1,9 +1,8 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import { notFound } from "next/navigation";
-import type { Metadata } from "next";
-import ProduitsGrid from "@/app/produits/ProduitsGrid";
+import { notFound }       from "next/navigation";
+import type { Metadata }  from "next";
+import ProduitsGrid       from "@/app/produits/ProduitsGrid";
 
-// ✅ CRITIQUE — toujours à jour
 export const dynamic    = "force-dynamic";
 export const revalidate = 0;
 
@@ -32,15 +31,30 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
     seoTitle: "Accessoires bébé bambou OEKO-TEX | M!LK",
     seoDesc:  "Accessoires nourrisson en bambou certifié OEKO-TEX. Langes, bavoirs, bonnets et plus encore.",
   },
+  langes: {
+    title:    "Langes & Swaddles",
+    subtitle: "L'emmaillotage qui calme bébé en quelques minutes — bambou OEKO-TEX",
+    seoTitle: "Langes et swaddles bébé bambou OEKO-TEX | M!LK",
+    seoDesc:  "Langes et swaddles nourrisson en bambou certifié OEKO-TEX. Grand format, thermorégulateur, multi-usage.",
+  },
 };
 
-const VALID_SLUGS = Object.keys(CATEGORY_META);
 type Props = { params: Promise<{ slug: string }> };
+
+function getMeta(slug: string) {
+  if (CATEGORY_META[slug]) return CATEGORY_META[slug];
+  const label = slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, " ");
+  return {
+    title:    label,
+    subtitle: `Collection ${label} en bambou certifié OEKO-TEX — M!LK`,
+    seoTitle: `${label} bébé bambou OEKO-TEX | M!LK`,
+    seoDesc:  `${label} pour nourrisson en bambou certifié OEKO-TEX. Ultra-doux, thermorégulateur, adapté aux peaux sensibles.`,
+  };
+}
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const meta = CATEGORY_META[slug];
-  if (!meta) return { title: "Catégorie introuvable | M!LK" };
+  const meta = getMeta(slug);
   return { title: meta.seoTitle, description: meta.seoDesc };
 }
 
@@ -56,9 +70,9 @@ async function getProductsByCategory(slug: string) {
 
 export default async function CategoriePage({ params }: Props) {
   const { slug } = await params;
-  if (!VALID_SLUGS.includes(slug)) notFound();
   const products = await getProductsByCategory(slug);
-  const meta     = CATEGORY_META[slug];
+  if (products.length === 0) notFound();
+  const meta = getMeta(slug);
   return (
     <ProduitsGrid
       products={products}

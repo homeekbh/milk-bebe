@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   try {
-    const { order_id, method_id } = await req.json();
+    const { order_id, method_id, sendcloud_id } = await req.json();
     if (!order_id) return Response.json({ error: "order_id manquant" }, { status: 400 });
 
     // ── 1. Charger la commande ─────────────────────────────────────────────
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
         order_number:       order.id,
         weight:             order.total_weight_g ? String(order.total_weight_g / 1000) : "0.5",
         shipment: {
-          id: method_id ?? Number(process.env.SENDCLOUD_DEFAULT_METHOD_ID ?? 8),
+          id: sendcloud_id ?? method_id ?? Number(process.env.SENDCLOUD_DEFAULT_METHOD_ID ?? 371),
         },
         sender_address: Number(process.env.SENDCLOUD_SENDER_ADDRESS_ID ?? 0),
         request_label: true,

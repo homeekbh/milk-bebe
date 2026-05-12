@@ -58,15 +58,13 @@ const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
   returned:  { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
 };
 
+// Méthodes Sendcloud — IDs auto-sélectionnés selon le poids (<1kg pour vêtements bébé)
 const TRANSPORTEURS = [
-  "La Poste — Colissimo",
-  "La Poste — Lettre Suivie",
-  "Chronopost",
-  "DHL",
-  "DPD",
-  "GLS",
-  "Mondial Relay",
-  "Autre",
+  { label: "🟠 Colissimo Domicile",         carrier: "La Poste — Colissimo", sendcloud_id: 371  }, // 0-0.25kg
+  { label: "🟠 Colissimo Domicile 0.25kg+", carrier: "La Poste — Colissimo", sendcloud_id: 366  }, // 0.25-0.5kg
+  { label: "🟠 Colissimo Domicile 0.5kg+",  carrier: "La Poste — Colissimo", sendcloud_id: 367  }, // 0.5-0.75kg
+  { label: "🟠 Colissimo Domicile 0.75kg+", carrier: "La Poste — Colissimo", sendcloud_id: 364  }, // 0.75-1kg
+  { label: "🔵 Chronopost 18h (express)",   carrier: "Chronopost",           sendcloud_id: 1345 }, // 0-2kg
 ];
 
 const ADRESSE_EXPEDITEUR = {
@@ -254,6 +252,8 @@ export default function AdminCommandes() {
   // Générer l'étiquette Sendcloud automatiquement
   async function generateLabel(order: Order) {
     if (!transporteur) { setLabelError("Choisis un transporteur d'abord"); return; }
+    const t = (() => { try { return JSON.parse(transporteur); } catch { return null; } })();
+    if (!t) { setLabelError("Transporteur invalide"); return; }
     setGeneratingLabel(true);
     setLabelError("");
     setLabelUrl(null);
@@ -261,8 +261,9 @@ export default function AdminCommandes() {
       const res = await adminFetch("/api/admin/sendcloud/create-label", {
         method: "POST",
         body: JSON.stringify({
-          order_id:    order.id,
-          transporteur,
+          order_id:      order.id,
+          transporteur:  t.carrier,
+          sendcloud_id:  t.sendcloud_id,
           customer: {
             name:     order.customer_name,
             email:    order.customer_email,
@@ -309,12 +310,12 @@ export default function AdminCommandes() {
         email:        order.customer_email,
         prenom:       order.customer_name?.split(" ")[0] ?? "",
         tracking:     tracking.trim(),
-        transporteur: transporteur,
+        transporteur: selectedCarrier,
         items:        order.items,
       }),
     }).catch(() => {});
     await load();
-    await logActivity("order_shipped", `Commande expédiée via ${transporteur}`, { entity_id: selectedOrder?.id ?? "" });
+    await logActivity("order_shipped", `Commande expédiée via ${selectedCarrier}`, { entity_id: selectedOrder?.id ?? "" });
     setSaving(false);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
@@ -341,6 +342,7 @@ export default function AdminCommandes() {
   const shipped    = orders.filter(o => o.shipping_status === "shipped").length;
   const selectedOrder = orders.find(o => o.id === selected);
 
+  const selectedCarrier = (() => { try { return JSON.parse(transporteur).carrier; } catch { return transporteur; } })();
   const canShip = tracking.trim().length > 0 && transporteur.length > 0;
 
   return (
@@ -505,14 +507,24 @@ export default function AdminCommandes() {
                           <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)" }}>
                             Transporteur *
                           </label>
-                          <select
-                            value={transporteur}
-                            onChange={e => setTransporteur(e.target.value)}
-                            style={{ padding: "11px 14px", borderRadius: 10, border: `2px solid ${transporteur ? "#1a1410" : "rgba(0,0,0,0.12)"}`, fontSize: 14, fontWeight: 600, background: "#fff", outline: "none" }}
-                          >
-                            <option value="">Choisir un transporteur...</option>
-                            {TRANSPORTEURS.map(t => <option key={t} value={t}>{t}</option>)}
-                          </select>
+                          <div style={{ display: "grid", gap: 8 }}>
+                            {TRANSPORTEURS.map(t => (
+                              <button
+                                key={t.sendcloud_id}
+                                onClick={() => setTransporteur(JSON.stringify(t))}
+                                style={{
+                                  padding: "12px 16px", borderRadius: 10, border: `2px solid ${transporteur && JSON.parse(transporteur).sendcloud_id === t.sendcloud_id ? "#1a1410" : "rgba(0,0,0,0.12)"}`,
+                                  fontSize: 13, fontWeight: 700, background: transporteur && JSON.parse(transporteur).sendcloud_id === t.sendcloud_id ? "#1a1410" : "#fff",
+                                  color: transporteur && JSON.parse(transporteur).sendcloud_id === t.sendcloud_id ? "#f2ede6" : "#1a1410",
+                                  cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                                  display: "flex", justifyContent: "space-between", alignItems: "center",
+                                }}
+                              >
+                                <span>{t.label}</span>
+                                <span style={{ fontSize: 11, opacity: 0.5, fontFamily: "monospace" }}>ID {t.sendcloud_id}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
 
                         {/* Numéro de suivi */}
@@ -589,30 +601,10 @@ export default function AdminCommandes() {
                               </div>
                             )}
                             {labelUrl && (
-                              <div>
-                                {/* Aperçu étiquette A6 noir et blanc */}
-                                <div style={{ marginBottom: 10, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)", background: "#fff" }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#666", padding: "6px 10px", background: "#f5f5f5", borderBottom: "1px solid #eee" }}>
-                                    Aperçu étiquette — Format A6 (10×15cm)
-                                  </div>
-                                  <div style={{ position: "relative", width: "100%", paddingBottom: "141.4%" /* ratio A6 */ }}>
-                                    <iframe
-                                      src={labelUrl}
-                                      style={{
-                                        position: "absolute", inset: 0,
-                                        width: "100%", height: "100%",
-                                        border: "none",
-                                        filter: "grayscale(100%) contrast(1.1)",
-                                      }}
-                                      title="Aperçu étiquette Sendcloud"
-                                    />
-                                  </div>
-                                </div>
-                                <a href={labelUrl} target="_blank" rel="noopener noreferrer"
-                                  style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center", display: "block" }}>
-                                  🖨️ Imprimer l'étiquette PDF →
-                                </a>
-                              </div>
+                              <a href={labelUrl} target="_blank" rel="noopener noreferrer"
+                                style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center", display: "block" }}>
+                                🖨️ Imprimer l'étiquette PDF →
+                              </a>
                             )}
                           </div>
                         )}

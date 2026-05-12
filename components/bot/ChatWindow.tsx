@@ -87,85 +87,114 @@ function TypingDots() {
   );
 }
 
-// ─── Base de connaissance M!LK ────────────────────────────────────────────────
-const KNOWLEDGE = [
-  {
-    keys: ["livraison", "expédition", "délai", "délais", "envoi", "frais", "port"],
-    answer: "La livraison est **offerte dès 60€** d'achat 🚚 En dessous, elle coûte 4,90€. Délai de livraison : 2 à 4 jours ouvrés après expédition (préparation 1-2 jours). On livre en France, Belgique, Suisse, Luxembourg et Monaco.",
-  },
-  {
-    keys: ["retour", "rembours", "échang", "renvoi", "renvoyer"],
-    answer: "Tu as **15 jours** pour retourner un article non utilisé, dans son emballage d'origine 📦 Le retour est **entièrement gratuit**. Le remboursement est effectué sous 5 à 14 jours ouvrés après réception.",
-  },
-  {
-    keys: ["taille", "tailles", "taille choisir", "grand", "petit", "mesure"],
-    answer: "Nos vêtements sont disponibles en **Nouveau-né, 0 à 3 mois et 3 à 6 mois** 👶 En cas de doute entre deux tailles, prends la plus grande — le bambou est légèrement extensible et bébé grandit vite ! Le **poids** est plus fiable que l'âge.",
-  },
-  {
-    keys: ["bambou", "matière", "matiere", "tissu", "fibre", "composition"],
-    answer: "Nos vêtements sont fabriqués en **95% bambou viscose + 5% spandex**, certifié OEKO-TEX Standard 100 🌿 Le bambou est 3× plus doux que le coton, naturellement thermorégulateur et antibactérien — idéal pour la peau fragile des nourrissons.",
-  },
-  {
-    keys: ["oeko", "certification", "certifi", "bio", "naturel", "sécurité"],
-    answer: "Tous nos produits sont certifiés **OEKO-TEX Standard 100** ✅ C'est la certification la plus exigeante pour les textiles bébé — plus de 100 substances nocives testées. Zéro compromis sur la sécurité de ton nourrisson.",
-  },
-  {
-    keys: ["entretien", "laver", "lavage", "machine", "séchage", "repasser"],
-    answer: "Entretien du bambou 👕 Lavage en machine à **30°C, cycle délicat**. Pas d'adoucissant (ça altère les propriétés du bambou). Séchage à plat recommandé. Repassage basse température si besoin. Pas de javel !",
-  },
-  {
-    keys: ["promo", "promotion", "réduction", "code", "coupon", "offre", "solde"],
-    answer: "Tu peux entrer ton **code promo** directement dans le panier 🏷️ La réduction s'applique automatiquement. Tu peux recevoir nos offres exclusives en t'inscrivant à la newsletter M!LK depuis le footer.",
-  },
-  {
-    keys: ["paiement", "payer", "carte", "stripe", "sécurisé", "virement"],
-    answer: "Le paiement est sécurisé via **Stripe** 🔒 On accepte les cartes Visa, Mastercard et American Express. Aucune donnée bancaire n'est stockée sur notre site.",
-  },
-  {
-    keys: ["body", "bodies"],
-    answer: "Nos **bodies** sont l'essentiel du quotidien pour les nourrissons 👶 Disponibles en bambou certifié OEKO-TEX, avec pressions sous la couche pour les changes faciles. Tailles : Nouveau-né, 0-3 mois, 3-6 mois.",
-  },
-  {
-    keys: ["pyjama", "pyjamas", "grenouillère", "dors-bien", "nuit"],
-    answer: "Nos **pyjamas** en bambou sont parfaits pour des nuits sereines 🌙 Fermeture zip pour les changes nocturnes faciles. Le bambou thermorégule naturellement — moins de surchauffe, moins de réveils.",
-  },
-  {
-    keys: ["gigoteuse", "turbulette", "sac de couchage", "sac nid"],
-    answer: "Nos **gigoteuses** assurent un sommeil sécurisé ✦ En bambou thermorégulateur, elles remplacent la couverture qui ne peut pas être utilisée avant 12 mois. Disponibles pour Nouveau-né, 0-3 mois et 3-6 mois.",
-  },
-  {
-    keys: ["cadeau", "offrir", "naissance", "baby shower", "liste"],
-    answer: "M!LK est un **cadeau de naissance** idéal 🎁 Tous nos produits en bambou certifié OEKO-TEX sont parfaits pour les listes de naissance et baby showers. Livraison offerte dès 60€. N'hésite pas à regarder notre catalogue !",
-  },
-  {
-    keys: ["stock", "disponible", "rupture", "épuisé"],
-    answer: "Si un article est **épuisé**, il est indiqué sur la page produit. Tu peux t'inscrire à la newsletter pour être prévenu des restocks. Notre catalogue se met à jour en temps réel.",
-  },
-  {
-    keys: ["contact", "aide", "support", "question", "problème", "joindre"],
-    answer: "Pour nous contacter : 📧 **contact@milk-bebe.fr** — On répond dans les 24h ouvrées. Tu peux aussi consulter nos pages Livraison et CGV pour les infos pratiques.",
-  },
-  {
-    keys: ["prix", "coût", "cher", "combien"],
-    answer: "Nos prix vont de **29,90€ à 49,90€** pour les essentiels nourrisson en bambou premium. Livraison offerte dès 60€. La qualité bambou OEKO-TEX justifie le prix — des vêtements qui protègent vraiment la peau de ton nourrisson.",
-  },
+// ─── Connaissances statiques (livraison, retours, etc.) ─────────────────────
+const STATIC_KNOWLEDGE = [
+  { keys: ["livraison", "expédition", "délai", "envoi", "frais", "port"], answer: "La livraison est **offerte dès 60€** 🚚 En dessous, elle coûte 4,90€. Délai : 2 à 4 jours ouvrés. On livre en France, Belgique, Suisse, Luxembourg et Monaco." },
+  { keys: ["retour", "rembours", "échange", "renvoi"], answer: "Tu as **15 jours** pour retourner un article non utilisé 📦 Le retour est **gratuit**. Remboursement sous 5 à 14 jours ouvrés." },
+  { keys: ["taille", "tailles", "grand", "petit", "mesure"], answer: "En cas de doute entre deux tailles, prends la plus grande 👶 Le bambou est extensible et bébé grandit vite. Le **poids** est plus fiable que l'âge." },
+  { keys: ["bambou", "matière", "tissu", "fibre", "composition"], answer: "Nos vêtements sont en **95% bambou viscose + 5% spandex**, certifié OEKO-TEX 🌿 Le bambou est 3× plus doux que le coton, thermorégulateur et antibactérien." },
+  { keys: ["oeko", "certification", "certifi", "sécurité"], answer: "Tous nos produits sont certifiés **OEKO-TEX Standard 100** ✅ Plus de 100 substances nocives testées. Zéro compromis sur la sécurité de ton nourrisson." },
+  { keys: ["entretien", "laver", "lavage", "séchage", "repasser"], answer: "Lavage **30°C, cycle délicat** 👕 Pas d'adoucissant. Séchage à plat recommandé. Repassage basse température. Pas de javel !" },
+  { keys: ["promo", "promotion", "réduction", "code", "coupon", "solde"], answer: "Entre ton **code promo** directement dans le panier 🏷️ La réduction s'applique automatiquement. Inscris-toi à la newsletter pour les offres exclusives." },
+  { keys: ["paiement", "payer", "carte", "stripe", "sécurisé"], answer: "Paiement sécurisé via **Stripe** 🔒 Visa, Mastercard, American Express. Aucune donnée bancaire stockée sur notre site." },
+  { keys: ["cadeau", "offrir", "naissance", "baby shower"], answer: "M!LK est un **cadeau de naissance** idéal 🎁 Bambou certifié OEKO-TEX, livraison offerte dès 60€." },
+  { keys: ["contact", "aide", "support", "joindre"], answer: "📧 **contact@milkbebe.fr** — On répond dans les 24h ouvrées." },
 ];
 
-function getBotResponse(input: string): string {
+// ─── Fetch produits en temps réel depuis l'API publique ───────────────────────
+async function fetchProducts(): Promise<any[]> {
+  try {
+    const res = await fetch("/api/products?published=true");
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data) ? data : (data.products ?? []);
+  } catch { return []; }
+}
+
+// ─── Construire la réponse en temps réel ─────────────────────────────────────
+async function getBotResponseAsync(input: string): Promise<string> {
   const q = input.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  for (const entry of KNOWLEDGE) {
-    if (entry.keys.some(k => q.includes(k))) {
+
+  // Salutations
+  if (q.match(/^(bonjour|salut|hello|coucou|yo|bonsoir)/)) {
+    return "Bonjour ! 👋 Je suis l'assistant M!LK. Pose-moi tes questions sur nos **produits**, la **livraison**, les **tailles** ou les **retours** !";
+  }
+  if (q.includes("merci")) {
+    return "Avec plaisir ! 😊 Si tu as d'autres questions, n'hésite pas !";
+  }
+
+  // Connaissances statiques d'abord
+  for (const entry of STATIC_KNOWLEDGE) {
+    if (entry.keys.some(k => q.includes(k.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))) {
       return entry.answer;
     }
   }
-  // Réponse générique intelligente
-  if (q.includes("bonjour") || q.includes("salut") || q.includes("hello")) {
-    return "Bonjour ! 👋 Je suis l'assistant M!LK. Pose-moi tes questions sur la **livraison**, les **tailles**, le **bambou**, nos **produits** ou les **retours** — je suis là pour t'aider !";
+
+  // Fetch produits en temps réel
+  const products = await fetchProducts();
+
+  if (products.length === 0) {
+    return `Je n'ai pas pu accéder au catalogue en ce moment 🤔 Écris-nous à **contact@milkbebe.fr** pour toute question produit !`;
   }
-  if (q.includes("merci")) {
-    return "Avec plaisir ! 😊 Si tu as d'autres questions, n'hésite pas. Et si tu veux découvrir notre collection, c'est par ici ➡️ /produits";
+
+  // Recherche d'un produit par nom, slug ou catégorie
+  const matchedProducts = products.filter((p: any) => {
+    const searchStr = [p.name, p.slug, p.category_slug, p.description]
+      .filter(Boolean).join(" ")
+      .toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    // Cherche chaque mot de la question dans les infos du produit
+    const words = q.split(/\s+/).filter(w => w.length > 2);
+    return words.some(w => searchStr.includes(w));
+  });
+
+  // Question sur un produit spécifique
+  if (matchedProducts.length === 1) {
+    const p = matchedProducts[0];
+    const price = p.promo_price ? `~~${p.price_ttc}€~~ **${p.promo_price}€**` : `**${p.price_ttc}€**`;
+    const stock = p.stock > 0 ? `✅ En stock (${p.stock} dispo)` : `❌ Épuisé`;
+    const sizes = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes.join(", ") : "voir fiche";
+    return `**${p.name}** — ${p.category_slug} 👶\n${price} TTC · ${stock}\nTailles : ${sizes}\nVoir la fiche ➡️ /produits/${p.slug}`;
   }
-  return `Je n'ai pas de réponse précise pour "${input}" 🤔 Mais je peux t'aider sur la **livraison**, les **tailles**, le **bambou**, les **retours**, les **paiements** ou nos **produits**. Tu peux aussi écrire à contact@milk-bebe.fr !`;
+
+  // Plusieurs produits correspondants
+  if (matchedProducts.length > 1) {
+    const list = matchedProducts.slice(0, 4).map((p: any) => {
+      const prix = p.promo_price ? `${p.promo_price}€` : `${p.price_ttc}€`;
+      const stock = p.stock > 0 ? "✅" : "❌";
+      return `• **${p.name}** — ${prix} ${stock}`;
+    }).join("\n");
+    const more = matchedProducts.length > 4 ? `\n…et ${matchedProducts.length - 4} autre(s)` : "";
+    return `J'ai trouvé **${matchedProducts.length} produits** correspondants :\n${list}${more}\n\nVoir tous les produits ➡️ /produits`;
+  }
+
+  // Question sur les catégories disponibles
+  if (q.includes("categorie") || q.includes("collection") || q.includes("produit") || q.includes("gamme")) {
+    const cats = [...new Set(products.map((p: any) => p.category_slug).filter(Boolean))];
+    const catList = cats.map((c: string) => {
+      const count = products.filter((p: any) => p.category_slug === c && p.stock > 0).length;
+      return `• **${c.charAt(0).toUpperCase() + c.slice(1)}** (${count} produit${count > 1 ? "s" : ""} en stock)`;
+    }).join("\n");
+    return `Notre collection M!LK comprend :\n${catList}\n\nVoir tous les produits ➡️ /produits`;
+  }
+
+  // Question sur les prix
+  if (q.includes("prix") || q.includes("cout") || q.includes("cher") || q.includes("combien")) {
+    const prices = products.filter((p: any) => p.stock > 0).map((p: any) => p.promo_price ?? p.price_ttc);
+    if (prices.length > 0) {
+      const min = Math.min(...prices);
+      const max = Math.max(...prices);
+      return `Nos prix vont de **${min}€ à ${max}€** pour les essentiels nourrisson en bambou certifié OEKO-TEX 🌿 Livraison offerte dès 60€.`;
+    }
+  }
+
+  // Question sur le stock
+  if (q.includes("stock") || q.includes("disponible") || q.includes("rupture") || q.includes("epuise")) {
+    const inStock = products.filter((p: any) => p.stock > 0).length;
+    const total = products.length;
+    return `En ce moment **${inStock} produit${inStock > 1 ? "s" : ""} sur ${total}** sont disponibles en stock ✅ Voir le catalogue ➡️ /produits`;
+  }
+
+  return `Je n'ai pas trouvé d'info précise pour "${input}" 🤔\nJe peux t'aider sur nos **produits**, la **livraison**, les **tailles**, les **retours** ou le **bambou**. Sinon, écris-nous à **contact@milkbebe.fr** !`;
 }
 
 // Convertit le markdown basique en JSX
@@ -224,18 +253,21 @@ export default function ChatWindow({ onClose, onUserActivity }: { onClose: () =>
     // Indicateur de frappe
     setMessages(m => [...m, { role: "bot", text: "", typing: true }]);
 
-    setTimeout(() => {
-      const answer = getBotResponse(userText);
+    // Fetch async — produits en temps réel + connaissances statiques
+    getBotResponseAsync(userText).then(answer => {
       setTalking(true);
       setHappy(answer.includes("plaisir") || answer.includes("Bonjour"));
-
       setMessages(m => [
         ...m.filter(msg => !msg.typing),
         { role: "bot", text: answer },
       ]);
-
       setTimeout(() => setTalking(false), 2500);
-    }, 900 + Math.random() * 600);
+    }).catch(() => {
+      setMessages(m => [
+        ...m.filter(msg => !msg.typing),
+        { role: "bot", text: "Désolé, une erreur s'est produite 😕 Réessaie ou écris-nous à **contact@milkbebe.fr**." },
+      ]);
+    });
   }, []);
 
   return (

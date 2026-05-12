@@ -130,13 +130,26 @@ function ProductCard({ p }: { p: Product }) {
   );
 }
 
-const CATEGORIES = [
-  { slug: "",            label: "Tout"        },
-  { slug: "bodies",      label: "Bodies"      },
-  { slug: "pyjamas",     label: "Pyjamas"     },
-  { slug: "gigoteuses",  label: "Gigoteuses"  },
-  { slug: "accessoires", label: "Accessoires" },
-];
+// Ordre d'affichage préférentiel pour les catégories connues
+const CAT_ORDER: Record<string, number> = {
+  bodies: 1, pyjamas: 2, gigoteuses: 3, accessoires: 4, langes: 5,
+};
+function buildCategoriesFromProducts(products: Product[]): { slug: string; label: string }[] {
+  const seen = new Set<string>();
+  const cats: { slug: string; label: string }[] = [{ slug: "", label: "Tout" }];
+  products
+    .filter(p => p.published !== false && p.category_slug)
+    .map(p => p.category_slug!)
+    .sort((a, b) => (CAT_ORDER[a] ?? 99) - (CAT_ORDER[b] ?? 99))
+    .forEach(slug => {
+      if (!seen.has(slug)) {
+        seen.add(slug);
+        const label = slug.charAt(0).toUpperCase() + slug.slice(1);
+        cats.push({ slug, label });
+      }
+    });
+  return cats;
+}
 const SORTS = [
   { value: "position",   label: "Mis en avant"    },
   { value: "recent",     label: "Plus récents"     },
@@ -218,7 +231,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         {/* Filtres */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {CATEGORIES.map(cat => (
+            {buildCategoriesFromProducts(products).map(cat => (
               <button key={cat.slug} onClick={() => changeCat(cat.slug)}
                 style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: activeCategory === cat.slug ? C.dark : "rgba(26,20,16,0.1)", color: activeCategory === cat.slug ? C.warm : "rgba(26,20,16,0.65)", fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", transition: "all 0.15s", whiteSpace: "nowrap" }}>
                 {cat.label}

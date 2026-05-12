@@ -1797,7 +1797,33 @@ export default function AdminProductForm() {
               <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>🎨 Contenu de la fiche produit</div>
               <div style={{ fontSize: 14, color: "rgba(26,20,16,0.55)" }}>Crée et ordonne les blocs affichés sur la fiche produit</div>
             </div>
+            {ficheCards.length > 0 && (
+              <button onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
+                style={{ padding: "10px 18px", borderRadius: 10, border: "1.5px solid rgba(196,154,74,0.4)", background: "rgba(196,154,74,0.06)", color: "#1a1410", cursor: "pointer", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
+                📋 Copier depuis un autre produit
+              </button>
+            )}
           </div>
+
+          {/* Aucun bloc — sélecteur en premier plan */}
+          {ficheCards.length === 0 && (
+            <div style={{ padding: "32px 28px", borderRadius: 20, background: "#fff", border: "2px dashed rgba(196,154,74,0.35)", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
+              <div style={{ fontSize: 40 }}>📋</div>
+              <div>
+                <div style={{ fontWeight: 900, fontSize: 18, color: "#1a1410", marginBottom: 6 }}>Aucun bloc de contenu</div>
+                <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", lineHeight: 1.6, maxWidth: 460 }}>
+                  Copie les blocs depuis un produit existant pour avoir une base à modifier,
+                  ou crée tes blocs manuellement ci-dessous.
+                </div>
+              </div>
+              <button
+                onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
+                style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
+                📋 Choisir un produit source
+              </button>
+              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.35)" }}>ou ajoute des blocs individuellement ci-dessous ↓</div>
+            </div>
+          )}
 
           {/* Cards en 2 colonnes */}
           {ficheCards.length > 0 && (
@@ -1808,11 +1834,6 @@ export default function AdminProductForm() {
                   isFirst={idx === 0} isLast={idx === ficheCards.length - 1}
                   colIdx={idx % 2} />
               ))}
-            </div>
-          )}
-          {ficheCards.length === 0 && (
-            <div style={{ padding: "32px", borderRadius: 16, background: "#fff", border: "1.5px dashed rgba(26,20,16,0.15)", textAlign: "center", fontSize: 15, color: "rgba(26,20,16,0.4)" }}>
-              Aucun bloc — la fiche affichera le contenu par défaut selon la catégorie
             </div>
           )}
 

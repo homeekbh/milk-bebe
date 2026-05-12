@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -12,29 +12,40 @@ function slugify(input: any) {
 }
 
 function isPromoActive(p: any) {
-  if (!p?.promo_price || !p?.promo_start || !p?.promo_end) return false;
-  const now = new Date();
-  return new Date(p.promo_start) <= now && new Date(p.promo_end) >= now;
+  if (!p?.promo_price) return false;
+  if (!p.promo_start && !p.promo_end) return true;
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+  if (p.promo_start && today < String(p.promo_start).slice(0,10)) return false;
+  if (p.promo_end   && today > String(p.promo_end).slice(0,10))   return false;
+  return true;
 }
 
-// ─── Card sans useState ───────────────────────────────────────────────────────
+function highlightMatch(text: string, query: string) {
+  if (!query.trim()) return <>{text}</>;
+  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+  return (
+    <>
+      {parts.map((part, i) =>
+        part.toLowerCase() === query.toLowerCase() ? (
+          <mark key={i} style={{ background: "rgba(196,154,74,0.3)", color: "#c49a4a", borderRadius: 3, padding: "0 2px" }}>{part}</mark>
+        ) : part
+      )}
+    </>
+  );
+}
+
 function ProductCard({ p, query }: { p: any; query: string }) {
   const promo = isPromoActive(p);
   const price = promo ? p.promo_price : p.price_ttc;
   const slug  = p.slug || slugify(p.name);
-
   return (
     <Link href={`/produits/${slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-      <div
-        className="search-card"
-        style={{ borderRadius: 20, overflow: "hidden", background: "#221c16", border: "1px solid rgba(242,237,230,0.08)", transition: "all 0.25s cubic-bezier(.22,.61,.36,1)", cursor: "pointer" }}
-      >
+      <div className="search-card" style={{ borderRadius: 20, overflow: "hidden", background: "#221c16", border: "1px solid rgba(242,237,230,0.08)", transition: "all 0.25s cubic-bezier(.22,.61,.36,1)", cursor: "pointer" }}>
         <div style={{ position: "relative", aspectRatio: "3/4", background: "#2d2419", overflow: "hidden" }}>
           {p.image_url ? (
-            <Image src={p.image_url} alt={p.name} fill sizes="280px"
-              style={{ objectFit: "cover", transition: "transform 0.5s ease" }}
-              className="search-card-img"
-            />
+            <Image src={p.image_url} alt={p.name} fill sizes="280px" style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="search-card-img" />
           ) : (
             <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontWeight: 950, fontSize: 28, color: "rgba(242,237,230,0.1)" }}>M!LK</div>
           )}
@@ -67,18 +78,46 @@ function ProductCard({ p, query }: { p: any; query: string }) {
   );
 }
 
-function highlightMatch(text: string, query: string) {
-  if (!query.trim()) return <>{text}</>;
-  const escaped = query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const parts = text.split(new RegExp(`(${escaped})`, "gi"));
+// ── Suggestions prédictives (noms de produits) ─────────────────────────────
+function PredictiveSuggestions({ query, products, onSelect }: {
+  query: string; products: any[]; onSelect: (name: string) => void;
+}) {
+  if (!query.trim() || query.length < 2) return null;
+  const needle = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const matches = products
+    .filter(p => p.name.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(needle))
+    .slice(0, 5);
+  if (matches.length === 0) return null;
   return (
-    <>
-      {parts.map((part, i) =>
-        part.toLowerCase() === query.toLowerCase() ? (
-          <mark key={i} style={{ background: "rgba(196,154,74,0.3)", color: "#c49a4a", borderRadius: 3, padding: "0 2px" }}>{part}</mark>
-        ) : part
-      )}
-    </>
+    <div style={{
+      position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0,
+      background: "#221c16", border: "1px solid rgba(196,154,74,0.25)",
+      borderRadius: 14, overflow: "hidden", zIndex: 50,
+      boxShadow: "0 12px 32px rgba(0,0,0,0.5)",
+    }}>
+      {matches.map(p => (
+        <button key={p.id} onClick={() => onSelect(p.name)}
+          style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", padding: "12px 18px", background: "none", border: "none", cursor: "pointer", textAlign: "left", borderBottom: "1px solid rgba(242,237,230,0.05)" }}
+          onMouseEnter={e => (e.currentTarget.style.background = "rgba(196,154,74,0.08)")}
+          onMouseLeave={e => (e.currentTarget.style.background = "none")}
+        >
+          {p.image_url && (
+            <div style={{ width: 36, height: 36, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#2d2419" }}>
+              <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            </div>
+          )}
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: "#f2ede6", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {highlightMatch(p.name, query)}
+            </div>
+            <div style={{ fontSize: 11, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>
+              {p.category_slug} · {Number(isPromoActive(p) ? p.promo_price : p.price_ttc).toFixed(2)} €
+            </div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M3 7h8M8 4l3 3-3 3" stroke="rgba(196,154,74,0.5)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
+        </button>
+      ))}
+    </div>
   );
 }
 
@@ -87,39 +126,72 @@ export default function RechercheClient() {
   const inputRef     = useRef<HTMLInputElement>(null);
   const q = searchParams.get("q") ?? "";
 
-  const [query,    setQuery]    = useState(q);
-  const [products, setProducts] = useState<any[]>([]);
-  const [results,  setResults]  = useState<any[]>([]);
-  const [loading,  setLoading]  = useState(true);
+  const [query,       setQuery]       = useState(q);
+  const [products,    setProducts]    = useState<any[]>([]);
+  const [results,     setResults]     = useState<any[]>([]);
+  const [loading,     setLoading]     = useState(true);
+  const [showSuggest, setShowSuggest] = useState(false);
 
+  // ── Fetch produits publics (pas admin) au chargement ──────────────────────
   useEffect(() => {
-    fetch("/api/produits")
+    fetch("/api/products")
       .then(r => r.json())
-      .then(d => { if (Array.isArray(d)) setProducts(d); setLoading(false); })
+      .then(d => {
+        const list = Array.isArray(d) ? d : (d.products ?? []);
+        setProducts(list.filter((p: any) => p.published !== false));
+        setLoading(false);
+      })
       .catch(() => setLoading(false));
   }, []);
 
-  useEffect(() => {
-    if (!query.trim()) { setResults([]); return; }
-    const needle = query.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // ── Filtrage en temps réel avec debounce 150ms ────────────────────────────
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const filterProducts = useCallback((val: string) => {
+    if (!val.trim()) { setResults([]); return; }
+    const needle = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     setResults(products.filter(p => {
       const hay = [p.name, p.description, p.category_slug, p.slug]
         .filter(Boolean).join(" ").toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       return hay.includes(needle);
     }));
-  }, [query, products]);
-
-  useEffect(() => { inputRef.current?.focus(); }, []);
+  }, [products]);
 
   function handleSearch(val: string) {
     setQuery(val);
+    setShowSuggest(true);
+    // Update URL sans navigation
     const url = val.trim() ? `/recherche?q=${encodeURIComponent(val.trim())}` : "/recherche";
+    window.history.replaceState(null, "", url);
+    // Debounce le filtrage
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => filterProducts(val), 150);
+  }
+
+  function selectSuggestion(name: string) {
+    setQuery(name);
+    setShowSuggest(false);
+    filterProducts(name);
+    const url = `/recherche?q=${encodeURIComponent(name)}`;
     window.history.replaceState(null, "", url);
   }
 
+  // Filtrer au chargement si q dans URL
+  useEffect(() => {
+    if (q && products.length > 0) filterProducts(q);
+  }, [q, products, filterProducts]);
+
+  useEffect(() => { inputRef.current?.focus(); }, []);
+
   const hasQuery = query.trim().length > 0;
-  const SUGGESTIONS = ["body", "pyjama", "gigoteuse", "bambou", "naissance"];
+
+  // Suggestions dynamiques depuis les catégories existantes + mots-clés génériques
+  const dynamicSuggestions = [
+    ...new Set(products.map(p => p.category_slug).filter(Boolean))
+  ].slice(0, 3);
+  const STATIC_SUGGESTIONS = ["bambou", "naissance", "OEKO-TEX"];
+  const SUGGESTIONS = [...dynamicSuggestions, ...STATIC_SUGGESTIONS].slice(0, 6);
 
   return (
     <div style={{ background: "#1a1410", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
@@ -129,14 +201,18 @@ export default function RechercheClient() {
       `}</style>
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 32px" }}>
-
         <div style={{ marginBottom: 48 }}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 16 }}>Recherche</div>
+
+          {/* Input avec suggestions prédictives */}
           <div style={{ position: "relative" }}>
             <input
               ref={inputRef} type="search" value={query}
               onChange={e => handleSearch(e.target.value)}
-              placeholder="Body, pyjama, gigoteuse, bambou..."
+              onFocus={() => setShowSuggest(true)}
+              onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
+              placeholder="Body, pyjama, gigoteuse, lange, bambou..."
+              autoComplete="off"
               style={{ width: "100%", padding: "20px 60px 20px 24px", borderRadius: 16, border: "1px solid rgba(242,237,230,0.12)", background: "#221c16", color: "#f2ede6", fontSize: 18, fontWeight: 600, outline: "none", boxSizing: "border-box", caretColor: "#c49a4a" }}
             />
             <div style={{ position: "absolute", right: 20, top: "50%", transform: "translateY(-50%)", opacity: 0.3, pointerEvents: "none" }}>
@@ -146,10 +222,19 @@ export default function RechercheClient() {
               </svg>
             </div>
             {query && (
-              <button onClick={() => handleSearch("")} style={{ position: "absolute", right: 52, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "rgba(242,237,230,0.4)", fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
+              <button onClick={() => { handleSearch(""); setShowSuggest(false); }} style={{ position: "absolute", right: 52, top: "50%", transform: "translateY(-50%)", background: "none", border: "none", cursor: "pointer", color: "rgba(242,237,230,0.4)", fontSize: 20, lineHeight: 1, padding: 4 }}>×</button>
+            )}
+            {/* Dropdown suggestions prédictives */}
+            {showSuggest && hasQuery && (
+              <PredictiveSuggestions
+                query={query}
+                products={products}
+                onSelect={selectSuggestion}
+              />
             )}
           </div>
 
+          {/* Suggestions rapides quand vide */}
           {!hasQuery && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
               <span style={{ fontSize: 13, color: "rgba(242,237,230,0.3)", fontWeight: 600, marginRight: 4 }}>Suggestions :</span>
@@ -159,6 +244,16 @@ export default function RechercheClient() {
                   {s}
                 </button>
               ))}
+            </div>
+          )}
+
+          {/* Compteur temps réel */}
+          {hasQuery && !loading && (
+            <div style={{ marginTop: 12, fontSize: 13, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>
+              {results.length > 0
+                ? <><span style={{ color: "#c49a4a", fontWeight: 900 }}>{results.length}</span> résultat{results.length > 1 ? "s" : ""} pour «<span style={{ color: "#f2ede6" }}> {query} </span>»</>
+                : <>Aucun résultat pour « {query} »</>
+              }
             </div>
           )}
         </div>
@@ -188,14 +283,9 @@ export default function RechercheClient() {
             </div>
           </div>
         ) : (
-          <>
-            <div style={{ fontSize: 14, color: "rgba(242,237,230,0.45)", fontWeight: 600, marginBottom: 24 }}>
-              <span style={{ color: "#c49a4a", fontWeight: 900 }}>{results.length}</span> résultat{results.length > 1 ? "s" : ""} pour &quot;<span style={{ color: "#f2ede6" }}>{query}</span>&quot;
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 18 }}>
-              {results.map(p => <ProductCard key={p.id} p={p} query={query} />)}
-            </div>
-          </>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 18 }}>
+            {results.map(p => <ProductCard key={p.id} p={p} query={query} />)}
+          </div>
         )}
       </div>
     </div>

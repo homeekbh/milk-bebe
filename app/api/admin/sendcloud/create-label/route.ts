@@ -2,110 +2,118 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
-// Mapping transporteur M!LK → shipping_option_code Sendcloud v3
-const CARRIER_CODES: Record<string, string> = {
-  "La Poste — Colissimo": "colissimo:home_signature",
-  "Chronopost":           "chronopost:classic",
-  "DHL":                  "dhl:express",
-  "UPS":                  "ups:standard",
-  "Mondial Relay":        "mondial_relay:standard",
-  "TNT":                  "tnt:express",
-};
+const SENDCLOUD_API = "https://panel.sendcloud.sc/api/v2";
 
+function getBasicAuth() {
+  const pub = process.env.SENDCLOUD_PUBLIC_KEY ?? "";
+  const sec = process.env.SENDCLOUD_SECRET_KEY ?? "";
+  return "Basic " + Buffer.from(`${pub}:${sec}`).toString("base64");
+}
+
+/**
+ * POST /api/admin/sendcloud/create-label
+ * Body: { order_id: string, method_id?: number }
+ *
+ * 1. Charge la commande depuis Supabase
+ * 2. Crée le colis dans Sendcloud (create & announce)
+ * 3. Génère l'étiquette PDF
+ * 4. Sauvegarde tracking_number + label_url dans la commande
+ * 5. Passe le statut à "shipped"
+ */
 export async function POST(req: NextRequest) {
+  // Auth admin
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
 
-  const { order_id, transporteur, customer, items } = await req.json();
+  try {
+    const { order_id, method_id } = await req.json();
+    if (!order_id) return Response.json({ error: "order_id manquant" }, { status: 400 });
 
-  if (!order_id || !customer) {
-    return Response.json({ error: "Paramètres manquants" }, { status: 400 });
-  }
-
-  const publicKey = process.env.SENDCLOUD_PUBLIC_KEY;
-  const secretKey = process.env.SENDCLOUD_SECRET_KEY;
-
-  if (!publicKey || !secretKey) {
-    return Response.json({ error: "Sendcloud non configuré — clés API manquantes" }, { status: 500 });
-  }
-
-  const totalItems = Array.isArray(items)
-    ? items.reduce((sum: number, i: any) => sum + (i.quantity ?? 1), 0)
-    : 1;
-  const weightKg = Math.max(0.5, totalItems * 0.2);
-
-  const shippingCode = CARRIER_CODES[transporteur] ?? "colissimo:home_signature";
-
-  // Format API v3 — shipments endpoint
-  const shipmentBody = {
-    to_address: {
-      name:           customer.name ?? "",
-      address_line_1: customer.address ?? "",
-      postal_code:    customer.zip ?? "",
-      city:           customer.city ?? "",
-      country_code:   customer.country ?? "FR",
-      email:          customer.email ?? "",
-      phone_number:   "",
-    },
-    ship_with: {
-      type: "shipping_option_code",
-      properties: {
-        shipping_option_code: shippingCode,
-      },
-    },
-    parcels: [
-      {
-        weight: {
-          value: weightKg.toFixed(3),
-          unit:  "kg",
-        },
-      },
-    ],
-    external_reference: order_id,
-  };
-
-  const credentials = Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
-
-  // API v3 — endpoint synchronous
-  const scRes = await fetch("https://panel.sendcloud.sc/api/v3/shipments/create-and-announce", {
-    method:  "POST",
-    headers: {
-      "Authorization": `Basic ${credentials}`,
-      "Content-Type":  "application/json",
-    },
-    body: JSON.stringify(shipmentBody),
-  });
-
-  const scData = await scRes.json();
-
-  if (!scRes.ok) {
-    const errMsg = scData?.message
-                ?? scData?.error?.message
-                ?? JSON.stringify(scData);
-    console.error("Sendcloud v3 error:", errMsg);
-    return Response.json({ error: `Sendcloud : ${errMsg}` }, { status: 400 });
-  }
-
-  // Récupérer tracking + label depuis la réponse v3
-  const parcel         = scData?.parcels?.[0];
-  const trackingNumber = parcel?.tracking_number ?? scData?.tracking_number ?? "";
-  const labelFile      = parcel?.label_file ?? scData?.label_file ?? "";
-  const labelUrl       = labelFile
-    ? `data:application/pdf;base64,${labelFile}`
-    : parcel?.documents?.[0]?.url ?? "";
-
-  // Mettre à jour la commande
-  if (trackingNumber) {
-    await supabaseServer
+    // ── 1. Charger la commande ─────────────────────────────────────────────
+    const { data: order, error: orderErr } = await supabaseServer
       .from("orders")
-      .update({ tracking_number: trackingNumber, shipping_status: "shipped" })
-      .eq("id", order_id);
-  }
+      .select("*")
+      .eq("id", order_id)
+      .single();
 
-  return Response.json({
-    ok:              true,
-    tracking_number: trackingNumber,
-    label_url:       labelUrl,
-    shipment_id:     scData?.id,
-  });
+    if (orderErr || !order) {
+      return Response.json({ error: "Commande introuvable" }, { status: 404 });
+    }
+
+    const addr = order.shipping_address ?? {};
+
+    // ── 2. Créer le colis Sendcloud ────────────────────────────────────────
+    const parcelPayload = {
+      parcel: {
+        name:               `${addr.first_name ?? ""} ${addr.last_name ?? order.customer_name ?? ""}`.trim(),
+        company_name:       addr.company ?? "",
+        address:            addr.line1 ?? addr.address ?? "",
+        address_2:          addr.line2 ?? "",
+        city:               addr.city ?? "",
+        postal_code:        addr.postal_code ?? "",
+        country:            { iso_2: addr.country ?? "FR" },
+        email:              order.customer_email ?? "",
+        telephone:          addr.phone ?? "",
+        order_number:       order.id,
+        weight:             order.total_weight_g ? String(order.total_weight_g / 1000) : "0.5",
+        shipment: {
+          id: method_id ?? Number(process.env.SENDCLOUD_DEFAULT_METHOD_ID ?? 8),
+        },
+        sender_address: Number(process.env.SENDCLOUD_SENDER_ADDRESS_ID ?? 0),
+        request_label: true,
+      },
+    };
+
+    const createRes = await fetch(`${SENDCLOUD_API}/parcels`, {
+      method:  "POST",
+      headers: {
+        Authorization:  getBasicAuth(),
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(parcelPayload),
+    });
+
+    const createData = await createRes.json();
+
+    if (!createRes.ok) {
+      console.error("Sendcloud create parcel error:", createData);
+      return Response.json(
+        { error: createData?.error?.message ?? createData?.message ?? "Erreur Sendcloud lors de la création du colis" },
+        { status: 400 }
+      );
+    }
+
+    const parcel = createData.parcel;
+    const trackingNumber = parcel?.tracking_number ?? parcel?.tracking?.tracking_number ?? "";
+    const labelUrl       = parcel?.label?.normal_printer?.[0] ?? parcel?.label?.label_printer?.[0] ?? "";
+    const parcelId       = parcel?.id ?? null;
+
+    // ── 3. Mettre à jour la commande ──────────────────────────────────────
+    const { error: updateErr } = await supabaseServer
+      .from("orders")
+      .update({
+        shipping_status:  "shipped",
+        tracking_number:  trackingNumber || null,
+        label_url:        labelUrl       || null,
+        sendcloud_parcel_id: parcelId    || null,
+        shipped_at:       new Date().toISOString(),
+      })
+      .eq("id", order_id);
+
+    if (updateErr) {
+      console.error("Supabase update error:", updateErr);
+      // On ne bloque pas — l'étiquette est créée même si la mise à jour échoue
+    }
+
+    return Response.json({
+      ok:              true,
+      tracking_number: trackingNumber,
+      label_url:       labelUrl,
+      parcel_id:       parcelId,
+    });
+
+  } catch (e: any) {
+    console.error("create-label error:", e);
+    return Response.json({ error: e.message ?? "Erreur interne" }, { status: 500 });
+  }
 }

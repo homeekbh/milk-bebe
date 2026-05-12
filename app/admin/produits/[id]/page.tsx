@@ -715,13 +715,14 @@ function CardPreviewPopover({ card }: { card: FicheCard }) {
   );
 }
 
-function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
+function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast, colIdx = 0 }: {
   card: FicheCard;
   onUpdate: (id: string, field: keyof FicheCard, value: string) => void;
   onRemove: (id: string) => void;
   onMoveUp: (id: string) => void;
   onMoveDown: (id: string) => void;
   isFirst: boolean; isLast: boolean;
+  colIdx?: number; // 0 = colonne gauche → popover à droite | 1 = colonne droite → popover à gauche
 }) {
   const [open,        setOpen]        = useState(true);
   const [showPreview, setShowPreview] = useState(false);
@@ -789,7 +790,12 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
       {/* ── Popover aperçu live ── */}
       {showPreview && (
         <div style={{
-          position: "absolute", top: 0, right: -352, zIndex: 200,
+          position: "absolute", top: 0,
+          ...(colIdx % 2 === 0
+            ? { left: "calc(100% + 12px)" }   // colonne gauche → popover à droite
+            : { right: "calc(100% + 12px)" }   // colonne droite → popover à gauche
+          ),
+          zIndex: 200,
           width: 340, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
           borderRadius: 16, border: "2px solid rgba(196,154,74,0.35)",
           background: "#ede8df", overflow: "hidden",
@@ -1799,7 +1805,8 @@ export default function AdminProductForm() {
               {ficheCards.map((card, idx) => (
                 <FicheCardEditor key={card.id} card={card} onUpdate={updateCard} onRemove={removeCard}
                   onMoveUp={(id) => moveCard(id, "up")} onMoveDown={(id) => moveCard(id, "down")}
-                  isFirst={idx === 0} isLast={idx === ficheCards.length - 1} />
+                  isFirst={idx === 0} isLast={idx === ficheCards.length - 1}
+                  colIdx={idx % 2} />
               ))}
             </div>
           )}

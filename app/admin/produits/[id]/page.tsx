@@ -631,6 +631,90 @@ const CARD_TYPES: { value: FicheCard["type"]; label: string; desc: string; icon:
   { value: "entretien",   label: "Conseils d'entretien",    icon: "🧺", desc: "Instructions de lavage affichées sous le bouton panier",     preview: "Lavage 40°C, cycle délicat \nSans adoucissant ni javel…" },
 ];
 
+function CardPreviewPopover({ card }: { card: FicheCard }) {
+  let featuresArr: string[] = [];
+  if (card.type === "features") { try { featuresArr = JSON.parse(card.content); } catch { featuresArr = []; } }
+  let wrObj = { why: "", result: "" };
+  if (card.type === "whyresult") { try { wrObj = JSON.parse(card.content); } catch {} }
+  let entretienArr: string[] = [];
+  if (card.type === "entretien") { try { entretienArr = JSON.parse(card.content); } catch { entretienArr = []; } }
+
+  return (
+    <div style={{ padding: "14px 16px", background: "#ede8df", borderRadius: 14, display: "flex", flexDirection: "column", gap: 10, minWidth: 280, maxWidth: 340 }}>
+      <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" as const, color: "rgba(26,20,16,0.4)", marginBottom: 2 }}>👁 Aperçu live</div>
+
+      {card.type === "subtitle" && card.content && (
+        <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(26,20,16,0.8)", lineHeight: 1.5 }}>{card.content}</div>
+      )}
+      {(card.type === "description") && card.content && (
+        <div style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.75 }}>{card.content}</div>
+      )}
+      {(card.type === "coloris" || card.type === "motif") && card.content && (
+        <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>
+          <span style={{ color: "#c49a4a", fontWeight: 900 }}>{card.type === "motif" ? "Motif" : "Coloris"}</span> — {card.content}
+        </div>
+      )}
+      {card.type === "features" && featuresArr.filter(Boolean).length > 0 && (
+        <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(26,20,16,0.06)", border: "1px solid rgba(26,20,16,0.1)", display: "grid", gap: 7 }}>
+          {featuresArr.filter(Boolean).map((feat, i) => {
+            const ci = feat.indexOf(" : ");
+            const lbl = ci > -1 ? feat.slice(0, ci) : feat;
+            const dsc = ci > -1 ? feat.slice(ci + 3) : "";
+            return (
+              <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+                <svg width="13" height="13" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
+                  <circle cx="7" cy="7" r="6.5" fill="rgba(196,154,74,0.15)" stroke="rgba(196,154,74,0.4)"/>
+                  <path d="M4 7l2 2 4-4" stroke="#c49a4a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+                <div style={{ fontSize: 11, lineHeight: 1.4, color: "#1a1410" }}>
+                  <strong>{lbl}</strong>{dsc && <span style={{ fontWeight: 400, color: "rgba(26,20,16,0.5)" }}> : {dsc}</span>}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {card.type === "whyresult" && (wrObj.why || wrObj.result) && (
+        <div style={{ display: "grid", gap: 7 }}>
+          {wrObj.why && (
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(26,20,16,0.07)", border: "1px solid rgba(26,20,16,0.1)" }}>
+              <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" as const, color: "#c49a4a", marginBottom: 4 }}>La vraie raison</div>
+              <p style={{ margin: 0, fontSize: 11, color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>{wrObj.why}</p>
+            </div>
+          )}
+          {wrObj.result && (
+            <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
+              <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" as const, color: "#c49a4a", marginBottom: 4 }}>Ce que tu obtiens</div>
+              <p style={{ margin: 0, fontSize: 11, color: "rgba(26,20,16,0.65)", lineHeight: 1.7, fontWeight: 600 }}>{wrObj.result}</p>
+            </div>
+          )}
+        </div>
+      )}
+      {card.type === "philosophy" && card.content && (
+        <div style={{ padding: "10px 12px", borderRadius: 10, background: "#2d1a0e" }}>
+          <div style={{ fontSize: 8, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" as const, color: "#c49a4a", marginBottom: 6 }}>Philosophie M!LK</div>
+          <div style={{ fontSize: 11, color: "rgba(242,237,230,0.7)", lineHeight: 1.7 }}>{card.content}</div>
+          <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid rgba(242,237,230,0.08)", fontSize: 10, fontWeight: 900, color: "#f2ede6", lineHeight: 1.5 }}>
+            Chaque produit M!LK répond à un problème réel. Pas de design pour le design.
+          </div>
+        </div>
+      )}
+      {card.type === "entretien" && entretienArr.filter(Boolean).length > 0 && (
+        <div style={{ display: "grid", gap: 5 }}>
+          {entretienArr.filter(Boolean).map((line, i) => (
+            <div key={i} style={{ display: "flex", gap: 7, alignItems: "center", fontSize: 11, color: "#1a1410" }}>
+              <span style={{ color: "#c49a4a", fontSize: 10 }}>⬤</span>{line}
+            </div>
+          ))}
+        </div>
+      )}
+      {(!card.content || card.content === "[]" || card.content === '{"why":"","result":""}') && (
+        <div style={{ fontSize: 11, color: "rgba(26,20,16,0.3)", fontStyle: "italic" }}>Écris du contenu pour voir l'aperçu</div>
+      )}
+    </div>
+  );
+}
+
 function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFirst, isLast }: {
   card: FicheCard;
   onUpdate: (id: string, field: keyof FicheCard, value: string) => void;
@@ -639,25 +723,10 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
   onMoveDown: (id: string) => void;
   isFirst: boolean; isLast: boolean;
 }) {
-  const [open,      setOpen]      = useState(true);
-  const [modalOpen, setModalOpen] = useState(false);
-  const [modalField, setModalField] = useState<"content"|"why"|"result">("content");
-  const [modalValue, setModalValue] = useState("");
+  const [open,        setOpen]        = useState(true);
+  const [showPreview, setShowPreview] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
   const typeDef = CARD_TYPES.find(t => t.value === card.type);
-
-  function openModal(field: "content"|"why"|"result", value: string) {
-    setModalField(field);
-    setModalValue(value);
-    setModalOpen(true);
-  }
-  function saveModal() {
-    if (modalField === "why" || modalField === "result") {
-      updateWR(modalField as "why"|"result", modalValue);
-    } else {
-      onUpdate(card.id, "content", modalValue);
-    }
-    setModalOpen(false);
-  }
 
   let featuresArr: string[] = [];
   if (card.type === "features") { try { featuresArr = JSON.parse(card.content); } catch { featuresArr = []; } }
@@ -674,49 +743,16 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
   function addEntretienLine() { onUpdate(card.id, "content", JSON.stringify([...entretienArr, ""])); }
   function removeEntretienLine(idx: number) { onUpdate(card.id, "content", JSON.stringify(entretienArr.filter((_, i) => i !== idx))); }
 
-  return (
-    <>
-    {/* ── Modale d'édition texte ── */}
-    {modalOpen && (
-      <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}
-        onClick={() => setModalOpen(false)}>
-        <div style={{ background: "#fff", borderRadius: 20, padding: 28, width: "100%", maxWidth: 680, boxShadow: "0 24px 80px rgba(0,0,0,0.25)" }}
-          onClick={e => e.stopPropagation()}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <div style={{ fontWeight: 900, fontSize: 16, color: "#1a1410" }}>
-              {typeDef?.icon} {typeDef?.label}
-              {modalField === "why" && " — La vraie raison"}
-              {modalField === "result" && " — Ce que tu obtiens"}
-            </div>
-            <button onClick={() => setModalOpen(false)}
-              style={{ padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", background: "none", cursor: "pointer", fontSize: 14, fontWeight: 700 }}>✕</button>
-          </div>
-          <textarea
-            value={modalValue}
-            onChange={e => setModalValue(e.target.value)}
-            autoFocus
-            rows={14}
-            style={{ width: "100%", padding: "14px 16px", borderRadius: 12, border: "1.5px solid rgba(196,154,74,0.4)", fontSize: 14, fontFamily: "inherit", lineHeight: 1.7, outline: "none", resize: "vertical", boxSizing: "border-box", background: "#fffdf9" }}
-          />
-          <div style={{ display: "flex", gap: 10, marginTop: 14, justifyContent: "flex-end" }}>
-            <button onClick={() => setModalOpen(false)}
-              style={{ padding: "10px 20px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 700 }}>
-              Annuler
-            </button>
-            <button onClick={saveModal}
-              style={{ padding: "10px 24px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", border: "none", cursor: "pointer", fontSize: 14, fontWeight: 900 }}>
-              ✓ Enregistrer
-            </button>
-          </div>
-        </div>
-      </div>
-    )}
-    <div style={{ borderRadius: 16, border: `2px solid ${open ? "#c49a4a" : "rgba(196,154,74,0.25)"}`, overflow: "hidden", background: "#fffdf9", marginBottom: 0 }}>
+  // Style textarea pleine largeur
+  const TA: React.CSSProperties = { ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.65, width: "100%", boxSizing: "border-box" };
 
-      {/* ── Header accordéon ── */}
+  return (
+    <div ref={cardRef} style={{ borderRadius: 16, border: `2px solid ${open ? "#c49a4a" : "rgba(196,154,74,0.25)"}`, overflow: "visible", background: "#fffdf9", position: "relative" }}>
+
+      {/* ── Header ── */}
       <div onClick={() => setOpen(v => !v)}
-        style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: open ? "rgba(196,154,74,0.1)" : "#faf8f4", cursor: "pointer", userSelect: "none" }}>
-        <div style={{ width: 26, height: 26, borderRadius: 8, border: "none", background: open ? "#c49a4a" : "rgba(196,154,74,0.15)", display: "grid", placeItems: "center", flexShrink: 0, transition: "all 0.2s" }}>
+        style={{ display: "flex", alignItems: "center", gap: 10, padding: "14px 16px", background: open ? "rgba(196,154,74,0.1)" : "#faf8f4", cursor: "pointer", userSelect: "none", borderRadius: open ? "14px 14px 0 0" : 14 }}>
+        <div style={{ width: 26, height: 26, borderRadius: 8, background: open ? "#c49a4a" : "rgba(196,154,74,0.15)", display: "grid", placeItems: "center", flexShrink: 0, transition: "all 0.2s" }}>
           <svg width="12" height="12" viewBox="0 0 12 12" fill="none" style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
             <path d="M2 4l4 4 4-4" stroke={open ? "#fff" : "#c49a4a"} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
           </svg>
@@ -732,14 +768,15 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
           {!open && card.content && card.type === "subtitle" && (
             <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{card.content}</div>
           )}
-          {!open && card.type === "features" && featuresArr.length > 0 && (
-            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2 }}>{featuresArr.length} point{featuresArr.length > 1 ? "s" : ""} — {featuresArr[0]?.split(" : ")[0]}{featuresArr.length > 1 ? "…" : ""}</div>
-          )}
-          {!open && card.type === "whyresult" && wrObj.why && (
-            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{wrObj.why.slice(0, 60)}…</div>
-          )}
         </div>
         <div style={{ display: "flex", gap: 4 }} onClick={e => e.stopPropagation()}>
+          {/* Bouton aperçu live */}
+          <button type="button"
+            onClick={e => { e.stopPropagation(); setShowPreview(v => !v); }}
+            title="Aperçu live"
+            style={{ padding: "5px 10px", borderRadius: 6, border: "none", background: showPreview ? "#c49a4a" : "rgba(196,154,74,0.15)", color: showPreview ? "#1a1410" : "#c49a4a", cursor: "pointer", fontSize: 13, fontWeight: 900 }}>
+            👁
+          </button>
           <button type="button" onClick={() => onMoveUp(card.id)} disabled={isFirst}
             style={{ padding: "5px 8px", borderRadius: 6, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: isFirst ? "not-allowed" : "pointer", opacity: isFirst ? 0.3 : 1, fontSize: 12 }}>↑</button>
           <button type="button" onClick={() => onMoveDown(card.id)} disabled={isLast}
@@ -749,207 +786,120 @@ function FicheCardEditor({ card, onUpdate, onRemove, onMoveUp, onMoveDown, isFir
         </div>
       </div>
 
-      {/* ── Corps accordéon ouvert — layout 2 colonnes : édition + aperçu ── */}
-      {open && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 300px", borderTop: "1px solid rgba(196,154,74,0.15)" }}>
-
-          {/* COLONNE GAUCHE — édition */}
-          <div style={{ padding: "16px 18px 20px", display: "grid", gap: 12, borderRight: "1px solid rgba(196,154,74,0.15)" }}>
-
-            {/* Subtitle / Description / Coloris / Motif / Philosophie */}
-            {(card.type === "subtitle" || card.type === "description" || card.type === "coloris" || card.type === "motif" || card.type === "philosophy") && (
-              <>
-                {card.type === "subtitle" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Phrase en gras juste sous le nom du produit</div>}
-                {card.type === "motif"    && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Format : Motif [Nom] — [description]</div>}
-                {card.type === "coloris"  && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Ex : Terre cuite — brun chaud aux nuances naturelles</div>}
-                {card.type === "philosophy" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8, lineHeight: 1.5 }}>Phrases avec "?" = mises en valeur · "Ici :" = bloc encadré · La conclusion finale s'affiche auto.</div>}
-                <label style={LS}>{typeDef?.label}</label>
-                <div style={{ position: "relative" }}>
-                  <textarea value={card.content}
-                    onChange={e => onUpdate(card.id, "content", e.target.value)}
-                    rows={card.type === "philosophy" ? 5 : card.type === "description" ? 3 : 2}
-                    style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.65, paddingRight: 40 }}
-                    placeholder="Cliquez sur ↗ pour ouvrir l'éditeur plein écran"
-                  />
-                  <button type="button" onClick={() => openModal("content", card.content)}
-                    title="Ouvrir l'éditeur"
-                    style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 6, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", cursor: "pointer", fontSize: 13, color: "#c49a4a", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    ↗
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* Features */}
-            {card.type === "features" && (
-              <>
-                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Format : <strong>Titre</strong> : description · Ex : "Double zip inversé : change par le bas"</div>
-                <label style={LS}>Points forts ({featuresArr.length})</label>
-                {featuresArr.map((f, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                    <span style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", flexShrink: 0, width: 18, textAlign: "right" }}>{i+1}</span>
-                    <input value={f} onChange={e => updateFeature(i, e.target.value)}
-                      placeholder="Double zip inversé : change par le bas"
-                      style={{ ...IS, flex: 1 }} />
-                    <button type="button" onClick={() => removeFeature(i)}
-                      style={{ padding: "0 10px", height: 38, borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800, flexShrink: 0 }}>✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={addFeature}
-                  style={{ padding: "9px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
-                  + Ajouter un point
-                </button>
-              </>
-            )}
-
-            {/* WhyResult */}
-            {card.type === "whyresult" && (
-              <>
-                <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(26,20,16,0.06)", borderLeft: "3px solid #c49a4a" }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 1 — "La vraie raison / Pourquoi ce produit existe"</div>
-                </div>
-                <label style={LS}>Le problème du parent</label>
-                <div style={{ position: "relative" }}>
-                  <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
-                    rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7, paddingRight: 40 }} />
-                  <button type="button" onClick={() => openModal("why", wrObj.why)}
-                    title="Ouvrir l'éditeur"
-                    style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 6, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", cursor: "pointer", fontSize: 13, color: "#c49a4a", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    ↗
-                  </button>
-                </div>
-                <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(196,154,74,0.08)", borderLeft: "3px solid #c49a4a", marginTop: 4 }}>
-                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 2 — "Ce que tu obtiens / Le résultat"</div>
-                </div>
-                <label style={LS}>Le résultat concret</label>
-                <div style={{ position: "relative" }}>
-                  <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
-                    rows={3} style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7, paddingRight: 40 }} />
-                  <button type="button" onClick={() => openModal("result", wrObj.result)}
-                    title="Ouvrir l'éditeur"
-                    style={{ position: "absolute", top: 8, right: 8, width: 28, height: 28, borderRadius: 6, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", cursor: "pointer", fontSize: 13, color: "#c49a4a", fontWeight: 900, display: "flex", alignItems: "center", justifyContent: "center" }}>
-                    ↗
-                  </button>
-                </div>
-              </>
-            )}
-
-            {/* Entretien */}
-            {card.type === "entretien" && (
-              <>
-                <label style={LS}>Instructions — une par ligne</label>
-                {entretienArr.map((line, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8 }}>
-                    <input value={line} onChange={e => updateEntretienLine(i, e.target.value)}
-                      placeholder="Ex : Lavage 40°C, cycle délicat"
-                      style={{ ...IS, flex: 1 }} />
-                    <button type="button" onClick={() => removeEntretienLine(i)}
-                      style={{ padding: "0 10px", height: 38, borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800 }}>✕</button>
-                  </div>
-                ))}
-                <button type="button" onClick={addEntretienLine}
-                  style={{ padding: "9px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
-                  + Ajouter
-                </button>
-              </>
-            )}
+      {/* ── Popover aperçu live ── */}
+      {showPreview && (
+        <div style={{
+          position: "absolute", top: 0, right: -352, zIndex: 200,
+          width: 340, boxShadow: "0 8px 32px rgba(0,0,0,0.18)",
+          borderRadius: 16, border: "2px solid rgba(196,154,74,0.35)",
+          background: "#ede8df", overflow: "hidden",
+        }}>
+          <div style={{ padding: "10px 14px", background: "rgba(196,154,74,0.15)", borderBottom: "1px solid rgba(196,154,74,0.2)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", letterSpacing: 1 }}>APERÇU LIVE</span>
+            <button onClick={() => setShowPreview(false)} style={{ background: "none", border: "none", cursor: "pointer", fontSize: 14, color: "rgba(26,20,16,0.4)", fontWeight: 900 }}>✕</button>
           </div>
-
-          {/* COLONNE DROITE — aperçu de cette card exacte */}
-          <div style={{ padding: "14px 14px", background: "#ede8df", display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>Aperçu sur la fiche</div>
-
-            {/* Subtitle */}
-            {card.type === "subtitle" && card.content && (
-              <div style={{ fontSize: 13, fontWeight: 800, color: "rgba(26,20,16,0.75)", lineHeight: 1.5 }}>{card.content}</div>
-            )}
-
-            {/* Description */}
-            {card.type === "description" && card.content && (
-              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.75 }}>{card.content}</div>
-            )}
-
-            {/* Coloris / Motif */}
-            {(card.type === "coloris" || card.type === "motif") && card.content && (
-              <div style={{ fontSize: 13, fontWeight: 700, color: "#1a1410" }}>
-                <span style={{ color: "#c49a4a", fontWeight: 900 }}>{card.type === "motif" ? "Motif" : "Coloris"}</span> — {card.content}
-              </div>
-            )}
-
-            {/* Features */}
-            {card.type === "features" && featuresArr.filter(Boolean).length > 0 && (
-              <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(26,20,16,0.06)", border: "1px solid rgba(26,20,16,0.1)", display: "grid", gap: 8 }}>
-                {featuresArr.filter(Boolean).map((feat, i) => {
-                  const colonIdx = feat.indexOf(" : ");
-                  const label = colonIdx > -1 ? feat.slice(0, colonIdx) : feat;
-                  const desc  = colonIdx > -1 ? feat.slice(colonIdx + 3) : "";
-                  return (
-                    <div key={i} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style={{ flexShrink: 0, marginTop: 2 }}>
-                        <circle cx="7" cy="7" r="6.5" fill="rgba(196,154,74,0.15)" stroke="rgba(196,154,74,0.4)"/>
-                        <path d="M4 7l2 2 4-4" stroke="#c49a4a" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                      <div style={{ fontSize: 12, lineHeight: 1.4, color: "#1a1410" }}>
-                        <strong>{label}</strong>{desc && <span style={{ fontWeight: 400, color: "rgba(26,20,16,0.5)" }}> : {desc}</span>}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-
-            {/* WhyResult */}
-            {card.type === "whyresult" && (wrObj.why || wrObj.result) && (
-              <div style={{ display: "grid", gap: 8 }}>
-                {wrObj.why && (
-                  <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(26,20,16,0.07)", border: "1px solid rgba(26,20,16,0.1)" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>La vraie raison</div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Pourquoi ce produit existe</div>
-                    <p style={{ margin: 0, fontSize: 11, color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>{wrObj.why}</p>
-                  </div>
-                )}
-                {wrObj.result && (
-                  <div style={{ padding: "12px 14px", borderRadius: 12, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
-                    <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 5 }}>Ce que tu obtiens</div>
-                    <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(26,20,16,0.35)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>Le résultat</div>
-                    <p style={{ margin: 0, fontSize: 11, color: "rgba(26,20,16,0.65)", lineHeight: 1.7, fontWeight: 600 }}>{wrObj.result}</p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Philosophy */}
-            {card.type === "philosophy" && card.content && (
-              <div style={{ padding: "12px 14px", borderRadius: 12, background: "#2d1a0e" }}>
-                <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 3 }}>Philosophie M!LK</div>
-                <div style={{ fontSize: 9, fontWeight: 700, color: "rgba(242,237,230,0.3)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 10 }}>Comment ça réduit ta charge mentale</div>
-                <div style={{ fontSize: 11, color: "rgba(242,237,230,0.7)", lineHeight: 1.7 }}>{card.content}</div>
-                <div style={{ marginTop: 10, paddingTop: 8, borderTop: "1px solid rgba(242,237,230,0.08)", fontSize: 11, fontWeight: 900, color: "#f2ede6", lineHeight: 1.5 }}>
-                  Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
-                </div>
-              </div>
-            )}
-
-            {/* Entretien */}
-            {card.type === "entretien" && entretienArr.filter(Boolean).length > 0 && (
-              <div style={{ display: "grid", gap: 6 }}>
-                {entretienArr.filter(Boolean).map((line, i) => (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 12, color: "#1a1410" }}>
-                    <span style={{ color: "#c49a4a", fontSize: 16 }}>⬤</span>
-                    {line}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {!card.content || card.content === "[]" || card.content === '{"why":"","result":""}' ? (
-              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.3)", fontStyle: "italic" }}>Remplis le contenu pour voir l'aperçu</div>
-            ) : null}
+          <div style={{ padding: 14, maxHeight: 500, overflowY: "auto" }}>
+            <CardPreviewPopover card={card} />
           </div>
         </div>
       )}
+
+      {/* ── Corps ── */}
+      {open && (
+        <div style={{ padding: "18px 20px 22px", display: "grid", gap: 14, borderTop: "1px solid rgba(196,154,74,0.15)" }}>
+
+          {/* Hint */}
+          {card.type === "subtitle"   && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Phrase en gras juste sous le nom du produit</div>}
+          {card.type === "motif"      && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Format : Motif [Nom] — [description]</div>}
+          {card.type === "coloris"    && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Ex : Terre cuite — brun chaud aux nuances naturelles</div>}
+          {card.type === "philosophy" && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8, lineHeight: 1.5 }}>Phrases avec "?" = mises en valeur · "Ici :" = bloc encadré · La conclusion finale s'affiche auto.</div>}
+          {card.type === "features"   && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", background: "#ede8df", padding: "6px 10px", borderRadius: 8 }}>Format : <strong>Titre</strong> : description</div>}
+
+          {/* ── Subtitle / Description / Coloris / Motif / Philosophie ── */}
+          {(card.type === "subtitle" || card.type === "description" || card.type === "coloris" || card.type === "motif" || card.type === "philosophy") && (
+            <>
+              <label style={LS}>{typeDef?.label}</label>
+              <textarea
+                value={card.content}
+                onChange={e => onUpdate(card.id, "content", e.target.value)}
+                onFocus={() => setShowPreview(true)}
+                rows={card.type === "philosophy" ? 6 : card.type === "description" ? 4 : 3}
+                style={TA}
+                placeholder={card.type === "subtitle" ? "Double zip + moufles intégrées = fin des batailles quotidiennes." : ""}
+              />
+            </>
+          )}
+
+          {/* ── Features ── */}
+          {card.type === "features" && (
+            <>
+              <label style={LS}>Points forts ({featuresArr.length})</label>
+              {featuresArr.map((f, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <span style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", flexShrink: 0, width: 20, textAlign: "right", paddingTop: 13 }}>{i+1}</span>
+                  <textarea
+                    value={f}
+                    onChange={e => updateFeature(i, e.target.value)}
+                    onFocus={() => setShowPreview(true)}
+                    rows={2}
+                    placeholder="Double zip inversé : change par le bas, habille par le haut"
+                    style={{ ...TA, flex: 1 }}
+                  />
+                  <button type="button" onClick={() => removeFeature(i)}
+                    style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800, marginTop: 6 }}>✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addFeature}
+                style={{ padding: "9px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
+                + Ajouter un point
+              </button>
+            </>
+          )}
+
+          {/* ── WhyResult ── */}
+          {card.type === "whyresult" && (
+            <>
+              <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(26,20,16,0.06)", borderLeft: "3px solid #c49a4a" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 1 — "La vraie raison / Pourquoi ce produit existe"</div>
+              </div>
+              <label style={LS}>Le problème du parent</label>
+              <textarea value={wrObj.why} onChange={e => updateWR("why", e.target.value)}
+                onFocus={() => setShowPreview(true)}
+                rows={4} style={TA} placeholder="Tu te lèves pour la 4e fois…" />
+              <div style={{ padding: "8px 10px", borderRadius: 8, background: "rgba(196,154,74,0.08)", borderLeft: "3px solid #c49a4a" }}>
+                <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a" }}>Card 2 — "Ce que tu obtiens / Le résultat"</div>
+              </div>
+              <label style={LS}>Le résultat concret</label>
+              <textarea value={wrObj.result} onChange={e => updateWR("result", e.target.value)}
+                onFocus={() => setShowPreview(true)}
+                rows={4} style={TA} placeholder="Habillage en moins d'une minute…" />
+            </>
+          )}
+
+          {/* ── Entretien ── */}
+          {card.type === "entretien" && (
+            <>
+              <label style={LS}>Instructions — une par ligne</label>
+              {entretienArr.map((line, i) => (
+                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                  <textarea value={line} onChange={e => updateEntretienLine(i, e.target.value)}
+                    onFocus={() => setShowPreview(true)}
+                    rows={2}
+                    placeholder="Ex : Lavage 40°C, cycle délicat"
+                    style={{ ...TA, flex: 1 }} />
+                  <button type="button" onClick={() => removeEntretienLine(i)}
+                    style={{ flexShrink: 0, width: 34, height: 34, borderRadius: 8, background: "#fee2e2", color: "#b91c1c", border: "none", cursor: "pointer", fontWeight: 800, marginTop: 6 }}>✕</button>
+                </div>
+              ))}
+              <button type="button" onClick={addEntretienLine}
+                style={{ padding: "9px", borderRadius: 8, border: "2px dashed rgba(196,154,74,0.4)", background: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, color: "#c49a4a" }}>
+                + Ajouter
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </div>
-    </>
   );
 }
 

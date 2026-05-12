@@ -13,6 +13,7 @@ const NAV = [
   { href: "/admin",              label: "Dashboard",    icon: "▦"  },
   { href: "/admin/homepage",     label: "Homepage",     icon: "🏠" },
   { href: "/admin/produits",     label: "Produits",     icon: "🏷" },
+  { href: "/admin/categories",   label: "Catégories",   icon: "📂" },
   { href: "/admin/commandes",    label: "Commandes",    icon: "📦" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
   { href: "/admin/codes-promos", label: "Codes promos", icon: "🎟" },
@@ -347,11 +348,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {CLOCKS.map(clk => (
               <div key={clk.city}
                 style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 4, padding: "6px 10px", borderRadius: 12, background: "rgba(26,20,16,0.05)", border: "1px solid rgba(26,20,16,0.08)" }}>
-                {/* Horloge analogique */}
                 <AnalogClock tz={clk.tz} size={64} />
-                {/* Heure digitale */}
                 <DigitalTime tz={clk.tz} />
-                {/* Ville */}
                 <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(26,20,16,0.45)", letterSpacing: 0.5, textAlign: "center" }}>
                   {clk.flag} {clk.city}
                 </div>

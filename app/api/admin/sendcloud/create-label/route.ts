@@ -2,6 +2,16 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
+// Mapping transporteur M!LK → shipping_option_code Sendcloud v3
+const CARRIER_CODES: Record<string, string> = {
+  "La Poste — Colissimo": "colissimo:home_signature",
+  "Chronopost":           "chronopost:classic",
+  "DHL":                  "dhl:express",
+  "UPS":                  "ups:standard",
+  "Mondial Relay":        "mondial_relay:standard",
+  "TNT":                  "tnt:express",
+};
+
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
@@ -14,7 +24,6 @@ export async function POST(req: NextRequest) {
 
   const publicKey = process.env.SENDCLOUD_PUBLIC_KEY;
   const secretKey = process.env.SENDCLOUD_SECRET_KEY;
-  const senderId  = process.env.SENDCLOUD_SENDER_ADDRESS_ID;
 
   if (!publicKey || !secretKey) {
     return Response.json({ error: "Sendcloud non configuré — clés API manquantes" }, { status: 500 });
@@ -23,77 +32,69 @@ export async function POST(req: NextRequest) {
   const totalItems = Array.isArray(items)
     ? items.reduce((sum: number, i: any) => sum + (i.quantity ?? 1), 0)
     : 1;
-  const weightKg = Math.max(0.5, totalItems * 0.2).toFixed(2);
+  const weightKg = Math.max(0.5, totalItems * 0.2);
 
-  const nameParts = (customer.name ?? "").split(" ");
-  const lastName  = nameParts.slice(-1)[0] ?? customer.name ?? "";
-  const firstName = nameParts.slice(0, -1).join(" ") || lastName;
+  const shippingCode = CARRIER_CODES[transporteur] ?? "colissimo:home_signature";
 
-  // Construire les parcel_items depuis les articles de la commande
-  const parcelItems = Array.isArray(items) ? items.map((i: any) => ({
-    description:    i.name ?? "Article M!LK",
-    quantity:       i.quantity ?? 1,
-    weight:         "0.200",
-    value:          String(i.price ?? 0),
-    hs_code:        "6111",      // Code douanier vêtements bébé
-    origin_country: "FR",
-    product_id:     String(i.id ?? ""),
-    sku:            i.slug ?? "",
-  })) : [];
-
-  const parcelBody: any = {
-    parcel: {
-      name:          `${firstName} ${lastName}`.trim(),
-      company_name:  "",
-      email:         customer.email ?? "",
-      telephone:     "",
-      address:       customer.address ?? "",
-      house_number:  "",
-      city:          customer.city ?? "",
-      postal_code:   customer.zip ?? "",
-      country:       customer.country ?? "FR",
-      weight:        weightKg,
-      order_number:  order_id,
-      parcel_items:  parcelItems,
-      request_label: true,
-      apply_shipping_rules: true,  // Sendcloud choisit automatiquement le bon transporteur
+  // Format API v3 — shipments endpoint
+  const shipmentBody = {
+    to_address: {
+      name:           customer.name ?? "",
+      address_line_1: customer.address ?? "",
+      postal_code:    customer.zip ?? "",
+      city:           customer.city ?? "",
+      country_code:   customer.country ?? "FR",
+      email:          customer.email ?? "",
+      phone_number:   "",
     },
+    ship_with: {
+      type: "shipping_option_code",
+      properties: {
+        shipping_option_code: shippingCode,
+      },
+    },
+    parcels: [
+      {
+        weight: {
+          value: weightKg.toFixed(3),
+          unit:  "kg",
+        },
+      },
+    ],
+    external_reference: order_id,
   };
-
-  // Ajouter l'adresse expéditeur si disponible
-  if (senderId) {
-    parcelBody.parcel.sender_address = Number(senderId);
-  }
 
   const credentials = Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
 
-  // Utiliser l'API v2 (v3 nécessite une migration complète du format)
-  const scRes = await fetch("https://panel.sendcloud.sc/api/v2/parcels", {
+  // API v3 — endpoint synchronous
+  const scRes = await fetch("https://panel.sendcloud.sc/api/v3/shipments/create-and-announce", {
     method:  "POST",
     headers: {
       "Authorization": `Basic ${credentials}`,
       "Content-Type":  "application/json",
     },
-    body: JSON.stringify(parcelBody),
+    body: JSON.stringify(shipmentBody),
   });
 
   const scData = await scRes.json();
 
   if (!scRes.ok) {
-    const errMsg = scData?.error?.message
-                ?? scData?.message
+    const errMsg = scData?.message
+                ?? scData?.error?.message
                 ?? JSON.stringify(scData);
-    console.error("Sendcloud error:", errMsg);
+    console.error("Sendcloud v3 error:", errMsg);
     return Response.json({ error: `Sendcloud : ${errMsg}` }, { status: 400 });
   }
 
-  const parcel         = scData.parcel;
-  const trackingNumber = parcel?.tracking_number ?? "";
-  const labelUrl       = parcel?.label?.normal_printer?.[0]
-                      ?? parcel?.label?.label_printer
-                      ?? "";
+  // Récupérer tracking + label depuis la réponse v3
+  const parcel         = scData?.parcels?.[0];
+  const trackingNumber = parcel?.tracking_number ?? scData?.tracking_number ?? "";
+  const labelFile      = parcel?.label_file ?? scData?.label_file ?? "";
+  const labelUrl       = labelFile
+    ? `data:application/pdf;base64,${labelFile}`
+    : parcel?.documents?.[0]?.url ?? "";
 
-  // Mettre à jour la commande avec le numéro de tracking
+  // Mettre à jour la commande
   if (trackingNumber) {
     await supabaseServer
       .from("orders")
@@ -105,6 +106,6 @@ export async function POST(req: NextRequest) {
     ok:              true,
     tracking_number: trackingNumber,
     label_url:       labelUrl,
-    parcel_id:       parcel?.id,
+    shipment_id:     scData?.id,
   });
 }

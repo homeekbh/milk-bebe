@@ -589,10 +589,30 @@ export default function AdminCommandes() {
                               </div>
                             )}
                             {labelUrl && (
-                              <a href={labelUrl} target="_blank" rel="noopener noreferrer"
-                                style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center", display: "block" }}>
-                                🖨️ Imprimer l'étiquette PDF →
-                              </a>
+                              <div>
+                                {/* Aperçu étiquette A6 noir et blanc */}
+                                <div style={{ marginBottom: 10, borderRadius: 10, overflow: "hidden", border: "1px solid rgba(0,0,0,0.1)", background: "#fff" }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: "#666", padding: "6px 10px", background: "#f5f5f5", borderBottom: "1px solid #eee" }}>
+                                    Aperçu étiquette — Format A6 (10×15cm)
+                                  </div>
+                                  <div style={{ position: "relative", width: "100%", paddingBottom: "141.4%" /* ratio A6 */ }}>
+                                    <iframe
+                                      src={labelUrl}
+                                      style={{
+                                        position: "absolute", inset: 0,
+                                        width: "100%", height: "100%",
+                                        border: "none",
+                                        filter: "grayscale(100%) contrast(1.1)",
+                                      }}
+                                      title="Aperçu étiquette Sendcloud"
+                                    />
+                                  </div>
+                                </div>
+                                <a href={labelUrl} target="_blank" rel="noopener noreferrer"
+                                  style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center", display: "block" }}>
+                                  🖨️ Imprimer l'étiquette PDF →
+                                </a>
+                              </div>
                             )}
                           </div>
                         )}

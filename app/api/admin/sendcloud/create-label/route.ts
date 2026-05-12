@@ -56,17 +56,18 @@ export async function POST(req: NextRequest) {
       weight:         String(weightKg),
       order_number:   order_id,
       shipment: {
-        id:   8,        // Sendcloud shipment type id (8 = standard)
+        id:   8,
         name: carrier.name,
       },
       ...(senderId ? { sender_address: Number(senderId) } : {}),
       request_label:  true,
+      apply_shipping_rules: true,
     },
   };
 
   const credentials = Buffer.from(`${publicKey}:${secretKey}`).toString("base64");
 
-  const scRes = await fetch("https://panel.sendcloud.sc/api/v2/parcels", {
+  const scRes = await fetch("https://panel.sendcloud.sc/api/v3/parcels", {
     method:  "POST",
     headers: {
       "Authorization": `Basic ${credentials}`,
@@ -83,9 +84,13 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: `Sendcloud : ${errMsg}` }, { status: 400 });
   }
 
-  const parcel        = scData.parcel;
+  // API v3 : réponse dans scData.parcel ou scData (selon le endpoint)
+  const parcel         = scData.parcel ?? scData;
   const trackingNumber = parcel?.tracking_number ?? "";
-  const labelUrl       = parcel?.label?.normal_printer?.[0] ?? parcel?.label?.label_printer ?? "";
+  const labelUrl       = parcel?.label?.normal_printer?.[0]
+                      ?? parcel?.label?.label_printer
+                      ?? parcel?.label_url
+                      ?? "";
 
   // Mettre à jour la commande avec le numéro de tracking
   if (trackingNumber) {

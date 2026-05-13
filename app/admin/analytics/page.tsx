@@ -1,5 +1,18 @@
 "use client";
 
+// Helper inline — lit le token Supabase depuis localStorage
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    const raw = localStorage.getItem("sb-ntkqmnenczltlwplswka-auth-token");
+    if (raw) token = JSON.parse(raw)?.access_token ?? "";
+  } catch {}
+  return fetch(url, {
+    ...options,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}), ...(options.headers ?? {}) },
+  });
+}
+
 import { useEffect, useState, useMemo } from "react";
 
 type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; };
@@ -178,14 +191,14 @@ export default function AdminStats() {
 
   useEffect(() => {
     Promise.all([
-      fetch("/api/admin/products").then(r => r.json()).catch(() => []),
-      fetch("/api/admin/commandes-data").then(r => r.json()).catch(() => []),
-      fetch("/api/admin/newsletter").then(r => r.json()).catch(() => []),
-      fetch("/api/admin/stock-alerts").then(r => r.json()).catch(() => []),
-      fetch("/api/admin/promos").then(r => r.json()).catch(() => []),
-      fetch("/api/admin/reviews").then(r => r.json()).catch(() => []),
-      fetch("/api/admin/clients-count").then(r => r.json()).catch(() => ({ count: 0 })),
-      fetch("/api/admin/page-views?days=30").then(r => r.json()).catch(() => null),
+      adminFetch("/api/admin/products").then(r => r.json()).catch(() => []),
+      adminFetch("/api/admin/commandes-data").then(r => r.json()).catch(() => []),
+      adminFetch("/api/admin/newsletter").then(r => r.json()).catch(() => []),
+      adminFetch("/api/admin/stock-alerts").then(r => r.json()).catch(() => []),
+      adminFetch("/api/admin/promos").then(r => r.json()).catch(() => []),
+      adminFetch("/api/admin/reviews").then(r => r.json()).catch(() => []),
+      adminFetch("/api/admin/clients-count").then(r => r.json()).catch(() => ({ count: 0 })),
+      adminFetch("/api/admin/page-views?days=30").then(r => r.json()).catch(() => null),
     ]).then(([prods, ords, news, alerts, prms, revs, clients, pv]) => {
       if (Array.isArray(prods))   setProducts(prods);
       if (Array.isArray(ords))    setOrders(ords);

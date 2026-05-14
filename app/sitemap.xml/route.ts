@@ -2,6 +2,9 @@ export async function GET() {
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
   const now  = new Date().toISOString().slice(0, 10);
 
+  const SUPABASE_URL = "https://ntkqmnenczltlwplswka.supabase.co";
+  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
   const staticPages = [
     { url: "/",                      priority: "1.0", changefreq: "weekly"  },
     { url: "/produits",              priority: "0.9", changefreq: "daily"   },
@@ -9,6 +12,8 @@ export async function GET() {
     { url: "/categorie/pyjamas",     priority: "0.8", changefreq: "weekly"  },
     { url: "/categorie/gigoteuses",  priority: "0.8", changefreq: "weekly"  },
     { url: "/categorie/accessoires", priority: "0.8", changefreq: "weekly"  },
+    { url: "/categorie/langes",      priority: "0.8", changefreq: "weekly"  },
+    { url: "/categorie/bonnet",      priority: "0.8", changefreq: "weekly"  },
     { url: "/qui-sommes-nous",       priority: "0.6", changefreq: "monthly" },
     { url: "/pourquoi-bambou",       priority: "0.7", changefreq: "monthly" },
     { url: "/livraison",             priority: "0.5", changefreq: "monthly" },
@@ -16,49 +21,36 @@ export async function GET() {
     { url: "/mentions-legales",      priority: "0.3", changefreq: "yearly"  },
   ];
 
-  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
-
-  // ✅ Tous les produits publiés via API REST Supabase
+  // Produits depuis Supabase REST API
   let productPages: { url: string; priority: string; changefreq: string; lastmod?: string }[] = [];
   try {
     const res = await fetch(
       `${SUPABASE_URL}/rest/v1/products?select=slug,updated_at&published=eq.true&order=created_at.desc`,
-      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+      {
+        headers: {
+          "apikey":        SUPABASE_KEY,
+          "Authorization": `Bearer ${SUPABASE_KEY}`,
+          "Content-Type":  "application/json",
+        },
+        cache: "no-store",
+      }
     );
-    const data = await res.json();
-    productPages = (Array.isArray(data) ? data : [])
-      .filter((p: any) => p.slug)
-      .map((p: any) => ({
-        url:        `/produits/${p.slug}`,
-        priority:   "0.85",
-        changefreq: "weekly",
-        lastmod:    p.updated_at ? p.updated_at.slice(0, 10) : now,
-      }));
-  } catch {
-    // silencieux si Supabase indisponible
+    if (res.ok) {
+      const data = await res.json();
+      productPages = (Array.isArray(data) ? data : [])
+        .filter((p: any) => p.slug)
+        .map((p: any) => ({
+          url:        `/produits/${p.slug}`,
+          priority:   "0.85",
+          changefreq: "weekly",
+          lastmod:    p.updated_at ? p.updated_at.slice(0, 10) : now,
+        }));
+    }
+  } catch (e) {
+    console.error("Sitemap products error:", e);
   }
 
-  // ✅ Catégories dynamiques via API REST Supabase
-  let categoryPages: { url: string; priority: string; changefreq: string }[] = [];
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/categories?select=slug`,
-      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
-    );
-    const data = await res.json();
-    const staticCats = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
-    const dynamicCats = (Array.isArray(data) ? data : [])
-      .map((c: any) => c.slug)
-      .filter((s: string) => s && !staticCats.includes(s));
-    categoryPages = dynamicCats.map((slug: string) => ({
-      url:        `/categorie/${slug}`,
-      priority:   "0.8",
-      changefreq: "weekly",
-    }));
-  } catch {}
-
-  const allPages = [...staticPages, ...categoryPages, ...productPages];
+  const allPages = [...staticPages, ...productPages];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"
@@ -74,7 +66,7 @@ ${allPages.map(p => `  <url>
   return new Response(xml, {
     headers: {
       "Content-Type":  "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=3600, s-maxage=3600",
+      "Cache-Control": "no-store",
     },
   });
 }

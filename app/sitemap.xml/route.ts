@@ -1,9 +1,6 @@
 export async function GET() {
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+  const base = "https://www.milkbebe.fr";
   const now  = new Date().toISOString().slice(0, 10);
-
-  const SUPABASE_URL = "https://ntkqmnenczltlwplswka.supabase.co";
-  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 
   const staticPages = [
     { url: "/",                      priority: "1.0", changefreq: "weekly"  },
@@ -21,34 +18,28 @@ export async function GET() {
     { url: "/mentions-legales",      priority: "0.3", changefreq: "yearly"  },
   ];
 
-  // Produits depuis Supabase REST API
-  let productPages: { url: string; priority: string; changefreq: string; lastmod?: string }[] = [];
-  try {
-    const res = await fetch(
-      `${SUPABASE_URL}/rest/v1/products?select=slug,updated_at&published=eq.true&order=created_at.desc`,
-      {
-        headers: {
-          "apikey":        SUPABASE_KEY,
-          "Authorization": `Bearer ${SUPABASE_KEY}`,
-          "Content-Type":  "application/json",
-        },
-        cache: "no-store",
-      }
-    );
-    if (res.ok) {
-      const data = await res.json();
-      productPages = (Array.isArray(data) ? data : [])
-        .filter((p: any) => p.slug)
-        .map((p: any) => ({
-          url:        `/produits/${p.slug}`,
-          priority:   "0.85",
-          changefreq: "weekly",
-          lastmod:    p.updated_at ? p.updated_at.slice(0, 10) : now,
-        }));
-    }
-  } catch (e) {
-    console.error("Sitemap products error:", e);
-  }
+  // ── Produits M!LK — à mettre à jour quand tu ajoutes un nouveau produit ──
+  const productSlugs = [
+    "body-bambou-damier",
+    "body-bambou-smileys",
+    "body-bambou-eclair",
+    "pyjama-bambou-damier",
+    "pyjama-bambou-smileys",
+    "pyjama-bambou-eclair",
+    "gigoteuse-damier",
+    "gigoteuse-smileys",
+    "gigoteuse-eclair",
+    "lange-bambou-terracotta",
+    "bonnet-bambou-terracotta",
+    "bandeau-noeud-terracotta",
+  ];
+
+  const productPages = productSlugs.map(slug => ({
+    url:        `/produits/${slug}`,
+    priority:   "0.85",
+    changefreq: "weekly",
+    lastmod:    now,
+  }));
 
   const allPages = [...staticPages, ...productPages];
 
@@ -66,7 +57,7 @@ ${allPages.map(p => `  <url>
   return new Response(xml, {
     headers: {
       "Content-Type":  "application/xml; charset=utf-8",
-      "Cache-Control": "no-store",
+      "Cache-Control": "public, max-age=3600",
     },
   });
 }

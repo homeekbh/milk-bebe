@@ -24,7 +24,7 @@ export async function GET() {
     const { data } = await supabaseServer
       .from("products")
       .select("slug, updated_at, published")
-      .eq("published", true)
+      .neq("published", false)
       .order("created_at", { ascending: false });
 
     productPages = (data ?? [])

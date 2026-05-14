@@ -1,8 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 
 export async function GET() {
-  // ✅ URL dynamique via variable d'env — à mettre à jour avec www.milkbebe.fr après lancement
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://milk-bebe.vercel.app";
+  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
   const now  = new Date().toISOString().slice(0, 10);
 
   const staticPages = [
@@ -19,13 +18,13 @@ export async function GET() {
     { url: "/mentions-legales",      priority: "0.3", changefreq: "yearly"  },
   ];
 
-  // ✅ Pages produits dynamiques depuis Supabase
+  // ✅ Tous les produits publiés — sans filtre stock pour indexer même les épuisés
   let productPages: { url: string; priority: string; changefreq: string; lastmod?: string }[] = [];
   try {
     const { data } = await supabaseServer
       .from("products")
-      .select("slug, updated_at")
-      .gt("stock", 0)
+      .select("slug, updated_at, published")
+      .eq("published", true)
       .order("created_at", { ascending: false });
 
     productPages = (data ?? [])
@@ -40,7 +39,26 @@ export async function GET() {
     // silencieux si Supabase indisponible
   }
 
-  const allPages = [...staticPages, ...productPages];
+  // ✅ Catégories dynamiques depuis Supabase
+  let categoryPages: { url: string; priority: string; changefreq: string }[] = [];
+  try {
+    const { data } = await supabaseServer
+      .from("categories")
+      .select("slug");
+
+    const staticCats = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
+    const dynamicCats = (data ?? [])
+      .map((c: any) => c.slug)
+      .filter((s: string) => s && !staticCats.includes(s));
+
+    categoryPages = dynamicCats.map((slug: string) => ({
+      url:        `/categorie/${slug}`,
+      priority:   "0.8",
+      changefreq: "weekly",
+    }));
+  } catch {}
+
+  const allPages = [...staticPages, ...categoryPages, ...productPages];
 
   const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"

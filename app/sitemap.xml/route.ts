@@ -1,5 +1,3 @@
-import { supabaseServer } from "@/lib/server/supabase";
-
 export async function GET() {
   const base = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
   const now  = new Date().toISOString().slice(0, 10);
@@ -18,18 +16,20 @@ export async function GET() {
     { url: "/mentions-legales",      priority: "0.3", changefreq: "yearly"  },
   ];
 
-  // ✅ Tous les produits publiés — sans filtre stock pour indexer même les épuisés
+  const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL ?? "";
+  const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+
+  // ✅ Tous les produits publiés via API REST Supabase
   let productPages: { url: string; priority: string; changefreq: string; lastmod?: string }[] = [];
   try {
-    const { data } = await supabaseServer
-      .from("products")
-      .select("slug, updated_at, published")
-      .neq("published", false)
-      .order("created_at", { ascending: false });
-
-    productPages = (data ?? [])
-      .filter(p => p.slug)
-      .map(p => ({
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/products?select=slug,updated_at&published=eq.true&order=created_at.desc`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data = await res.json();
+    productPages = (Array.isArray(data) ? data : [])
+      .filter((p: any) => p.slug)
+      .map((p: any) => ({
         url:        `/produits/${p.slug}`,
         priority:   "0.85",
         changefreq: "weekly",
@@ -39,18 +39,18 @@ export async function GET() {
     // silencieux si Supabase indisponible
   }
 
-  // ✅ Catégories dynamiques depuis Supabase
+  // ✅ Catégories dynamiques via API REST Supabase
   let categoryPages: { url: string; priority: string; changefreq: string }[] = [];
   try {
-    const { data } = await supabaseServer
-      .from("categories")
-      .select("slug");
-
+    const res = await fetch(
+      `${SUPABASE_URL}/rest/v1/categories?select=slug`,
+      { headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` } }
+    );
+    const data = await res.json();
     const staticCats = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
-    const dynamicCats = (data ?? [])
+    const dynamicCats = (Array.isArray(data) ? data : [])
       .map((c: any) => c.slug)
       .filter((s: string) => s && !staticCats.includes(s));
-
     categoryPages = dynamicCats.map((slug: string) => ({
       url:        `/categorie/${slug}`,
       priority:   "0.8",

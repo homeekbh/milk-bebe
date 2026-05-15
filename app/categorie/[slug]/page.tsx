@@ -6,6 +6,8 @@ import ProduitsGrid       from "@/app/produits/ProduitsGrid";
 export const dynamic    = "force-dynamic";
 export const revalidate = 0;
 
+const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+
 const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle: string; seoDesc: string }> = {
   bodies: {
     title:    "Bodies nourrisson",
@@ -55,7 +57,32 @@ function getMeta(slug: string) {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const meta = getMeta(slug);
-  return { title: meta.seoTitle, description: meta.seoDesc };
+  const url  = `${BASE}/categorie/${slug}`;
+  return {
+    title:       meta.seoTitle,
+    description: meta.seoDesc,
+    alternates:  { canonical: url },
+    openGraph: {
+      title:       meta.seoTitle,
+      description: meta.seoDesc,
+      url,
+      siteName:    "M!LK",
+      locale:      "fr_FR",
+      type:        "website",
+      images: [{
+        url:    `${BASE}/images/og/milk-og-homepage.jpg`,
+        width:  1200,
+        height: 630,
+        alt:    meta.seoTitle,
+      }],
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title:       meta.seoTitle,
+      description: meta.seoDesc,
+      images:      [`${BASE}/images/og/milk-og-homepage.jpg`],
+    },
+  };
 }
 
 async function getAllProducts() {

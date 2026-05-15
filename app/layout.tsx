@@ -81,7 +81,7 @@ export const metadata: Metadata = {
     title:       "M!LK — Bodies, Pyjamas, Gigoteuses & Langes nourrisson bambou | OEKO-TEX",
     description: "Vêtements nourrisson 0-6 mois en bambou certifié OEKO-TEX. 3× plus doux que le coton, thermorégulateur, antibactérien. Cadeau naissance parfait. Livraison offerte dès 60€.",
     images: [{
-      url:    "/images/home/milk_banner_artisan.jpg",
+      url:    `${BASE_URL}/images/og/milk-og-homepage.jpg`,
       width:  1200,
       height: 630,
       alt:    "M!LK — Bodies, pyjamas, gigoteuses et langes nourrisson en bambou premium certifié OEKO-TEX",
@@ -93,7 +93,7 @@ export const metadata: Metadata = {
     card:        "summary_large_image",
     title:       "M!LK — Bodies, Pyjamas, Gigoteuses nourrisson bambou | OEKO-TEX | 0-6 mois",
     description: "Vêtements nourrisson 0-6 mois en bambou certifié OEKO-TEX. Ultra-doux, thermorégulateur, antibactérien. Cadeau de naissance parfait.",
-    images:      ["/images/home/milk_banner_artisan.jpg"],
+    images:      [`${BASE_URL}/images/og/milk-og-homepage.jpg`],
   },
 
   // ── Indexation ──────────────────────────────────────────────────────────────
@@ -130,10 +130,10 @@ export const metadata: Metadata = {
   },
 
   // ── Vérification Search Console ──────────────────────────────────────────────
-  // Décommenter et renseigner après vérification Google Search Console :
-  // verification: {
-  //   google: "VOTRE_CODE_VERIFICATION_GSC",
-  // },
+  // Ajouter NEXT_PUBLIC_GSC_VERIFICATION dans Vercel pour activer
+  ...(process.env.NEXT_PUBLIC_GSC_VERIFICATION ? {
+    verification: { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION },
+  } : {}),
 };
 
 // ── JSON-LD Schema.org ────────────────────────────────────────────────────────
@@ -268,6 +268,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               }}
             />
             <noscript>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 height="1"
                 width="1"

@@ -15,15 +15,21 @@ interface Subscriber {
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
   try {
-    const raw = localStorage.getItem("sb-ntkqmnenczltlwplswka-auth-token");
-    if (raw) token = JSON.parse(raw)?.access_token ?? "";
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = parsed.access_token ?? "";
+        if (token) break;
+      }
+    }
   } catch {}
   return fetch(url, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
     },
   });
 }
@@ -34,18 +40,16 @@ export default function NewsletterAdminPage() {
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
 
-  useEffect(() => {
-    loadSubscribers();
-  }, []);
+  useEffect(() => { load(); }, []);
 
-  async function loadSubscribers() {
+  async function load() {
     setLoading(true);
     setError(null);
     try {
       const res = await adminFetch("/api/admin/newsletter");
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `Erreur ${res.status}`);
+        const d = await res.json().catch(() => ({}));
+        throw new Error(d.error || `Erreur ${res.status}`);
       }
       const data = await res.json();
       setSubscribers(data.subscribers ?? []);
@@ -56,47 +60,54 @@ export default function NewsletterAdminPage() {
     }
   }
 
-  const total = subscribers.length;
-  const actifs = subscribers.filter((s) => s.active).length;
-  const desabonnes = subscribers.filter((s) => !s.active).length;
+  const total      = subscribers.length;
+  const actifs     = subscribers.filter(s => s.active).length;
+  const desabonnes = subscribers.filter(s => !s.active).length;
 
-  const filtered = subscribers.filter((s) =>
+  const filtered = subscribers.filter(s =>
     s.email.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
-    <div>
-      <h1 className="text-3xl font-bold text-[#1a1410] mb-1">Newsletter</h1>
-      <p className="text-sm text-[#6b5a4e] mb-8">Base d&apos;abonnés — séparée de la base clients</p>
+    <div style={{ padding: "32px 40px", maxWidth: 1100 }}>
 
-      {/* Stats — 3 cards comme l'original */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-2xl border border-[#e8e0d6] shadow-sm p-6">
-          <p className="text-xs font-bold tracking-widest text-[#c49a4a] mb-3">TOTAL ABONNÉS</p>
-          <p className="text-5xl font-bold text-[#1a1410]">{total}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-[#e8e0d6] shadow-sm p-6">
-          <p className="text-xs font-bold tracking-widest text-[#c49a4a] mb-3">ACTIFS</p>
-          <p className="text-5xl font-bold text-green-600">{actifs}</p>
-        </div>
-        <div className="bg-white rounded-2xl border border-[#e8e0d6] shadow-sm p-6">
-          <p className="text-xs font-bold tracking-widest text-[#c49a4a] mb-3">DÉSABONNÉS</p>
-          <p className="text-5xl font-bold text-red-600">{desabonnes}</p>
+      {/* En-tête */}
+      <div style={{ marginBottom: 28 }}>
+        <h1 style={{ margin: 0, fontSize: 34, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Newsletter</h1>
+        <div style={{ fontSize: 15, color: "rgba(26,20,16,0.5)", marginTop: 4, fontWeight: 600 }}>
+          Base d&apos;abonnés — séparée de la base clients
         </div>
       </div>
 
+      {/* Stats — 3 cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+        {[
+          { label: "TOTAL ABONNÉS", value: total,      color: "#1a1410" },
+          { label: "ACTIFS",        value: actifs,     color: "#16a34a" },
+          { label: "DÉSABONNÉS",    value: desabonnes, color: "#b91c1c" },
+        ].map(stat => (
+          <div key={stat.label} style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: "24px 28px" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 12 }}>
+              {stat.label}
+            </div>
+            <div style={{ fontSize: 48, fontWeight: 950, color: stat.color, lineHeight: 1 }}>
+              {stat.value}
+            </div>
+          </div>
+        ))}
+      </div>
+
       {/* RGPD */}
-      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-900">
-        <span className="font-bold">⚖️ RGPD :</span> Ces emails proviennent uniquement du pop-up de
-        bienvenue avec consentement explicite. Ils sont distincts de la base clients. Le
-        désabonnement supprime uniquement l&apos;entrée dans cette table.
+      <div style={{ background: "#fffbeb", border: "1px solid #fde68a", borderRadius: 12, padding: "14px 18px", marginBottom: 24, fontSize: 13, color: "#92400e", lineHeight: 1.6 }}>
+        <strong>⚖️ RGPD :</strong> Ces emails proviennent uniquement du pop-up de bienvenue avec consentement explicite.
+        Ils sont distincts de la base clients. Le désabonnement supprime uniquement l&apos;entrée dans cette table.
       </div>
 
       {/* Erreur */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-red-800 text-sm">
-          ❌ {error}{" "}
-          <button onClick={loadSubscribers} className="underline ml-2">
+        <div style={{ background: "#fee2e2", border: "1px solid #fca5a5", borderRadius: 12, padding: "12px 16px", marginBottom: 20, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>
+          ✕ {error}{" "}
+          <button onClick={load} style={{ marginLeft: 10, background: "none", border: "none", color: "#b91c1c", cursor: "pointer", textDecoration: "underline", fontWeight: 700, fontSize: 13 }}>
             Réessayer
           </button>
         </div>
@@ -104,73 +115,68 @@ export default function NewsletterAdminPage() {
 
       {/* Chargement */}
       {loading && (
-        <div className="bg-white rounded-2xl border border-[#e8e0d6] shadow-sm p-12 flex items-center justify-center text-[#6b5a4e]">
-          <div className="w-5 h-5 border-2 border-[#c49a4a] border-t-transparent rounded-full animate-spin mr-3" />
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: 60, textAlign: "center", color: "rgba(26,20,16,0.4)", fontSize: 15 }}>
           Chargement...
         </div>
       )}
 
       {/* Contenu */}
       {!loading && !error && (
-        <div className="bg-white rounded-2xl border border-[#e8e0d6] shadow-sm overflow-hidden">
+        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
           {total === 0 ? (
-            <div className="p-12 text-center text-[#9b8880] text-sm">
+            <div style={{ padding: 60, textAlign: "center", color: "rgba(26,20,16,0.35)", fontSize: 15 }}>
               Aucun abonné pour l&apos;instant — le pop-up de bienvenue collectera les emails.
             </div>
           ) : (
             <>
-              <div className="p-4 border-b border-[#e8e0d6]">
+              {/* Barre de recherche */}
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                 <input
                   type="text"
-                  placeholder="Rechercher un email..."
+                  placeholder="🔍 Rechercher un email..."
                   value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="w-full md:w-72 px-4 py-2 rounded-xl border border-[#e8e0d6] bg-[#faf7f4] text-sm text-[#1a1410] focus:outline-none focus:ring-2 focus:ring-[#c49a4a]"
+                  onChange={e => setSearch(e.target.value)}
+                  style={{ width: 280, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none" }}
                 />
               </div>
 
-              <table className="w-full text-sm">
-                <thead className="bg-[#f7f2ec] border-b border-[#e8e0d6]">
-                  <tr>
-                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6b5a4e] tracking-wide">Email</th>
-                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6b5a4e] tracking-wide">Source</th>
-                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6b5a4e] tracking-wide">Promo</th>
-                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6b5a4e] tracking-wide">Statut</th>
-                    <th className="text-left px-5 py-3 text-xs font-bold text-[#6b5a4e] tracking-wide">Date</th>
+              {/* Table */}
+              <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ background: "#f9f7f4" }}>
+                    {["Email", "Source", "Promo", "Statut", "Date"].map(h => (
+                      <th key={h} style={{ padding: "13px 20px", textAlign: "left", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "2px solid rgba(0,0,0,0.07)" }}>
+                        {h}
+                      </th>
+                    ))}
                   </tr>
                 </thead>
                 <tbody>
                   {filtered.map((s, i) => (
-                    <tr
-                      key={s.id}
-                      className={`border-b border-[#f0e9e0] hover:bg-[#faf7f4] transition-colors ${
-                        i % 2 === 0 ? "bg-white" : "bg-[#fdfaf7]"
-                      }`}
+                    <tr key={s.id}
+                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}
+                      onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = "#fafaf9"}
+                      onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ""}
                     >
-                      <td className="px-5 py-3 font-medium text-[#1a1410]">{s.email}</td>
-                      <td className="px-5 py-3 text-[#6b5a4e]">{s.source ?? "—"}</td>
-                      <td className="px-5 py-3">
+                      <td style={{ padding: "13px 20px", fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{s.email}</td>
+                      <td style={{ padding: "13px 20px", fontSize: 13, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>{s.source ?? "—"}</td>
+                      <td style={{ padding: "13px 20px" }}>
                         {s.promo_code ? (
-                          <span className="bg-[#c49a4a]/10 text-[#c49a4a] px-2 py-0.5 rounded-full text-xs font-semibold">
+                          <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(196,154,74,0.12)", color: "#c49a4a", fontSize: 12, fontWeight: 800 }}>
                             {s.promo_code}
                           </span>
                         ) : (
-                          <span className="text-[#9b8880]">—</span>
+                          <span style={{ color: "rgba(26,20,16,0.25)", fontSize: 13 }}>—</span>
                         )}
                       </td>
-                      <td className="px-5 py-3">
-                        {s.active ? (
-                          <span className="text-green-600 font-semibold text-xs">● Actif</span>
-                        ) : (
-                          <span className="text-red-500 text-xs">● Désabonné</span>
-                        )}
+                      <td style={{ padding: "13px 20px" }}>
+                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: s.active ? "#16a34a" : "#b91c1c" }}>
+                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.active ? "#16a34a" : "#b91c1c", display: "inline-block" }} />
+                          {s.active ? "Actif" : "Désabonné"}
+                        </span>
                       </td>
-                      <td className="px-5 py-3 text-[#6b5a4e] text-xs">
-                        {new Date(s.created_at).toLocaleDateString("fr-FR", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                      <td style={{ padding: "13px 20px", fontSize: 13, color: "rgba(26,20,16,0.45)", fontWeight: 600 }}>
+                        {new Date(s.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
                       </td>
                     </tr>
                   ))}
@@ -178,14 +184,14 @@ export default function NewsletterAdminPage() {
               </table>
 
               {filtered.length === 0 && search && (
-                <div className="text-center py-8 text-[#9b8880] text-sm">
+                <div style={{ textAlign: "center", padding: "30px 20px", color: "rgba(26,20,16,0.35)", fontSize: 14 }}>
                   Aucun résultat pour « {search} »
                 </div>
               )}
 
-              <div className="px-5 py-3 bg-[#f7f2ec] border-t border-[#e8e0d6] text-xs text-[#6b5a4e]">
-                {filtered.length} abonné{filtered.length > 1 ? "s" : ""} affiché
-                {filtered.length > 1 ? "s" : ""}
+              {/* Footer */}
+              <div style={{ padding: "12px 20px", background: "#f9f7f4", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
+                {filtered.length} abonné{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""}
                 {search && ` sur ${total} au total`}
               </div>
             </>

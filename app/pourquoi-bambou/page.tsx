@@ -134,8 +134,8 @@ export default function PourquoiBambouPage() {
       <div style={{ background: C.taupe, padding: "56px 5vw" }}>
         <div className="pb-otg" style={{ maxWidth: 1200, margin: "0 auto" }}>
           <Reveal>
-            <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", aspectRatio: "1", boxShadow: "0 16px 48px rgba(0,0,0,0.15)" }}>
-              <Image src="/images/pourquoi-bambou/bambou-oekotex.webp" alt="Tissu bambou roulé avec pierres naturelles — certification OEKO-TEX M!LK" fill sizes="50vw" style={{ objectFit: "cover" }} />
+            <div style={{ position: "relative", borderRadius: 20, overflow: "hidden", aspectRatio: "4/3", boxShadow: "0 16px 48px rgba(0,0,0,0.15)" }}>
+              <Image src="/images/pourquoi-bambou/bambou-oekotex.webp" alt="Tissu bambou certifié OEKO-TEX Standard 100 — M!LK essentiels bébé" fill sizes="50vw" style={{ objectFit: "contain", background: "#c4ae94" }} />
             </div>
           </Reveal>
           <Reveal delay={0.12}>

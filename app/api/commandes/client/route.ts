@@ -5,15 +5,22 @@ export async function GET(req: Request) {
   const email = searchParams.get("email");
   if (!email) return Response.json({ error: "Email manquant" }, { status: 400 });
 
-  // Vérifier que l'utilisateur connecté correspond à l'email demandé
+  // ✅ Token obligatoire — plus d'accès sans authentification
   const auth = req.headers.get("authorization") ?? "";
-  if (auth.startsWith("Bearer ")) {
-    const token = auth.slice(7);
-    const { data: { user } } = await supabaseServer.auth.getUser(token);
-    // Si token valide mais email différent → refuser
-    if (user && user.email?.toLowerCase() !== email.toLowerCase()) {
-      return Response.json({ error: "Accès non autorisé" }, { status: 403 });
-    }
+  if (!auth.startsWith("Bearer ")) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
+  const token = auth.slice(7);
+  const { data: { user }, error: authError } = await supabaseServer.auth.getUser(token);
+
+  if (authError || !user) {
+    return Response.json({ error: "Token invalide" }, { status: 401 });
+  }
+
+  // Vérifier que l'email du token correspond à l'email demandé
+  if (user.email?.toLowerCase() !== email.toLowerCase()) {
+    return Response.json({ error: "Accès non autorisé" }, { status: 403 });
   }
 
   const { data, error } = await supabaseServer

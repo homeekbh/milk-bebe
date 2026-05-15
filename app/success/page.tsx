@@ -21,6 +21,22 @@ export default function SuccessPage() {
       clearCart();
       cleared.current = true;
       fbqTrack("Purchase", { currency:"EUR", content_type:"product" });
+
+      // ✅ Convertir le panier abandonné immédiatement — sans attendre le webhook Stripe
+      // Récupère l'email depuis localStorage (guest ou connecté)
+      try {
+        const guestEmail = localStorage.getItem("milk_guest_email") ?? "";
+        const sbKey = Object.keys(localStorage).find(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
+        const userEmail = sbKey ? JSON.parse(localStorage.getItem(sbKey) ?? "{}").user?.email ?? "" : "";
+        const email = userEmail || guestEmail;
+        if (email) {
+          fetch("/api/cart/convert", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email }),
+          }).catch(() => {});
+        }
+      } catch {}
     }
     // ✅ Désactiver l'intro pour cette session
     if (typeof window !== "undefined") {

@@ -25,6 +25,14 @@ type Order = {
 };
 
 const BG = "#ede8df"; const DARK = "#1a1410"; const AMBER = "#c49a4a"; const WARM = "#f2ede6";
+
+function getTrackingUrl(notes: string | undefined, tracking: string): string | null {
+  if (!tracking) return null;
+  const n = (notes ?? "").toLowerCase();
+  if (n.includes("colissimo") || n.includes("poste")) return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
+  if (n.includes("chronopost")) return `https://www.chronopost.fr/fr/chrono_suivi_display?listeNumerosLT=${tracking}`;
+  return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
+}
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", postal_code: "", country: "FR" };
 
 const SHIPPING_STATUS: Record<string, { label: string; bg: string; text: string }> = {
@@ -309,12 +317,22 @@ export default function ProfilPage() {
                           {[addr.name, addr.line1, addr.line2, `${addr.postal_code} ${addr.city}`, addr.country].filter(Boolean).join(", ")}
                         </div>
                       )}
-                      {order.tracking_number && (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "#ede8df" }}>
-                          <span style={{ fontSize: 14, fontWeight: 700, color: DARK }}>📦 Suivi :</span>
-                          <span style={{ fontFamily: "monospace", letterSpacing: 1, fontSize: 14, color: DARK }}>{order.tracking_number}</span>
-                        </div>
-                      )}
+                      {order.tracking_number && (() => {
+                        const url = getTrackingUrl((order as any).notes, order.tracking_number);
+                        return (
+                          <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px", borderRadius: 10, background: "#ede8df" }}>
+                            <span style={{ fontSize: 14, fontWeight: 700, color: DARK }}>📦 Suivi :</span>
+                            {url ? (
+                              <a href={url} target="_blank" rel="noopener noreferrer"
+                                style={{ fontFamily: "monospace", letterSpacing: 1, fontSize: 14, color: AMBER, fontWeight: 800, textDecoration: "underline" }}>
+                                {order.tracking_number} →
+                              </a>
+                            ) : (
+                              <span style={{ fontFamily: "monospace", letterSpacing: 1, fontSize: 14, color: DARK }}>{order.tracking_number}</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                   )}
                 </div>

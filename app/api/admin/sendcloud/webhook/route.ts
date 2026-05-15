@@ -27,7 +27,22 @@ const STATUS_MAP: Record<number, string> = {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const rawBody = await req.text();
+
+    // ✅ Vérification signature Sendcloud
+    const secret    = process.env.SENDCLOUD_WEBHOOK_SECRET ?? "";
+    const signature = req.headers.get("sendcloud-signature") ?? "";
+
+    if (secret && signature) {
+      const { createHmac } = await import("crypto");
+      const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
+      if (signature !== expected) {
+        console.error("Sendcloud webhook: signature invalide");
+        return Response.json({ error: "Signature invalide" }, { status: 401 });
+      }
+    }
+
+    const body = JSON.parse(rawBody);
 
     // Sendcloud peut envoyer un tableau ou un objet unique
     const messages = Array.isArray(body) ? body : [body];

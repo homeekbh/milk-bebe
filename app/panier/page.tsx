@@ -117,6 +117,10 @@ export default function CartPage() {
     }
 
     fbqTrack("InitiateCheckout", { value: items.reduce((a,it) => a + (it.price??0)*(it.quantity??1), 0), currency: "EUR", num_items: items.reduce((a,it) => a + it.quantity, 0) });
+    // ✅ Sauvegarder l'email guest pour la success page (conversion panier abandonné)
+    if (!user && guestEmail.trim()) {
+      try { localStorage.setItem("milk_guest_email", guestEmail.trim().toLowerCase()); } catch {}
+    }
     setLoading(true);
     const res  = await fetch("/api/checkout/create-session", {
       method:  "POST",

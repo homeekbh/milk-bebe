@@ -2,6 +2,28 @@
 
 import { useEffect, useState, useMemo } from "react";
 
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = parsed.access_token ?? "";
+        if (token) break;
+      }
+    }
+  } catch {}
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...(options.headers ?? {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.body && !(options.body instanceof FormData) ? { "Content-Type": "application/json" } : {}),
+    },
+  });
+}
+
 interface Order {
   id: string;
   created_at: string;
@@ -30,7 +52,7 @@ export default function AdminComptabilite() {
   const [year,    setYear]    = useState(new Date().getFullYear());
 
   useEffect(() => {
-    fetch("/api/admin/commandes-data")
+    adminFetch("/api/admin/commandes-data")
       .then(r => r.json())
       .then((data: unknown) => {
         setOrders(Array.isArray(data) ? data : []);

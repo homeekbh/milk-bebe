@@ -1,15 +1,35 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
 import { Resend }         from "resend";
+import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
 
-// Cron déclenché automatiquement — vérifie les alertes réassort clients
-// et envoie un email à chaque client dont le produit/taille est revenu en stock
-export async function GET(req: Request) {
-  const auth = (req as any).headers?.get?.("authorization");
+/**
+ * GET /api/admin/stock-alerts
+ * - Avec CRON_SECRET → exécute le cron de notification réassort
+ * - Avec token admin Bearer → retourne la liste des alertes (pour les stats)
+ */
+export async function GET(req: NextRequest) {
+  const auth = req.headers.get("authorization") ?? "";
+
+  // Cas 1 : appel admin (stats) — token JWT Bearer
+  if (auth.startsWith("Bearer ") && auth !== `Bearer ${process.env.CRON_SECRET}`) {
+    const adminCheck = await requireAdmin(req);
+    if (!adminCheck.ok) return adminCheck.response;
+
+    const { data } = await supabaseServer
+      .from("stock_alerts")
+      .select("id, email, product_id, product_name, taille, notified, created_at")
+      .order("created_at", { ascending: false });
+
+    return Response.json(data ?? []);
+  }
+
+  // Cas 2 : cron — CRON_SECRET
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
@@ -27,7 +47,6 @@ export async function GET(req: Request) {
   let notified = 0;
 
   for (const alert of alerts) {
-    // Vérifier le stock actuel du produit
     const { data: product } = await supabaseServer
       .from("products")
       .select("id, name, slug, stock, sizes_stock, image_url")
@@ -36,7 +55,6 @@ export async function GET(req: Request) {
 
     if (!product) continue;
 
-    // Vérifier si le stock est revenu pour la taille concernée
     let isBack = false;
     if (alert.taille) {
       const sizesStock: Record<string, number> = product.sizes_stock ?? {};
@@ -47,7 +65,6 @@ export async function GET(req: Request) {
 
     if (!isBack) continue;
 
-    // Envoyer l'email de notification
     const tailleLabel = alert.taille ? ` — taille ${alert.taille}` : "";
     const html = `
 <!DOCTYPE html>
@@ -65,9 +82,6 @@ export async function GET(req: Request) {
     <div style="font-size:17px;font-weight:900;color:#f2ede6">${product.name}${tailleLabel}</div>
     <div style="font-size:13px;color:#c49a4a;margin-top:6px;font-weight:700">Est de nouveau disponible !</div>
   </div>
-  <p style="color:rgba(242,237,230,0.45);font-size:13px;margin:0 0 24px">
-    Les stocks peuvent s'épuiser rapidement. Ne tarde pas !
-  </p>
   <a href="${BASE}/produits/${product.slug ?? ""}"
     style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 36px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none">
     Commander maintenant →
@@ -87,7 +101,6 @@ export async function GET(req: Request) {
     });
 
     if (!error) {
-      // Marquer comme notifié
       await supabaseServer
         .from("stock_alerts")
         .update({ notified: true })

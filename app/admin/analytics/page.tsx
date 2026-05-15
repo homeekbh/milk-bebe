@@ -211,6 +211,7 @@ export default function AdminStats() {
       if (news?.subscribers && Array.isArray(news.subscribers)) setNewsletter(news.subscribers);
       else if (Array.isArray(news)) setNewsletter(news);
       if (Array.isArray(alerts))  setStockAlerts(alerts);
+      else if (alerts?.data && Array.isArray(alerts.data)) setStockAlerts(alerts.data);
       if (Array.isArray(prms))    setPromos(prms);
       if (Array.isArray(revs))    setReviews(revs);
       setProfiles(clients?.count ?? 0);

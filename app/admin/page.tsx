@@ -1,7 +1,15 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
+import { redirect }        from "next/navigation";
+import { cookies }         from "next/headers";
 import Link from "next/link";
 
 async function getStats() {
+  // Vérification auth côté serveur
+  const cookieStore = await cookies();
+  const allCookies  = cookieStore.getAll();
+  const authCookie  = allCookies.find(c => c.name.startsWith("sb-") && c.name.endsWith("-auth-token"));
+  if (!authCookie) redirect("/admin/login");
+
   const [{ data: products }, { data: orders }, { data: subscribers }] = await Promise.all([
     supabaseServer.from("products").select("*").order("stock", { ascending: true }),
     supabaseServer.from("orders").select("*").order("created_at", { ascending: false }).limit(10),

@@ -79,6 +79,7 @@ export default function Footer() {
           {[
             { label: "Mon compte",          href: "/profil" },
             { label: "Livraison & retours", href: "/livraison" },
+            { label: "FAQ",                 href: "/faq" },
             { label: "CGV",                 href: "/cgv" },
             { label: "Mentions légales",    href: "/mentions-legales" },
             { label: "Politique cookies",   href: "/politique-confidentialite" },

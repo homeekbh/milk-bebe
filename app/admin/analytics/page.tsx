@@ -4,8 +4,14 @@
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
   try {
-    const raw = localStorage.getItem("sb-ntkqmnenczltlwplswka-auth-token");
-    if (raw) token = JSON.parse(raw)?.access_token ?? "";
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i) ?? "";
+      if (key.startsWith("sb-") && key.endsWith("-auth-token")) {
+        const parsed = JSON.parse(localStorage.getItem(key) ?? "{}");
+        token = parsed.access_token ?? "";
+        if (token) break;
+      }
+    }
   } catch {}
   return fetch(url, {
     ...options,

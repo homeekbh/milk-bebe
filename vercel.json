@@ -7,14 +7,6 @@
     {
       "path":     "/api/admin/stock-alerts",
       "schedule": "0 8 * * *"
-    },
-    {
-      "path":     "/api/emails/avis",
-      "schedule": "0 10 * * *"
-    },
-    {
-      "path":     "/api/stock-alerts",
-      "schedule": "0 11 * * *"
     }
   ]
 }

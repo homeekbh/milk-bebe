@@ -1,81 +1,215 @@
-import { supabaseServer } from "@/lib/server/supabase";
+"use client";
 
-export default async function AdminNewsletter() {
-  const { data: subs, count } = await supabaseServer
-    .from("newsletter_subscribers")
-    .select("*", { count: "exact" })
-    .order("created_at", { ascending: false });
+import { useEffect, useState } from "react";
 
-  const actifs    = (subs ?? []).filter(s => s.active).length;
-  const desabonnes = (subs ?? []).filter(s => !s.active).length;
+interface Subscriber {
+  id: string;
+  email: string;
+  source: string | null;
+  promo_code: string | null;
+  created_at: string;
+  active: boolean;
+  unsubscribe_token: string | null;
+}
+
+function adminFetch(url: string, options: RequestInit = {}) {
+  let token = "";
+  try {
+    const raw = localStorage.getItem("sb-ntkqmnenczltlwplswka-auth-token");
+    if (raw) token = JSON.parse(raw)?.access_token ?? "";
+  } catch {}
+  return fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers ?? {}),
+    },
+  });
+}
+
+export default function NewsletterAdminPage() {
+  const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+
+  useEffect(() => {
+    loadSubscribers();
+  }, []);
+
+  async function loadSubscribers() {
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await adminFetch("/api/admin/newsletter");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || `Erreur ${res.status}`);
+      }
+      const data = await res.json();
+      setSubscribers(data.subscribers ?? []);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erreur inconnue");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const total = subscribers.length;
+  const actifs = subscribers.filter((s) => s.active).length;
+  const desabonnes = subscribers.filter((s) => !s.active).length;
+  const promoUsed = subscribers.filter((s) => s.promo_code).length;
+
+  const filtered = subscribers.filter((s) =>
+    s.email.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <div style={{ padding: "36px 40px", maxWidth: 900 }}>
-
-      <div style={{ marginBottom: 32 }}>
-        <h1 style={{ margin: 0, fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>Newsletter</h1>
-        <div style={{ fontSize: 16, color: "rgba(26,20,16,0.5)", marginTop: 6, fontWeight: 600 }}>
-          Base d'abonnés — séparée de la base clients
-        </div>
-      </div>
+    <div className="p-6 max-w-6xl mx-auto">
+      <h1 className="text-3xl font-bold text-[#1a1410] mb-1">Newsletter</h1>
+      <p className="text-sm text-[#6b5a4e] mb-8">
+        Base d'abonnés — séparée de la base clients
+      </p>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 32 }}>
-        {[
-          { label: "Total abonnés", value: count ?? 0, color: "#1a1410" },
-          { label: "Actifs",        value: actifs,     color: "#166534" },
-          { label: "Désabonnés",    value: desabonnes, color: "#b91c1c" },
-        ].map(stat => (
-          <div key={stat.label} style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.1)" }}>
-            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>{stat.label}</div>
-            <div style={{ fontSize: 40, fontWeight: 950, letterSpacing: -2, color: stat.color }}>{stat.value}</div>
-          </div>
-        ))}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <StatCard label="TOTAL ABONNÉS" value={total} color="text-[#1a1410]" />
+        <StatCard label="ACTIFS" value={actifs} color="text-green-600" />
+        <StatCard label="DÉSABONNÉS" value={desabonnes} color="text-red-600" />
+        <StatCard label="PROMO UTILISÉE" value={promoUsed} color="text-[#c49a4a]" />
       </div>
 
-      {/* Info RGPD */}
-      <div style={{ padding: "16px 20px", borderRadius: 12, background: "#fef3c7", border: "1px solid #f59e0b", marginBottom: 24, fontSize: 14, color: "#92400e", fontWeight: 600, lineHeight: 1.6 }}>
-        ⚖️ <strong>RGPD :</strong> Ces emails proviennent uniquement du pop-up de bienvenue avec consentement explicite. Ils sont distincts de la base clients. Le désabonnement supprime uniquement l'entrée dans cette table.
+      {/* RGPD notice */}
+      <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-6 text-sm text-amber-900">
+        <span className="font-bold">⚖️ RGPD :</span> Ces emails proviennent uniquement du pop-up de
+        bienvenue avec consentement explicite. Ils sont distincts de la base clients. Le
+        désabonnement supprime uniquement l'entrée dans cette table.
       </div>
 
-      {/* Liste abonnés */}
-      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden" }}>
-        {!subs || subs.length === 0 ? (
-          <div style={{ padding: 60, textAlign: "center", color: "rgba(26,20,16,0.4)", fontSize: 16 }}>
-            Aucun abonné pour l'instant — le pop-up de bienvenue collectera les emails.
-          </div>
-        ) : (
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr style={{ borderBottom: "2px solid rgba(26,20,16,0.08)", background: "#fafaf9" }}>
-                {["Email", "Source", "Code promo", "Date", "Statut"].map(h => (
-                  <th key={h} style={{ padding: "14px 20px", textAlign: "left", fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {subs.map((s: any, i: number) => (
-                <tr key={s.id} style={{ borderBottom: i < subs.length - 1 ? "1px solid rgba(26,20,16,0.06)" : "none" }}>
-                  <td style={{ padding: "16px 20px", fontWeight: 700, fontSize: 15, color: "#1a1410" }}>{s.email}</td>
-                  <td style={{ padding: "16px 20px" }}>
-                    <span style={{ padding: "4px 12px", borderRadius: 99, background: "rgba(196,154,74,0.15)", color: "#1a1410", fontSize: 13, fontWeight: 700 }}>{s.source ?? "popup"}</span>
-                  </td>
-                  <td style={{ padding: "16px 20px", fontFamily: "monospace", fontSize: 14, color: "#c49a4a", fontWeight: 700 }}>{s.promo_code ?? "—"}</td>
-                  <td style={{ padding: "16px 20px", fontSize: 14, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
-                    {new Date(s.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
-                  </td>
-                  <td style={{ padding: "16px 20px" }}>
-                    {s.active
-                      ? <span style={{ padding: "4px 12px", borderRadius: 99, background: "#dcfce7", color: "#166534", fontSize: 13, fontWeight: 800 }}>Actif</span>
-                      : <span style={{ padding: "4px 12px", borderRadius: 99, background: "#f3f4f6", color: "#6b7280", fontSize: 13, fontWeight: 800 }}>Désabonné</span>
-                    }
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* Erreur */}
+      {error && (
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-6 text-red-800 text-sm">
+          ❌ {error}
+          <button
+            onClick={loadSubscribers}
+            className="ml-4 underline text-red-700 hover:text-red-900"
+          >
+            Réessayer
+          </button>
+        </div>
+      )}
+
+      {/* Chargement */}
+      {loading && (
+        <div className="flex items-center justify-center py-20 text-[#6b5a4e]">
+          <div className="w-6 h-6 border-2 border-[#c49a4a] border-t-transparent rounded-full animate-spin mr-3" />
+          Chargement...
+        </div>
+      )}
+
+      {/* Liste */}
+      {!loading && !error && (
+        <>
+          {total === 0 ? (
+            <div className="bg-white rounded-2xl border border-[#e8e0d6] p-12 text-center text-[#9b8880]">
+              Aucun abonné pour l'instant — le pop-up de bienvenue collectera les emails.
+            </div>
+          ) : (
+            <>
+              {/* Search */}
+              <div className="mb-4">
+                <input
+                  type="text"
+                  placeholder="Rechercher un email..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full md:w-80 px-4 py-2 rounded-xl border border-[#e8e0d6] bg-white text-sm text-[#1a1410] focus:outline-none focus:ring-2 focus:ring-[#c49a4a]"
+                />
+              </div>
+
+              <div className="bg-white rounded-2xl border border-[#e8e0d6] overflow-hidden">
+                <table className="w-full text-sm">
+                  <thead className="bg-[#f7f2ec] border-b border-[#e8e0d6]">
+                    <tr>
+                      <th className="text-left px-4 py-3 text-[#6b5a4e] font-semibold">Email</th>
+                      <th className="text-left px-4 py-3 text-[#6b5a4e] font-semibold">Source</th>
+                      <th className="text-left px-4 py-3 text-[#6b5a4e] font-semibold">Promo</th>
+                      <th className="text-left px-4 py-3 text-[#6b5a4e] font-semibold">Statut</th>
+                      <th className="text-left px-4 py-3 text-[#6b5a4e] font-semibold">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filtered.map((s, i) => (
+                      <tr
+                        key={s.id}
+                        className={`border-b border-[#f0e9e0] ${
+                          i % 2 === 0 ? "bg-white" : "bg-[#faf7f4]"
+                        } hover:bg-[#f7f2ec] transition-colors`}
+                      >
+                        <td className="px-4 py-3 text-[#1a1410] font-medium">{s.email}</td>
+                        <td className="px-4 py-3 text-[#6b5a4e]">{s.source ?? "—"}</td>
+                        <td className="px-4 py-3">
+                          {s.promo_code ? (
+                            <span className="bg-[#c49a4a]/10 text-[#c49a4a] px-2 py-0.5 rounded-full text-xs font-semibold">
+                              {s.promo_code}
+                            </span>
+                          ) : (
+                            <span className="text-[#9b8880]">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          {s.active ? (
+                            <span className="text-green-600 font-semibold text-xs">● Actif</span>
+                          ) : (
+                            <span className="text-red-500 text-xs">● Désabonné</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-[#6b5a4e] text-xs">
+                          {new Date(s.created_at).toLocaleDateString("fr-FR", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                {filtered.length === 0 && search && (
+                  <div className="text-center py-8 text-[#9b8880] text-sm">
+                    Aucun résultat pour « {search} »
+                  </div>
+                )}
+
+                <div className="px-4 py-3 bg-[#f7f2ec] border-t border-[#e8e0d6] text-xs text-[#6b5a4e]">
+                  {filtered.length} abonné{filtered.length > 1 ? "s" : ""} affiché
+                  {filtered.length > 1 ? "s" : ""}
+                  {search && ` sur ${total} au total`}
+                </div>
+              </div>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  color,
+}: {
+  label: string;
+  value: number;
+  color: string;
+}) {
+  return (
+    <div className="bg-white rounded-2xl border border-[#e8e0d6] p-5">
+      <p className={`text-xs font-bold tracking-widest mb-2 ${color}`}>{label}</p>
+      <p className={`text-4xl font-bold ${color}`}>{value}</p>
     </div>
   );
 }

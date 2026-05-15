@@ -135,7 +135,7 @@ export default function ProfilPage() {
       if (!token) return;
       const [pRes, oRes] = await Promise.all([
         fetch("/api/profil", { headers: { Authorization: `Bearer ${token}` } }),
-        fetch(`/api/commandes/client?email=${encodeURIComponent(user!.email ?? "")}`),
+        fetch(`/api/commandes/client?email=${encodeURIComponent(user!.email ?? "")}`, { headers: { Authorization: `Bearer ${token}` } }),
       ]);
       const p = await pRes.json();
       const o = await oRes.json();

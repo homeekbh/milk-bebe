@@ -30,9 +30,14 @@ export default function SuccessPage() {
         const userEmail = sbKey ? JSON.parse(localStorage.getItem(sbKey) ?? "{}").user?.email ?? "" : "";
         const email = userEmail || guestEmail;
         if (email) {
+          // Récupérer le token pour l'auth
+          const authToken = sbKey ? (JSON.parse(localStorage.getItem(sbKey) ?? "{}").access_token ?? "") : "";
           fetch("/api/cart/convert", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              ...(authToken ? { Authorization: `Bearer ${authToken}` } : { "x-internal-secret": process.env.NEXT_PUBLIC_BASE_URL ?? "" }),
+            },
             body: JSON.stringify({ email }),
           }).catch(() => {});
         }

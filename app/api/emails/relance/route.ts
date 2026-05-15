@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     let sent = 0;
 
     for (const cart of carts) {
-      const cartDate  = new Date(cart.updated_at ?? cart.created_at);
+      const cartDate  = new Date(cart.created_at); // ✅ created_at — cohérent avec le filtre Supabase
       const diffHours = (now.getTime() - cartDate.getTime()) / (1000 * 60 * 60);
 
       // Relance 1 : entre 1h et 24h, pas encore envoyée

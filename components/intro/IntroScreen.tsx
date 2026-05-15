@@ -95,7 +95,7 @@ export default function IntroScreen() {
           to   { opacity:1; transform:none; }
         }
         @keyframes mlk-drop {
-          0%   { opacity:0; transform:translateY(-200px) scaleY(0.65); }
+          0%   { opacity:0; transform:translateY(-150px) scaleY(0.65); }
           8%   { opacity:1; }
           52%  { transform:translateY(22px) scaleY(1.08); }
           63%  { transform:translateY(-14px) scaleY(0.94); }
@@ -149,15 +149,19 @@ export default function IntroScreen() {
           }}>M</span>
 
           {/* ! — tombe (phase 2) puis néon (phase 3) */}
+          {/* Wrapper overflow:visible pour éviter le clipping sur mobile */}
+          <span style={{ display:"inline-block", overflow:"visible", lineHeight:1 }}>
           <span style={{
             fontSize:"clamp(71px,14.5vw,158px)", fontWeight:900, color:DARK,
             lineHeight:0.95, display:"inline-block", letterSpacing:0,
+            overflow:"visible",
             opacity: phase >= 2 ? undefined : 0,
             animation:
               phase >= 3 ? "mlk-neon 2.2s ease forwards" :
               phase >= 2 ? "mlk-drop 0.72s cubic-bezier(.22,.61,.36,1) forwards" :
               "none",
           }}>!</span>
+          </span>
 
           {/* LK */}
           <span style={{

@@ -1333,7 +1333,17 @@ export default function AdminProductForm() {
       await logActivity(
         isNew ? "product_create" : "product_update",
         isNew ? `Produit créé : ${form.name}` : `Produit modifié : ${form.name}`,
-        { entity_name: form.name, entity_id: isNew ? undefined : id }
+        {
+          entity_name: form.name,
+          entity_id:   isNew ? undefined : id,
+          meta: {
+            price_ttc:   parseFloat(form.price_ttc),
+            promo_price: form.promo_price ? parseFloat(form.promo_price) : null,
+            description: form.description ? form.description.slice(0, 200) : null,
+            stock:       computedStock !== null ? computedStock : (parseInt(form.stock) || 0),
+            published,
+          },
+        }
       );
       if (isNew) router.push("/admin/produits");
     } catch (e: any) { setError(e.message); }

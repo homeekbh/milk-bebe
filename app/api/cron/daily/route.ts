@@ -8,8 +8,9 @@ export const dynamic = "force-dynamic";
  * GET /api/cron/daily
  * Route maître appelée par le cron Vercel chaque matin.
  * Déclenche en séquentiel :
- *   1. /api/emails/avis         (emails avis J+7)
- *   2. /api/admin/stock-alerts  (alertes réassort clients)
+ *   1. /api/emails/avis            (emails avis J+7)
+ *   2. /api/emails/taille-suivante (J+45 Nouveau-né → 0-3 mois / J+75 0-3 mois → 3-6 mois)
+ *   3. /api/admin/stock-alerts     (alertes réassort clients)
  */
 export async function GET(req: Request) {
   const auth = (req as any).headers?.get?.("authorization");
@@ -28,7 +29,15 @@ export async function GET(req: Request) {
     results.avis = { error: e.message };
   }
 
-  // 2. Alertes réassort
+  // 2. Emails taille suivante (J+45 et J+75)
+  try {
+    const r = await fetch(`${BASE}/api/emails/taille-suivante`, { headers });
+    results.tailleSuivante = await r.json();
+  } catch (e: any) {
+    results.tailleSuivante = { error: e.message };
+  }
+
+  // 3. Alertes réassort
   try {
     const r = await fetch(`${BASE}/api/admin/stock-alerts`, { headers });
     results.stockAlerts = await r.json();

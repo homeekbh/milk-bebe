@@ -18,6 +18,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE}/cgv`,                       lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
     { url: `${BASE}/mentions-legales`,          lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
     { url: `${BASE}/politique-confidentialite`, lastModified: new Date(), changeFrequency: "monthly", priority: 0.3 },
+    { url: `${BASE}/faq`,                       lastModified: new Date(), changeFrequency: "monthly", priority: 0.6 },
   ];
 
   try {

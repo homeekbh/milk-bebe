@@ -5,61 +5,80 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function GET(req: Request) {
-  // ✅ Protection CRON_SECRET
-  const auth = req.headers ? (req as any).headers?.get?.("authorization") : null;
+  const auth = (req as any).headers?.get?.("authorization");
   if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
   try {
-    const now   = new Date();
-    const h1    = new Date(now.getTime() - 1  * 60 * 60 * 1000);
-    const h24   = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-    const h72   = new Date(now.getTime() - 72 * 60 * 60 * 1000);
+    const now = new Date();
+    const h1  = new Date(now.getTime() - 1  * 60 * 60 * 1000);  // 1h ago
+    const h24 = new Date(now.getTime() - 24 * 60 * 60 * 1000);  // 24h ago
+    const h72 = new Date(now.getTime() - 72 * 60 * 60 * 1000);  // 72h ago
 
+    // Récupérer TOUS les paniers non convertis
     const { data: carts } = await supabaseServer
       .from("abandoned_carts")
       .select("*")
       .eq("converted", false)
-      .is("email_sent_at", null)
-      .lte("created_at", h1.toISOString());
+      .lte("created_at", h1.toISOString()); // au moins 1h
 
     if (!carts || carts.length === 0) return Response.json({ ok: true, sent: 0 });
 
     let sent = 0;
 
     for (const cart of carts) {
-      const cartDate  = new Date(cart.created_at);
+      const cartDate  = new Date(cart.updated_at ?? cart.created_at);
       const diffHours = (now.getTime() - cartDate.getTime()) / (1000 * 60 * 60);
 
-      let subject = "";
-      let html    = "";
-
-      if (diffHours >= 1 && diffHours < 24) {
-        subject = "Vous avez oublié quelque chose 🌿";
-        html    = relanceHtml(cart, 1, null);
-      } else if (diffHours >= 24 && diffHours < 72) {
-        subject = "Votre panier M!LK vous attend — offre exclusive";
-        html    = relanceHtml(cart, 2, cart.promo_code ?? null);
-      } else if (diffHours >= 72) {
-        subject = "Dernière chance — votre panier expire bientôt";
-        html    = relanceHtml(cart, 3, null);
+      // Relance 1 : entre 1h et 24h, pas encore envoyée
+      if (diffHours >= 1 && diffHours < 24 && !cart.relance_1) {
+        const { error } = await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      cart.email,
+          subject: "Vous avez oublié quelque chose 🌿",
+          html:    relanceHtml(cart, 1, null),
+        });
+        if (!error) {
+          await supabaseServer.from("abandoned_carts")
+            .update({ relance_1: true, email_sent_at: now.toISOString() })
+            .eq("id", cart.id);
+          sent++;
+        }
+        continue;
       }
 
-      if (!subject) continue;
+      // Relance 2 : entre 24h et 72h, relance_1 envoyée, relance_2 pas encore
+      if (diffHours >= 24 && diffHours < 72 && cart.relance_1 && !cart.relance_2) {
+        const { error } = await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      cart.email,
+          subject: "Votre panier M!LK vous attend — offre exclusive",
+          html:    relanceHtml(cart, 2, cart.promo_code ?? null),
+        });
+        if (!error) {
+          await supabaseServer.from("abandoned_carts")
+            .update({ relance_2: true, email_sent_at: now.toISOString() })
+            .eq("id", cart.id);
+          sent++;
+        }
+        continue;
+      }
 
-      const { error } = await resend.emails.send({
-        from:    "M!LK <contact@milkbebe.fr>",
-        to:      cart.email,
-        subject,
-        html,
-      });
-
-      if (!error) {
-        await supabaseServer.from("abandoned_carts")
-          .update({ email_sent_at: now.toISOString() })
-          .eq("id", cart.id);
-        sent++;
+      // Relance 3 : après 72h, relance_2 envoyée, relance_3 pas encore
+      if (diffHours >= 72 && cart.relance_2 && !cart.relance_3) {
+        const { error } = await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      cart.email,
+          subject: "Dernière chance — votre panier expire bientôt",
+          html:    relanceHtml(cart, 3, null),
+        });
+        if (!error) {
+          await supabaseServer.from("abandoned_carts")
+            .update({ relance_3: true, email_sent_at: now.toISOString() })
+            .eq("id", cart.id);
+          sent++;
+        }
       }
     }
 
@@ -70,9 +89,9 @@ export async function GET(req: Request) {
 }
 
 function relanceHtml(cart: any, step: number, promoCode: string | null): string {
-  const items    = Array.isArray(cart.items) ? cart.items : [];
-  const prenom   = cart.prenom ?? "";
-  const total    = Number(cart.total ?? 0).toFixed(2);
+  const items  = Array.isArray(cart.items) ? cart.items : [];
+  const prenom = cart.prenom ?? "";
+  const total  = Number(cart.total ?? 0).toFixed(2);
 
   const itemsList = items.map((i: any) => `
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(242,237,230,0.06)">
@@ -89,7 +108,7 @@ function relanceHtml(cart: any, step: number, promoCode: string | null): string 
     2: {
       title: "Un petit coup de pouce pour finaliser ?",
       body:  promoCode
-        ? `On vous offre un code promo pour vous aider à franchir le pas.`
+        ? "On vous offre un code promo pour vous aider à franchir le pas."
         : "Vos articles sont toujours disponibles. Ne les laissez pas partir.",
     },
     3: {

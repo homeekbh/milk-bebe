@@ -3,6 +3,20 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const ADMIN  = process.env.ADMIN_EMAIL_1 ?? "contact@milkbebe.fr";
 
+// Rate limiting : max 3 messages/heure par IP
+const rlMap = new Map<string, { count: number; resetAt: number }>();
+function isRateLimited(ip: string): boolean {
+  const now   = Date.now();
+  const entry = rlMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    rlMap.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 }); // fenêtre 1h
+    return false;
+  }
+  if (entry.count >= 3) return true;
+  entry.count++;
+  return false;
+}
+
 function sanitize(str: string): string {
   return String(str)
     .replace(/&/g, "&amp;")
@@ -13,11 +27,22 @@ function sanitize(str: string): string {
 }
 
 export async function POST(req: Request) {
+  // Rate limiting
+  const ip = (req as any).headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+  if (isRateLimited(ip)) {
+    return Response.json({ error: "Trop de messages envoyés. Réessaie dans une heure." }, { status: 429 });
+  }
+
   const { nom, email, sujet, message } = await req.json();
   if (!nom || !email || !message) return Response.json({ error: "Champs manquants" }, { status: 400 });
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return Response.json({ error: "Email invalide" }, { status: 400 });
+  }
+
+  // Longueur max pour éviter le spam massif
+  if (message.length > 2000) {
+    return Response.json({ error: "Message trop long (2000 caractères max)" }, { status: 400 });
   }
 
   const sNom     = sanitize(nom);

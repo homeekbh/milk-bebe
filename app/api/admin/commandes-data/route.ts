@@ -10,7 +10,8 @@ export async function GET(req: NextRequest) {
     const { data, error } = await supabaseServer
       .from("orders")
       .select("*")
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .limit(50000);
     if (error) return Response.json([]);
     return Response.json(data ?? []);
   } catch {

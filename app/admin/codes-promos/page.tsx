@@ -270,6 +270,8 @@ export default function AdminCodes() {
   }
 
   async function toggleActive(c: PromoCode) {
+    const action = c.active ? "Désactiver" : "Activer";
+    if (!confirm(`${action} le code "${c.code}" ?`)) return;
     await adminFetch("/api/admin/promos", {
       method: "PUT", body: JSON.stringify({ id: c.id, active: !c.active }),
     });

@@ -74,6 +74,8 @@ export default function AdminPopups() {
   }
 
   async function toggle(id: string, active: boolean) {
+    const action = active ? "Activer" : "Désactiver";
+    if (!confirm(`${action} ce popup sur le site ?`)) return;
     await adminFetch("/api/admin/popups", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, active }),

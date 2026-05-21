@@ -303,17 +303,31 @@ export default function AdminCommandes() {
       }),
     });
     // Envoyer email expédition au client avec le lien de tracking
-    await adminFetch("/api/emails/shipped", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        email:        order.customer_email,
-        prenom:       order.customer_name?.split(" ")[0] ?? "",
-        tracking:     tracking.trim(),
-        transporteur: selectedCarrier,
-        items:        order.items,
-      }),
-    }).catch(() => {});
+    let emailOk = true;
+    try {
+      const emailRes = await adminFetch("/api/emails/shipped", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          email:        order.customer_email,
+          prenom:       order.customer_name?.split(" ")[0] ?? "",
+          tracking:     tracking.trim(),
+          transporteur: selectedCarrier,
+          items:        order.items,
+        }),
+      });
+      if (!emailRes.ok) {
+        emailOk = false;
+        const errorBody = await emailRes.text().catch(() => "");
+        console.error("Email shipped failed:", emailRes.status, errorBody);
+      }
+    } catch (e) {
+      emailOk = false;
+      console.error("Email shipped network error:", e);
+    }
+    if (!emailOk) {
+      alert("⚠ Commande marquée expédiée, mais l'email client n'a pas pu être envoyé. Vérifie les logs ou renvoie manuellement.");
+    }
     await load();
     await logActivity("order_shipped", `Commande expédiée via ${selectedCarrier}`, { entity_id: selectedOrder?.id ?? "" });
     setSaving(false);

@@ -80,6 +80,8 @@ export default function AdminProduitsListe() {
   useEffect(() => { load(); }, []);
 
   async function togglePublish(id: string, published: boolean) {
+    const action = published ? "Dépublier" : "Publier";
+    if (!confirm(`${action} ce produit ?`)) return;
     await adminFetch("/api/admin/products", {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ id, published: !published }),

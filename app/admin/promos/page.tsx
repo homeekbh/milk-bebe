@@ -137,6 +137,8 @@ export default function AdminPromos() {
   }
 
   async function toggleActive(p: any) {
+    const action = p.active ? "Désactiver" : "Activer";
+    if (!confirm(`${action} la promo "${p.code ?? p.name ?? "sans nom"}" ?`)) return;
     await adminFetch("/api/admin/promos", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },

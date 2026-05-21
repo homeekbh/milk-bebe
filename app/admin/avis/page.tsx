@@ -55,6 +55,8 @@ export default function AdminAvis() {
   useEffect(() => { load(); }, []);
 
   async function toggleApprove(id: string, approved: boolean) {
+    const action = approved ? "Dépublier" : "Publier";
+    if (!confirm(`${action} cet avis ?`)) return;
     await adminFetch("/api/admin/reviews", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },

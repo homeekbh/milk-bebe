@@ -4,13 +4,11 @@ import type { NextRequest } from "next/server";
 
 const SENDCLOUD_API = "https://panel.sendcloud.sc/api/v3";
 
-// Adresse expéditeur M!LK (Menton)
+// Adresse expéditeur M!LK (Menton) — ASCII safe, sans em-dash ni !
 const FROM_ADDRESS = {
-  name:           "M!LK — Essentiels Bebe",
+  name:           "MILK Essentiels Bebe",
   company_name:   "EKBH",
   address_line_1: "6 Impasse des Cabrolles",
-  address_line_2: "",
-  house_number:   "6",
   postal_code:    "06500",
   city:           "Menton",
   country_code:   "FR",
@@ -25,35 +23,87 @@ function getBasicAuth() {
 }
 
 /**
- * Essaie d'extraire le numéro de rue depuis address_line_1.
- * Ex: "10 Rue de Paris" → "10" / "Avenue Hugo, 5" → "5"
+ * Nettoie un nom pour passer la validation carrier :
+ * - remplace em-dash, en-dash, tirets exotiques par "-"
+ * - retire les ! et autres caractères de ponctuation forte
  */
-function extractHouseNumber(line: string): string {
-  if (!line) return "";
-  const m = String(line).match(/\b\d+\s*[a-zA-Z]?\b/);
-  return m ? m[0].trim() : "";
+function sanitizeName(s: string): string {
+  return String(s ?? "")
+    .replace(/[—–]/g, "-")
+    .replace(/[!@#$%^&*<>{}[\]\\|`~]/g, "")
+    .trim()
+    .slice(0, 75);
 }
 
 /**
- * Log compact d'une réponse fetch — status + body brut pour debug Vercel.
+ * Compacte une adresse : retire les clés avec valeur falsy/vide
+ * (Sendcloud v3 refuse parfois les "" — préfère l'omission).
  */
-async function logSendcloudCall(label: string, res: Response): Promise<any> {
+function compactAddress(a: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = {};
+  for (const [k, v] of Object.entries(a)) {
+    if (v === null || v === undefined) continue;
+    const s = String(v).trim();
+    if (s === "") continue;
+    out[k] = s;
+  }
+  return out;
+}
+
+/**
+ * Log + parse de la réponse Sendcloud — utilise console.error
+ * pour garantir l'affichage dans les logs Vercel runtime.
+ */
+async function logSendcloudCall(label: string, res: Response): Promise<{ status: number; ok: boolean; json: any; text: string }> {
   const status = res.status;
   const text   = await res.text();
   let json: any = null;
   try { json = JSON.parse(text); } catch {}
 
-  console.log(`[sendcloud:${label}] status=${status}`);
-  console.log(`[sendcloud:${label}] body=${text.slice(0, 4000)}${text.length > 4000 ? "…(truncated)" : ""}`);
+  console.error(`[sendcloud:${label}] HTTP ${status}`);
+  console.error(`[sendcloud:${label}] response body:`, text.slice(0, 6000));
+
+  // Si erreur, essayer d'extraire le pointer du champ fautif
+  if (!res.ok && json) {
+    const errors = Array.isArray(json.errors) ? json.errors : [];
+    if (errors.length > 0) {
+      console.error(`[sendcloud:${label}] errors[]:`, JSON.stringify(errors));
+      errors.forEach((e: any, i: number) => {
+        const pointer = e?.source?.pointer ?? "(no pointer)";
+        const detail  = e?.detail  ?? e?.message ?? "(no detail)";
+        const code    = e?.code    ?? e?.title   ?? "(no code)";
+        console.error(`[sendcloud:${label}] error #${i}: pointer=${pointer} code=${code} detail=${detail}`);
+      });
+    } else if (json.error) {
+      console.error(`[sendcloud:${label}] error:`, JSON.stringify(json.error));
+    }
+  }
 
   return { status, ok: res.ok, json, text };
+}
+
+/**
+ * Extrait un message d'erreur lisible depuis la réponse Sendcloud.
+ */
+function extractError(json: any, fallback: string): string {
+  if (!json) return fallback;
+  const errors = Array.isArray(json.errors) ? json.errors : [];
+  if (errors.length > 0) {
+    return errors.map((e: any) => {
+      const pointer = e?.source?.pointer ? ` [${e.source.pointer}]` : "";
+      return `${e?.detail ?? e?.title ?? "Erreur"}${pointer}`;
+    }).join(" | ");
+  }
+  return json?.error?.message ?? json?.message ?? fallback;
 }
 
 /**
  * POST /api/admin/sendcloud/create-label
  * Body: { order_id: string, transporteur?: string }
  *
- * Flow v3 : fetch-shipping-options → shipments/announce (sync)
+ * Flow v3 :
+ *   1. /fetch-shipping-options  → récupère shipping_option_code + contract_id
+ *   2. /shipments/announce      → crée le colis + génère l'étiquette PDF
  */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -72,37 +122,39 @@ export async function POST(req: NextRequest) {
 
     const addr = order.shipping_address ?? {};
     if (!addr.line1 || !addr.postal_code || !addr.city) {
-      console.error("[sendcloud] Adresse incomplète:", addr);
+      console.error("[sendcloud] Adresse incomplète:", JSON.stringify(addr));
       return Response.json({ error: "Adresse de livraison incomplète (line1/postal_code/city manquant)" }, { status: 400 });
     }
 
     const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.5;
 
-    const toAddress = {
-      name:           (addr.name as string) || order.customer_name || "Client",
-      company_name:   (addr.company as string) ?? "",
-      address_line_1: (addr.line1   as string) ?? "",
-      address_line_2: (addr.line2   as string) ?? "",
-      house_number:   extractHouseNumber((addr.line1 as string) ?? ""),
-      postal_code:    String(addr.postal_code ?? ""),
-      city:           String(addr.city ?? ""),
+    // Adresse destinataire — compacte (sans clés vides)
+    const toAddressRaw = {
+      name:           sanitizeName(addr.name || order.customer_name || "Client"),
+      company_name:   addr.company,
+      address_line_1: addr.line1,
+      address_line_2: addr.line2,
+      postal_code:    addr.postal_code,
+      city:           addr.city,
       country_code:   String(addr.country ?? "FR").toUpperCase().slice(0, 2),
-      phone_number:   (addr.phone as string) ?? "",
-      email:          order.customer_email ?? "",
+      phone_number:   addr.phone,
+      email:          order.customer_email,
     };
+    const toAddress   = compactAddress(toAddressRaw);
+    const fromAddress = compactAddress(FROM_ADDRESS);
 
     const parcel = { weight: { value: weightKg.toFixed(3), unit: "kg" } };
 
-    console.log(`[sendcloud] === REQUEST order=${order_id} transporteur="${transporteur}" weight=${weightKg}kg ===`);
-    console.log(`[sendcloud] to=${toAddress.city}/${toAddress.postal_code}/${toAddress.country_code}`);
+    console.error(`[sendcloud] === REQUEST order=${order_id} transporteur="${transporteur}" weight=${weightKg}kg ===`);
+    console.error(`[sendcloud] from=${fromAddress.city}/${fromAddress.postal_code}  to=${toAddress.city}/${toAddress.postal_code}/${toAddress.country_code}`);
 
     // ── 2. Fetch shipping options ───────────────────────────────────────────
     const optsBody = {
-      from_address: FROM_ADDRESS,
+      from_address: fromAddress,
       to_address:   toAddress,
       parcels:      [parcel],
     };
-    console.log(`[sendcloud:fetch-options] payload=${JSON.stringify(optsBody)}`);
+    console.error(`[sendcloud:fetch-options] BODY SENT:`, JSON.stringify(optsBody));
 
     const optsRes = await fetch(`${SENDCLOUD_API}/fetch-shipping-options`, {
       method:  "POST",
@@ -115,33 +167,29 @@ export async function POST(req: NextRequest) {
     });
     const optsLog = await logSendcloudCall("fetch-options", optsRes);
     if (!optsLog.ok) {
-      return Response.json(
-        {
-          error: optsLog.json?.error?.message ?? optsLog.json?.message ?? `Sendcloud /fetch-shipping-options HTTP ${optsLog.status}`,
-          sendcloud_status: optsLog.status,
-          sendcloud_body:   optsLog.json ?? optsLog.text?.slice(0, 1000),
-        },
-        { status: 400 }
-      );
+      return Response.json({
+        error:            extractError(optsLog.json, `Sendcloud /fetch-shipping-options HTTP ${optsLog.status}`),
+        sendcloud_status: optsLog.status,
+        sendcloud_body:   optsLog.json ?? optsLog.text?.slice(0, 1500),
+      }, { status: 400 });
     }
 
     const optsData = optsLog.json;
     const options: any[] = Array.isArray(optsData?.data) ? optsData.data : (Array.isArray(optsData) ? optsData : []);
-    console.log(`[sendcloud:fetch-options] count=${options.length}`);
     if (options.length === 0) {
       return Response.json({ error: "Aucune option de livraison disponible pour ce colis Sendcloud" }, { status: 400 });
     }
 
-    // Liste de codes dispo pour debug
-    const sampleCodes = options.slice(0, 5).map((o: any) => ({
-      code:     o.shipping_option_code ?? o.code,
-      carrier:  o.carrier?.name ?? o.carrier?.code,
-      contract: o.contract?.id ?? o.contract_id,
-      name:     o.name,
-    }));
-    console.log(`[sendcloud:fetch-options] sample=${JSON.stringify(sampleCodes)}`);
+    console.error(`[sendcloud:fetch-options] ${options.length} options dispo, sample:`,
+      JSON.stringify(options.slice(0, 5).map((o: any) => ({
+        code:     o.shipping_option_code ?? o.code,
+        carrier:  o.carrier?.name ?? o.carrier?.code,
+        contract: o.contract?.id ?? o.contract_id,
+        name:     o.name,
+      })))
+    );
 
-    // ── 3. Match par nom de transporteur ─────────────────────────────────────
+    // ── 3. Match par nom de transporteur ────────────────────────────────────
     const carrierLower = String(transporteur ?? "").toLowerCase();
     const wantedKey =
       carrierLower.includes("colissimo")  ? "colissimo"  :
@@ -163,31 +211,36 @@ export async function POST(req: NextRequest) {
     }) ?? options[0];
 
     const shippingOptionCode = selected?.shipping_option_code ?? selected?.code ?? null;
-    const contractId         = selected?.contract?.id ?? selected?.contract_id ?? null;
+    // contract_id DOIT être un integer ou omis — sinon Sendcloud renvoie 400
+    const rawContractId = selected?.contract?.id ?? selected?.contract_id ?? null;
+    const contractId    = (typeof rawContractId === "number" && Number.isInteger(rawContractId))
+      ? rawContractId
+      : (typeof rawContractId === "string" && /^\d+$/.test(rawContractId) ? parseInt(rawContractId, 10) : null);
 
-    console.log(`[sendcloud] selected option: code=${shippingOptionCode} contract=${contractId} carrier=${selected?.carrier?.name}`);
+    console.error(`[sendcloud] selected: code=${shippingOptionCode} contract=${contractId} carrier=${selected?.carrier?.name}`);
 
     if (!shippingOptionCode) {
-      console.error("[sendcloud] No shipping_option_code in selected option:", selected);
+      console.error("[sendcloud] Aucun shipping_option_code dans:", JSON.stringify(selected).slice(0, 1500));
       return Response.json({ error: "Code transporteur Sendcloud manquant dans la réponse" }, { status: 400 });
     }
 
-    // ── 4. Announce shipment (sync) ──────────────────────────────────────────
-    const announceBody: any = {
-      label_details: { mime_type: "application/pdf", dpi: 72 },
-      from_address:  FROM_ADDRESS,
-      to_address:    toAddress,
-      ship_with:     {
+    // ── 4. Announce shipment ────────────────────────────────────────────────
+    // Payload MINIMAL : pas de label_details, pas de house_number dupliqué,
+    // pas de champs vides, contract_id en integer si présent.
+    const shipWithProps: Record<string, any> = { shipping_option_code: shippingOptionCode };
+    if (contractId !== null) shipWithProps.contract_id = contractId;
+
+    const announceBody = {
+      from_address: fromAddress,
+      to_address:   toAddress,
+      ship_with: {
         type:       "shipping_option_code",
-        properties: {
-          shipping_option_code: shippingOptionCode,
-          ...(contractId ? { contract_id: contractId } : {}),
-        },
+        properties: shipWithProps,
       },
       order_number: String(order.id ?? "").slice(0, 30),
       parcels:      [parcel],
     };
-    console.log(`[sendcloud:announce] payload=${JSON.stringify(announceBody)}`);
+    console.error(`[sendcloud:announce] BODY SENT:`, JSON.stringify(announceBody));
 
     const announceRes = await fetch(`${SENDCLOUD_API}/shipments/announce`, {
       method:  "POST",
@@ -200,17 +253,15 @@ export async function POST(req: NextRequest) {
     });
     const announceLog = await logSendcloudCall("announce", announceRes);
     if (!announceLog.ok) {
-      return Response.json(
-        {
-          error: announceLog.json?.error?.message ?? announceLog.json?.message ?? `Sendcloud /shipments/announce HTTP ${announceLog.status}`,
-          sendcloud_status: announceLog.status,
-          sendcloud_body:   announceLog.json ?? announceLog.text?.slice(0, 1000),
-        },
-        { status: 400 }
-      );
+      return Response.json({
+        error:            extractError(announceLog.json, `Sendcloud /shipments/announce HTTP ${announceLog.status}`),
+        sendcloud_status: announceLog.status,
+        sendcloud_body:   announceLog.json ?? announceLog.text?.slice(0, 1500),
+        payload_sent:     announceBody,
+      }, { status: 400 });
     }
 
-    // ── 5. Extraire tracking + label ─────────────────────────────────────────
+    // ── 5. Extraire tracking + label ────────────────────────────────────────
     const announceData = announceLog.json;
     const announced = announceData?.data?.parcels?.[0] ?? announceData?.parcels?.[0] ?? null;
     const trackingNumber: string = announced?.tracking_number ?? "";
@@ -219,9 +270,9 @@ export async function POST(req: NextRequest) {
     const labelUrl: string = labelDoc?.link ?? "";
     const parcelId = announced?.id ?? null;
 
-    console.log(`[sendcloud:announce] success tracking=${trackingNumber} label=${labelUrl ? "OK" : "MISSING"}`);
+    console.error(`[sendcloud:announce] SUCCESS tracking=${trackingNumber} label=${labelUrl ? "OK" : "MISSING"}`);
 
-    // ── 6. Update Supabase ───────────────────────────────────────────────────
+    // ── 6. Update Supabase ──────────────────────────────────────────────────
     const { error: updateErr } = await supabaseServer
       .from("orders")
       .update({

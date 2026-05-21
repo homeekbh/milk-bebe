@@ -1,6 +1,9 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
 import Link from "next/link";
 
+export const dynamic  = "force-dynamic";
+export const revalidate = 0;
+
 async function getStats() {
 
   const [{ data: products }, { data: orders }, { data: allOrders }, { count: subsCountExact }] = await Promise.all([

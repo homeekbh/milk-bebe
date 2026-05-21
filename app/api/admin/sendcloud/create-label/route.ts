@@ -2,7 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
-const SENDCLOUD_API = "https://panel.sendcloud.sc/api/v2";
+const SENDCLOUD_API = "https://panel.sendcloud.sc/api/v3";
 
 function getBasicAuth() {
   const pub = process.env.SENDCLOUD_PUBLIC_KEY ?? "";

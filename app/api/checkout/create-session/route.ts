@@ -114,7 +114,7 @@ export async function POST(req: Request) {
     }
 
     const sessionParams: any = {
-      payment_method_types: ["card", "paypal"],
+      payment_method_types: ["card"],
       line_items:           lineItems,
       mode:                 "payment",
       shipping_address_collection: {

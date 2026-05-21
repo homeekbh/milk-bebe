@@ -169,8 +169,11 @@ export async function POST(req: NextRequest) {
     if (!optsLog.ok) {
       return Response.json({
         error:            extractError(optsLog.json, `Sendcloud /fetch-shipping-options HTTP ${optsLog.status}`),
+        endpoint:         `${SENDCLOUD_API}/fetch-shipping-options`,
         sendcloud_status: optsLog.status,
-        sendcloud_body:   optsLog.json ?? optsLog.text?.slice(0, 1500),
+        sendcloud_body:   optsLog.json,
+        sendcloud_raw:    optsLog.text?.slice(0, 3000),
+        payload_sent:     optsBody,
       }, { status: 400 });
     }
 
@@ -255,8 +258,10 @@ export async function POST(req: NextRequest) {
     if (!announceLog.ok) {
       return Response.json({
         error:            extractError(announceLog.json, `Sendcloud /shipments/announce HTTP ${announceLog.status}`),
+        endpoint:         `${SENDCLOUD_API}/shipments/announce`,
         sendcloud_status: announceLog.status,
-        sendcloud_body:   announceLog.json ?? announceLog.text?.slice(0, 1500),
+        sendcloud_body:   announceLog.json,
+        sendcloud_raw:    announceLog.text?.slice(0, 3000),
         payload_sent:     announceBody,
       }, { status: 400 });
     }

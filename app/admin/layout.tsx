@@ -104,7 +104,7 @@ function AdminCalendar({ onClose }: { onClose: () => void }) {
         .select("created_at, amount_total")
         .gte("created_at", start)
         .lte("created_at", end)
-        .eq("payment_status", "paid");
+        .eq("status", "paid");
       const map: Record<string, { orders: number; revenue: number }> = {};
       (data ?? []).forEach((o: any) => {
         const key = String(new Date(o.created_at).getDate());

@@ -22,24 +22,21 @@ export default function SuccessPage() {
       cleared.current = true;
       fbqTrack("Purchase", { currency:"EUR", content_type:"product" });
 
-      // ✅ Convertir le panier abandonné immédiatement — sans attendre le webhook Stripe
-      // Récupère l'email depuis localStorage (guest ou connecté)
+      // ✅ Pour les users connectés : marquer le panier abandonné comme converti côté client
+      // Pour les guests : le webhook Stripe s'en charge automatiquement
       try {
-        const guestEmail = localStorage.getItem("milk_guest_email") ?? "";
         const sbKey = Object.keys(localStorage).find(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
-        const userEmail = sbKey ? JSON.parse(localStorage.getItem(sbKey) ?? "{}").user?.email ?? "" : "";
-        const email = userEmail || guestEmail;
-        if (email) {
-          // Récupérer le token pour l'auth
-          const authToken = sbKey ? (JSON.parse(localStorage.getItem(sbKey) ?? "{}").access_token ?? "") : "";
-          fetch("/api/cart/convert", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              ...(authToken ? { Authorization: `Bearer ${authToken}` } : { "x-internal-secret": process.env.NEXT_PUBLIC_BASE_URL ?? "" }),
-            },
-            body: JSON.stringify({ email }),
-          }).catch(() => {});
+        if (sbKey) {
+          const parsed = JSON.parse(localStorage.getItem(sbKey) ?? "{}");
+          const authToken = parsed.access_token ?? "";
+          const userEmail = parsed.user?.email ?? "";
+          if (authToken && userEmail) {
+            fetch("/api/cart/convert", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${authToken}` },
+              body: JSON.stringify({ email: userEmail }),
+            }).catch(e => process.env.NODE_ENV !== "production" && console.error("Cart convert error:", e));
+          }
         }
       } catch {}
     }

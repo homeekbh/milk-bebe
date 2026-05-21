@@ -31,7 +31,7 @@ export default function PopupBienvenue() {
     if (!email.trim() || !email.includes("@")) return;
     setSending(true);
     try {
-      await fetch("/api/newsletter/subscribe", {
+      const res = await fetch("/api/newsletter/subscribe", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
@@ -40,10 +40,15 @@ export default function PopupBienvenue() {
           promo_code: popup?.promo_code ?? null,
         }),
       });
+      if (!res.ok) {
+        setSending(false);
+        return;
+      }
       setDone(true);
       localStorage.setItem("milk_popup_seen", "1");
       setTimeout(() => setVisible(false), 3000);
-    } catch {
+    } catch (e) {
+      process.env.NODE_ENV !== "production" && console.error("Newsletter subscribe error:", e);
       setSending(false);
     }
   }

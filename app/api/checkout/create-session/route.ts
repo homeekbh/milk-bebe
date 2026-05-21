@@ -135,12 +135,13 @@ export async function POST(req: Request) {
     };
 
     if (discount && discount > 0) {
+      const idempotencyKey = `coupon-${promo_code ?? "anon"}-${Math.round(Number(discount) * 100)}-${customer_email ?? "guest"}-${Date.now() >> 16}`;
       const coupon = await stripe.coupons.create({
         amount_off: Math.round(Number(discount) * 100),
         currency:   "eur",
         duration:   "once",
         name:       `Code ${promo_code}`,
-      });
+      }, { idempotencyKey });
       sessionParams.discounts = [{ coupon: coupon.id }];
     }
 

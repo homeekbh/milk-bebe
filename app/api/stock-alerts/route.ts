@@ -1,4 +1,5 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
 import { Resend } from "resend";
 import type { NextRequest } from "next/server";
 
@@ -65,7 +66,9 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
-  // Route admin : récupérer toutes les alertes
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { data, error } = await supabaseServer
     .from("stock_alerts")
     .select("*")

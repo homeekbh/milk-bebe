@@ -35,8 +35,9 @@ export default function CartPage() {
   const [promoLoading,  setPromoLoading]  = useState(false);
   const [guestEmail,    setGuestEmail]    = useState("");
   const [guestError,    setGuestError]    = useState("");
+  const [checkoutError, setCheckoutError] = useState("");
 
-  const subtotal = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
 
   // ✅ Recalcul automatique de la réduction quand le panier change
   const recalcPromo = useCallback(async (currentSubtotal: number) => {
@@ -79,7 +80,7 @@ export default function CartPage() {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ email: user.email, prenom: user.email?.split("@")[0] ?? "", items, total: subtotal }),
-      }).catch(() => {});
+      }).catch(e => process.env.NODE_ENV !== "production" && console.error("Cart save error:", e));
     }, 3000);
     return () => clearTimeout(timeout);
   }, [items, user, subtotal]);
@@ -104,8 +105,9 @@ export default function CartPage() {
   }
 
   async function handleCheckout() {
-    if (items.length === 0) return;
+    if (items.length === 0 || loading) return;
     setGuestError("");
+    setCheckoutError("");
 
     // Guest checkout : valider email si non connecté
     if (!user) {
@@ -122,22 +124,27 @@ export default function CartPage() {
       try { localStorage.setItem("milk_guest_email", guestEmail.trim().toLowerCase()); } catch {}
     }
     setLoading(true);
-    const res  = await fetch("/api/checkout/create-session", {
-      method:  "POST",
-      headers: { "Content-Type": "application/json" },
-      body:    JSON.stringify({
-        items,
-        promo_code:    promoData?.code    ?? null,
-        discount:      promoData?.discount ?? 0,
-        free_shipping: promoData?.free_shipping ?? false,
-        customer_email: user?.email ?? guestEmail.trim(),
-      }),
-    });
-    const data = await res.json();
-    if (data.url) {
-      window.location.href = data.url;
-    } else {
-      alert("Erreur lors du paiement. Réessaie.");
+    try {
+      const res  = await fetch("/api/checkout/create-session", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          items,
+          promo_code:    promoData?.code    ?? null,
+          discount:      promoData?.discount ?? 0,
+          free_shipping: promoData?.free_shipping ?? false,
+          customer_email: user?.email ?? guestEmail.trim(),
+        }),
+      });
+      const data = await res.json();
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      setCheckoutError(data.error ?? "Erreur lors du paiement. Réessaie.");
+    } catch (e: any) {
+      setCheckoutError(e?.message ?? "Erreur réseau. Réessaie.");
+    } finally {
       setLoading(false);
     }
   }
@@ -205,6 +212,8 @@ export default function CartPage() {
                   </div>
                   <input
                     type="email"
+                    inputMode="email"
+                    autoComplete="email"
                     value={guestEmail}
                     onChange={e => { setGuestEmail(e.target.value); setGuestError(""); }}
                     placeholder="ton@email.fr"
@@ -318,8 +327,13 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                <button onClick={handleCheckout} disabled={loading}
-                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: loading ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: loading ? "not-allowed" : "pointer", marginBottom: 12 }}>
+                {checkoutError && (
+                  <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+                    ⚠ {checkoutError}
+                  </div>
+                )}
+                <button onClick={handleCheckout} disabled={loading || items.length === 0}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || items.length === 0) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || items.length === 0) ? "not-allowed" : "pointer", marginBottom: 12 }}>
                   {loading ? "Redirection..." : "Passer au paiement →"}
                 </button>
 

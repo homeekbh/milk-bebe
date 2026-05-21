@@ -29,9 +29,9 @@ export async function POST(req: NextRequest) {
   const body  = await req.json();
   const clean: Record<string, any> = { ...body };
 
-  if ("price_ttc"   in body) clean.price_ttc   = isNaN(Number(body.price_ttc))   ? 0 : Number(body.price_ttc);
-  if ("promo_price" in body) clean.promo_price  = (!body.promo_price || isNaN(Number(body.promo_price))) ? null : Number(body.promo_price);
-  if ("stock"       in body) clean.stock        = isNaN(Number(body.stock))       ? 0 : Number(body.stock);
+  if ("price_ttc"   in body) clean.price_ttc   = Math.max(0, isNaN(Number(body.price_ttc))   ? 0 : Number(body.price_ttc));
+  if ("promo_price" in body) clean.promo_price  = (!body.promo_price || isNaN(Number(body.promo_price))) ? null : Math.max(0, Number(body.promo_price));
+  if ("stock"       in body) clean.stock        = Math.max(0, isNaN(Number(body.stock))       ? 0 : Number(body.stock));
   if ("promo_start" in body) clean.promo_start  = body.promo_start || null;
   if ("promo_end"   in body) clean.promo_end    = body.promo_end   || null;
   if ("position"    in body) clean.position     = isNaN(Number(body.position))    ? 0 : Number(body.position);
@@ -53,9 +53,9 @@ export async function PUT(req: NextRequest) {
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const clean: Record<string, any> = { ...rest };
-  if ("price_ttc"   in rest) clean.price_ttc   = isNaN(Number(rest.price_ttc))   ? 0 : Number(rest.price_ttc);
-  if ("promo_price" in rest) clean.promo_price  = (!rest.promo_price || isNaN(Number(rest.promo_price))) ? null : Number(rest.promo_price);
-  if ("stock"       in rest) clean.stock        = isNaN(Number(rest.stock))       ? 0 : Number(rest.stock);
+  if ("price_ttc"   in rest) clean.price_ttc   = Math.max(0, isNaN(Number(rest.price_ttc))   ? 0 : Number(rest.price_ttc));
+  if ("promo_price" in rest) clean.promo_price  = (!rest.promo_price || isNaN(Number(rest.promo_price))) ? null : Math.max(0, Number(rest.promo_price));
+  if ("stock"       in rest) clean.stock        = Math.max(0, isNaN(Number(rest.stock))       ? 0 : Number(rest.stock));
   if ("promo_start" in rest) clean.promo_start  = rest.promo_start || null;
   if ("promo_end"   in rest) clean.promo_end    = rest.promo_end   || null;
   if ("position"    in rest) clean.position     = isNaN(Number(rest.position))    ? 0 : Number(rest.position);

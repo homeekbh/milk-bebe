@@ -22,6 +22,16 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Token invalide" }, { status: 401 });
   }
 
+  // Vérifier que l'utilisateur est admin
+  const { data: profile } = await supabaseAdmin
+    .from("profiles")
+    .select("is_admin")
+    .eq("id", user.id)
+    .single();
+  if (!profile?.is_admin) {
+    return NextResponse.json({ error: "Accès refusé" }, { status: 403 });
+  }
+
   // Lecture des abonnés (service role → ignore RLS)
   const { data, error } = await supabaseAdmin
     .from("newsletter_subscribers")

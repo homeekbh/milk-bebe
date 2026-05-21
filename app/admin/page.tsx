@@ -3,14 +3,16 @@ import Link from "next/link";
 
 async function getStats() {
 
-  const [{ data: products }, { data: orders }, { data: subscribers }] = await Promise.all([
+  const [{ data: products }, { data: orders }, { data: allOrders }, { count: subsCountExact }] = await Promise.all([
     supabaseServer.from("products").select("*").order("stock", { ascending: true }),
     supabaseServer.from("orders").select("*").order("created_at", { ascending: false }).limit(10),
-    supabaseServer.from("newsletter_subscribers").select("id", { count: "exact" }).eq("active", true),
+    supabaseServer.from("orders").select("amount_total, created_at"),
+    supabaseServer.from("newsletter_subscribers").select("id", { count: "exact", head: true }),
   ]);
 
   const prods       = products ?? [];
   const ords        = orders   ?? [];
+  const allOrds     = allOrders ?? [];
   const totalProducts = prods.length;
   const stockValue    = prods.reduce((s, p) => s + (p.stock ?? 0) * (p.price_ttc ?? 0), 0);
   const lowStock      = prods.filter(p => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length;
@@ -18,16 +20,17 @@ async function getStats() {
   const alerts        = prods.filter(p => (p.stock ?? 0) <= 5).slice(0, 6);
 
   const today     = new Date(); today.setHours(0,0,0,0);
-  const todayOrds = ords.filter(o => new Date(o.created_at) >= today);
+  const todayOrds = allOrds.filter(o => new Date(o.created_at) >= today);
   const caToday   = todayOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const caTotal   = ords.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const subsCount = (subscribers as any)?.length ?? 0;
+  const caTotal   = allOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+  const ordsCount = allOrds.length;
+  const subsCount = subsCountExact ?? 0;
 
-  return { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, subsCount, todayOrds };
+  return { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, subsCount, todayOrds };
 }
 
 export default async function AdminDashboard() {
-  const { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, subsCount, todayOrds } = await getStats();
+  const { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, subsCount, todayOrds } = await getStats();
 
   const dateStr = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -68,12 +71,12 @@ export default async function AdminDashboard() {
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 36 }}>
         <KPI label="CA aujourd'hui"   value={`${caToday.toFixed(2)} €`}  sub={`${todayOrds.length} commande(s)`} color="#1a1410" />
-        <KPI label="CA total"         value={`${caTotal.toFixed(0)} €`}   sub={`${ords.length} commandes`}        color="#1a1410" />
+        <KPI label="CA total"         value={`${caTotal.toFixed(0)} €`}   sub={`${ordsCount} commandes`}          color="#1a1410" />
         <KPI label="Produits"         value={String(totalProducts)}        sub="Dans le catalogue"                 color="#1a1410" />
         <KPI label="Valeur du stock"  value={`${stockValue.toFixed(0)} €`} sub="TTC × unités"                     color="#1a1410" />
         <KPI label="Ruptures"         value={String(outOfStock)}           sub="Stock = 0"                         color={outOfStock > 0 ? "#b91c1c" : "#166534"} />
         <KPI label="Stock faible"     value={String(lowStock)}             sub="≤ 5 unités"                        color={lowStock > 0 ? "#c49a4a" : "#166534"}   />
-        <KPI label="Abonnés newsletter" value={String(subsCount)}          sub="Emails actifs"                     color="#1a1410" />
+        <KPI label="Abonnés newsletter" value={String(subsCount)}          sub="Total inscrits"                    color="#1a1410" />
       </div>
 
       {/* Alertes stock */}

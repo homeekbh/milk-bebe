@@ -21,7 +21,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
 
 import { useEffect, useState, useMemo } from "react";
 
-type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; };
+type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; promo_code?: string | null; discount?: number; shipping_address?: any; };
 type Period = "7j" | "30j" | "90j" | "tout";
 
 const C = {
@@ -54,6 +54,13 @@ const LEXIQUE: Record<string, { icon: string; def: string }> = {
   "Vues de fiches":        { icon: "👁️", def: "Nombre de fois qu'une fiche produit a été ouverte. Un produit très vu mais peu acheté = problème de prix ou de description." },
   "Sessions uniques":      { icon: "🔗", def: "Nombre de visites distinctes (1 personne = 1 session même si elle revient). Plus fiable que les vues brutes." },
   "Vues par jour":         { icon: "📊", def: "Évolution du trafic jour par jour sur les fiches produit. Les pics correspondent souvent à une story Instagram." },
+  "LTV moyenne":           { icon: "💎", def: "Lifetime Value : combien rapporte un client en moyenne sur toute sa durée de vie. Formule : CA total ÷ clients uniques. Plus c'est haut, plus vos clients sont fidèles." },
+  "Nouveaux clients":      { icon: "✨", def: "Clients dont la toute première commande est dans la période sélectionnée. Indique la performance d'acquisition." },
+  "Top clients":           { icon: "👑", def: "Vos meilleurs acheteurs classés par chiffre d'affaires généré. À choyer avec un programme de fidélité ou des avant-premières." },
+  "Top villes":            { icon: "🗺️", def: "Villes d'où viennent vos commandes. Utile pour cibler la publicité locale ou repérer un bouche-à-oreille." },
+  "Paniers abandonnés":    { icon: "🛒", def: "Visiteurs qui ont mis des articles au panier sans payer. Le tracker enregistre ces paniers et envoie 3 emails de relance (1h, 24h, 72h)." },
+  "Tunnel de conversion":  { icon: "🎯", def: "% de sessions sur une fiche produit qui aboutissent à un achat. La moyenne e-commerce est 1–3%. En dessous de 1%, il y a un problème de prix, photos ou description." },
+  "Stock dormant":         { icon: "📦", def: "Produits avec du stock mais aucune vente sur 30 jours. Capital immobilisé inutilement — candidats parfaits pour une promo ou une story Instagram dédiée." },
 };
 
 // ─── Composants ───────────────────────────────────────────────────────────────
@@ -184,16 +191,17 @@ function DonutChart({ data }: { data: { label: string; value: number; color: str
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function AdminStats() {
-  const [orders,      setOrders]      = useState<Order[]>([]);
-  const [products,    setProducts]    = useState<any[]>([]);
-  const [newsletter,  setNewsletter]  = useState<any[]>([]);
-  const [stockAlerts, setStockAlerts] = useState<any[]>([]);
-  const [promos,      setPromos]      = useState<any[]>([]);
-  const [reviews,     setReviews]     = useState<any[]>([]);
-  const [profiles,    setProfiles]    = useState<number>(0);
-  const [pageViews,   setPageViews]   = useState<any>(null);
-  const [loading,     setLoading]     = useState(true);
-  const [period,      setPeriod]      = useState<Period>("30j");
+  const [orders,         setOrders]         = useState<Order[]>([]);
+  const [products,       setProducts]       = useState<any[]>([]);
+  const [newsletter,     setNewsletter]     = useState<any[]>([]);
+  const [stockAlerts,    setStockAlerts]    = useState<any[]>([]);
+  const [promos,         setPromos]         = useState<any[]>([]);
+  const [reviews,        setReviews]        = useState<any[]>([]);
+  const [profiles,       setProfiles]       = useState<number>(0);
+  const [pageViews,      setPageViews]      = useState<any>(null);
+  const [abandonedCarts, setAbandonedCarts] = useState<any[]>([]);
+  const [loading,        setLoading]        = useState(true);
+  const [period,         setPeriod]         = useState<Period>("30j");
 
   useEffect(() => {
     Promise.all([
@@ -205,7 +213,8 @@ export default function AdminStats() {
       adminFetch("/api/admin/reviews").then(r => r.json()).catch(() => []),
       adminFetch("/api/admin/clients-count").then(r => r.json()).catch(() => ({ count: 0 })),
       adminFetch("/api/admin/page-views?days=30").then(r => r.json()).catch(() => null),
-    ]).then(([prods, ords, news, alerts, prms, revs, clients, pv]) => {
+      adminFetch("/api/admin/abandoned-carts").then(r => r.json()).catch(() => ({ carts: [] })),
+    ]).then(([prods, ords, news, alerts, prms, revs, clients, pv, abc]) => {
       if (Array.isArray(prods))   setProducts(prods);
       if (Array.isArray(ords))    setOrders(ords);
       if (news?.subscribers && Array.isArray(news.subscribers)) setNewsletter(news.subscribers);
@@ -216,6 +225,7 @@ export default function AdminStats() {
       if (Array.isArray(revs))    setReviews(revs);
       setProfiles(clients?.count ?? 0);
       if (pv && !pv.error) setPageViews(pv);
+      if (abc?.carts && Array.isArray(abc.carts)) setAbandonedCarts(abc.carts);
       setLoading(false);
     });
   }, []);
@@ -369,6 +379,182 @@ export default function AdminStats() {
     });
     return Object.entries(map).slice(-6).map(([label, value]) => ({ label, value }));
   }, [newsletter]);
+
+  // ─── Acquisition & Rétention ──────────────────────────────────────────────
+  const firstOrderByEmail = useMemo(() => {
+    const m: Record<string, string> = {};
+    [...orders].sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .forEach(o => {
+        if (o.customer_email && !m[o.customer_email]) m[o.customer_email] = o.created_at;
+      });
+    return m;
+  }, [orders]);
+
+  const nouveauxClients = useMemo(() => {
+    if (period === "tout") return Object.keys(firstOrderByEmail).length;
+    const days = period === "7j" ? 7 : period === "30j" ? 30 : 90;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    return Object.values(firstOrderByEmail).filter(d => new Date(d) >= cutoff).length;
+  }, [firstOrderByEmail, period]);
+
+  const recurrentsClients = useMemo(() => {
+    if (period === "tout") return 0;
+    const days = period === "7j" ? 7 : period === "30j" ? 30 : 90;
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    const emailsInPeriod = new Set(filtered.map(o => o.customer_email).filter(Boolean));
+    let count = 0;
+    emailsInPeriod.forEach(email => {
+      const firstDate = firstOrderByEmail[email];
+      if (firstDate && new Date(firstDate) < cutoff) count++;
+    });
+    return count;
+  }, [filtered, firstOrderByEmail, period]);
+
+  const ltv = useMemo(() => {
+    const emails = new Set(orders.map(o => o.customer_email).filter(Boolean));
+    if (emails.size === 0) return 0;
+    const totalCa = orders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+    return totalCa / emails.size;
+  }, [orders]);
+
+  const delaiRecommande = useMemo(() => {
+    const byEmail: Record<string, string[]> = {};
+    orders.forEach(o => {
+      if (!o.customer_email) return;
+      (byEmail[o.customer_email] ??= []).push(o.created_at);
+    });
+    const delays: number[] = [];
+    Object.values(byEmail).forEach(dates => {
+      if (dates.length < 2) return;
+      const sorted = dates.sort((a, b) => new Date(a).getTime() - new Date(b).getTime());
+      const diff = (new Date(sorted[1]).getTime() - new Date(sorted[0]).getTime()) / (1000 * 60 * 60 * 24);
+      delays.push(diff);
+    });
+    return delays.length ? delays.reduce((s, d) => s + d, 0) / delays.length : 0;
+  }, [orders]);
+
+  // ─── Top clients par CA (tout temps) ──────────────────────────────────────
+  const topClients = useMemo(() => {
+    const m: Record<string, { email: string; name: string; nbOrders: number; ca: number; first: string; last: string }> = {};
+    orders.forEach(o => {
+      if (!o.customer_email) return;
+      if (!m[o.customer_email]) {
+        m[o.customer_email] = { email: o.customer_email, name: o.customer_name ?? "", nbOrders: 0, ca: 0, first: o.created_at, last: o.created_at };
+      }
+      const c = m[o.customer_email];
+      c.nbOrders++;
+      c.ca += Number(o.amount_total ?? 0);
+      if (new Date(o.created_at) < new Date(c.first)) c.first = o.created_at;
+      if (new Date(o.created_at) > new Date(c.last))  c.last  = o.created_at;
+      if (o.customer_name && !c.name) c.name = o.customer_name;
+    });
+    return Object.values(m).sort((a, b) => b.ca - a.ca).slice(0, 10);
+  }, [orders]);
+
+  // ─── Géographie ───────────────────────────────────────────────────────────
+  const topVilles = useMemo(() => {
+    const m: Record<string, number> = {};
+    filtered.forEach(o => {
+      const city = (o as any).shipping_address?.city;
+      if (city) {
+        const norm = String(city).trim();
+        if (norm) m[norm] = (m[norm] ?? 0) + 1;
+      }
+    });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, value]) => ({ label, value }));
+  }, [filtered]);
+
+  // ─── Paniers abandonnés ──────────────────────────────────────────────────
+  const cartsStats = useMemo(() => {
+    const total       = abandonedCarts.length;
+    const converted   = abandonedCarts.filter((c: any) => c.converted).length;
+    const enCours     = abandonedCarts.filter((c: any) => !c.converted).length;
+    const valeurPerdue = abandonedCarts.filter((c: any) => !c.converted).reduce((s, c: any) => s + Number(c.total ?? 0), 0);
+    const tauxConv = total > 0 ? ((converted / total) * 100).toFixed(1) : "0";
+    const relance1 = abandonedCarts.filter((c: any) => c.relance_1).length;
+    const relance2 = abandonedCarts.filter((c: any) => c.relance_2).length;
+    const relance3 = abandonedCarts.filter((c: any) => c.relance_3).length;
+    return { total, converted, enCours, valeurPerdue, tauxConv, relance1, relance2, relance3 };
+  }, [abandonedCarts]);
+
+  // ─── Tunnel de conversion ─────────────────────────────────────────────────
+  const tunnelConv = useMemo(() => {
+    if (!pageViews?.top_products) return [];
+    const ventesParSlug: Record<string, number> = {};
+    filtered.forEach(o => {
+      (Array.isArray(o.items) ? o.items : []).forEach((item: any) => {
+        const slug = item.slug ?? item.id;
+        if (slug) ventesParSlug[slug] = (ventesParSlug[slug] ?? 0) + (item.quantity ?? 1);
+      });
+    });
+    return pageViews.top_products.slice(0, 6).map((p: any) => {
+      const ventes = ventesParSlug[p.slug] ?? 0;
+      const tx = p.sessions > 0 ? (ventes / p.sessions) * 100 : 0;
+      return { name: p.name, slug: p.slug, vues: p.views, sessions: p.sessions, ventes, tx };
+    });
+  }, [pageViews, filtered]);
+
+  // ─── Performance promo ────────────────────────────────────────────────────
+  const promoPerf = useMemo(() => {
+    const withPromo    = filtered.filter(o => o.promo_code);
+    const withoutPromo = filtered.filter(o => !o.promo_code);
+    const caWith    = withPromo.reduce   ((s, o) => s + Number(o.amount_total ?? 0), 0);
+    const caWithout = withoutPromo.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+    const avgWith    = withPromo.length    > 0 ? caWith    / withPromo.length    : 0;
+    const avgWithout = withoutPromo.length > 0 ? caWithout / withoutPromo.length : 0;
+    const discountTotal = filtered.reduce((s, o) => s + Number((o as any).discount ?? 0), 0);
+    return { nbWith: withPromo.length, nbWithout: withoutPromo.length, caWith, caWithout, avgWith, avgWithout, discountTotal };
+  }, [filtered]);
+
+  // ─── Évolution 12 mois ────────────────────────────────────────────────────
+  const caBy12Months = useMemo(() => {
+    const map: Record<string, number> = {};
+    const now = new Date();
+    for (let i = 11; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+      map[key] = 0;
+    }
+    orders.forEach(o => {
+      const d = new Date(o.created_at);
+      const key = d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
+      if (key in map) map[key] += Number(o.amount_total ?? 0);
+    });
+    return Object.entries(map).map(([label, value]) => ({ label, value }));
+  }, [orders]);
+
+  // ─── Stock dormant ────────────────────────────────────────────────────────
+  const stockDormant = useMemo(() => {
+    if (!products.length) return [];
+    const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
+    const slugsVendus = new Set<string>();
+    orders.filter(o => new Date(o.created_at) >= cutoff).forEach(o => {
+      (Array.isArray(o.items) ? o.items : []).forEach((item: any) => {
+        if (item.slug) slugsVendus.add(item.slug);
+        if (item.id)   slugsVendus.add(item.id);
+      });
+    });
+    return products
+      .filter((p: any) => (p.stock ?? 0) > 0 && !slugsVendus.has(p.slug) && !slugsVendus.has(p.id))
+      .map((p: any) => ({ name: p.name, slug: p.slug, stock: p.stock ?? 0, valeur: (p.stock ?? 0) * (p.price_ttc ?? 0) }))
+      .sort((a, b) => b.valeur - a.valeur).slice(0, 8);
+  }, [products, orders]);
+
+  // ─── Sources newsletter ───────────────────────────────────────────────────
+  const newsletterSources = useMemo(() => {
+    const m: Record<string, number> = {};
+    newsletter.forEach((n: any) => {
+      const src = n.source ?? "inconnu";
+      m[src] = (m[src] ?? 0) + 1;
+    });
+    const colors = [C.amber, C.blue, C.purple, C.green, C.red];
+    return Object.entries(m).map(([label, value], i) => ({ label, value, color: colors[i % colors.length] }));
+  }, [newsletter]);
+
+  const newsletterDesabonnes = useMemo(
+    () => newsletter.filter((n: any) => n.active === false).length,
+    [newsletter]
+  );
 
   if (loading) return (
     <div style={{ padding: 60, background: C.bg, minHeight: "100vh", color: C.muted, fontSize: 14 }}>
@@ -676,6 +862,239 @@ export default function AdminStats() {
           </div>
         )}
         <LexiqueTag terme="Codes promos" />
+      </div>
+
+      {/* ══ SECTION 6 : ACQUISITION & RÉTENTION ══ */}
+      <SectionTitle>Acquisition & Rétention clients</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <KpiCard label="Nouveaux clients"   value={String(nouveauxClients)}     sub={periodLabel}                                    color={C.green} />
+        <KpiCard label="Clients récurrents" value={String(recurrentsClients)}   sub="Anciens revenus sur la période"                color={C.blue} />
+        <KpiCard label="LTV moyenne"        value={`${ltv.toFixed(2)} €`}        sub="Valeur vie client"                              color={C.amber} />
+        <KpiCard label="Délai 2è commande"  value={delaiRecommande > 0 ? `${delaiRecommande.toFixed(0)} j` : "—"} sub="Entre 1ère et 2ème" color={C.purple} />
+      </div>
+
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>👑 Top clients par chiffre d'affaires</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Vos meilleurs acheteurs sur l'ensemble de la base</div>
+        {topClients.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13, padding: "16px 0" }}>Aucune commande pour l'instant</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 540 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.faint}` }}>
+                  {["#", "Client", "Commandes", "CA total", "Panier moyen", "Dernière"].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" as const, color: C.muted }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topClients.map((c, i) => (
+                  <tr key={c.email} style={{ borderBottom: `1px solid ${C.faint}` }}>
+                    <td style={{ padding: "10px 12px", fontSize: 12, fontWeight: 900, color: C.amber }}>#{i + 1}</td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: C.warm }}>{c.name || c.email.split("@")[0]}</div>
+                      <div style={{ fontSize: 11, color: C.muted }}>{c.email}</div>
+                    </td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: C.warm, fontWeight: 700 }}>{c.nbOrders}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 900, color: C.amber }}>{c.ca.toFixed(2)} €</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: C.muted }}>{(c.ca / c.nbOrders).toFixed(2)} €</td>
+                    <td style={{ padding: "10px 12px", fontSize: 12, color: C.muted }}>
+                      {new Date(c.last).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "2-digit" })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <LexiqueTag terme="Top clients" />
+      </div>
+
+      {/* ══ SECTION 7 : GÉOGRAPHIE ══ */}
+      <SectionTitle>Géographie des commandes</SectionTitle>
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🗺️ Top villes de livraison</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Répartition géographique des commandes ({periodLabel})</div>
+        {topVilles.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13, padding: "16px 0" }}>Aucune adresse de livraison sur la période</div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {topVilles.map((v, i) => (
+              <div key={v.label}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                    <span style={{ fontSize: 11, fontWeight: 900, color: C.amber, minWidth: 18 }}>#{i + 1}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: C.warm }}>{v.label}</span>
+                  </div>
+                  <span style={{ fontSize: 12, fontWeight: 900, color: C.amber }}>{v.value} commande{v.value > 1 ? "s" : ""}</span>
+                </div>
+                <MiniBar value={v.value} max={topVilles[0]?.value ?? 1} />
+              </div>
+            ))}
+          </div>
+        )}
+        <LexiqueTag terme="Top villes" />
+      </div>
+
+      {/* ══ SECTION 8 : PANIERS ABANDONNÉS ══ */}
+      <SectionTitle>Paniers abandonnés & Relances</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
+        <KpiCard label="Paniers en cours" value={String(cartsStats.enCours)} sub="Non convertis" color={C.amber} />
+        <KpiCard label="Valeur perdue"    value={`${cartsStats.valeurPerdue.toFixed(0)} €`} sub="Potentiel non converti" color={C.red} />
+        <KpiCard label="Convertis"        value={String(cartsStats.converted)} sub={`${cartsStats.tauxConv}% de récupération`} color={C.green} />
+        <KpiCard label="Paniers total"    value={String(cartsStats.total)} sub="Tout temps" color={C.blue} />
+      </div>
+
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📧 Pipeline de relance email</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Relance 1 (1h–24h), Relance 2 (24h–72h + promo), Relance 3 (&gt; 72h)</div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          {[
+            { step: "Relance #1", value: cartsStats.relance1, color: C.amber },
+            { step: "Relance #2", value: cartsStats.relance2, color: C.blue },
+            { step: "Relance #3", value: cartsStats.relance3, color: C.red },
+          ].map(r => (
+            <div key={r.step} style={{ padding: "14px 16px", borderRadius: 12, background: `${r.color}15`, border: `1px solid ${r.color}30`, textAlign: "center" }}>
+              <div style={{ fontSize: 22, fontWeight: 950, color: r.color }}>{r.value}</div>
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 4, fontWeight: 700 }}>{r.step}</div>
+            </div>
+          ))}
+        </div>
+        <LexiqueTag terme="Paniers abandonnés" />
+      </div>
+
+      {/* ══ SECTION 9 : TUNNEL DE CONVERSION ══ */}
+      <SectionTitle>Tunnel de conversion (Vues → Ventes)</SectionTitle>
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🎯 Taux de transformation par produit</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Top 6 fiches : combien de sessions aboutissent à un achat ?</div>
+        {tunnelConv.length === 0 ? (
+          <div style={{ color: C.muted, fontSize: 13, padding: "16px 0" }}>En attente de vues et de ventes sur la période</div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 480 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.faint}` }}>
+                  {["Produit", "Sessions", "Ventes", "Conversion"].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" as const, color: C.muted }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {tunnelConv.map((p: any) => (
+                  <tr key={p.slug} style={{ borderBottom: `1px solid ${C.faint}` }}>
+                    <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: C.warm }}>{p.name}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: C.muted }}>{p.sessions}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: C.warm }}>{p.ventes}</td>
+                    <td style={{ padding: "10px 12px" }}>
+                      <span style={{ padding: "3px 10px", borderRadius: 99, fontSize: 12, fontWeight: 900,
+                        background: p.tx >= 3 ? "rgba(34,197,94,0.15)" : p.tx >= 1 ? "rgba(196,154,74,0.15)" : "rgba(239,68,68,0.15)",
+                        color: p.tx >= 3 ? C.green : p.tx >= 1 ? C.amber : C.red }}>
+                        {p.tx.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <LexiqueTag terme="Tunnel de conversion" />
+      </div>
+
+      {/* ══ SECTION 10 : PERFORMANCE PROMO ══ */}
+      <SectionTitle>Performance des codes promo</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+        <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🎟️ Avec promo</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>{promoPerf.nbWith} commande{promoPerf.nbWith > 1 ? "s" : ""}</div>
+          <div style={{ fontSize: 32, fontWeight: 950, color: C.amber, lineHeight: 1 }}>{promoPerf.caWith.toFixed(0)} €</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Panier moyen : <strong style={{ color: C.warm }}>{promoPerf.avgWith.toFixed(2)} €</strong></div>
+          <div style={{ fontSize: 12, color: C.red, marginTop: 4 }}>Remises accordées : −{promoPerf.discountTotal.toFixed(2)} €</div>
+        </div>
+        <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>💳 Sans promo</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>{promoPerf.nbWithout} commande{promoPerf.nbWithout > 1 ? "s" : ""}</div>
+          <div style={{ fontSize: 32, fontWeight: 950, color: C.warm, lineHeight: 1 }}>{promoPerf.caWithout.toFixed(0)} €</div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Panier moyen : <strong style={{ color: C.warm }}>{promoPerf.avgWithout.toFixed(2)} €</strong></div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>
+            {promoPerf.avgWith > 0 && promoPerf.avgWithout > 0 && (
+              <>Écart panier : <strong style={{ color: promoPerf.avgWith > promoPerf.avgWithout ? C.green : C.red }}>
+                {((promoPerf.avgWith - promoPerf.avgWithout) / promoPerf.avgWithout * 100).toFixed(0)}%
+              </strong></>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* ══ SECTION 11 : ÉVOLUTION 12 MOIS ══ */}
+      <SectionTitle>Évolution longue durée</SectionTitle>
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📈 Chiffre d'affaires — 12 derniers mois</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Tendance annuelle pour identifier saisonnalité et croissance</div>
+        <BarChart data={caBy12Months} height={160} />
+      </div>
+
+      {/* ══ SECTION 12 : STOCK DORMANT ══ */}
+      <SectionTitle>Stock dormant — produits sans vente sur 30j</SectionTitle>
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📦 Produits avec stock mais sans vente récente</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Valeur immobilisée — bons candidats pour une promo ou un push email</div>
+        {stockDormant.length === 0 ? (
+          <div style={{ color: C.green, fontSize: 13, padding: "8px 0", fontWeight: 700 }}>
+            ✓ Tous vos produits en stock se sont vendus ces 30 derniers jours
+          </div>
+        ) : (
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 420 }}>
+              <thead>
+                <tr style={{ borderBottom: `1px solid ${C.faint}` }}>
+                  {["Produit", "Stock", "Valeur immobilisée"].map(h => (
+                    <th key={h} style={{ padding: "8px 12px", textAlign: "left", fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase" as const, color: C.muted }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {stockDormant.map((p: any) => (
+                  <tr key={p.slug} style={{ borderBottom: `1px solid ${C.faint}` }}>
+                    <td style={{ padding: "10px 12px", fontSize: 13, fontWeight: 700, color: C.warm }}>{p.name}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: C.amber, fontWeight: 800 }}>{p.stock}</td>
+                    <td style={{ padding: "10px 12px", fontSize: 13, color: C.red, fontWeight: 800 }}>{p.valeur.toFixed(0)} €</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+        <LexiqueTag terme="Stock dormant" />
+      </div>
+
+      {/* ══ SECTION 13 : NEWSLETTER AVANCÉE ══ */}
+      <SectionTitle>Newsletter — détails</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+        <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📊 Sources d'inscription</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>D'où viennent vos abonnés</div>
+          {newsletterSources.length > 0 ? <DonutChart data={newsletterSources} /> : (
+            <div style={{ color: C.muted, fontSize: 13, padding: "8px 0" }}>Pas encore d'inscrits</div>
+          )}
+        </div>
+        <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🚫 Désabonnements</div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Indicateur de la santé de votre liste</div>
+          <div style={{ fontSize: 36, fontWeight: 950, color: newsletterDesabonnes > 0 ? C.red : C.green, lineHeight: 1 }}>
+            {newsletterDesabonnes}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>
+            Sur {newsletter.length} inscrit{newsletter.length > 1 ? "s" : ""}
+            {newsletter.length > 0 && (
+              <> · Taux : <strong style={{ color: newsletterDesabonnes / newsletter.length > 0.1 ? C.red : C.green }}>
+                {((newsletterDesabonnes / newsletter.length) * 100).toFixed(1)}%
+              </strong></>
+            )}
+          </div>
+        </div>
       </div>
 
       {/* ══ LEXIQUE COMPLET ══ */}

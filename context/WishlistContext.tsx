@@ -24,12 +24,13 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     setMounted(true);
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return;
+    try { localStorage.setItem("milk_wishlist", JSON.stringify(ids)); } catch {}
+  }, [ids, mounted]);
+
   function toggle(id: string) {
-    setIds(prev => {
-      const next = prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id];
-      localStorage.setItem("milk_wishlist", JSON.stringify(next));
-      return next;
-    });
+    setIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
   }
 
   function isInList(id: string) { return ids.includes(id); }

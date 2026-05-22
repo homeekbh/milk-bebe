@@ -25,10 +25,24 @@ function extractTailleFromName(name: string): string | null {
 
 export async function POST(req: Request) {
   try {
-    const { items, promo_code, discount, free_shipping, customer_email } = await req.json();
+    const { items, promo_code, discount, free_shipping, customer_email, delivery_type, relay, home_address } = await req.json();
 
     if (!items || items.length === 0) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
+    }
+
+    // ── Validation du mode de livraison ──────────────────────────────────────
+    const ALLOWED_DELIVERY = ["point_relais", "locker", "home"];
+    if (!delivery_type || !ALLOWED_DELIVERY.includes(delivery_type)) {
+      return Response.json({ error: "Mode de livraison invalide" }, { status: 400 });
+    }
+    if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
+      return Response.json({ error: "Point relais manquant" }, { status: 400 });
+    }
+    if (delivery_type === "home") {
+      if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
+        return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
+      }
     }
 
     const lineItems      = [];
@@ -99,27 +113,35 @@ export async function POST(req: Request) {
       });
     }
 
-    // ── Livraison
+    // ── Livraison : prix dynamique selon type
     const subtotal        = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
     const hasFreeShipping = free_shipping || subtotal >= 60;
-    if (!hasFreeShipping) {
+    const baseDelivery    = delivery_type === "home" ? 6.90 : 4.90;
+    const deliveryCost    = hasFreeShipping ? 0 : baseDelivery;
+
+    if (deliveryCost > 0) {
+      const labelLiv =
+        delivery_type === "home"         ? "Livraison à domicile (Mondial Relay)" :
+        delivery_type === "locker"       ? "Livraison Locker Mondial Relay"      :
+                                            "Livraison Point Relais Mondial Relay";
       lineItems.push({
         price_data: {
           currency:     "eur",
-          product_data: { name: "Livraison" },
-          unit_amount:  490,
+          product_data: { name: labelLiv },
+          unit_amount:  Math.round(deliveryCost * 100),
         },
         quantity: 1,
       });
     }
 
+    // Pour point_relais/locker : pas besoin de demander l'adresse à Stripe
+    // (le client va retirer au point relais sélectionné).
+    // Pour home : on demande l'adresse de livraison à Stripe en plus, mais
+    // celle qu'on a déjà côté UI sert de référence.
     const sessionParams: any = {
       payment_method_types: ["card"],
       line_items:           lineItems,
       mode:                 "payment",
-      shipping_address_collection: {
-        allowed_countries: ["FR", "BE", "CH", "LU", "MC"],
-      },
       billing_address_collection: "auto",
       customer_creation:          "always",
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
@@ -127,12 +149,29 @@ export async function POST(req: Request) {
       locale:      "fr",
       ...(customer_email ? { customer_email } : {}),
       metadata: {
-        items:         JSON.stringify(validatedItems),
-        promo_code:    promo_code    ?? "",
-        discount:      String(discount   ?? 0),
-        free_shipping: String(free_shipping ?? false),
+        items:             JSON.stringify(validatedItems),
+        promo_code:        promo_code    ?? "",
+        discount:          String(discount   ?? 0),
+        free_shipping:     String(free_shipping ?? false),
+        delivery_type,
+        delivery_price:    String(deliveryCost),
+        relay_id:          relay?.id          ?? "",
+        relay_name:        relay?.name        ?? "",
+        relay_street:      relay?.street      ?? "",
+        relay_city:        relay?.city        ?? "",
+        relay_postal_code: relay?.postal_code ?? "",
+        relay_type:        relay?.type        ?? "",
+        home_address:      home_address ? JSON.stringify(home_address) : "",
       },
     };
+
+    // Pour home : on demande à Stripe de collecter l'adresse de livraison
+    // (sert de confirmation + adresse de facturation par défaut)
+    if (delivery_type === "home") {
+      sessionParams.shipping_address_collection = {
+        allowed_countries: ["FR", "BE", "CH", "LU", "MC"],
+      };
+    }
 
     if (discount && discount > 0) {
       const idempotencyKey = `coupon-${promo_code ?? "anon"}-${Math.round(Number(discount) * 100)}-${customer_email ?? "guest"}-${Date.now() >> 16}`;
@@ -147,8 +186,7 @@ export async function POST(req: Request) {
 
     // ✅ Vérification montant minimum Stripe (0.50€)
     const totalAfterDiscount = subtotal - discount;
-    const shippingCost = hasFreeShipping ? 0 : 4.90;
-    const finalTotal = Math.max(0, totalAfterDiscount) + shippingCost;
+    const finalTotal = Math.max(0, totalAfterDiscount) + deliveryCost;
     if (finalTotal < 0.50) {
       return Response.json({ error: "Le montant total est trop faible pour être traité (minimum 0.50€)" }, { status: 400 });
     }

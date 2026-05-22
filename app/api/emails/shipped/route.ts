@@ -26,9 +26,31 @@ function getTrackingUrl(transporteur: string, tracking: string): string | null {
 
 function buildHtml(opts: {
   prenom?: string; tracking?: string; transporteur?: string; items?: any[]; custom_message?: string;
+  delivery_type?: string | null; relay?: any; home_address?: any;
 }): string {
-  const { prenom, tracking, transporteur, items, custom_message } = opts;
+  const { prenom, tracking, transporteur, items, custom_message, delivery_type, relay, home_address } = opts;
   const trackingUrl = tracking && transporteur ? getTrackingUrl(transporteur, tracking) : null;
+  const isRelay = (delivery_type === "point_relais" || delivery_type === "locker") && relay;
+  const isHome  = delivery_type === "home" && home_address;
+  const mapsUrl = isRelay ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${relay.street ?? ""} ${relay.postal_code ?? ""} ${relay.city ?? ""}`)}` : "";
+  const deliveryBlock = isRelay ? `
+    <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:24px;margin-bottom:24px">
+      <div style="font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c49a4a;margin-bottom:10px">📦 Votre point de retrait</div>
+      <div style="font-size:16px;font-weight:900;color:#f2ede6;margin-bottom:6px">${escapeHtml(String(relay.name ?? ""))}</div>
+      <div style="font-size:13px;color:rgba(242,237,230,0.6);line-height:1.7;margin-bottom:12px">
+        ${escapeHtml(String(relay.street ?? ""))}<br>
+        ${escapeHtml(String(relay.postal_code ?? ""))} ${escapeHtml(String(relay.city ?? ""))}
+      </div>
+      <a href="${mapsUrl}" target="_blank" rel="noopener" style="display:inline-block;background:rgba(196,154,74,0.15);color:#c49a4a;padding:8px 16px;border-radius:8px;font-weight:800;font-size:12px;text-decoration:none">Voir sur Google Maps →</a>
+    </div>` : isHome ? `
+    <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:24px;margin-bottom:24px">
+      <div style="font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c49a4a;margin-bottom:10px">🏠 Livraison à domicile</div>
+      <div style="font-size:14px;color:#f2ede6;line-height:1.7">
+        ${escapeHtml(String(home_address.name ?? ""))}<br>
+        ${escapeHtml(String(home_address.line1 ?? ""))}<br>
+        ${escapeHtml(String(home_address.postal_code ?? ""))} ${escapeHtml(String(home_address.city ?? ""))}
+      </div>
+    </div>` : "";
   const itemsList = (Array.isArray(items) ? items : []).map((i: any) =>
     `<tr>
       <td style="padding:10px 0;border-bottom:1px solid #3d2e1e;color:#f2ede6;font-weight:700">${escapeHtml(i.name ?? "")}</td>
@@ -65,6 +87,7 @@ function buildHtml(opts: {
         Suivre mon colis →
       </a>` : ""}
     </div>` : ""}
+    ${deliveryBlock}
     ${custom_message ? `
     <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:24px;margin-bottom:24px">
       <div style="font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c49a4a;margin-bottom:10px">✉️ Un mot de l'équipe</div>
@@ -100,9 +123,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
-  const { email, prenom, tracking, transporteur, items, custom_message, preview } = body;
+  const { email, prenom, tracking, transporteur, items, custom_message, preview, delivery_type, relay, home_address } = body;
 
-  const html = buildHtml({ prenom, tracking, transporteur, items, custom_message });
+  const html = buildHtml({ prenom, tracking, transporteur, items, custom_message, delivery_type, relay, home_address });
 
   // Mode preview : retourne le HTML sans envoyer l'email
   if (preview) {

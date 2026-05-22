@@ -17,8 +17,34 @@ function emailConfirmation(
   email: string,
   items: any[],
   amountTotal: number,
-  orderId: string
+  orderId: string,
+  deliveryType: string | null,
+  relay: any,
+  homeAddress: any
 ): string {
+  // Bloc livraison dynamique selon delivery_type
+  const isRelay = (deliveryType === "point_relais" || deliveryType === "locker") && relay;
+  const isHome  = deliveryType === "home" && homeAddress;
+  const mapsUrl = relay ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${relay.street ?? ""} ${relay.postal_code ?? ""} ${relay.city ?? ""}`)}` : "";
+  const deliveryBlock = isRelay ? `
+  <div style="background:#1a1410;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:24px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c49a4a;margin-bottom:14px">📦 Votre point de retrait</div>
+    <div style="color:#f2ede6;font-size:16px;font-weight:900;margin-bottom:8px">${escapeHtml(String(relay.name ?? ""))}</div>
+    <div style="color:rgba(242,237,230,0.65);font-size:14px;line-height:1.6;margin-bottom:14px">
+      ${escapeHtml(String(relay.street ?? ""))}<br>
+      ${escapeHtml(String(relay.postal_code ?? ""))} ${escapeHtml(String(relay.city ?? ""))}
+    </div>
+    <a href="${mapsUrl}" target="_blank" rel="noopener" style="display:inline-block;background:#c49a4a;color:#1a1410;padding:10px 20px;border-radius:10px;font-weight:900;font-size:13px;text-decoration:none">Voir sur Google Maps →</a>
+  </div>` : isHome ? `
+  <div style="background:#1a1410;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:24px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#c49a4a;margin-bottom:14px">🏠 Livraison à domicile</div>
+    <div style="color:#f2ede6;font-size:15px;line-height:1.7">
+      ${escapeHtml(String(homeAddress.name ?? ""))}<br>
+      ${escapeHtml(String(homeAddress.line1 ?? ""))}<br>
+      ${escapeHtml(String(homeAddress.postal_code ?? ""))} ${escapeHtml(String(homeAddress.city ?? ""))}<br>
+      ${escapeHtml(String(homeAddress.country ?? "FR"))}
+    </div>
+  </div>` : "";
   const itemsList = items.map(i => `
     <tr>
       <td style="padding:12px 0;border-bottom:1px solid #2d2419">
@@ -65,6 +91,7 @@ function emailConfirmation(
     </div>
   </div>
 
+  ${deliveryBlock}
   <div style="background:#1a1410;border-radius:16px;border:1px solid rgba(242,237,230,0.08);padding:24px;margin-bottom:20px">
     <div style="font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(242,237,230,0.3);margin-bottom:16px">Livraison estimée</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
@@ -113,7 +140,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    const { email, prenom, customer_name, items, amount_total, order_id } = await req.json();
+    const { email, prenom, customer_name, items, amount_total, order_id, delivery_type, relay, home_address } = await req.json();
     const firstName = prenom || (customer_name ? customer_name.split(' ')[0] : "");
 
     if (!email) return Response.json({ error: "Email manquant" }, { status: 400 });
@@ -122,7 +149,7 @@ export async function POST(req: Request) {
       from:    "M!LK <contact@milkbebe.fr>",
       to:      email,
       subject: `✅ Commande confirmée — M!LK #${order_id?.slice(0, 8).toUpperCase()}`,
-      html:    emailConfirmation(firstName, email, items ?? [], amount_total ?? 0, order_id ?? ""),
+      html:    emailConfirmation(firstName, email, items ?? [], amount_total ?? 0, order_id ?? "", delivery_type ?? null, relay ?? null, home_address ?? null),
     });
 
     if (error) {

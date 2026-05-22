@@ -70,6 +70,24 @@ export async function POST(req: Request) {
         country:     shippingAddr.country     ?? "FR",
       } : null;
 
+      // ── Mode de livraison (Mondial Relay) ───────────────────────────────
+      const deliveryType  = session.metadata?.delivery_type ?? null;
+      const deliveryPrice = parseFloat(session.metadata?.delivery_price ?? "0") || 0;
+      const relayId       = session.metadata?.relay_id          || null;
+      const relayName     = session.metadata?.relay_name        || null;
+      const relayStreet   = session.metadata?.relay_street      || null;
+      const relayCity     = session.metadata?.relay_city        || null;
+      const relayCp       = session.metadata?.relay_postal_code || null;
+      const relayType     = session.metadata?.relay_type        || null;
+
+      let homeAddrParsed: any = null;
+      try { homeAddrParsed = JSON.parse(session.metadata?.home_address ?? ""); } catch {}
+
+      // Si home_address fourni côté UI → on l'utilise comme shipping_address
+      const finalShippingAddress = homeAddrParsed
+        ? { ...homeAddrParsed, line2: homeAddrParsed.line2 ?? "" }
+        : shippingAddress;
+
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .upsert([{
@@ -82,7 +100,15 @@ export async function POST(req: Request) {
           discount,
           status:            "paid",
           shipping_status:   "pending",
-          shipping_address:  shippingAddress,
+          shipping_address:  finalShippingAddress,
+          delivery_type:     deliveryType,
+          delivery_price:    deliveryPrice,
+          relay_id:          relayId,
+          relay_name:        relayName,
+          relay_address:     relayStreet,
+          relay_city:        relayCity,
+          relay_postal_code: relayCp,
+          relay_type:        relayType,
         }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
         .select()
         .single();
@@ -179,9 +205,19 @@ export async function POST(req: Request) {
               items,
               amount_total:     amount,
               order_id:         orderData.id,
-              shipping_address: shippingAddress,
+              shipping_address: finalShippingAddress,
               promo_code:       promoCode,
               discount,
+              delivery_type:    deliveryType,
+              relay:            relayId ? {
+                id:          relayId,
+                name:        relayName,
+                street:      relayStreet,
+                city:        relayCity,
+                postal_code: relayCp,
+                type:        relayType,
+              } : null,
+              home_address:     homeAddrParsed,
             }),
           });
         } catch (e) {

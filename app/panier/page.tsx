@@ -67,6 +67,8 @@ export default function CartPage() {
   const [searchError,     setSearchError]     = useState("");
   const [searchEmpty,     setSearchEmpty]     = useState(false);
   const [selectedRelay,   setSelectedRelay]   = useState<ServicePoint | null>(null);
+  const [manualRelay,     setManualRelay]     = useState({ name: "", address: "", city: "", postal_code: "" });
+  const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
 
   // Charger depuis localStorage au mount
@@ -101,20 +103,44 @@ export default function CartPage() {
     setSearchError("");
     setSearchEmpty(false);
     setSearchResults([]);
+    setFallbackManual(false);
     try {
       const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&type=${type}`);
       const data = await res.json();
-      if (!res.ok || data.error) {
+      if (!res.ok || data.error === true) {
         setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
+        // Permettre saisie manuelle même en cas d'erreur dure
+        setFallbackManual(true);
       } else {
         setSearchResults(data.results ?? []);
         setSearchEmpty(!!data.empty);
+        // Si l'API signale que Sendcloud n'a rien renvoyé, on active le mode manuel
+        if (data.fallback_manual) setFallbackManual(true);
       }
     } catch (e: any) {
       setSearchError("Erreur réseau : " + (e?.message ?? "inconnue"));
+      setFallbackManual(true);
     } finally {
       setSearching(false);
     }
+  }
+
+  function applyManualRelay(type: "point_relais" | "locker") {
+    const { name, address, city, postal_code } = manualRelay;
+    if (!name.trim() || !address.trim() || !city.trim() || !/^\d{4,5}$/.test(postal_code)) {
+      setSearchError("Remplis tous les champs pour la saisie manuelle.");
+      return;
+    }
+    setSelectedRelay({
+      id:            `manual:${postal_code}`,
+      name:          name.trim(),
+      street:        address.trim(),
+      city:          city.trim(),
+      postal_code:   postal_code.trim(),
+      distance:      null,
+      opening_hours: null,
+    });
+    setSearchError("");
   }
 
   function switchDelivery(type: DeliveryType) {
@@ -530,6 +556,43 @@ export default function CartPage() {
                               {r.opening_hours && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 3 }}>{r.opening_hours}</div>}
                             </button>
                           ))}
+                        </div>
+                      )}
+
+                      {/* Mode saisie manuelle (fallback si API Sendcloud indispo) */}
+                      {fallbackManual && (
+                        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "#fff", border: "1px solid rgba(26,20,16,0.1)" }}>
+                          <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, color: "#1a1410" }}>
+                            ✍️ Sélection automatique non disponible. Entrez manuellement l'adresse de votre point relais préféré :
+                          </div>
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <input type="text" placeholder="Nom du point relais (ex: Tabac de la Gare)"
+                              value={manualRelay.name}
+                              onChange={e => setManualRelay(r => ({ ...r, name: e.target.value }))}
+                              style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
+                            <input type="text" placeholder="Adresse complète"
+                              value={manualRelay.address}
+                              onChange={e => setManualRelay(r => ({ ...r, address: e.target.value }))}
+                              style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
+                            <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 6 }}>
+                              <input type="text" inputMode="numeric" maxLength={5} placeholder="CP"
+                                value={manualRelay.postal_code}
+                                onChange={e => setManualRelay(r => ({ ...r, postal_code: e.target.value.replace(/\D/g, "") }))}
+                                style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, fontFamily: "monospace", outline: "none" }} />
+                              <input type="text" placeholder="Ville"
+                                value={manualRelay.city}
+                                onChange={e => setManualRelay(r => ({ ...r, city: e.target.value }))}
+                                style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
+                            </div>
+                            <button
+                              onClick={() => applyManualRelay(deliveryType as "point_relais" | "locker")}
+                              style={{ padding: "9px", borderRadius: 6, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
+                              Valider mon point relais
+                            </button>
+                          </div>
+                          <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginTop: 8, lineHeight: 1.5 }}>
+                            ℹ L'admin verra cette info et expédiera vers ce point relais.
+                          </div>
                         </div>
                       )}
                     </div>

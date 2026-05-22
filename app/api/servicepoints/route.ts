@@ -6,13 +6,20 @@ function getBasicAuth() {
   return "Basic " + Buffer.from(`${pub}:${sec}`).toString("base64");
 }
 
+// Sendcloud /servicepoints peut résider sur 2 sous-domaines selon la version du compte :
+//   1. panel.sendcloud.sc/api/v2/servicepoints      (URL historique, parfois 404)
+//   2. servicepoints.sendcloud.sc/api/v2/service-points (URL dédiée, tiret au lieu de underscore)
+const ENDPOINTS = [
+  "https://panel.sendcloud.sc/api/v2/servicepoints",
+  "https://servicepoints.sendcloud.sc/api/v2/service-points",
+];
+
 /**
  * GET /api/servicepoints?postal_code=06500&type=point_relais|locker&country=FR
  *
- * Public endpoint (utilisé côté panier client).
- * Appelle Sendcloud /api/v2/servicepoints pour Mondial Relay.
- * Filtre selon type (point_relais = commerçant, locker = consigne automatique).
- * Retourne 5 résultats max.
+ * Cherche les service points Mondial Relay autour d'un code postal.
+ * Cascade entre 2 endpoints Sendcloud. Si TOUS échouent → fallback_manual:true
+ * (le client tape manuellement le nom/adresse de son relais préféré).
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
@@ -24,48 +31,70 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: true, message: "Code postal invalide" }, { status: 400 });
   }
 
-  try {
-    const url = `https://panel.sendcloud.sc/api/v2/servicepoints?country=${encodeURIComponent(country)}&carrier=mondial_relay&postal_code=${encodeURIComponent(postalCode)}`;
-    const res = await fetch(url, {
-      method:  "GET",
-      headers: {
-        Authorization: getBasicAuth(),
-        Accept:        "application/json",
-      },
-    });
-    const text = await res.text();
-    let json: any = null;
-    try { json = JSON.parse(text); } catch {}
+  const attempts: Array<{ url: string; status: number; ok: boolean; body_preview: string; count?: number }> = [];
 
-    if (!res.ok) {
-      console.error(`[servicepoints] HTTP ${res.status}:`, text.slice(0, 500));
-      return Response.json({ error: true, status: res.status, message: "Erreur Sendcloud" }, { status: 502 });
+  for (const base of ENDPOINTS) {
+    const url = `${base}?country=${encodeURIComponent(country)}&carrier=mondial_relay&postal_code=${encodeURIComponent(postalCode)}`;
+    console.error(`[servicepoints] → ${url}`);
+    try {
+      const res = await fetch(url, {
+        method:  "GET",
+        headers: {
+          Authorization: getBasicAuth(),
+          Accept:        "application/json",
+        },
+      });
+      const text = await res.text();
+      let json: any = null;
+      try { json = JSON.parse(text); } catch {}
+
+      console.error(`[servicepoints] ${base} → HTTP ${res.status}`);
+      console.error(`[servicepoints] body=${text.slice(0, 800)}`);
+
+      attempts.push({ url, status: res.status, ok: res.ok, body_preview: text.slice(0, 400) });
+
+      if (!res.ok) continue;
+
+      const all: any[] = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : (Array.isArray(json?.service_points) ? json.service_points : []));
+
+      const isLockerSP = (sp: any) => {
+        if (sp.is_locker === true) return true;
+        if (typeof sp.type === "string" && /locker|consigne/i.test(sp.type)) return true;
+        return /locker|consigne|automatique/i.test(String(sp.name ?? ""));
+      };
+
+      const filtered = all.filter(sp => type === "locker" ? isLockerSP(sp) : !isLockerSP(sp));
+      const results  = filtered.slice(0, 5).map((sp: any) => ({
+        id:            String(sp.id ?? sp.code ?? ""),
+        name:          sp.name ?? "",
+        street:        sp.street ?? sp.address ?? sp.house_number ? `${sp.house_number ?? ""} ${sp.street ?? ""}`.trim() : (sp.address ?? ""),
+        city:          sp.city ?? "",
+        postal_code:   sp.postal_code ?? "",
+        country:       sp.country ?? country,
+        distance:      sp.distance ?? null,
+        opening_hours: sp.opening_hours ?? sp.formatted_opening_times ?? sp.formatted_opening_hours ?? null,
+      }));
+
+      attempts[attempts.length - 1].count = results.length;
+      console.error(`[servicepoints] ${base} → ${all.length} raw, ${results.length} filtrés "${type}"`);
+
+      if (results.length > 0) {
+        return Response.json({ results, empty: false, source: base, attempts });
+      }
+      // 0 résultats sur cet endpoint, on tente le suivant
+    } catch (e: any) {
+      console.error(`[servicepoints] ${base} exception:`, e?.message);
+      attempts.push({ url, status: 0, ok: false, body_preview: `Exception: ${e?.message ?? "unknown"}` });
     }
-
-    const all: any[] = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : []);
-
-    // Type detection : champs possibles dans Sendcloud — is_locker, type, name avec "Locker"/"Consigne"
-    const isLockerSP = (sp: any) => {
-      if (sp.is_locker === true) return true;
-      if (typeof sp.type === "string" && /locker|consigne|locker24/i.test(sp.type)) return true;
-      return /locker|consigne|automatique/i.test(String(sp.name ?? ""));
-    };
-
-    const filtered = all.filter(sp => type === "locker" ? isLockerSP(sp) : !isLockerSP(sp));
-    const results  = filtered.slice(0, 5).map((sp: any) => ({
-      id:            String(sp.id ?? sp.code ?? ""),
-      name:          sp.name ?? "",
-      street:        sp.street ?? sp.address ?? "",
-      city:          sp.city ?? "",
-      postal_code:   sp.postal_code ?? "",
-      country:       sp.country ?? country,
-      distance:      sp.distance ?? null,
-      opening_hours: sp.opening_hours ?? sp.formatted_opening_times ?? null,
-    }));
-
-    return Response.json({ results, empty: results.length === 0, total_raw: all.length });
-  } catch (e: any) {
-    console.error("[servicepoints] exception:", e);
-    return Response.json({ error: true, message: e.message ?? "Erreur réseau" }, { status: 500 });
   }
+
+  // Tous endpoints échoués ou aucun résultat → mode fallback manuel
+  console.error(`[servicepoints] all endpoints failed/empty for ${postalCode} → fallback manual`);
+  return Response.json({
+    results:         [],
+    empty:           true,
+    fallback_manual: true,
+    attempts,
+    message:         "Service Sendcloud indisponible. Saisie manuelle du point relais activée.",
+  });
 }

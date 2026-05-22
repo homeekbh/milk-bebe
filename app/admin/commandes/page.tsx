@@ -281,6 +281,9 @@ export default function AdminCommandes() {
   const [labelUrl,       setLabelUrl]       = useState<string | null>(null);
   const [generatingLabel, setGeneratingLabel] = useState(false);
   const [labelError,     setLabelError]     = useState("");
+  // parcel_id retourné dans la réponse d'erreur (cas 409 "colis déjà créé")
+  // — déclenche le bouton "Vérifier l'étiquette" en mode récupération.
+  const [errorParcelId,  setErrorParcelId]  = useState<string | null>(null);
 
   // Liste fixe (plus de fetch dynamique — 3 options M!LK)
   const mondialProducts = MONDIAL_OPTIONS;
@@ -360,6 +363,7 @@ export default function AdminCommandes() {
     setGeneratingLabel(true);
     setLabelError("");
     setLabelUrl(null);
+    setErrorParcelId(null);
     try {
       const res = await adminFetch("/api/admin/sendcloud/create-label", {
         method: "POST",
@@ -384,6 +388,13 @@ export default function AdminCommandes() {
         await load();
       } else {
         setLabelError(data.error ?? "Erreur génération étiquette");
+        // Cas 409 — un colis Sendcloud existe déjà : exposer le parcel_id pour
+        // déclencher le bouton "Vérifier l'étiquette" malgré l'erreur. Reload
+        // l'order pour récupérer sendcloud_parcel_id depuis la base.
+        if (data.parcel_id) {
+          setErrorParcelId(String(data.parcel_id));
+          await load();
+        }
       }
     } catch (e: any) {
       setLabelError("Erreur réseau : " + e.message);
@@ -1012,6 +1023,17 @@ export default function AdminCommandes() {
                               <div style={{ padding: "8px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
                                 ✕ {labelError}
                               </div>
+                            )}
+                            {/* Bouton de récupération quand l'erreur expose un
+                                parcel_id existant (cas 409 "colis déjà créé").
+                                On peut directement aller chercher l'étiquette
+                                via label-pdf au lieu d'en recréer un nouveau. */}
+                            {errorParcelId && (
+                              <button
+                                onClick={() => openLabelPdf(order.id)}
+                                style={{ padding: "10px 16px", borderRadius: 10, background: "#1d4ed8", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
+                                🔄 Vérifier l'étiquette du colis #{errorParcelId}
+                              </button>
                             )}
                             {labelUrl && (
                               <button

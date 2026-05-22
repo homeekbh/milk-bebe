@@ -68,16 +68,38 @@ const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
   returned:  { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
 };
 
-// Transporteurs Sendcloud — chargés dynamiquement au mount via /api/admin/sendcloud/shipping-products
+// Transporteurs M!LK — liste fixe Mondial Relay (3 options pour colis bébé bambou < 250g)
 type SendcloudProduct = {
-  code:         string;
+  code:         string;        // ID Sendcloud (string pour usage uniforme)
   name:         string;
   carrier_name: string;
   carrier_code: string;
   contract_id:  number | null;
   weight_min?:  number | null;
   weight_max?:  number | null;
+  delivery_type: "point_relais" | "locker" | "home";
 };
+
+const MONDIAL_OPTIONS: SendcloudProduct[] = [
+  {
+    code: "10327", name: "Mondial Relay Point Relais (0-1kg)",
+    carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
+    contract_id: null, weight_min: 0, weight_max: 1,
+    delivery_type: "point_relais",
+  },
+  {
+    code: "29146", name: "Mondial Relay Locker (0.25-0.5kg)",
+    carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
+    contract_id: null, weight_min: 0.25, weight_max: 0.5,
+    delivery_type: "locker",
+  },
+  {
+    code: "10315", name: "Mondial Relay Home (0.5-1kg)",
+    carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
+    contract_id: null, weight_min: 0.5, weight_max: 1,
+    delivery_type: "home",
+  },
+];
 
 const ADRESSE_EXPEDITEUR = {
   nom:     "M!LK — Essentiels Bébé (EKBH)",
@@ -240,10 +262,8 @@ export default function AdminCommandes() {
   const [generatingLabel, setGeneratingLabel] = useState(false);
   const [labelError,     setLabelError]     = useState("");
 
-  // Produits Mondial Relay chargés dynamiquement
-  const [mondialProducts, setMondialProducts] = useState<SendcloudProduct[]>([]);
-  const [productsLoading, setProductsLoading] = useState(false);
-  const [productsError,   setProductsError]   = useState("");
+  // Liste fixe (plus de fetch dynamique — 3 options M!LK)
+  const mondialProducts = MONDIAL_OPTIONS;
 
   // Modale confirmation expédition
   const [shipModal, setShipModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
@@ -264,31 +284,16 @@ export default function AdminCommandes() {
 
   useEffect(() => { load(); }, []);
 
-  // Charge les produits Mondial Relay disponibles côté Sendcloud
-  useEffect(() => {
-    setProductsLoading(true);
-    setProductsError("");
-    adminFetch("/api/admin/sendcloud/shipping-products?carrier=mondial")
-      .then(r => r.json())
-      .then(data => {
-        if (Array.isArray(data?.products)) {
-          setMondialProducts(data.products);
-        } else if (data?.error) {
-          setProductsError(data.error);
-        }
-      })
-      .catch(e => setProductsError(e?.message ?? "Erreur réseau"))
-      .finally(() => setProductsLoading(false));
-  }, []);
-
-  // Quand on ouvre une commande, pré-remplir les champs
+  // Quand on ouvre une commande, pré-remplir les champs + auto-sélectionner le transporteur
   useEffect(() => {
     if (!selected) return;
     const order = orders.find(o => o.id === selected);
     if (order) {
       setTracking(order.tracking_number ?? "");
       setNotes(order.notes ?? "");
-      setTransporteur("");
+      // Auto-sélection selon delivery_type
+      const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === order.delivery_type);
+      setTransporteur(matched ? JSON.stringify(matched) : "");
     }
   }, [selected, orders]);
 
@@ -792,19 +797,6 @@ export default function AdminCommandes() {
                             Transporteur *
                           </label>
                           <div style={{ display: "grid", gap: 8 }}>
-                            {productsLoading && (
-                              <div style={{ padding: "10px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)" }}>⏳ Chargement Mondial Relay...</div>
-                            )}
-                            {productsError && (
-                              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
-                                ✕ {productsError}
-                              </div>
-                            )}
-                            {!productsLoading && !productsError && mondialProducts.length === 0 && (
-                              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 700 }}>
-                                ⚠ Aucun produit Mondial Relay actif sur ton compte Sendcloud.
-                              </div>
-                            )}
                             {mondialProducts.map(t => {
                               const key = t.code;
                               const isSelected = (() => { try { return JSON.parse(transporteur).code === key; } catch { return false; } })();

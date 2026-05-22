@@ -17,13 +17,24 @@ function fbq(event: string, data?: Record<string, unknown>) {
 
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
 
 const FREE_SHIPPING_THRESHOLD = 60;
 const PRICE_RELAY = 4.90;
 const PRICE_HOME  = 6.90;
+
+// Brand Mondial Relay — CC2 est le code de démo publique
+// (à remplacer par le vrai code marchand M!LK une fois souscrit)
+const MR_BRAND = "CC2";
+
+declare global {
+  interface Window {
+    $?: any;
+    jQuery?: any;
+  }
+}
 
 type DeliveryType = "point_relais" | "locker" | "home";
 
@@ -70,6 +81,12 @@ export default function CartPage() {
   const [manualRelay,     setManualRelay]     = useState({ name: "", address: "", city: "", postal_code: "" });
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
+
+  // ── Widget Mondial Relay (chargement scripts + init lazy) ─────────────────
+  const [mrReady,         setMrReady]         = useState(false);
+  const [mrError,         setMrError]         = useState("");
+  const widgetInited                          = useRef(false);
+  const widgetContainerId                     = "milk-mr-widget";
 
   // Charger depuis localStorage au mount
   useEffect(() => {
@@ -146,12 +163,95 @@ export default function CartPage() {
   function switchDelivery(type: DeliveryType) {
     setDeliveryType(type);
     setCheckoutError("");
+    widgetInited.current = false; // re-init widget si on bascule entre PR et Locker
     if (type === "home") {
       setSelectedRelay(null);
       setSearchResults([]);
       setSearchEmpty(false);
     }
   }
+
+  // Charge jQuery + plugin Mondial Relay au mount (une seule fois)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (window.$ && window.$.fn?.MR_ParcelShopPicker) { setMrReady(true); return; }
+
+    function loadScript(src: string): Promise<void> {
+      return new Promise((resolve, reject) => {
+        const existing = document.querySelector(`script[src="${src}"]`);
+        if (existing) { resolve(); return; }
+        const s = document.createElement("script");
+        s.src = src;
+        s.async = true;
+        s.onload = () => resolve();
+        s.onerror = () => reject(new Error("Script load error: " + src));
+        document.head.appendChild(s);
+      });
+    }
+
+    (async () => {
+      try {
+        if (!window.$) {
+          await loadScript("https://code.jquery.com/jquery-3.7.1.min.js");
+        }
+        await loadScript("https://widget.mondialrelay.com/parcelshop-picker/jquery.plugin.mondialrelay.parcelshoppicker.min.js");
+        // Petite latence pour s'assurer que le plugin s'est attaché à $.fn
+        setTimeout(() => {
+          if (window.$?.fn?.MR_ParcelShopPicker) {
+            setMrReady(true);
+          } else {
+            setMrError("Le widget Mondial Relay n'a pas pu se charger.");
+          }
+        }, 200);
+      } catch (e: any) {
+        setMrError("Erreur chargement Mondial Relay : " + (e?.message ?? "inconnu"));
+      }
+    })();
+  }, []);
+
+  // Initialise le widget quand on est en mode point_relais/locker, scripts chargés
+  useEffect(() => {
+    if (!mrReady) return;
+    if (deliveryType !== "point_relais" && deliveryType !== "locker") return;
+    if (selectedRelay) return;
+    if (widgetInited.current) return;
+
+    const $ = window.$;
+    const $container = $("#" + widgetContainerId);
+    if (!$container.length) return;
+
+    try {
+      $container.empty();
+      $container.MR_ParcelShopPicker({
+        Target:           "",
+        TargetDisplay:    "",
+        TargetDisplayInfoPR: "",
+        Brand:            MR_BRAND,
+        Country:          "FR",
+        AllowedCountries: "FR,BE,LU,ES,NL,DE",
+        PostCode:         postalSearch || "",
+        Weight:           "250",
+        NbResults:        5,
+        SearchDelay:      "0",
+        OnParcelShopSelected: (data: any) => {
+          if (!data) return;
+          setSelectedRelay({
+            id:            String(data.ID ?? data.Id ?? ""),
+            name:          String(data.Nom ?? data.Name ?? ""),
+            street:        `${data.Adresse1 ?? data.Address1 ?? ""}${data.Adresse2 ? ", " + data.Adresse2 : ""}`.trim(),
+            city:          String(data.Ville ?? data.City ?? ""),
+            postal_code:   String(data.CP ?? data.PostCode ?? ""),
+            distance:      null,
+            opening_hours: data.HorairesOuverture ?? data.OpeningHours ?? null,
+          });
+          setSearchError("");
+        },
+      });
+      widgetInited.current = true;
+    } catch (e: any) {
+      setMrError("Init widget échouée : " + (e?.message ?? "inconnu"));
+    }
+  }, [mrReady, deliveryType, selectedRelay, postalSearch]);
 
   const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
 
@@ -501,69 +601,33 @@ export default function CartPage() {
                     })}
                   </div>
 
-                  {/* Recherche relais/locker */}
+                  {/* Widget Mondial Relay officiel */}
                   {(deliveryType === "point_relais" || deliveryType === "locker") && !selectedRelay && (
                     <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, color: "#1a1410" }}>📍 Code postal</div>
-                      <div style={{ display: "flex", gap: 8 }}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={5}
-                          value={postalSearch}
-                          onChange={e => { setPostalSearch(e.target.value.replace(/\D/g, "")); setSearchError(""); }}
-                          onKeyDown={e => e.key === "Enter" && searchServicePoints(deliveryType)}
-                          placeholder="06500"
-                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#fff" }}
-                        />
-                        <button
-                          onClick={() => searchServicePoints(deliveryType)}
-                          disabled={searching || !postalSearch}
-                          style={{ padding: "10px 16px", borderRadius: 8, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 13, border: "none", cursor: searching || !postalSearch ? "not-allowed" : "pointer", opacity: searching || !postalSearch ? 0.5 : 1 }}>
-                          {searching ? "..." : "Rechercher"}
+                      {!mrReady && !mrError && (
+                        <div style={{ padding: "20px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
+                          ⏳ Chargement du sélecteur Mondial Relay...
+                        </div>
+                      )}
+                      {mrError && (
+                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+                          ⚠ {mrError}
+                        </div>
+                      )}
+                      <div id={widgetContainerId} style={{ minHeight: mrReady ? 480 : 0, background: "#fff", borderRadius: 8 }} />
+                      <div style={{ marginTop: 10, padding: "8px 12px", fontSize: 11, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
+                        Sélectionnez un point sur la carte ou dans la liste.
+                        {" "}
+                        <button onClick={() => setFallbackManual(true)} style={{ background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
+                          Saisir manuellement
                         </button>
                       </div>
-                      {searchError && (
-                        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#fee2e2", fontSize: 12, fontWeight: 700, color: "#b91c1c", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                          <span>⚠ {searchError}</span>
-                          <button onClick={() => searchServicePoints(deliveryType)} style={{ background: "none", border: "none", color: "#b91c1c", fontSize: 12, fontWeight: 800, textDecoration: "underline", cursor: "pointer" }}>Réessayer</button>
-                        </div>
-                      )}
-                      {searchEmpty && !searchError && (
-                        <div style={{ marginTop: 10 }}>
-                          <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fef3c7", fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 8 }}>
-                            Aucun point disponible ici. Livraison à domicile pour {PRICE_HOME.toFixed(2)} € ?
-                          </div>
-                          <button
-                            onClick={() => switchDelivery("home")}
-                            style={{ width: "100%", padding: "10px", borderRadius: 8, background: "#c49a4a", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
-                            Choisir la livraison à domicile
-                          </button>
-                        </div>
-                      )}
-                      {searchResults.length > 0 && (
-                        <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
-                          {searchResults.map(r => (
-                            <button
-                              key={r.id}
-                              onClick={() => setSelectedRelay(r)}
-                              style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid rgba(26,20,16,0.1)", cursor: "pointer", fontFamily: "inherit" }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                                <span style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>{r.name}</span>
-                                {r.distance !== null && <span style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>{r.distance < 1000 ? `${r.distance}m` : `${(r.distance / 1000).toFixed(1)}km`}</span>}
-                              </div>
-                              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.55)", marginTop: 3 }}>{r.street}, {r.postal_code} {r.city}</div>
-                              {r.opening_hours && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 3 }}>{r.opening_hours}</div>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
 
-                      {/* Mode saisie manuelle (fallback si API Sendcloud indispo) */}
+                      {/* Mode saisie manuelle (backup si le widget ne se charge pas) */}
                       {fallbackManual && (
                         <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "#fff", border: "1px solid rgba(26,20,16,0.1)" }}>
                           <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, color: "#1a1410" }}>
-                            ✍️ Sélection automatique non disponible. Entrez manuellement l'adresse de votre point relais préféré :
+                            ✍️ Saisie manuelle — entrez l'adresse de votre point relais préféré :
                           </div>
                           <div style={{ display: "grid", gap: 6 }}>
                             <input type="text" placeholder="Nom du point relais (ex: Tabac de la Gare)"
@@ -589,9 +653,7 @@ export default function CartPage() {
                               style={{ padding: "9px", borderRadius: 6, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
                               Valider mon point relais
                             </button>
-                          </div>
-                          <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginTop: 8, lineHeight: 1.5 }}>
-                            ℹ L'admin verra cette info et expédiera vers ce point relais.
+                            {searchError && <div style={{ fontSize: 11, color: "#b91c1c", fontWeight: 700, marginTop: 4 }}>⚠ {searchError}</div>}
                           </div>
                         </div>
                       )}

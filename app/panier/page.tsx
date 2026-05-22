@@ -17,24 +17,18 @@ function fbq(event: string, data?: Record<string, unknown>) {
 
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
 
 const FREE_SHIPPING_THRESHOLD = 60;
-const PRICE_RELAY = 4.90;
-const PRICE_HOME  = 6.90;
+const PRICE_RELAY = 6.82;   // Colissimo Point Relais
+const PRICE_HOME  = 8.66;   // Colissimo Domicile
 
-// Brand Mondial Relay — CC2 est le code de démo publique
-// (à remplacer par le vrai code marchand M!LK une fois souscrit)
-const MR_BRAND = "CC2";
-
-declare global {
-  interface Window {
-    $?: any;
-    jQuery?: any;
-  }
-}
+// Distance max (km) d'un point relais Colissimo affiché dans le sélecteur.
+// Au-delà on cache le résultat — un client n'ira jamais à 20 km pour récupérer
+// un colis bébé.
+const MAX_RELAY_DISTANCE_KM = 10;
 
 type DeliveryType = "point_relais" | "home";
 
@@ -70,7 +64,7 @@ export default function CartPage() {
   const [guestError,    setGuestError]    = useState("");
   const [checkoutError, setCheckoutError] = useState("");
 
-  // ── Livraison Mondial Relay ──────────────────────────────────────────────
+  // ── Livraison Colissimo (Domicile ou Point Relais La Poste) ─────────────
   const [deliveryType,    setDeliveryType]    = useState<DeliveryType | null>(null);
   const [postalSearch,    setPostalSearch]    = useState("");
   const [searching,       setSearching]       = useState(false);
@@ -81,12 +75,6 @@ export default function CartPage() {
   const [manualRelay,     setManualRelay]     = useState({ name: "", address: "", city: "", postal_code: "" });
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
-
-  // ── Widget Mondial Relay (chargement scripts + init lazy) ─────────────────
-  const [mrReady,         setMrReady]         = useState(false);
-  const [mrError,         setMrError]         = useState("");
-  const widgetInited                          = useRef(false);
-  const widgetContainerId                     = "milk-mr-widget";
 
   // Charger depuis localStorage au mount
   useEffect(() => {
@@ -122,17 +110,21 @@ export default function CartPage() {
     setSearchResults([]);
     setFallbackManual(false);
     try {
-      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&type=point_relais`);
+      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&carrier=colissimo`);
       const data = await res.json();
       if (!res.ok || data.error === true) {
         setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
-        // Permettre saisie manuelle même en cas d'erreur dure
         setFallbackManual(true);
       } else {
-        setSearchResults(data.results ?? []);
-        setSearchEmpty(!!data.empty);
-        // Si l'API signale que Sendcloud n'a rien renvoyé, on active le mode manuel
-        if (data.fallback_manual) setFallbackManual(true);
+        // Filtre côté client : distance max 10 km. Si Sendcloud ne fournit pas
+        // de distance, on conserve le point (mieux vaut afficher que rien).
+        const all: ServicePoint[] = data.results ?? [];
+        const filtered = all.filter(sp => sp.distance == null || sp.distance <= MAX_RELAY_DISTANCE_KM);
+        setSearchResults(filtered);
+        setSearchEmpty(filtered.length === 0);
+        if (filtered.length === 0 && all.length === 0 && data.fallback_manual) {
+          setFallbackManual(true);
+        }
       }
     } catch (e: any) {
       setSearchError("Erreur réseau : " + (e?.message ?? "inconnue"));
@@ -140,6 +132,11 @@ export default function CartPage() {
     } finally {
       setSearching(false);
     }
+  }
+
+  function selectServicePoint(sp: ServicePoint) {
+    setSelectedRelay(sp);
+    setSearchError("");
   }
 
   function applyManualRelay() {
@@ -163,96 +160,12 @@ export default function CartPage() {
   function switchDelivery(type: DeliveryType) {
     setDeliveryType(type);
     setCheckoutError("");
-    widgetInited.current = false; // re-init widget si on bascule entre modes
     if (type === "home") {
       setSelectedRelay(null);
       setSearchResults([]);
       setSearchEmpty(false);
     }
   }
-
-  // Charge jQuery + plugin Mondial Relay au mount (une seule fois)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.$ && window.$.fn?.MR_ParcelShopPicker) { setMrReady(true); return; }
-
-    function loadScript(src: string): Promise<void> {
-      return new Promise((resolve, reject) => {
-        const existing = document.querySelector(`script[src="${src}"]`);
-        if (existing) { resolve(); return; }
-        const s = document.createElement("script");
-        s.src = src;
-        s.async = true;
-        s.onload = () => resolve();
-        s.onerror = () => reject(new Error("Script load error: " + src));
-        document.head.appendChild(s);
-      });
-    }
-
-    (async () => {
-      try {
-        if (!window.$) {
-          await loadScript("https://code.jquery.com/jquery-3.7.1.min.js");
-        }
-        await loadScript("https://widget.mondialrelay.com/parcelshop-picker/jquery.plugin.mondialrelay.parcelshoppicker.min.js");
-        // Petite latence pour s'assurer que le plugin s'est attaché à $.fn
-        setTimeout(() => {
-          if (window.$?.fn?.MR_ParcelShopPicker) {
-            setMrReady(true);
-          } else {
-            setMrError("Le widget Mondial Relay n'a pas pu se charger.");
-          }
-        }, 200);
-      } catch (e: any) {
-        setMrError("Erreur chargement Mondial Relay : " + (e?.message ?? "inconnu"));
-      }
-    })();
-  }, []);
-
-  // Initialise le widget quand on est en mode point_relais, scripts chargés
-  useEffect(() => {
-    if (!mrReady) return;
-    if (deliveryType !== "point_relais") return;
-    if (selectedRelay) return;
-    if (widgetInited.current) return;
-
-    const $ = window.$;
-    const $container = $("#" + widgetContainerId);
-    if (!$container.length) return;
-
-    try {
-      $container.empty();
-      $container.MR_ParcelShopPicker({
-        Target:           "",
-        TargetDisplay:    "",
-        TargetDisplayInfoPR: "",
-        Brand:            MR_BRAND,
-        Country:          "FR",
-        AllowedCountries: "FR,BE,LU,ES,NL,DE",
-        PostCode:         postalSearch || "",
-        Weight:           "250",
-        NbResults:        5,
-        SearchDelay:      "0",
-        Mode:             "24R", // Point Relais commerçant uniquement
-        OnParcelShopSelected: (data: any) => {
-          if (!data) return;
-          setSelectedRelay({
-            id:            String(data.ID ?? data.Id ?? ""),
-            name:          String(data.Nom ?? data.Name ?? ""),
-            street:        `${data.Adresse1 ?? data.Address1 ?? ""}${data.Adresse2 ? ", " + data.Adresse2 : ""}`.trim(),
-            city:          String(data.Ville ?? data.City ?? ""),
-            postal_code:   String(data.CP ?? data.PostCode ?? ""),
-            distance:      null,
-            opening_hours: data.HorairesOuverture ?? data.OpeningHours ?? null,
-          });
-          setSearchError("");
-        },
-      });
-      widgetInited.current = true;
-    } catch (e: any) {
-      setMrError("Init widget échouée : " + (e?.message ?? "inconnu"));
-    }
-  }, [mrReady, deliveryType, selectedRelay, postalSearch]);
 
   const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
 
@@ -402,41 +315,6 @@ export default function CartPage() {
           .cart-layout { grid-template-columns: 1fr !important; }
           .cart-sticky  { position: static !important; }
           .cart-outer   { padding: 0 16px !important; }
-        }
-
-        /* ── Widget Mondial Relay : centrage + adaptation largeur ───────── */
-        #milk-mr-widget {
-          width: 100% !important;
-          max-width: 100% !important;
-          margin: 0 auto !important;
-          overflow: hidden !important;
-        }
-        #milk-mr-widget > div,
-        #milk-mr-widget iframe,
-        #milk-mr-widget .MR-Widget-Map,
-        #milk-mr-widget .MRW-Map,
-        #milk-mr-widget .MR-Widget {
-          width: 100% !important;
-          max-width: 100% !important;
-        }
-        #milk-mr-widget img { max-width: 100%; height: auto; }
-
-        /* Mobile : masquer la carte (lourde, mal affichée) → liste only */
-        @media (max-width: 768px) {
-          #milk-mr-widget .MR-Widget-Map,
-          #milk-mr-widget .MRW-Map,
-          #milk-mr-widget [class*="map"],
-          #milk-mr-widget [id*="map"],
-          #milk-mr-widget [id*="Map"] {
-            display: none !important;
-          }
-          #milk-mr-widget .MR-Widget-List,
-          #milk-mr-widget [class*="list"] {
-            width: 100% !important;
-            max-width: 100% !important;
-            max-height: 60vh;
-            overflow-y: auto;
-          }
         }
       `}</style>
 
@@ -610,8 +488,8 @@ export default function CartPage() {
                   <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
                   <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
                     {([
-                      { type: "point_relais" as const, icon: "📦", label: "Point Relais Mondial Relay", sub: "Retrait chez un commerçant", price: PRICE_RELAY },
-                      { type: "home"         as const, icon: "🏠", label: "Livraison à domicile",        sub: "Mondial Relay Home",          price: PRICE_HOME  },
+                      { type: "point_relais" as const, icon: "📦", label: "Colissimo Point Relais", sub: "Bureau de Poste ou commerçant · 2-3 jours ouvrés", price: PRICE_RELAY },
+                      { type: "home"         as const, icon: "🏠", label: "Colissimo Domicile",      sub: "Livraison à domicile · 2-3 jours ouvrés",          price: PRICE_HOME  },
                     ]).map(opt => {
                       const active = deliveryType === opt.type;
                       return (
@@ -636,29 +514,87 @@ export default function CartPage() {
                     })}
                   </div>
 
-                  {/* Widget Mondial Relay officiel */}
+                  {/* Sélecteur Colissimo Point Relais — UI custom */}
                   {deliveryType === "point_relais" && !selectedRelay && (
                     <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                      {!mrReady && !mrError && (
-                        <div style={{ padding: "20px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
-                          ⏳ Chargement du sélecteur Mondial Relay...
-                        </div>
-                      )}
-                      {mrError && (
+                      {/* Recherche par code postal */}
+                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={5}
+                          placeholder="Code postal"
+                          value={postalSearch}
+                          onChange={e => setPostalSearch(e.target.value.replace(/\D/g, ""))}
+                          onKeyDown={e => e.key === "Enter" && searchServicePoints()}
+                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#fff" }}
+                        />
+                        <button
+                          onClick={searchServicePoints}
+                          disabled={searching}
+                          style={{ padding: "10px 18px", borderRadius: 8, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: searching ? "wait" : "pointer", opacity: searching ? 0.6 : 1 }}>
+                          {searching ? "..." : "🔍 Rechercher"}
+                        </button>
+                      </div>
+
+                      {searchError && (
                         <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
-                          ⚠ {mrError}
+                          ⚠ {searchError}
                         </div>
                       )}
-                      <div id={widgetContainerId} style={{ minHeight: mrReady ? 480 : 0, background: "#fff", borderRadius: 8 }} />
-                      <div style={{ marginTop: 10, padding: "8px 12px", fontSize: 11, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
-                        Sélectionnez un point sur la carte ou dans la liste.
+
+                      {searching && (
+                        <div style={{ padding: "20px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
+                          ⏳ Recherche des Points Relais Colissimo à proximité...
+                        </div>
+                      )}
+
+                      {/* Liste des résultats */}
+                      {!searching && searchResults.length > 0 && (
+                        <div style={{ display: "grid", gap: 8, maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>
+                          {searchResults.map(sp => (
+                            <button
+                              key={sp.id}
+                              onClick={() => selectServicePoint(sp)}
+                              style={{ textAlign: "left", background: "#fff", border: "1px solid rgba(26,20,16,0.1)", borderRadius: 10, padding: "12px 14px", cursor: "pointer", fontFamily: "inherit", display: "grid", gap: 4 }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                                <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", lineHeight: 1.3 }}>{sp.name}</div>
+                                {sp.distance != null && (
+                                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", whiteSpace: "nowrap", flexShrink: 0 }}>
+                                    {sp.distance.toFixed(1)} km
+                                  </div>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.65)", lineHeight: 1.5 }}>
+                                {sp.street}{sp.street ? ", " : ""}{sp.postal_code} {sp.city}
+                              </div>
+                              {sp.opening_hours && (
+                                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 2, fontStyle: "italic" }}>
+                                  🕐 {sp.opening_hours}
+                                </div>
+                              )}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Aucun résultat */}
+                      {!searching && searchEmpty && searchResults.length === 0 && (
+                        <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center" }}>
+                          Aucun Point Relais Colissimo trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
+                        </div>
+                      )}
+
+                      {/* Lien saisie manuelle (toujours dispo) */}
+                      <div style={{ marginTop: 12, padding: "8px 12px", fontSize: 11, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
+                        Vous préférez ?
                         {" "}
                         <button onClick={() => setFallbackManual(true)} style={{ background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
                           Saisir manuellement
                         </button>
                       </div>
 
-                      {/* Mode saisie manuelle (backup si le widget ne se charge pas) */}
+                      {/* Mode saisie manuelle */}
                       {fallbackManual && (
                         <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "#fff", border: "1px solid rgba(26,20,16,0.1)" }}>
                           <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, color: "#1a1410" }}>
@@ -755,7 +691,7 @@ export default function CartPage() {
                 </button>
 
                 <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-                  {["Paiement sécurisé Stripe", "100% Bambou OEKO-TEX", "Retour gratuit 15 jours"].map(r => (
+                  {["Paiement sécurisé Stripe", "100% Bambou OEKO-TEX", "Retours sous 14 jours"].map(r => (
                     <div key={r} style={{ fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.45)", textAlign: "center" }}>{r}</div>
                   ))}
                 </div>

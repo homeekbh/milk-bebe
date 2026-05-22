@@ -89,8 +89,8 @@ function TypingDots() {
 
 // ─── Connaissances statiques (livraison, retours, etc.) ─────────────────────
 const STATIC_KNOWLEDGE = [
-  { keys: ["livraison", "expédition", "délai", "envoi", "frais", "port"], answer: "La livraison est **offerte dès 60€** 🚚 En dessous, elle coûte 4,90€. Délai : 2 à 4 jours ouvrés. On livre en France, Belgique, Suisse, Luxembourg et Monaco." },
-  { keys: ["retour", "rembours", "échange", "renvoi"], answer: "Tu as **15 jours** pour retourner un article non utilisé 📦 Le retour est **gratuit**. Remboursement sous 5 à 14 jours ouvrés." },
+  { keys: ["livraison", "expédition", "délai", "envoi", "frais", "port"], answer: "La livraison est **offerte dès 60€** 🚚 En dessous : 6,82€ en Point Relais Colissimo ou 8,66€ à domicile. Délai : **2-3 jours ouvrés** via Colissimo / La Poste. On livre en France, Belgique, Suisse, Luxembourg et Monaco." },
+  { keys: ["retour", "rembours", "échange", "renvoi"], answer: "Tu as **14 jours** pour retourner un article non utilisé 📦 Les frais de retour sont à ta charge (Colissimo recommandé). Remboursement sous 5 à 14 jours ouvrés après réception du colis." },
   { keys: ["taille", "tailles", "grand", "petit", "mesure"], answer: "En cas de doute entre deux tailles, prends la plus grande 👶 Le bambou est extensible et bébé grandit vite. Le **poids** est plus fiable que l'âge." },
   { keys: ["bambou", "matière", "tissu", "fibre", "composition"], answer: "Nos vêtements sont en **95% bambou viscose + 5% spandex**, certifié OEKO-TEX 🌿 Le bambou est 3× plus doux que le coton, thermorégulateur et antibactérien." },
   { keys: ["oeko", "certification", "certifi", "sécurité"], answer: "Tous nos produits sont certifiés **OEKO-TEX Standard 100** ✅ Plus de 100 substances nocives testées. Zéro compromis sur la sécurité de ton nourrisson." },

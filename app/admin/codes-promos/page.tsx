@@ -250,7 +250,7 @@ export default function AdminCodes() {
     const body: Record<string, unknown> = {
       code:           trimCode.toUpperCase(),
       discount_type:  form.type,
-      discount_value: form.type === "free_shipping" ? 4.90 : parseFloat(form.value),
+      discount_value: form.type === "free_shipping" ? 8.66 : parseFloat(form.value),
       min_order:      form.min_order  ? parseFloat(form.min_order) : null,
       max_uses:       form.max_uses   ? parseInt(form.max_uses)    : null,
       starts_at:      form.starts_at  || null,
@@ -337,7 +337,7 @@ export default function AdminCodes() {
             <input type="number" value={form.value}
               onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
               disabled={form.type === "free_shipping"}
-              placeholder={form.type === "percent" ? "Ex : 10" : form.type === "free_shipping" ? "4.90 € auto" : "Ex : 5.00"}
+              placeholder={form.type === "percent" ? "Ex : 10" : form.type === "free_shipping" ? "8.66 € auto" : "Ex : 5.00"}
               min="0" max={form.type === "percent" ? "100" : undefined}
               style={{ ...IS, opacity: form.type === "free_shipping" ? 0.5 : 1 }} />
           </div>

@@ -408,7 +408,7 @@ function ApplePayButton({ product, taille, couleur, qty, promo }: {
         requestPayerEmail: true,
         requestShipping:   true,
         shippingOptions: [
-          { id: "standard", label: "Livraison standard", detail: "3-5 jours ouvrés", amount: amount >= 6000 ? 0 : 490 },
+          { id: "standard", label: "Colissimo Point Relais", detail: "2-3 jours ouvrés", amount: amount >= 6000 ? 0 : 682 },
         ],
       });
 

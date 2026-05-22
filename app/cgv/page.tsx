@@ -2,10 +2,10 @@
 
 export const metadata: Metadata = {
   title:       "Conditions Générales de Vente — M!LK",
-  description: "Conditions générales de vente de M!LK — EKBH SAS. Paiement, livraison, retours, garanties et droit de rétractation.",
+  description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   openGraph: {
     title:       "Conditions Générales de Vente — M!LK",
-    description: "Conditions générales de vente de M!LK — EKBH SAS. Paiement, livraison, retours, garanties et droit de rétractation.",
+    description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   },
 };
 
@@ -49,15 +49,15 @@ Email : contact@milkbebe.fr`,
           },
           {
             title: "7. Livraison",
-            content: "Les commandes sont expédiées en France métropolitaine, Belgique, Suisse, Luxembourg et Monaco. Le délai de livraison est de 2 à 5 jours ouvrés. La livraison est offerte dès 60€ d'achat. En dessous, des frais de port de 4,90€ s'appliquent.",
+            content: "Les commandes sont expédiées via Colissimo / La Poste en France métropolitaine, Belgique, Suisse, Luxembourg et Monaco. Le délai de livraison est de 2 à 3 jours ouvrés en France métropolitaine. La livraison est offerte dès 60€ d'achat. En dessous : 6,82€ en Point Relais Colissimo, 8,66€ à domicile. Un numéro de suivi est communiqué par email dès l'expédition.",
           },
           {
             title: "8. Droit de rétractation",
-            content: "Conformément à l'article L221-18 du Code de la consommation, vous disposez d'un délai de 14 jours à compter de la réception de votre commande pour exercer votre droit de rétractation, sans avoir à justifier de motifs ni à payer de pénalités. Les frais de retour sont pris en charge par M!LK.",
+            content: "Conformément à l'article L221-18 du Code de la consommation, vous disposez d'un délai de 14 jours à compter de la réception de votre commande pour exercer votre droit de rétractation, sans avoir à justifier de motifs ni à payer de pénalités. Les frais de retour sont à la charge du client.",
           },
           {
             title: "9. Retours et remboursements",
-            content: "Pour effectuer un retour, contactez-nous à contact@milkbebe.fr dans les 15 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Le remboursement sera effectué dans les 14 jours suivant la réception du retour.",
+            content: "Pour effectuer un retour, contactez-nous à contact@milkbebe.fr dans les 14 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Les frais de retour sont à la charge du client (Colissimo recommandé). Le remboursement sera effectué dans les 14 jours suivant la réception du retour, sur le moyen de paiement initial.",
           },
           {
             title: "10. Garanties",

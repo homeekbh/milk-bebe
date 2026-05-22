@@ -116,14 +116,14 @@ export async function POST(req: Request) {
     // ── Livraison : prix dynamique selon type
     const subtotal        = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
     const hasFreeShipping = free_shipping || subtotal >= 60;
-    const baseDelivery    = delivery_type === "home" ? 6.90 : 4.90;
+    const baseDelivery    = delivery_type === "home" ? 8.66 : 6.82;
     const deliveryCost    = hasFreeShipping ? 0 : baseDelivery;
 
     if (deliveryCost > 0) {
       const labelLiv =
         delivery_type === "home"
-          ? "Livraison à domicile (Mondial Relay)"
-          : "Livraison Point Relais Mondial Relay";
+          ? "Colissimo Domicile"
+          : "Colissimo Point Relais";
       lineItems.push({
         price_data: {
           currency:     "eur",

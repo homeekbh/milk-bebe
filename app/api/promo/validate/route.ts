@@ -64,7 +64,9 @@ export async function POST(req: NextRequest) {
     discount = Math.min(promoValue, total);
   } else if (promoType === "free_shipping") {
     free_shipping = true;
-    discount      = 4.90;
+    // Couvre 100% de la livraison max (Colissimo Domicile = 8.66€).
+    // Point Relais à 6.82€ → la diff de 1.84€ profite au client.
+    discount      = 8.66;
   }
 
   return Response.json({

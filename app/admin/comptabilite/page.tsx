@@ -39,16 +39,29 @@ interface Order {
   status?:          string | null;
   shipping_status?: string | null;
   refund_amount?:   number | null;
+  // Décomposition CA : frais de port stockés séparément depuis le webhook Stripe.
+  delivery_price?:  number | null;
 }
 
 interface MonthData {
-  key:      string;
-  label:    string;
-  ca:       number;
-  orders:   number;
-  avg:      number;
-  discount: number;
-  net:      number;
+  key:           string;
+  label:         string;
+  ca:            number;  // CA total net (produits + livraison)
+  ca_produit:    number;  // CA produits TTC (= ca - ca_livraison)
+  ca_livraison:  number;  // Frais de port TTC perçus
+  tva_livraison: number;  // TVA 20% sur frais de port (livraison TTC × 0.20 / 1.20)
+  orders:        number;
+  avg:           number;
+  discount:      number;
+  net:           number;  // CA net produit après remises
+}
+
+// TVA française standard sur services de livraison
+const TVA_RATE = 0.20;
+
+// TVA contenue dans un montant TTC : TTC × taux / (1 + taux)
+function tvaFromTTC(ttc: number): number {
+  return ttc * TVA_RATE / (1 + TVA_RATE);
 }
 
 export default function AdminComptabilite() {
@@ -77,7 +90,11 @@ export default function AdminComptabilite() {
     for (let m = 1; m <= 12; m++) {
       const key   = `${year}-${String(m).padStart(2, "0")}`;
       const label = new Date(year, m - 1, 1).toLocaleDateString("fr-FR", { month: "long" });
-      map[key]    = { key, label, ca: 0, orders: 0, avg: 0, discount: 0, net: 0 };
+      map[key]    = {
+        key, label,
+        ca: 0, ca_produit: 0, ca_livraison: 0, tva_livraison: 0,
+        orders: 0, avg: 0, discount: 0, net: 0,
+      };
     }
 
     for (const o of validOrders) {
@@ -89,34 +106,65 @@ export default function AdminComptabilite() {
       // getNetAmount = amount_total - refund_amount (clamp 0). Pour les
       // remboursements partiels (status='rembours_partiel'), le CA tient
       // déjà compte du montant remboursé.
-      entry.ca       += getNetAmount(o);
-      entry.orders   += 1;
-      entry.discount += Number(o.discount ?? 0);
+      const net          = getNetAmount(o);
+      const livraisonTTC = Number(o.delivery_price ?? 0);
+      // On clamp produit ≥ 0 : si le refund partiel a "mangé" la livraison
+      // dans le net, on n'affiche pas un produit négatif.
+      const produit      = Math.max(0, net - livraisonTTC);
+      entry.ca            += net;
+      entry.ca_produit    += produit;
+      entry.ca_livraison  += livraisonTTC;
+      entry.tva_livraison += tvaFromTTC(livraisonTTC);
+      entry.orders        += 1;
+      entry.discount      += Number(o.discount ?? 0);
     }
 
     return Object.values(map).map(m => ({
       ...m,
       avg: m.orders > 0 ? m.ca / m.orders : 0,
-      net: m.ca - m.discount,
+      net: m.ca_produit - m.discount,
     }));
   }, [validOrders, year]);
 
-  const yearOrders = validOrders.filter(o => new Date(o.created_at).getFullYear() === year);
-  const totalCA    = yearOrders.reduce((s, o) => s + getNetAmount(o), 0);
-  const totalDis   = yearOrders.reduce((s, o) => s + Number(o.discount ?? 0), 0);
-  const maxCA      = Math.max(...months.map(m => m.ca), 1);
+  const yearOrders        = validOrders.filter(o => new Date(o.created_at).getFullYear() === year);
+  const totalCA           = yearOrders.reduce((s, o) => s + getNetAmount(o), 0);
+  const totalLivraison    = yearOrders.reduce((s, o) => s + Number(o.delivery_price ?? 0), 0);
+  const totalProduit      = Math.max(0, totalCA - totalLivraison);
+  const totalTvaLivraison = tvaFromTTC(totalLivraison);
+  const totalDis          = yearOrders.reduce((s, o) => s + Number(o.discount ?? 0), 0);
+  const maxCA             = Math.max(...months.map(m => m.ca), 1);
 
   function exportCSV() {
-    const header = ["Mois", "Commandes", "CA TTC (€)", "Remises (€)", "CA Net (€)", "Panier moyen (€)"].join(";");
-    const rows   = months.map(m =>
-      [m.label, m.orders, m.ca.toFixed(2), m.discount.toFixed(2), m.net.toFixed(2), m.avg.toFixed(2)].join(";")
+    const header = [
+      "Mois", "Commandes", "Transporteur",
+      "CA Produits TTC (€)", "Frais Port TTC (€)", "TVA Port 20% (€)",
+      "CA Total TTC (€)", "Remises (€)", "CA Net Produit (€)",
+      "Panier moyen (€)",
+    ].join(";");
+    const rows = months.map(m =>
+      [
+        m.label,
+        m.orders,
+        m.orders > 0 ? "Colissimo" : "",
+        m.ca_produit.toFixed(2),
+        m.ca_livraison.toFixed(2),
+        m.tva_livraison.toFixed(2),
+        m.ca.toFixed(2),
+        m.discount.toFixed(2),
+        m.net.toFixed(2),
+        m.avg.toFixed(2),
+      ].join(";")
     );
-    const total  = [
+    const total = [
       "TOTAL",
       yearOrders.length,
+      yearOrders.length > 0 ? "Colissimo" : "",
+      totalProduit.toFixed(2),
+      totalLivraison.toFixed(2),
+      totalTvaLivraison.toFixed(2),
       totalCA.toFixed(2),
       totalDis.toFixed(2),
-      (totalCA - totalDis).toFixed(2),
+      (totalProduit - totalDis).toFixed(2),
       yearOrders.length > 0 ? (totalCA / yearOrders.length).toFixed(2) : "0",
     ].join(";");
     const csv    = "\uFEFF" + [header, ...rows, total].join("\n");
@@ -162,11 +210,13 @@ export default function AdminComptabilite() {
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 14, marginBottom: 32 }}>
         {[
-          { label: "CA Total",        value: `${totalCA.toFixed(2)} €`,                                                        color: "#c49a4a" },
-          { label: "Commandes",       value: String(yearOrders.length),                                                        color: "#1a1410" },
-          { label: "Panier moyen",    value: yearOrders.length > 0 ? `${(totalCA / yearOrders.length).toFixed(2)} €` : "—",   color: "#1a1410" },
-          { label: "Remises totales", value: `−${totalDis.toFixed(2)} €`,                                                      color: "#b91c1c" },
-          { label: "CA Net",          value: `${(totalCA - totalDis).toFixed(2)} €`,                                           color: "#166534" },
+          { label: "CA Produits TTC",  value: `${totalProduit.toFixed(2)} €`,                                                       color: "#c49a4a" },
+          { label: "Frais Port TTC",   value: `${totalLivraison.toFixed(2)} €`,                                                     color: "#1a1410" },
+          { label: "TVA Port (20%)",   value: `${totalTvaLivraison.toFixed(2)} €`,                                                  color: "#475569" },
+          { label: "Commandes",        value: String(yearOrders.length),                                                            color: "#1a1410" },
+          { label: "Panier moyen",     value: yearOrders.length > 0 ? `${(totalCA / yearOrders.length).toFixed(2)} €` : "—",       color: "#1a1410" },
+          { label: "Remises totales",  value: `−${totalDis.toFixed(2)} €`,                                                          color: "#b91c1c" },
+          { label: "CA Net Produit",   value: `${(totalProduit - totalDis).toFixed(2)} €`,                                          color: "#166534" },
         ].map(stat => (
           <div key={stat.label} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", padding: "18px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 22, fontWeight: 950, letterSpacing: -1, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
@@ -204,12 +254,12 @@ export default function AdminComptabilite() {
           </div>
 
           {/* Tableau mensuel */}
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
+          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", overflow: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 900 }}>
               <thead>
                 <tr style={{ background: "#fafaf9" }}>
-                  {["Mois", "Commandes", "CA TTC", "Remises", "CA Net", "Panier moyen"].map(h => (
-                    <th key={h} style={{ padding: "13px 18px", textAlign: "left", fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "2px solid rgba(0,0,0,0.06)" }}>
+                  {["Mois", "Cmd", "CA Produits", "Frais Port", "TVA Port", "Remises", "CA Net", "Panier moyen"].map(h => (
+                    <th key={h} style={{ padding: "13px 14px", textAlign: "left", fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "2px solid rgba(0,0,0,0.06)", whiteSpace: "nowrap" }}>
                       {h}
                     </th>
                   ))}
@@ -218,18 +268,24 @@ export default function AdminComptabilite() {
               <tbody>
                 {months.map((m, i) => (
                   <tr key={m.key} style={{ borderBottom: i < months.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", background: m.ca > 0 ? "#fff" : "#fafaf9" }}>
-                    <td style={{ padding: "14px 18px", fontWeight: 800, fontSize: 15, color: "#1a1410", textTransform: "capitalize" }}>{m.label}</td>
-                    <td style={{ padding: "14px 18px", fontSize: 14, color: "rgba(26,20,16,0.6)", fontWeight: 600 }}>{m.orders > 0 ? m.orders : "—"}</td>
-                    <td style={{ padding: "14px 18px", fontWeight: 900, fontSize: 16, color: m.ca > 0 ? "#c49a4a" : "rgba(26,20,16,0.25)" }}>
-                      {m.ca > 0 ? `${m.ca.toFixed(2)} €` : "—"}
+                    <td style={{ padding: "14px", fontWeight: 800, fontSize: 14, color: "#1a1410", textTransform: "capitalize" }}>{m.label}</td>
+                    <td style={{ padding: "14px", fontSize: 14, color: "rgba(26,20,16,0.6)", fontWeight: 600 }}>{m.orders > 0 ? m.orders : "—"}</td>
+                    <td style={{ padding: "14px", fontWeight: 900, fontSize: 15, color: m.ca_produit > 0 ? "#c49a4a" : "rgba(26,20,16,0.25)" }}>
+                      {m.ca_produit > 0 ? `${m.ca_produit.toFixed(2)} €` : "—"}
                     </td>
-                    <td style={{ padding: "14px 18px", fontSize: 14, fontWeight: 600, color: m.discount > 0 ? "#b91c1c" : "rgba(26,20,16,0.25)" }}>
+                    <td style={{ padding: "14px", fontSize: 14, fontWeight: 700, color: m.ca_livraison > 0 ? "#1a1410" : "rgba(26,20,16,0.25)" }}>
+                      {m.ca_livraison > 0 ? `${m.ca_livraison.toFixed(2)} €` : "—"}
+                    </td>
+                    <td style={{ padding: "14px", fontSize: 13, fontWeight: 600, color: m.tva_livraison > 0 ? "#475569" : "rgba(26,20,16,0.25)" }}>
+                      {m.tva_livraison > 0 ? `${m.tva_livraison.toFixed(2)} €` : "—"}
+                    </td>
+                    <td style={{ padding: "14px", fontSize: 14, fontWeight: 600, color: m.discount > 0 ? "#b91c1c" : "rgba(26,20,16,0.25)" }}>
                       {m.discount > 0 ? `−${m.discount.toFixed(2)} €` : "—"}
                     </td>
-                    <td style={{ padding: "14px 18px", fontWeight: 800, fontSize: 14, color: m.net > 0 ? "#166534" : "rgba(26,20,16,0.25)" }}>
+                    <td style={{ padding: "14px", fontWeight: 800, fontSize: 14, color: m.net > 0 ? "#166534" : "rgba(26,20,16,0.25)" }}>
                       {m.net > 0 ? `${m.net.toFixed(2)} €` : "—"}
                     </td>
-                    <td style={{ padding: "14px 18px", fontSize: 14, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
+                    <td style={{ padding: "14px", fontSize: 14, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
                       {m.avg > 0 ? `${m.avg.toFixed(2)} €` : "—"}
                     </td>
                   </tr>
@@ -237,16 +293,18 @@ export default function AdminComptabilite() {
 
                 {/* Ligne total */}
                 <tr style={{ background: "#ede8df", borderTop: "2px solid rgba(0,0,0,0.1)" }}>
-                  <td style={{ padding: "16px 18px", fontWeight: 950, fontSize: 15, color: "#1a1410" }}>TOTAL {year}</td>
-                  <td style={{ padding: "16px 18px", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{yearOrders.length}</td>
-                  <td style={{ padding: "16px 18px", fontWeight: 950, fontSize: 18, color: "#c49a4a" }}>{totalCA.toFixed(2)} €</td>
-                  <td style={{ padding: "16px 18px", fontWeight: 900, fontSize: 15, color: "#b91c1c" }}>
+                  <td style={{ padding: "16px 14px", fontWeight: 950, fontSize: 15, color: "#1a1410" }}>TOTAL {year}</td>
+                  <td style={{ padding: "16px 14px", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{yearOrders.length}</td>
+                  <td style={{ padding: "16px 14px", fontWeight: 950, fontSize: 17, color: "#c49a4a" }}>{totalProduit.toFixed(2)} €</td>
+                  <td style={{ padding: "16px 14px", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>{totalLivraison.toFixed(2)} €</td>
+                  <td style={{ padding: "16px 14px", fontWeight: 800, fontSize: 14, color: "#475569" }}>{totalTvaLivraison.toFixed(2)} €</td>
+                  <td style={{ padding: "16px 14px", fontWeight: 900, fontSize: 15, color: "#b91c1c" }}>
                     {totalDis > 0 ? `−${totalDis.toFixed(2)} €` : "—"}
                   </td>
-                  <td style={{ padding: "16px 18px", fontWeight: 950, fontSize: 16, color: "#166534" }}>
-                    {(totalCA - totalDis).toFixed(2)} €
+                  <td style={{ padding: "16px 14px", fontWeight: 950, fontSize: 16, color: "#166534" }}>
+                    {(totalProduit - totalDis).toFixed(2)} €
                   </td>
-                  <td style={{ padding: "16px 18px", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>
+                  <td style={{ padding: "16px 14px", fontWeight: 900, fontSize: 15, color: "#1a1410" }}>
                     {yearOrders.length > 0 ? `${(totalCA / yearOrders.length).toFixed(2)} €` : "—"}
                   </td>
                 </tr>

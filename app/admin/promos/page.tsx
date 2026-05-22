@@ -206,7 +206,7 @@ export default function AdminPromos() {
             {isFreeShipping && (
               <div style={{ padding: "10px 14px", borderRadius: 10, background: "#f0fdf4", border: "1px solid #86efac", display: "flex", alignItems: "center", gap: 8 }}>
                 <span style={{ fontSize: 20 }}>🚚</span>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>Livraison offerte (4,90€)</span>
+                <span style={{ fontSize: 13, fontWeight: 700, color: "#16a34a" }}>Livraison offerte (jusqu'à 8,66€)</span>
               </div>
             )}
             <div style={{ display: "grid", gap: 6 }}>

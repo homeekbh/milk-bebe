@@ -28,16 +28,16 @@ const FAQ_DATA = [
   {
     section: "Livraison & délais",
     questions: [
-      { q: "Quels sont les délais de livraison ?", r: "Commandes passées avant 16h : expédition le jour même (jours ouvrés). Colissimo 2-3 jours, Chronopost J+1. Un email de suivi est envoyé dès l'expédition." },
+      { q: "Quels sont les délais de livraison ?", r: "Commandes passées avant 16h : expédition le jour même (jours ouvrés). Colissimo : 2-3 jours ouvrés (domicile ou point relais). Un email avec le numéro de suivi est envoyé dès l'expédition." },
       { q: "La livraison est-elle gratuite ?", r: "Oui, livraison offerte dès 60€ d'achat. En dessous, les frais de port sont affichés au moment du paiement." },
       { q: "Livrez-vous en dehors de la France ?", r: "Pour le moment, nous livrons uniquement en France métropolitaine. La livraison internationale arrive prochainement." },
-      { q: "Puis-je suivre ma commande ?", r: "Oui. Un email avec le numéro de suivi Colissimo ou Chronopost est envoyé dès l'expédition. Vous pouvez aussi consulter votre espace profil." },
+      { q: "Puis-je suivre ma commande ?", r: "Oui. Un email avec le numéro de suivi Colissimo est envoyé dès l'expédition. Suivi sur laposte.fr ou dans votre espace profil." },
     ],
   },
   {
     section: "Commandes & retours",
     questions: [
-      { q: "Puis-je retourner un article ?", r: "Oui. Retour gratuit sous 15 jours après réception. L'article doit être non porté, dans son état d'origine. Contactez-nous à contact@milkbebe.fr pour initier un retour." },
+      { q: "Puis-je retourner un article ?", r: "Oui, sous 14 jours après réception. L'article doit être non porté, dans son état d'origine. Contactez-nous à contact@milkbebe.fr pour initier un retour. Les frais de retour sont à la charge du client (Colissimo recommandé)." },
       { q: "Comment annuler une commande ?", r: "Contactez-nous le plus tôt possible à contact@milkbebe.fr. Si la commande n'est pas encore expédiée, nous pouvons l'annuler. Après expédition, le retour est la seule option." },
       { q: "Mon article est défectueux — que faire ?", r: "Envoyez une photo à contact@milkbebe.fr. Nous remplaçons ou remboursons immédiatement sans poser de questions. La qualité est notre engagement principal." },
       { q: "Puis-je commander sans créer de compte ?", r: "Pour le moment, un compte est nécessaire pour finaliser la commande. Le checkout invité arrive prochainement." },

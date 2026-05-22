@@ -2,10 +2,10 @@
 
 export const metadata: Metadata = {
   title:       "Livraison & Retours — M!LK",
-  description: "Livraison offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-5 jours ouvrés. Retours gratuits sous 15 jours.",
+  description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   openGraph: {
     title:       "Livraison & Retours — M!LK",
-    description: "Livraison offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-5 jours ouvrés. Retours gratuits sous 15 jours.",
+    description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   },
 };
 
@@ -20,13 +20,16 @@ export const metadata: Metadata = {
 
         {/* Livraison */}
         <div style={{ marginBottom: 40 }}>
-          <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 24 }}>Livraison</h2>
+          <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 8 }}>Livraison Colissimo / La Poste</h2>
+          <p style={{ fontSize: 14, color: "rgba(26,20,16,0.55)", marginBottom: 24, fontWeight: 600 }}>
+            Point Relais : 6,82€ · Domicile : 8,66€ · Offerte dès 60€ d'achat
+          </p>
           <div style={{ display: "grid", gap: 16, marginBottom: 28 }}>
             {[
-              { label: "France métropolitaine",    delay: "2-4 jours ouvrés", price: "Offerte dès 60€ · 4,90€ sinon" },
-              { label: "Belgique, Luxembourg",      delay: "3-5 jours ouvrés", price: "Offerte dès 80€ · 6,90€ sinon" },
-              { label: "Suisse",                    delay: "4-6 jours ouvrés", price: "Offerte dès 100€ · 9,90€ sinon" },
-              { label: "Monaco",                    delay: "2-4 jours ouvrés", price: "Offerte dès 60€ · 4,90€ sinon" },
+              { label: "France métropolitaine",    delay: "2-3 jours ouvrés", price: "Offerte dès 60€" },
+              { label: "Belgique, Luxembourg",      delay: "2-3 jours ouvrés", price: "Offerte dès 80€" },
+              { label: "Suisse",                    delay: "2-3 jours ouvrés", price: "Offerte dès 100€" },
+              { label: "Monaco",                    delay: "2-3 jours ouvrés", price: "Offerte dès 60€" },
             ].map(zone => (
               <div key={zone.label} style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.07)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "center" }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410" }}>{zone.label}</div>
@@ -37,19 +40,22 @@ export const metadata: Metadata = {
           </div>
           <div style={{ background: "#1a1410", borderRadius: 16, padding: "24px 28px" }}>
             <p style={{ margin: 0, fontSize: 15, color: "rgba(242,237,230,0.7)", lineHeight: 1.8 }}>
-              Les commandes passées avant 14h (jours ouvrés) sont expédiées le jour même. Un email avec le numéro de suivi vous est envoyé dès l'expédition.
+              Les commandes passées avant 14h (jours ouvrés) sont expédiées le jour même via Colissimo / La Poste. Un email avec le numéro de suivi vous est envoyé dès l'expédition.
             </p>
           </div>
         </div>
 
         {/* Retours */}
         <div>
-          <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 24 }}>Retours gratuits</h2>
+          <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 8 }}>Retours sous 14 jours</h2>
+          <p style={{ fontSize: 14, color: "rgba(26,20,16,0.55)", marginBottom: 24, fontWeight: 600 }}>
+            Frais de retour à la charge du client (Colissimo recommandé)
+          </p>
           <div style={{ display: "grid", gap: 16 }}>
             {[
-              { step: "1", title: "Contactez-nous",        desc: "Envoyez un email à contact@milkbebe.fr avec votre numéro de commande et la raison du retour." },
-              { step: "2", title: "Renvoyez le colis",     desc: "Retournez le produit dans son emballage d'origine, non utilisé, dans les 15 jours suivant la réception." },
-              { step: "3", title: "Remboursement",         desc: "Dès réception et vérification du produit, le remboursement est effectué sous 14 jours sur votre moyen de paiement." },
+              { step: "1", title: "Contactez-nous",        desc: "Envoyez un email à contact@milkbebe.fr avec votre numéro de commande et la raison du retour. Nous vous indiquons l'adresse de retour." },
+              { step: "2", title: "Renvoyez le colis",     desc: "Retournez le produit dans son emballage d'origine, non utilisé, dans les 14 jours suivant la réception. Les frais de retour sont à votre charge (Colissimo conseillé pour le suivi)." },
+              { step: "3", title: "Remboursement",         desc: "Dès réception et vérification du produit, le remboursement est effectué sous 14 jours sur votre moyen de paiement initial." },
             ].map(step => (
               <div key={step.step} style={{ background: "#fff", borderRadius: 16, padding: "24px 28px", border: "1px solid rgba(26,20,16,0.07)", display: "flex", gap: 20, alignItems: "flex-start" }}>
                 <div style={{ width: 44, height: 44, borderRadius: "50%", background: "#c49a4a", color: "#1a1410", display: "grid", placeItems: "center", fontWeight: 950, fontSize: 18, flexShrink: 0 }}>
@@ -64,7 +70,7 @@ export const metadata: Metadata = {
           </div>
           <div style={{ marginTop: 24, padding: "20px 24px", borderRadius: 14, background: "#fff", border: "1px solid rgba(26,20,16,0.07)" }}>
             <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.5)", lineHeight: 1.7 }}>
-              <strong style={{ color: "#1a1410" }}>Conditions :</strong> Les produits doivent être dans leur état d'origine, non lavés, non portés. Les articles en promotion ou personnalisés ne sont pas éligibles au retour.
+              <strong style={{ color: "#1a1410" }}>Conditions :</strong> Les produits doivent être dans leur état d'origine, non lavés, non portés. Les articles en promotion ou personnalisés ne sont pas éligibles au retour. <strong style={{ color: "#1a1410" }}>Frais de retour à la charge du client.</strong>
             </p>
           </div>
         </div>

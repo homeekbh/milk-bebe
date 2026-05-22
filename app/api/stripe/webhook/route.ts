@@ -124,10 +124,10 @@ export async function POST(req: Request) {
       const _itemIds   = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
       const _itemSlugs = [...new Set(items.map((i: any) => i.slug).filter(Boolean))];
       const { data: _allProds } = await supabaseServer
-        .from("products").select("id, stock, slug, sizes_stock")
+        .from("products").select("id, stock, slug, sizes_stock, name")
         .in("id", _itemIds.length ? _itemIds : ["none"]);
       const { data: _allProds2 } = _itemSlugs.length
-        ? await supabaseServer.from("products").select("id, stock, slug, sizes_stock").in("slug", _itemSlugs)
+        ? await supabaseServer.from("products").select("id, stock, slug, sizes_stock, name").in("slug", _itemSlugs)
         : { data: [] };
       const _prodsMap: Record<string, any> = {};
       [...(_allProds ?? []), ...(_allProds2 ?? [])].forEach((p: any) => {
@@ -135,20 +135,32 @@ export async function POST(req: Request) {
         _prodsMap[p.slug] = p;
       });
 
+      // #17 — tracker les anomalies stock pour notifier l'admin si nécessaire
+      const stockIssues: Array<{ slug: string; name: string; requested: number; available: number; size?: string }> = [];
+
       for (const item of items) {
         let productData: any = _prodsMap[item.id] ?? _prodsMap[item.slug] ?? null;
-        const _skip = false; // batch loaded
-
-        // slug fallback already in batch
 
         if (!productData) {
           console.warn("⚠️ Product not found for item:", item);
+          stockIssues.push({ slug: item.slug ?? "(inconnu)", name: item.name ?? "(inconnu)", requested: item.quantity ?? 1, available: 0 });
           continue;
         }
 
         const qty = item.quantity ?? 1;
-        const newStock = Math.max(0, (productData.stock ?? 0) - qty);
+        const availableGlobal = productData.stock ?? 0;
+        const newStock = Math.max(0, availableGlobal - qty);
         const updatePayload: Record<string, any> = { stock: newStock };
+
+        // Détecter stock insuffisant (global)
+        if (qty > availableGlobal) {
+          stockIssues.push({
+            slug:      productData.slug,
+            name:      productData.name ?? item.name,
+            requested: qty,
+            available: availableGlobal,
+          });
+        }
 
         const taille = extractTailleFromName(item.name ?? "");
         if (taille) {
@@ -160,6 +172,17 @@ export async function POST(req: Request) {
             [taille]: newTailleStock,
           };
           process.env.NODE_ENV !== "production" && console.log(`✅ sizes_stock[${taille}]: ${currentTailleStock} → ${newTailleStock}`);
+
+          // Détecter stock insuffisant sur la taille spécifique
+          if (qty > currentTailleStock) {
+            stockIssues.push({
+              slug:      productData.slug,
+              name:      productData.name ?? item.name,
+              requested: qty,
+              available: currentTailleStock,
+              size:      taille,
+            });
+          }
         } else {
           process.env.NODE_ENV !== "production" && console.log(`ℹ️ Pas de taille identifiée pour "${item.name}" — stock global uniquement`);
         }
@@ -174,6 +197,42 @@ export async function POST(req: Request) {
         } else {
           process.env.NODE_ENV !== "production" && console.log(`✅ Stock updated: ${productData.slug} → global: ${newStock}`);
         }
+      }
+
+      // #17 — Si problème de stock détecté, notifier l'admin (le client reçoit
+      // quand même sa confirmation — il a payé, on ne peut pas le laisser dans
+      // le flou — mais l'admin doit savoir qu'il y a un souci à résoudre).
+      if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0 && orderData) {
+        const issuesHtml = stockIssues.map(i =>
+          `<li><strong>${i.name}</strong>${i.size ? ` (taille ${i.size})` : ""} — commandé ${i.requested}, dispo ${i.available}</li>`
+        ).join("");
+        try {
+          await resend.emails.send({
+            from:    "M!LK <contact@milkbebe.fr>",
+            to:      ADMIN_EMAILS,
+            subject: `⚠️ STOCK INSUFFISANT — commande #${orderData.id.slice(0,8).toUpperCase()}`,
+            html: `
+              <div style="font-family:sans-serif;padding:24px;max-width:560px">
+                <h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant détecté</h2>
+                <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${name || email}</strong> :</p>
+                <ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul>
+                <p>📦 <strong>Action requise :</strong> vérifier le stock réel avant expédition. Si rupture confirmée, proposer alternative ou remboursement partiel/total.</p>
+                <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
+                  Voir la commande →
+                </a>
+              </div>
+            `,
+          });
+        } catch (e) {
+          console.error("[stripe-webhook] Admin stock alert email failed:", e);
+        }
+        try {
+          await logActivity(
+            "stock_alert",
+            `Stock insuffisant sur commande #${orderData.id.slice(0,8).toUpperCase()} — ${stockIssues.length} item(s)`,
+            { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }
+          );
+        } catch {}
       }
 
       if (promoCode) {
@@ -391,12 +450,33 @@ export async function POST(req: Request) {
       if (order) {
         // Ne pas écraser si déjà remboursée (évite race condition avec notre endpoint admin)
         const alreadyRefunded = String(order.status ?? "").toLowerCase() === "remboursee";
+        let emailSent = false;
+
         if (!alreadyRefunded) {
           await supabaseServer.from("orders").update({
             status:        "remboursee",
             refund_amount: refundAmount,
             refunded_at:   new Date().toISOString(),
           }).eq("id", order.id);
+
+          // #10 — refund créé hors de notre admin (dashboard Stripe ou chargeback)
+          // → envoyer l'email annulation au client automatiquement, sinon il
+          // reçoit l'argent sans aucune notification de notre part.
+          if (order.customer_email) {
+            try {
+              const res = await fetch(`${BASE}/api/emails/cancellation`, {
+                method:  "POST",
+                headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+                body:    JSON.stringify({
+                  email:        order.customer_email,
+                  order_number: order.id,
+                }),
+              });
+              emailSent = res.ok;
+            } catch (e) {
+              process.env.NODE_ENV !== "production" && console.error("[stripe-webhook] auto cancellation email error:", e);
+            }
+          }
         }
 
         await logActivity(
@@ -411,6 +491,7 @@ export async function POST(req: Request) {
               currency:          charge.currency,
               customer_email:    order.customer_email,
               source:            alreadyRefunded ? "stripe_webhook_after_admin_action" : "stripe_webhook",
+              email_sent:        emailSent,
             },
           }
         );

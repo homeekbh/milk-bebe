@@ -1,11 +1,147 @@
 import Stripe from "stripe";
+import { Resend } from "resend";
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+
+const ADMIN_EMAILS = [
+  process.env.ADMIN_EMAIL_1,
+  process.env.ADMIN_EMAIL_2,
+  process.env.ADMIN_EMAIL_3,
+].filter(Boolean) as string[];
+
+/**
+ * Envoi de l'email annulation avec retry et notification admin en cas d'échec.
+ * Retourne true si l'email a été envoyé au client, false sinon.
+ */
+async function sendCancellationEmailWithRetry(opts: {
+  email:           string;
+  prenom:          string;
+  order_number:    string;
+  custom_message:  string | null;
+  refund_amount:   number;
+}): Promise<{ ok: boolean; attempts: number; last_error: string | null }> {
+  let lastError: string | null = null;
+
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const res = await fetch(`${BASE}/api/emails/cancellation`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+        body:    JSON.stringify({
+          email:          opts.email,
+          prenom:         opts.prenom,
+          order_number:   opts.order_number,
+          custom_message: opts.custom_message,
+        }),
+      });
+      if (res.ok) return { ok: true, attempts: attempt, last_error: null };
+      lastError = `HTTP ${res.status} — ${await res.text().catch(() => "(no body)")}`;
+    } catch (e: any) {
+      lastError = e?.message ?? "exception inconnue";
+    }
+    // Backoff progressif : 1s, 2s, (3s pour le dernier inutile car on n'attend pas après)
+    if (attempt < 3) await new Promise(r => setTimeout(r, attempt * 1000));
+  }
+
+  // Toutes les tentatives ont échoué → notifier l'admin (best-effort)
+  if (ADMIN_EMAILS.length > 0) {
+    try {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `⚠️ Email annulation NON envoyé — commande #${opts.order_number.slice(0,8).toUpperCase()}`,
+        html: `
+          <div style="font-family:sans-serif;padding:24px;max-width:540px">
+            <h2 style="color:#b91c1c;margin:0 0 12px">Email annulation échoué (3 tentatives)</h2>
+            <p>L'email d'annulation pour la commande <strong>#${opts.order_number.slice(0,8).toUpperCase()}</strong> de <strong>${opts.email}</strong> n'a pas pu être envoyé.</p>
+            <p style="background:#fee2e2;padding:12px;border-radius:8px;font-size:13px;color:#991b1b">
+              Dernière erreur : <code>${lastError ?? "(inconnu)"}</code>
+            </p>
+            <p>Le remboursement Stripe (<strong>${opts.refund_amount.toFixed(2)} €</strong>) <strong>a bien été effectué</strong>, mais le client n'a pas été notifié par email automatique.</p>
+            <p>📞 <strong>Action requise :</strong> contacter le client manuellement à <a href="mailto:${opts.email}">${opts.email}</a>.</p>
+            <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
+              Voir dans l'admin →
+            </a>
+          </div>
+        `,
+      });
+    } catch (e) {
+      console.error("[cancel-email-retry] Admin notif also failed:", e);
+    }
+  }
+
+  return { ok: false, attempts: 3, last_error: lastError };
+}
+
+/**
+ * Email client pour remboursement partiel.
+ * Inline (pas de template dédié) car le cas est suffisamment simple.
+ */
+async function sendRefundPartialEmail(opts: {
+  email:        string;
+  prenom:       string;
+  order_number: string;
+  amount:       number;
+  reason:       string | null;
+}): Promise<boolean> {
+  const numero = opts.order_number.slice(0,8).toUpperCase();
+  const reasonBlock = opts.reason
+    ? `<div style="background:#2a2018;border-radius:14px;padding:18px;margin:18px 0">
+         <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#c49a4a;margin-bottom:6px">Motif</div>
+         <div style="color:#f2ede6;font-size:14px;line-height:1.6;white-space:pre-wrap">${opts.reason.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"} as any)[c])}</div>
+       </div>`
+    : "";
+
+  try {
+    const { error } = await resend.emails.send({
+      from:    "M!LK <contact@milkbebe.fr>",
+      to:      opts.email,
+      subject: `Remboursement partiel — commande #${numero}`,
+      html: `<!DOCTYPE html>
+<html lang="fr">
+<body style="margin:0;padding:0;background:#1a1410;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:560px;margin:0 auto;padding:40px 20px">
+    <div style="text-align:center;margin-bottom:32px">
+      <div style="display:inline-block;background:#c49a4a;border-radius:12px;padding:14px 28px">
+        <span style="color:#1a1410;font-weight:950;font-size:24px;letter-spacing:-1px">M!LK</span>
+      </div>
+    </div>
+    <div style="background:#2a2018;border-radius:20px;padding:32px;border:1px solid rgba(242,237,230,0.08)">
+      <h1 style="margin:0 0 14px;color:#f2ede6;font-size:22px;font-weight:950;letter-spacing:-0.5px">
+        ${opts.prenom ? `${opts.prenom}, un` : "Un"} remboursement partiel a été effectué
+      </h1>
+      <p style="margin:0 0 14px;color:rgba(242,237,230,0.7);font-size:15px;line-height:1.7">
+        Sur votre commande <strong style="color:#f2ede6">#${numero}</strong>, nous venons de procéder à un remboursement de :
+      </p>
+      <div style="text-align:center;margin:22px 0">
+        <span style="display:inline-block;background:#c49a4a;color:#1a1410;font-weight:950;font-size:28px;padding:14px 28px;border-radius:14px">
+          ${opts.amount.toFixed(2)} €
+        </span>
+      </div>
+      ${reasonBlock}
+      <p style="margin:14px 0 0;color:rgba(242,237,230,0.55);font-size:13px;line-height:1.7">
+        Le remboursement apparaîtra sur votre moyen de paiement initial sous <strong style="color:#f2ede6">3 à 5 jours ouvrés</strong>.
+        Pour toute question : <a href="mailto:contact@milkbebe.fr" style="color:#c49a4a;font-weight:700">contact@milkbebe.fr</a>
+      </p>
+    </div>
+    <div style="text-align:center;margin-top:24px;color:rgba(242,237,230,0.2);font-size:12px">
+      M!LK — Essentiels bébé en bambou premium
+    </div>
+  </div>
+</body>
+</html>`,
+    });
+    return !error;
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Extrait la taille depuis le nom (ex: "Body éclairs — 0-3 mois" → "0-3 mois")
@@ -168,27 +304,36 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       console.warn("[commandes/cancel] Colonnes optionnelles non disponibles (refund_id, refunded_at, cancelled_at, cancelled_reason). Migration ALTER TABLE à exécuter:", updateErr2.message);
     }
 
-    // 5. Envoyer email annulation au client (best-effort)
-    let emailOk = true;
-    try {
-      const res = await fetch(`${BASE}/api/emails/cancellation`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-        body:    JSON.stringify({
-          email:          order.customer_email,
-          prenom:         order.customer_name?.split(" ")[0] ?? "",
-          order_number:   orderId,
-          custom_message: body?.custom_message ?? null,
-        }),
-      });
-      if (!res.ok) emailOk = false;
-    } catch { emailOk = false; }
+    // 5. Envoyer email annulation au client (retry 3× + admin notif si fail)
+    const emailResult = await sendCancellationEmailWithRetry({
+      email:          order.customer_email,
+      prenom:         order.customer_name?.split(" ")[0] ?? "",
+      order_number:   orderId,
+      custom_message: body?.custom_message ?? null,
+      refund_amount:  refundAmount,
+    });
 
     // 6. logActivity
     await logActivity("commande_annulee", `Commande #${orderId.slice(0,8)} annulée et remboursée (${refundAmount.toFixed(2)} €)`, {
       entity_id: orderId,
-      meta: { refund_id: refundId, refund_amount: refundAmount, client_email: order.customer_email, stock_restored: stockResult.restored, stock_errors: stockResult.errors, email_sent: emailOk },
+      meta: {
+        refund_id:        refundId,
+        refund_amount:    refundAmount,
+        client_email:     order.customer_email,
+        stock_restored:   stockResult.restored,
+        stock_errors:     stockResult.errors,
+        email_sent:       emailResult.ok,
+        email_attempts:   emailResult.attempts,
+        email_last_error: emailResult.last_error,
+      },
     });
+
+    if (emailResult.ok) {
+      await logActivity("commande_cancel_email_sent", `Email annulation envoyé pour #${orderId.slice(0,8)} (${emailResult.attempts} tentative${emailResult.attempts > 1 ? "s" : ""})`, {
+        entity_id: orderId,
+        meta: { attempts: emailResult.attempts, customer_email: order.customer_email },
+      });
+    }
 
     return Response.json({
       ok:                true,
@@ -196,7 +341,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       refund_amount:     refundAmount,
       stock_restored:    stockResult.restored,
       stock_errors:      stockResult.errors,
-      email_sent:        emailOk,
+      email_sent:        emailResult.ok,
+      email_attempts:    emailResult.attempts,
     });
   }
 
@@ -268,12 +414,32 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       console.warn("[commandes/refund_partial] Colonnes optionnelles non disponibles. ALTER TABLE à exécuter:", updateErr2.message);
     }
 
+    // Envoyer email client (best-effort, sans retry — le contexte est moins
+    // critique que cancel_refund car la commande reste valide)
+    let emailSent = false;
+    if (order.customer_email) {
+      emailSent = await sendRefundPartialEmail({
+        email:        order.customer_email,
+        prenom:       order.customer_name?.split(" ")[0] ?? "",
+        order_number: orderId,
+        amount,
+        reason:       body?.reason ?? null,
+      });
+    }
+
     await logActivity("commande_remboursee_partielle", `Remboursement partiel ${amount.toFixed(2)} € sur #${orderId.slice(0,8)}`, {
       entity_id: orderId,
-      meta: { refund_id: refund.id, amount, cumul, reason: body?.reason ?? null },
+      meta: {
+        refund_id:   refund.id,
+        amount,
+        cumul,
+        reason:      body?.reason ?? null,
+        email_sent:  emailSent,
+        client_email: order.customer_email,
+      },
     });
 
-    return Response.json({ ok: true, refund_id: refund.id, amount, cumul });
+    return Response.json({ ok: true, refund_id: refund.id, amount, cumul, email_sent: emailSent });
   }
 
   // === ACTION: mark_delivered ===

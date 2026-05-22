@@ -18,14 +18,18 @@ export async function GET(req: Request) {
   const j7min = new Date(now.getTime() - 8  * 24 * 60 * 60 * 1000); // J-8
   const j7max = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); // J-7
 
-  // Commandes livrées ou confirmées entre J-8 et J-7, email avis pas encore envoyé
+  // Avis = 7 jours APRÈS LIVRAISON (pas après commande). Le client a eu le temps
+  // d'utiliser le produit, donc son avis sera plus pertinent. On filtre sur
+  // delivered_at entre J-8 et J-7. Les commandes sans delivered_at (anciennes
+  // ou non livrées) ne reçoivent pas d'email avis.
   const { data: orders } = await supabaseServer
     .from("orders")
-    .select("id, customer_email, customer_name, items, created_at")
-    .in("status", ["payee", "expediee", "livree"])
+    .select("id, customer_email, customer_name, items, delivered_at")
+    .eq("shipping_status", "livree")
     .is("review_email_sent_at", null)
-    .gte("created_at", j7min.toISOString())
-    .lte("created_at", j7max.toISOString());
+    .not("delivered_at", "is", null)
+    .gte("delivered_at", j7min.toISOString())
+    .lte("delivered_at", j7max.toISOString());
 
   if (!orders || orders.length === 0) {
     return Response.json({ ok: true, sent: 0 });

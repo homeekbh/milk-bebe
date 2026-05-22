@@ -62,11 +62,11 @@ type Order = {
 };
 
 const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
-  pending:   { label: "En préparation", bg: "#fef3c7", color: "#92400e" },
-  shipped:   { label: "Expédiée",       bg: "#dcfce7", color: "#166534" },
-  delivered: { label: "Livrée",         bg: "#c49a4a", color: "#1a1410" },
-  returned:  { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
-  cancelled: { label: "Annulée",        bg: "#fee2e2", color: "#7f1d1d" },
+  en_preparation: { label: "En préparation", bg: "#fef3c7", color: "#92400e" },
+  expediee:       { label: "Expédiée",       bg: "#dcfce7", color: "#166534" },
+  livree:         { label: "Livrée",         bg: "#c49a4a", color: "#1a1410" },
+  retour:         { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
+  annulee:        { label: "Annulée",        bg: "#fee2e2", color: "#7f1d1d" },
 };
 
 /**
@@ -446,7 +446,7 @@ export default function AdminCommandes() {
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({
         id:              order.id,
-        shipping_status: "shipped",
+        shipping_status: "expediee",
         tracking_number: tracking.trim(),
         notes:           `Transporteur: ${carrier}${notes ? " — " + notes : ""}`,
       }),
@@ -626,14 +626,14 @@ export default function AdminCommandes() {
     return matchSearch && matchStatus;
   });
 
-  const isCancelled = (o: Order) => o.shipping_status === "cancelled" || (o as any).status === "cancelled" || (o as any).status === "refunded";
+  const isCancelled = (o: Order) => o.shipping_status === "annulee" || (o as any).status === "annulee" || (o as any).status === "remboursee";
   const validOrders = orders.filter(o => !isCancelled(o));
   const totalCA     = validOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);  // exclut annulées
-  const pending     = orders.filter(o => o.shipping_status === "pending" && !isCancelled(o)).length;
-  const shipped     = orders.filter(o => o.shipping_status === "shipped").length;
-  const delivered   = orders.filter(o => o.shipping_status === "delivered").length;
+  const pending     = orders.filter(o => o.shipping_status === "en_preparation" && !isCancelled(o)).length;
+  const shipped     = orders.filter(o => o.shipping_status === "expediee").length;
+  const delivered   = orders.filter(o => o.shipping_status === "livree").length;
   const cancelled   = orders.filter(o => isCancelled(o)).length;
-  const refunded    = orders.filter(o => (o as any).status === "refunded").length;
+  const refunded    = orders.filter(o => (o as any).status === "remboursee").length;
   const selectedOrder = orders.find(o => o.id === selected);
 
   const selectedCarrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
@@ -700,7 +700,7 @@ export default function AdminCommandes() {
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {filtered.map(order => {
-            const status    = STATUTS[order.shipping_status ?? "pending"] ?? STATUTS.pending;
+            const status    = STATUTS[order.shipping_status ?? "en_preparation"] ?? STATUTS.en_preparation;
             const isOpen    = selected === order.id;
             const addr      = order.shipping_address;
 
@@ -951,7 +951,7 @@ export default function AdminCommandes() {
                         </div>
 
                         {/* Lien de suivi si déjà expédiée */}
-                        {order.shipping_status === "shipped" && order.tracking_number && (
+                        {order.shipping_status === "expediee" && order.tracking_number && (
                           <div style={{ padding: "12px 14px", borderRadius: 10, background: "#dcfce7", border: "1px solid #bbf7d0" }}>
                             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#166534", marginBottom: 6 }}>Numéro de suivi</div>
                             <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15, color: "#1a1410", marginBottom: 6 }}>{order.tracking_number}</div>
@@ -971,7 +971,7 @@ export default function AdminCommandes() {
                         )}
 
                         {/* ✅ Bouton Sendcloud — génération étiquette automatique */}
-                        {order.shipping_status !== "shipped" && (
+                        {order.shipping_status !== "expediee" && (
                           <div style={{ display: "grid", gap: 8 }}>
                             <button
                               onClick={() => generateLabel(order)}
@@ -1014,20 +1014,20 @@ export default function AdminCommandes() {
 
                         <button
                           onClick={() => openShipModal(order)}
-                          disabled={!canShip || order.shipping_status === "shipped"}
+                          disabled={!canShip || order.shipping_status === "expediee"}
                           style={{
                             padding: "15px",
                             borderRadius: 12,
                             border: "none",
                             fontWeight: 900,
                             fontSize: 15,
-                            cursor: (!canShip || order.shipping_status === "shipped") ? "not-allowed" : "pointer",
-                            background: order.shipping_status === "shipped"
+                            cursor: (!canShip || order.shipping_status === "expediee") ? "not-allowed" : "pointer",
+                            background: order.shipping_status === "expediee"
                               ? "#dcfce7"
                               : canShip
                                 ? "#1a1410"
                                 : "#e5e7eb",
-                            color: order.shipping_status === "shipped"
+                            color: order.shipping_status === "expediee"
                               ? "#166534"
                               : canShip
                                 ? "#c49a4a"
@@ -1035,7 +1035,7 @@ export default function AdminCommandes() {
                             transition: "all 0.2s",
                           }}
                         >
-                          {order.shipping_status === "shipped"
+                          {order.shipping_status === "expediee"
                             ? "✅ Déjà expédiée"
                             : "🚚 Marquer comme expédiée…"}
                         </button>
@@ -1047,7 +1047,7 @@ export default function AdminCommandes() {
                         )}
 
                         {/* === ANNULATION === Visible si tracking présent ET pas annulée déjà */}
-                        {order.tracking_number && order.shipping_status !== "cancelled" && (
+                        {order.tracking_number && order.shipping_status !== "annulee" && (
                           <button
                             onClick={() => setCancelModal({ orderId: order.id, cancelling: false })}
                             style={{ padding: "12px 16px", borderRadius: 12, background: "#fef2f2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
@@ -1057,7 +1057,7 @@ export default function AdminCommandes() {
                         )}
 
                         {/* === ANNULER + REMBOURSER STRIPE === Visible si pas déjà annulée/remboursée */}
-                        {(order as any).status !== "refunded" && order.shipping_status !== "cancelled" && (
+                        {(order as any).status !== "remboursee" && order.shipping_status !== "annulee" && (
                           <>
                             <button
                               onClick={() => setRefundModal({ orderId: order.id, amount: Number(order.amount_total ?? 0), reason: "", customMessage: "", sending: false, mode: "full" })}
@@ -1074,8 +1074,8 @@ export default function AdminCommandes() {
                           </>
                         )}
 
-                        {/* "Informer le client" — visible UNIQUEMENT si shipping_status = "cancelled" */}
-                        {order.shipping_status === "cancelled" && (
+                        {/* "Informer le client" — visible UNIQUEMENT si shipping_status = "annulee" */}
+                        {order.shipping_status === "annulee" && (
                           (() => {
                             const sent = order.notes?.match(/\[CANCEL_EMAIL_SENT:([^\]]+)\]/);
                             if (sent) {

@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   const { data: orders } = await supabaseServer
     .from("orders")
     .select("id, customer_email, customer_name, items, created_at")
-    .in("status", ["paid", "shipped", "delivered"])
+    .in("status", ["payee", "expediee", "livree"])
     .is("review_email_sent_at", null)
     .gte("created_at", j7min.toISOString())
     .lte("created_at", j7max.toISOString());

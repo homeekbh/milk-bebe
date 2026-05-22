@@ -69,8 +69,8 @@ export default function OrderAlerts() {
     const { data } = await supabase
       .from("orders")
       .select("id, created_at, customer_name, amount_total, items")
-      .eq("status", "paid")
-      .in("shipping_status", ["pending", "processing", ""])
+      .eq("status", "payee")
+      .in("shipping_status", ["en_preparation", "processing", ""])
       .order("created_at", { ascending: true });
     setOrders(data ?? []);
     setLoading(false);

@@ -7,8 +7,8 @@ export const revalidate = 0;
 function isValidOrder(o: any): boolean {
   const s  = String(o?.status ?? "").toLowerCase();
   const sh = String(o?.shipping_status ?? "").toLowerCase();
-  if (s === "refunded" || s === "cancelled") return false;
-  if (sh === "cancelled" || sh === "returned") return false;
+  if (s === "remboursee" || s === "annulee") return false;
+  if (sh === "annulee" || sh === "retour") return false;
   return true;
 }
 

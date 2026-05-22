@@ -17,12 +17,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
  */
 
 const STATUS_MAP: Record<number, string> = {
-  80:   "delivered",   // Livré
-  2000: "returned",    // Retour reçu
-  2100: "returned",    // Retour en transit
-  11:   "shipped",     // En transit
-  12:   "shipped",     // En cours de livraison
-  1:    "pending",     // En attente
+  80:   "livree",          // Livré
+  2000: "retour",          // Retour reçu
+  2100: "retour",          // Retour en transit
+  11:   "expediee",        // En transit
+  12:   "expediee",        // En cours de livraison
+  1:    "en_preparation",  // En attente
 };
 
 export async function POST(req: NextRequest) {
@@ -73,8 +73,8 @@ export async function POST(req: NextRequest) {
       if (!order) continue;
 
       // Ne pas rétrograder un statut (ex: livré → expédié)
-      const RANK: Record<string, number> = { pending: 0, shipped: 1, delivered: 2, returned: 3 };
-      if ((RANK[newStatus] ?? 0) <= (RANK[order.shipping_status] ?? 0) && newStatus !== "returned") continue;
+      const RANK: Record<string, number> = { en_preparation: 0, expediee: 1, livree: 2, retour: 3 };
+      if ((RANK[newStatus] ?? 0) <= (RANK[order.shipping_status] ?? 0) && newStatus !== "retour") continue;
 
       // Mettre à jour le statut
       await supabaseServer
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
         .eq("id", order.id);
 
       // Notification email admin si livré
-      if (newStatus === "delivered") {
+      if (newStatus === "livree") {
         await resend.emails.send({
           from:    "M!LK <contact@milkbebe.fr>",
           to:      ["contact@milkbebe.fr"],
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Notification email admin si retour
-      if (newStatus === "returned") {
+      if (newStatus === "retour") {
         await resend.emails.send({
           from:    "M!LK <contact@milkbebe.fr>",
           to:      ["contact@milkbebe.fr"],

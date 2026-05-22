@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   // === ACTION: cancel_refund — annulation totale + remboursement Stripe ===
   if (action === "cancel_refund") {
-    if (order.status === "refunded" || order.shipping_status === "cancelled") {
+    if (order.status === "remboursee" || order.shipping_status === "annulee") {
       return Response.json({ error: "Commande déjà annulée/remboursée" }, { status: 400 });
     }
     if (!order.stripe_session_id) {
@@ -137,8 +137,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
     // 4. Update Supabase
     await supabaseServer.from("orders").update({
-      status:           "refunded",
-      shipping_status:  "cancelled",
+      status:           "remboursee",
+      shipping_status:  "annulee",
       refund_id:        refundId,
       refund_amount:    refundAmount,
       refunded_at:      new Date().toISOString(),
@@ -222,7 +222,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const cumul          = previousRefund + amount;
 
     await supabaseServer.from("orders").update({
-      status:        cumul >= Number(order.amount_total ?? 0) ? "refunded" : "partial_refund",
+      status:        cumul >= Number(order.amount_total ?? 0) ? "remboursee" : "rembours_partiel",
       refund_id:     refund.id,
       refund_amount: cumul,
       refunded_at:   new Date().toISOString(),
@@ -239,7 +239,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   // === ACTION: mark_delivered ===
   if (action === "mark_delivered") {
     await supabaseServer.from("orders").update({
-      shipping_status: "delivered",
+      shipping_status: "livree",
       delivered_at:    new Date().toISOString(),
     }).eq("id", orderId);
 

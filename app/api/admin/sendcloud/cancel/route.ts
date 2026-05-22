@@ -17,7 +17,7 @@ function getBasicAuth() {
  * 1. Charge la commande
  * 2. POST /parcels/{parcel_id}/cancel côté Sendcloud
  * 3. Reset les champs orders (tracking, label_url, parcel_id, shipped_at)
- *    + shipping_status = "pending" (= en préparation)
+ *    + shipping_status = "annulee"
  * 4. Aucun email automatique
  */
 export async function POST(req: NextRequest) {
@@ -60,12 +60,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Reset Supabase — statut "cancelled" (pour que le bouton "Informer le client" s'affiche)
+    // Reset Supabase — statut "annulee" (pour que le bouton "Informer le client" s'affiche)
     // Le bouton "Générer l'étiquette" reste actif car il vérifie !order.label_url (réinitialisé)
     const { error: updateErr } = await supabaseServer
       .from("orders")
       .update({
-        shipping_status:     "cancelled",
+        shipping_status:     "annulee",
         tracking_number:     null,
         label_url:           null,
         sendcloud_parcel_id: null,

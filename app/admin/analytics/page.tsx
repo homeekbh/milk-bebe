@@ -266,7 +266,7 @@ export default function AdminStats() {
   const tauxFidelite = totalClients > 0 ? (fideles / totalClients * 100).toFixed(0) : "0";
 
   // Taux annulation
-  const annules    = filtered.filter(o => o.status === "canceled" || o.status === "refunded").length;
+  const annules    = filtered.filter(o => o.status === "annulee" || o.status === "remboursee").length;
   const tauxAnnul  = nbOrders > 0 ? ((annules / nbOrders) * 100).toFixed(1) : "0";
 
   // CA par jour
@@ -330,11 +330,11 @@ export default function AdminStats() {
   const byShipping = useMemo(() => {
     const map: Record<string, number> = { "En préparation": 0, "Expédiée": 0, "Livrée": 0, "Retour": 0 };
     filtered.forEach(o => {
-      const s = o.shipping_status ?? "pending";
-      if (s === "pending")   map["En préparation"]++;
-      if (s === "shipped")   map["Expédiée"]++;
-      if (s === "delivered") map["Livrée"]++;
-      if (s === "returned")  map["Retour"]++;
+      const s = o.shipping_status ?? "en_preparation";
+      if (s === "en_preparation") map["En préparation"]++;
+      if (s === "expediee")       map["Expédiée"]++;
+      if (s === "livree")         map["Livrée"]++;
+      if (s === "retour")         map["Retour"]++;
     });
     const colors = [C.amber, C.blue, C.green, C.red];
     return Object.entries(map).filter(([, v]) => v > 0).map(([label, value], i) => ({ label, value, color: colors[i] }));

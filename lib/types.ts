@@ -26,7 +26,7 @@ export interface Order {
   customer_email:   string;
   amount_total:     number;
   items:            CartItem[];
-  shipping_status:  "pending" | "shipped" | "delivered" | "returned";
+  shipping_status:  "en_preparation" | "expediee" | "livree" | "annulee" | "retour";
   shipping_address: Address | null;
   tracking_number?: string;
   notes?:           string;

@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     .from("orders")
     .select("id, customer_email, shipping_status")
     .eq("customer_email", emailClean)
-    .in("shipping_status", ["shipped", "delivered"])
+    .in("shipping_status", ["expediee", "livree"])
     .limit(1)
     .single();
 

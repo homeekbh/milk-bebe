@@ -99,8 +99,8 @@ export async function POST(req: Request) {
           customer_name:     name,
           promo_code:        promoCode,
           discount,
-          status:            "paid",
-          shipping_status:   "pending",
+          status:            "payee",
+          shipping_status:   "en_preparation",
           shipping_address:  finalShippingAddress,
           delivery_type:     deliveryType,
           delivery_price:    deliveryPrice,
@@ -308,7 +308,7 @@ export async function POST(req: Request) {
 
       if (order) {
         await supabaseServer.from("orders").update({
-          status: "payment_failed",
+          status: "echec_paiement",
         }).eq("id", order.id);
 
         await logActivity(
@@ -352,7 +352,7 @@ export async function POST(req: Request) {
   //  - Refunds créés via notre /api/admin/commandes/[id] (action cancel_refund/refund_partial)
   //  - Refunds créés manuellement dans le Stripe Dashboard
   //  - Refunds automatiques (chargeback, etc.)
-  // On met le statut à "refunded" et on log.
+  // On met le statut à "remboursee" et on log.
   if (event.type === "charge.refunded") {
     const charge = event.data.object as Stripe.Charge;
     process.env.NODE_ENV !== "production" && console.log("💸 Charge refunded:", charge.id, charge.amount_refunded);
@@ -389,11 +389,11 @@ export async function POST(req: Request) {
       const refundAmount = (charge.amount_refunded ?? 0) / 100;
 
       if (order) {
-        // Ne pas écraser si déjà refunded (évite race condition avec notre endpoint admin)
-        const alreadyRefunded = String(order.status ?? "").toLowerCase() === "refunded";
+        // Ne pas écraser si déjà remboursée (évite race condition avec notre endpoint admin)
+        const alreadyRefunded = String(order.status ?? "").toLowerCase() === "remboursee";
         if (!alreadyRefunded) {
           await supabaseServer.from("orders").update({
-            status:        "refunded",
+            status:        "remboursee",
             refund_amount: refundAmount,
             refunded_at:   new Date().toISOString(),
           }).eq("id", order.id);

@@ -337,7 +337,7 @@ export async function POST(req: NextRequest) {
     const { error: updateErr } = await supabaseServer
       .from("orders")
       .update({
-        shipping_status:     "shipped",
+        shipping_status:     "expediee",
         tracking_number:     trackingNumber || null,
         label_url:           labelUrl       || null,
         sendcloud_parcel_id: parcelId       || null,

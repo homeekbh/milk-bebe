@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
       Number(o.amount_total).toFixed(2),
       o.promo_code      ?? "",
       Number(o.discount ?? 0).toFixed(2),
-      o.shipping_status ?? "pending",
+      o.shipping_status ?? "en_preparation",
       o.tracking_number ?? "",
       addrStr,
       itemsStr,

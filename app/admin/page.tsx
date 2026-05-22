@@ -8,8 +8,8 @@ export const revalidate = 0;
 function isValidOrder(o: any): boolean {
   const s = String(o?.status ?? "").toLowerCase();
   const sh = String(o?.shipping_status ?? "").toLowerCase();
-  if (s === "refunded" || s === "cancelled") return false;
-  if (sh === "cancelled" || sh === "returned") return false;
+  if (s === "remboursee" || s === "annulee") return false;
+  if (sh === "annulee" || sh === "retour") return false;
   return true;
 }
 
@@ -48,13 +48,13 @@ async function getStats() {
 // Badge statut commande dynamique selon shipping_status + status
 function OrderStatusBadge({ shipping_status, status }: { shipping_status?: string | null; status?: string | null }) {
   const s  = String(status ?? "").toLowerCase();
-  const sh = String(shipping_status ?? "pending").toLowerCase();
+  const sh = String(shipping_status ?? "en_preparation").toLowerCase();
 
-  if (s === "refunded")    return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Remboursée</span>;
-  if (s === "cancelled" || sh === "cancelled") return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Annulée</span>;
-  if (sh === "returned")   return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#b91c1c", fontSize: 13, fontWeight: 800 }}>Retour</span>;
-  if (sh === "delivered")  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#c49a4a", color: "#1a1410", fontSize: 13, fontWeight: 800 }}>Livrée</span>;
-  if (sh === "shipped")    return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#dbeafe", color: "#1e40af", fontSize: 13, fontWeight: 800 }}>Expédiée</span>;
+  if (s === "remboursee")  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Remboursée</span>;
+  if (s === "annulee" || sh === "annulee") return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Annulée</span>;
+  if (sh === "retour")     return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#b91c1c", fontSize: 13, fontWeight: 800 }}>Retour</span>;
+  if (sh === "livree")     return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#c49a4a", color: "#1a1410", fontSize: 13, fontWeight: 800 }}>Livrée</span>;
+  if (sh === "expediee")   return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#dbeafe", color: "#1e40af", fontSize: 13, fontWeight: 800 }}>Expédiée</span>;
   return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 800 }}>En préparation</span>;
 }
 

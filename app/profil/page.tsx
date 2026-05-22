@@ -36,10 +36,11 @@ function getTrackingUrl(notes: string | undefined, tracking: string): string | n
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", postal_code: "", country: "FR" };
 
 const SHIPPING_STATUS: Record<string, { label: string; bg: string; text: string }> = {
-  pending:   { label: "En préparation", bg: "#fef3c7", text: "#92400e" },
-  shipped:   { label: "Expédiée",       bg: "#dcfce7", text: "#166534" },
-  delivered: { label: "Livrée",         bg: "#d1fae5", text: "#065f46" },
-  returned:  { label: "Retour",         bg: "#fee2e2", text: "#b91c1c" },
+  en_preparation: { label: "En préparation", bg: "#fef3c7", text: "#92400e" },
+  expediee:       { label: "Expédiée",       bg: "#dcfce7", text: "#166534" },
+  livree:         { label: "Livrée",         bg: "#d1fae5", text: "#065f46" },
+  annulee:        { label: "Annulée",        bg: "#fee2e2", text: "#7f1d1d" },
+  retour:         { label: "Retour",         bg: "#fee2e2", text: "#b91c1c" },
 };
 
 const IS: React.CSSProperties = {
@@ -275,7 +276,7 @@ export default function ProfilPage() {
                 </Link>
               </div>
             ) : orders.map(order => {
-              const s = SHIPPING_STATUS[order.shipping_status ?? "pending"] ?? SHIPPING_STATUS.pending;
+              const s = SHIPPING_STATUS[order.shipping_status ?? "en_preparation"] ?? SHIPPING_STATUS.en_preparation;
               const addr = order.shipping_address;
               return (
                 <div key={order.id} style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.07)", overflow: "hidden" }}>

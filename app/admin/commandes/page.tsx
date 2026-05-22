@@ -317,13 +317,18 @@ export default function AdminCommandes() {
     }
   }, [selected, orders]);
 
-  // Télécharge le PDF d'étiquette via le proxy authentifié et l'ouvre dans un nouvel onglet
+  // Télécharge le PDF d'étiquette via le proxy authentifié et l'ouvre dans un nouvel onglet.
+  // Gère le cas "pending" si Sendcloud n'a pas encore généré le PDF.
   async function openLabelPdf(orderId: string) {
     try {
       const res = await adminFetch(`/api/admin/sendcloud/label-pdf?order_id=${encodeURIComponent(orderId)}`);
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(`Impossible d'ouvrir l'étiquette : ${err.error ?? `HTTP ${res.status}`}`);
+        if (err.pending) {
+          alert(`⏳ Étiquette pas encore prête côté Sendcloud (parcel #${err.parcel_id ?? "?"}).\n\nMondial Relay Locker peut prendre plusieurs minutes pour générer le PDF.\nRéessayer dans 30 secondes avec le bouton "Vérifier l'étiquette".`);
+        } else {
+          alert(`Impossible d'ouvrir l'étiquette : ${err.error ?? `HTTP ${res.status}`}`);
+        }
         return;
       }
       const blob = await res.blob();
@@ -331,6 +336,9 @@ export default function AdminCommandes() {
       window.open(url, "_blank", "noopener,noreferrer");
       // Libère le blob après 1 minute (le temps que le navigateur l'ouvre)
       setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      // Refresh la commande — la route label-pdf a persisté label_url en base,
+      // donc on a maintenant l'URL côté UI et le bouton "Vérifier" disparait.
+      await load();
     } catch (e: any) {
       alert(`Erreur réseau : ${e?.message ?? "inconnue"}`);
     }
@@ -1001,6 +1009,20 @@ export default function AdminCommandes() {
                                 style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
                                 🖨️ Imprimer l'étiquette PDF →
                               </button>
+                            )}
+                            {/* Bouton "Vérifier l'étiquette" : parcel créé côté Sendcloud
+                                mais PDF pas encore généré (cas Mondial Relay Locker async). */}
+                            {!labelUrl && (order as any).sendcloud_parcel_id && (
+                              <div style={{ display: "grid", gap: 8 }}>
+                                <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", textAlign: "center" }}>
+                                  ⏳ Colis créé (Sendcloud #{(order as any).sendcloud_parcel_id}) — étiquette en cours de génération
+                                </div>
+                                <button
+                                  onClick={() => openLabelPdf(order.id)}
+                                  style={{ padding: "10px 16px", borderRadius: 10, background: "#1d4ed8", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
+                                  🔄 Vérifier l'étiquette
+                                </button>
+                              </div>
                             )}
                           </div>
                         )}

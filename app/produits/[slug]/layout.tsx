@@ -21,8 +21,8 @@ export async function generateMetadata(
     };
   }
 
-  const title       = product.seo_title       ?? `${product.name} — M!LK | Bambou OEKO-TEX`;
-  const description = product.seo_description ?? product.description ?? `${product.name} en bambou certifié OEKO-TEX Standard 100. Pour nourrissons 0-6 mois.`;
+  const title       = product.seo_title       ?? `${product.name} | M!LK`;
+  const description = product.seo_description ?? product.description ?? `${product.name} en bambou certifié OEKO-TEX. Cadeau naissance idéal, livraison France. Pour nourrissons 0-6 mois.`;
   const url         = `${BASE}/produits/${product.slug}`;
 
   const breadcrumbLd = {

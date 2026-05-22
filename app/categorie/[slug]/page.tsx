@@ -12,32 +12,32 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
   bodies: {
     title:    "Bodies nourrisson",
     subtitle: "L'essentiel du quotidien en bambou certifié OEKO-TEX — 0 à 6 mois",
-    seoTitle: "Bodies nourrisson bambou OEKO-TEX | M!LK — 0 à 6 mois",
-    seoDesc:  "Bodies nourrisson en bambou certifié OEKO-TEX. Ultra-doux, thermorégulateur, pressions sous la couche. Tailles Nouveau-né, 0-3 mois, 3-6 mois.",
+    seoTitle: "Body Bébé & Body Naissance | M!LK — Bambou OEKO-TEX 0-6 mois",
+    seoDesc:  "Body bébé manches longues, body naissance sans étiquette. Cadeau naissance idéal. Bambou certifié OEKO-TEX, 3× plus doux que le coton. Body 0-3 mois et 3-6 mois livraison France.",
   },
   pyjamas: {
     title:    "Pyjamas nourrisson",
     subtitle: "Pour des nuits sereines — bambou thermorégulateur certifié OEKO-TEX",
-    seoTitle: "Pyjamas nourrisson bambou OEKO-TEX | M!LK — 0 à 6 mois",
-    seoDesc:  "Pyjamas nourrisson en bambou certifié OEKO-TEX. Fermeture zip, thermorégulateur, ultra-doux pour peaux sensibles.",
+    seoTitle: "Pyjama Bébé & Grenouillère Naissance | M!LK — Bambou OEKO-TEX",
+    seoDesc:  "Pyjama bébé double zip, grenouillère avec moufles intégrées. Cadeau naissance original. Bambou OEKO-TEX ultra-doux. Pyjama naissance, 0-3 mois, 3-6 mois.",
   },
   gigoteuses: {
     title:    "Gigoteuses nourrisson",
     subtitle: "Sommeil sécurisé toute la nuit — bambou OEKO-TEX",
-    seoTitle: "Gigoteuses nourrisson bambou OEKO-TEX | M!LK",
-    seoDesc:  "Gigoteuses et turbulettes nourrisson en bambou certifié OEKO-TEX. Thermorégulateur, sécurisé, ultra-doux.",
+    seoTitle: "Gigoteuse Bébé & Turbulette Naissance | M!LK — Bambou OEKO-TEX",
+    seoDesc:  "Gigoteuse bébé bambou OEKO-TEX. Turbulette naissance thermorégulation naturelle. Idée cadeau naissance utile. Gigoteuse 0-6 mois livraison France.",
   },
   accessoires: {
     title:    "Accessoires bébé",
     subtitle: "Les détails qui changent tout — bambou premium OEKO-TEX",
-    seoTitle: "Accessoires bébé bambou OEKO-TEX | M!LK",
-    seoDesc:  "Accessoires nourrisson en bambou certifié OEKO-TEX. Langes, bavoirs, bonnets et plus encore.",
+    seoTitle: "Accessoires Naissance & Bonnet Bébé | M!LK — Cadeau Naissance Original",
+    seoDesc:  "Bonnet naissance, nœud tête bébé, bandeau bébé bambou OEKO-TEX. Cadeau naissance original et tendance. Idée cadeau jeune maman livraison France.",
   },
   langes: {
     title:    "Langes & Swaddles",
     subtitle: "L'emmaillotage qui calme bébé en quelques minutes — bambou OEKO-TEX",
-    seoTitle: "Langes et swaddles bébé bambou OEKO-TEX | M!LK",
-    seoDesc:  "Langes et swaddles nourrisson en bambou certifié OEKO-TEX. Grand format, thermorégulateur, multi-usage.",
+    seoTitle: "Lange Bébé & Emmaillotage | M!LK — Bambou OEKO-TEX",
+    seoDesc:  "Lange emmaillotage bambou OEKO-TEX ultra-doux. Lange bébé multiusage. Cadeau naissance pratique et naturel. Emmaillotage naissance 0-6 mois.",
   },
 };
 

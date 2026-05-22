@@ -21,8 +21,32 @@ function adminFetch(url: string, options: RequestInit = {}) {
 
 import { useEffect, useState, useMemo } from "react";
 
-type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; promo_code?: string | null; discount?: number; shipping_address?: any; };
+type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; promo_code?: string | null; discount?: number; shipping_address?: any; refund_amount?: number | null; };
 type Period = "7j" | "30j" | "90j" | "tout";
+
+// ─── Helpers financiers (règle ABSOLUE) ──────────────────────────────────────
+// Une commande contribue au CA si :
+//   - status ∈ { 'payee', 'rembours_partiel' }
+//   - status ∉ { 'remboursee', 'annulee', 'echec_paiement' }
+//   - shipping_status ≠ 'annulee'
+// rembours_partiel : inclus avec montant net (amount_total - refund_amount)
+function isValidOrder(o: any): boolean {
+  const s  = String(o?.status ?? "").toLowerCase();
+  const sh = String(o?.shipping_status ?? "").toLowerCase();
+  if (s === "remboursee" || s === "annulee" || s === "echec_paiement") return false;
+  if (sh === "annulee" || sh === "retour") return false;
+  // Si pas de status (commandes très anciennes pré-migration) on considère valide
+  // tant que shipping_status ≠ annulee/retour
+  if (s && s !== "payee" && s !== "rembours_partiel") return false;
+  return true;
+}
+
+// Montant qui compte vraiment dans le CA : total - refund_amount (si partiel)
+function getNetAmount(o: any): number {
+  const total  = Number(o?.amount_total ?? 0);
+  const refund = Number(o?.refund_amount ?? 0);
+  return Math.max(0, total - refund);
+}
 
 const C = {
   bg: "#0d0b09", bg2: "#161210", card: "#1c1814",
@@ -247,27 +271,40 @@ export default function AdminStats() {
     return orders.filter(o => { const d = new Date(o.created_at); return d >= start && d < end; });
   }, [orders, period]);
 
-  // KPIs principaux
-  const ca        = filtered.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const prevCa    = prevFiltered.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const nbOrders  = filtered.length;
-  const prevOrders= prevFiltered.length;
-  const avgCart   = nbOrders > 0 ? ca / nbOrders : 0;
-  const prevAvg   = prevFiltered.length > 0 ? prevCa / prevFiltered.length : 0;
-  const clients   = new Set(filtered.map(o => o.customer_email).filter(Boolean)).size;
+  // KPIs principaux — calculés UNIQUEMENT sur commandes valides
+  // Helper memoizé pour éviter de filtrer 10 fois
+  const validFiltered     = useMemo(() => filtered.filter(isValidOrder),     [filtered]);
+  const validPrevFiltered = useMemo(() => prevFiltered.filter(isValidOrder), [prevFiltered]);
+
+  const ca         = validFiltered.reduce((s, o) => s + getNetAmount(o), 0);
+  const prevCa     = validPrevFiltered.reduce((s, o) => s + getNetAmount(o), 0);
+  const nbOrders   = validFiltered.length;
+  const prevOrders = validPrevFiltered.length;
+  const avgCart    = nbOrders > 0 ? ca / nbOrders : 0;
+  const prevAvg    = prevOrders > 0 ? prevCa / prevOrders : 0;
+  // Clients uniques = ceux avec au moins UNE commande valide dans la période
+  const clients    = new Set(validFiltered.map(o => o.customer_email).filter(Boolean)).size;
 
   const delta = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : undefined;
 
-  // Clients fidèles (commandé 2+ fois)
+  // Clients fidèles (commandé 2+ fois VALIDES — annulées/remboursées exclues)
   const emailCount: Record<string, number> = {};
-  orders.forEach(o => { if (o.customer_email) emailCount[o.customer_email] = (emailCount[o.customer_email] ?? 0) + 1; });
+  orders.filter(isValidOrder).forEach(o => {
+    if (o.customer_email) emailCount[o.customer_email] = (emailCount[o.customer_email] ?? 0) + 1;
+  });
   const fideles = Object.values(emailCount).filter(n => n >= 2).length;
   const totalClients = Object.keys(emailCount).length;
   const tauxFidelite = totalClients > 0 ? (fideles / totalClients * 100).toFixed(0) : "0";
 
-  // Taux annulation
-  const annules    = filtered.filter(o => o.status === "annulee" || o.status === "remboursee").length;
-  const tauxAnnul  = nbOrders > 0 ? ((annules / nbOrders) * 100).toFixed(1) : "0";
+  // Taux annulation — numérateur inclut shipping_status=annulee + status remboursee/annulee
+  // Dénominateur = TOUTES les commandes de la période (annulées comprises) pour
+  // que le taux ait du sens : sur 100 commandes initiées, X% ont fini annulées.
+  const annules    = filtered.filter(o => {
+    const s = String(o.status ?? "").toLowerCase();
+    const sh = String(o.shipping_status ?? "").toLowerCase();
+    return s === "annulee" || s === "remboursee" || sh === "annulee";
+  }).length;
+  const tauxAnnul  = filtered.length > 0 ? ((annules / filtered.length) * 100).toFixed(1) : "0";
 
   // CA par jour
   const caByDay = useMemo(() => {
@@ -279,12 +316,12 @@ export default function AdminStats() {
       const key = d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
       map[key] = 0;
     }
-    filtered.forEach(o => {
+    validFiltered.forEach(o => {
       const key = new Date(o.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
-      if (key in map) map[key] += Number(o.amount_total ?? 0);
+      if (key in map) map[key] += getNetAmount(o);
     });
     return Object.entries(map).map(([label, value]) => ({ label, value }));
-  }, [filtered, period]);
+  }, [validFiltered, period]);
 
   // Heure de pointe
   const byHour: Record<number, number> = {};
@@ -401,19 +438,22 @@ export default function AdminStats() {
     if (period === "tout") return 0;
     const days = period === "7j" ? 7 : period === "30j" ? 30 : 90;
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
-    const emailsInPeriod = new Set(filtered.map(o => o.customer_email).filter(Boolean));
+    // Emails ayant une commande VALIDE dans la période
+    const emailsInPeriod = new Set(validFiltered.map(o => o.customer_email).filter(Boolean));
     let count = 0;
     emailsInPeriod.forEach(email => {
       const firstDate = firstOrderByEmail[email];
       if (firstDate && new Date(firstDate) < cutoff) count++;
     });
     return count;
-  }, [filtered, firstOrderByEmail, period]);
+  }, [validFiltered, firstOrderByEmail, period]);
 
+  // LTV = CA net total tous temps / clients ayant au moins UNE commande valide
   const ltv = useMemo(() => {
-    const emails = new Set(orders.map(o => o.customer_email).filter(Boolean));
+    const validOrds = orders.filter(isValidOrder);
+    const emails    = new Set(validOrds.map(o => o.customer_email).filter(Boolean));
     if (emails.size === 0) return 0;
-    const totalCa = orders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+    const totalCa = validOrds.reduce((s, o) => s + getNetAmount(o), 0);
     return totalCa / emails.size;
   }, [orders]);
 
@@ -433,17 +473,17 @@ export default function AdminStats() {
     return delays.length ? delays.reduce((s, d) => s + d, 0) / delays.length : 0;
   }, [orders]);
 
-  // ─── Top clients par CA (tout temps) ──────────────────────────────────────
+  // ─── Top clients par CA NET (commandes valides uniquement) ────────────────
   const topClients = useMemo(() => {
     const m: Record<string, { email: string; name: string; nbOrders: number; ca: number; first: string; last: string }> = {};
-    orders.forEach(o => {
+    orders.filter(isValidOrder).forEach(o => {
       if (!o.customer_email) return;
       if (!m[o.customer_email]) {
         m[o.customer_email] = { email: o.customer_email, name: o.customer_name ?? "", nbOrders: 0, ca: 0, first: o.created_at, last: o.created_at };
       }
       const c = m[o.customer_email];
       c.nbOrders++;
-      c.ca += Number(o.amount_total ?? 0);
+      c.ca += getNetAmount(o);
       if (new Date(o.created_at) < new Date(c.first)) c.first = o.created_at;
       if (new Date(o.created_at) > new Date(c.last))  c.last  = o.created_at;
       if (o.customer_name && !c.name) c.name = o.customer_name;
@@ -451,10 +491,10 @@ export default function AdminStats() {
     return Object.values(m).sort((a, b) => b.ca - a.ca).slice(0, 10);
   }, [orders]);
 
-  // ─── Géographie ───────────────────────────────────────────────────────────
+  // ─── Géographie (commandes valides uniquement) ────────────────────────────
   const topVilles = useMemo(() => {
     const m: Record<string, number> = {};
-    filtered.forEach(o => {
+    validFiltered.forEach(o => {
       const city = (o as any).shipping_address?.city;
       if (city) {
         const norm = String(city).trim();
@@ -462,7 +502,7 @@ export default function AdminStats() {
       }
     });
     return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([label, value]) => ({ label, value }));
-  }, [filtered]);
+  }, [validFiltered]);
 
   // ─── Paniers abandonnés ──────────────────────────────────────────────────
   const cartsStats = useMemo(() => {
@@ -477,11 +517,11 @@ export default function AdminStats() {
     return { total, converted, enCours, valeurPerdue, tauxConv, relance1, relance2, relance3 };
   }, [abandonedCarts]);
 
-  // ─── Tunnel de conversion ─────────────────────────────────────────────────
+  // ─── Tunnel de conversion (ventes = commandes valides) ───────────────────
   const tunnelConv = useMemo(() => {
     if (!pageViews?.top_products) return [];
     const ventesParSlug: Record<string, number> = {};
-    filtered.forEach(o => {
+    validFiltered.forEach(o => {
       (Array.isArray(o.items) ? o.items : []).forEach((item: any) => {
         const slug = item.slug ?? item.id;
         if (slug) ventesParSlug[slug] = (ventesParSlug[slug] ?? 0) + (item.quantity ?? 1);
@@ -492,21 +532,21 @@ export default function AdminStats() {
       const tx = p.sessions > 0 ? (ventes / p.sessions) * 100 : 0;
       return { name: p.name, slug: p.slug, vues: p.views, sessions: p.sessions, ventes, tx };
     });
-  }, [pageViews, filtered]);
+  }, [pageViews, validFiltered]);
 
-  // ─── Performance promo ────────────────────────────────────────────────────
+  // ─── Performance promo (commandes valides uniquement, CA net) ────────────
   const promoPerf = useMemo(() => {
-    const withPromo    = filtered.filter(o => o.promo_code);
-    const withoutPromo = filtered.filter(o => !o.promo_code);
-    const caWith    = withPromo.reduce   ((s, o) => s + Number(o.amount_total ?? 0), 0);
-    const caWithout = withoutPromo.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+    const withPromo    = validFiltered.filter(o => o.promo_code);
+    const withoutPromo = validFiltered.filter(o => !o.promo_code);
+    const caWith    = withPromo.reduce   ((s, o) => s + getNetAmount(o), 0);
+    const caWithout = withoutPromo.reduce((s, o) => s + getNetAmount(o), 0);
     const avgWith    = withPromo.length    > 0 ? caWith    / withPromo.length    : 0;
     const avgWithout = withoutPromo.length > 0 ? caWithout / withoutPromo.length : 0;
-    const discountTotal = filtered.reduce((s, o) => s + Number((o as any).discount ?? 0), 0);
+    const discountTotal = validFiltered.reduce((s, o) => s + Number((o as any).discount ?? 0), 0);
     return { nbWith: withPromo.length, nbWithout: withoutPromo.length, caWith, caWithout, avgWith, avgWithout, discountTotal };
-  }, [filtered]);
+  }, [validFiltered]);
 
-  // ─── Évolution 12 mois ────────────────────────────────────────────────────
+  // ─── Évolution 12 mois (CA net, commandes valides uniquement) ────────────
   const caBy12Months = useMemo(() => {
     const map: Record<string, number> = {};
     const now = new Date();
@@ -515,10 +555,10 @@ export default function AdminStats() {
       const key = d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
       map[key] = 0;
     }
-    orders.forEach(o => {
+    orders.filter(isValidOrder).forEach(o => {
       const d = new Date(o.created_at);
       const key = d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
-      if (key in map) map[key] += Number(o.amount_total ?? 0);
+      if (key in map) map[key] += getNetAmount(o);
     });
     return Object.entries(map).map(([label, value]) => ({ label, value }));
   }, [orders]);
@@ -528,7 +568,8 @@ export default function AdminStats() {
     if (!products.length) return [];
     const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
     const slugsVendus = new Set<string>();
-    orders.filter(o => new Date(o.created_at) >= cutoff).forEach(o => {
+    // Une "vente" pour le stock dormant = commande VALIDE (pas annulée/remboursée)
+    orders.filter(o => isValidOrder(o) && new Date(o.created_at) >= cutoff).forEach(o => {
       (Array.isArray(o.items) ? o.items : []).forEach((item: any) => {
         if (item.slug) slugsVendus.add(item.slug);
         if (item.id)   slugsVendus.add(item.id);

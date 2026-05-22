@@ -220,6 +220,12 @@ export default function CartPage() {
     const $container = $("#" + widgetContainerId);
     if (!$container.length) return;
 
+    // Mode Mondial Relay selon le choix client :
+    //   "24R" = Point Relais commerçant uniquement
+    //   "24L" = Locker 24/7 uniquement
+    //   "24X" = Mix (pas utilisé ici, on sépare)
+    const mrMode = deliveryType === "locker" ? "24L" : "24R";
+
     try {
       $container.empty();
       $container.MR_ParcelShopPicker({
@@ -233,6 +239,7 @@ export default function CartPage() {
         Weight:           "250",
         NbResults:        5,
         SearchDelay:      "0",
+        Mode:             mrMode,
         OnParcelShopSelected: (data: any) => {
           if (!data) return;
           setSelectedRelay({
@@ -401,6 +408,41 @@ export default function CartPage() {
           .cart-layout { grid-template-columns: 1fr !important; }
           .cart-sticky  { position: static !important; }
           .cart-outer   { padding: 0 16px !important; }
+        }
+
+        /* ── Widget Mondial Relay : centrage + adaptation largeur ───────── */
+        #milk-mr-widget {
+          width: 100% !important;
+          max-width: 100% !important;
+          margin: 0 auto !important;
+          overflow: hidden !important;
+        }
+        #milk-mr-widget > div,
+        #milk-mr-widget iframe,
+        #milk-mr-widget .MR-Widget-Map,
+        #milk-mr-widget .MRW-Map,
+        #milk-mr-widget .MR-Widget {
+          width: 100% !important;
+          max-width: 100% !important;
+        }
+        #milk-mr-widget img { max-width: 100%; height: auto; }
+
+        /* Mobile : masquer la carte (lourde, mal affichée) → liste only */
+        @media (max-width: 768px) {
+          #milk-mr-widget .MR-Widget-Map,
+          #milk-mr-widget .MRW-Map,
+          #milk-mr-widget [class*="map"],
+          #milk-mr-widget [id*="map"],
+          #milk-mr-widget [id*="Map"] {
+            display: none !important;
+          }
+          #milk-mr-widget .MR-Widget-List,
+          #milk-mr-widget [class*="list"] {
+            width: 100% !important;
+            max-width: 100% !important;
+            max-height: 60vh;
+            overflow-y: auto;
+          }
         }
       `}</style>
 
@@ -663,12 +705,16 @@ export default function CartPage() {
                   {/* Récap relais sélectionné */}
                   {(deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay && (
                     <div style={{ background: "#dcfce7", borderRadius: 12, padding: 14, marginBottom: 10, border: "1px solid #86efac" }}>
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                        <div style={{ flex: 1 }}>
-                          <div style={{ fontSize: 13, fontWeight: 900, color: "#166534", marginBottom: 4 }}>✓ {selectedRelay.name}</div>
-                          <div style={{ fontSize: 12, color: "#1a1410" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
+                        <div style={{ flex: "1 1 200px", minWidth: 0 }}>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: "#166534", marginBottom: 4, wordBreak: "break-word" }}>✓ {selectedRelay.name}</div>
+                          <div style={{ fontSize: 12, color: "#1a1410", wordBreak: "break-word" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
                         </div>
-                        <button onClick={() => setSelectedRelay(null)} style={{ background: "none", border: "none", fontSize: 12, fontWeight: 800, color: "#166534", textDecoration: "underline", cursor: "pointer" }}>Modifier</button>
+                        <button
+                          onClick={() => setSelectedRelay(null)}
+                          style={{ background: "transparent", border: "1px solid #166534", fontSize: 12, fontWeight: 800, color: "#166534", padding: "10px 14px", minHeight: 44, borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
+                          Modifier
+                        </button>
                       </div>
                     </div>
                   )}

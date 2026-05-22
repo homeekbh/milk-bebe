@@ -126,7 +126,8 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Adresse de livraison incomplète (line1/postal_code/city manquant)" }, { status: 400 });
     }
 
-    const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.5;
+    // Poids par défaut 0.250 kg (vêtement bébé bambou typique)
+    const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
 
     // Adresse destinataire — compacte (sans clés vides)
     const toAddressRaw = {
@@ -143,7 +144,16 @@ export async function POST(req: NextRequest) {
     const toAddress   = compactAddress(toAddressRaw);
     const fromAddress = compactAddress(FROM_ADDRESS);
 
-    const parcel = { weight: { value: weightKg.toFixed(3), unit: "kg" } };
+    // Dimensions : vêtement bébé plié (25 × 15 × 3 cm)
+    const parcel = {
+      weight: { value: weightKg.toFixed(3), unit: "kg" },
+      dimensions: {
+        length: "25",
+        width:  "15",
+        height: "3",
+        unit:   "cm",
+      },
+    };
 
     console.error(`[sendcloud] === REQUEST order=${order_id} transporteur="${transporteur}" weight=${weightKg}kg ===`);
     console.error(`[sendcloud] from=${fromAddress.city}/${fromAddress.postal_code}  to=${toAddress.city}/${toAddress.postal_code}/${toAddress.country_code}`);

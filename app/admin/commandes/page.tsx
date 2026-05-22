@@ -286,6 +286,9 @@ export default function AdminCommandes() {
   // Modale informer client de l'annulation
   const [cancelEmailModal, setCancelEmailModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
 
+  // Modale "Annuler + Rembourser Stripe" (action IRRÉVERSIBLE)
+  const [refundModal, setRefundModal] = useState<{ orderId: string; amount: number; reason: string; customMessage: string; sending: boolean; mode: "full" | "partial" } | null>(null);
+
   async function load() {
     setLoading(true);
     const res  = await adminFetch("/api/admin/commandes-data");
@@ -535,6 +538,38 @@ export default function AdminCommandes() {
     if (!order) return;
     const previewHtml = await buildCancelPreview(order, customMessage);
     setCancelEmailModal(s => s ? { ...s, customMessage, previewHtml } : null);
+  }
+
+  // === ANNULER + REMBOURSER STRIPE ===
+  async function confirmRefund() {
+    if (!refundModal) return;
+    setRefundModal({ ...refundModal, sending: true });
+
+    const body: any = {
+      action:         refundModal.mode === "full" ? "cancel_refund" : "refund_partial",
+      reason:         refundModal.reason,
+      custom_message: refundModal.customMessage,
+    };
+    if (refundModal.mode === "partial") body.amount = refundModal.amount;
+
+    const res = await adminFetch(`/api/admin/commandes/${refundModal.orderId}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(`Erreur: ${data.error ?? `HTTP ${res.status}`}${data.details ? "\n" + data.details : ""}`);
+      setRefundModal({ ...refundModal, sending: false });
+      return;
+    }
+
+    const successMsg = refundModal.mode === "full"
+      ? `✅ Commande annulée + ${data.refund_amount?.toFixed(2)} € remboursés (Stripe ${data.refund_id}). Stock réintégré: ${data.stock_restored} produit(s).${data.email_sent ? " Email client envoyé." : " ⚠ Email client échoué."}`
+      : `✅ Remboursement partiel ${refundModal.amount.toFixed(2)} € effectué (Stripe ${data.refund_id}).`;
+    alert(successMsg);
+    await load();
+    setRefundModal(null);
   }
 
   async function sendCancellationEmail() {
@@ -1017,8 +1052,26 @@ export default function AdminCommandes() {
                             onClick={() => setCancelModal({ orderId: order.id, cancelling: false })}
                             style={{ padding: "12px 16px", borderRadius: 12, background: "#fef2f2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
                           >
-                            ↺ Annuler l'expédition
+                            ↺ Annuler l'expédition (Sendcloud uniquement)
                           </button>
+                        )}
+
+                        {/* === ANNULER + REMBOURSER STRIPE === Visible si pas déjà annulée/remboursée */}
+                        {(order as any).status !== "refunded" && order.shipping_status !== "cancelled" && (
+                          <>
+                            <button
+                              onClick={() => setRefundModal({ orderId: order.id, amount: Number(order.amount_total ?? 0), reason: "", customMessage: "", sending: false, mode: "full" })}
+                              style={{ padding: "12px 16px", borderRadius: 12, background: "#dc2626", color: "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: "pointer" }}
+                            >
+                              🔴 Annuler + Rembourser Stripe
+                            </button>
+                            <button
+                              onClick={() => setRefundModal({ orderId: order.id, amount: 0, reason: "", customMessage: "", sending: false, mode: "partial" })}
+                              style={{ padding: "12px 16px", borderRadius: 12, background: "#fff", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
+                            >
+                              💸 Remboursement partiel
+                            </button>
+                          </>
                         )}
 
                         {/* "Informer le client" — visible UNIQUEMENT si shipping_status = "cancelled" */}
@@ -1180,6 +1233,79 @@ export default function AdminCommandes() {
                 style={{ padding: "12px 18px", borderRadius: 12, background: cancelModal.cancelling ? "#e5e7eb" : "#dc2626", color: cancelModal.cancelling ? "#9ca3af" : "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: cancelModal.cancelling ? "not-allowed" : "pointer" }}
               >
                 {cancelModal.cancelling ? "⏳ Annulation..." : "Confirmer l'annulation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODALE — ANNULER + REMBOURSER STRIPE (FULL/PARTIAL) ══ */}
+      {refundModal && (
+        <div
+          onClick={() => !refundModal.sending && setRefundModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, maxWidth: 540, width: "100%", padding: 32 }}>
+            <h2 style={{ margin: "0 0 8px", fontSize: 22, fontWeight: 950, color: "#dc2626" }}>
+              {refundModal.mode === "full" ? "🔴 Annuler + Rembourser" : "💸 Remboursement partiel"}
+            </h2>
+            <div style={{ padding: "12px 14px", borderRadius: 10, background: "#fee2e2", border: "1px solid #fca5a5", fontSize: 13, color: "#991b1b", marginBottom: 18, lineHeight: 1.6 }}>
+              ⚠️ <strong>Action IRRÉVERSIBLE</strong> — un vrai remboursement Stripe sera créé sur le compte du client.
+              {refundModal.mode === "full" && <><br />Le stock sera réintégré et un email d'annulation envoyé.</>}
+            </div>
+
+            {refundModal.mode === "partial" && (
+              <div style={{ marginBottom: 14 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 }}>
+                  Montant à rembourser (€) *
+                </label>
+                <input
+                  type="number" step="0.01" min="0.50"
+                  value={refundModal.amount || ""}
+                  onChange={e => setRefundModal(m => m ? { ...m, amount: parseFloat(e.target.value) || 0 } : null)}
+                  placeholder="ex: 10.00"
+                  style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.1)", fontSize: 15, fontWeight: 700, fontFamily: "monospace", outline: "none", background: "#fff", boxSizing: "border-box" }} />
+              </div>
+            )}
+
+            <div style={{ marginBottom: 14 }}>
+              <label style={{ display: "block", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 }}>
+                Raison (interne, optionnel)
+              </label>
+              <input
+                type="text"
+                value={refundModal.reason}
+                onChange={e => setRefundModal(m => m ? { ...m, reason: e.target.value } : null)}
+                placeholder="ex: Produit indisponible, client mécontent..."
+                style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)", fontSize: 14, outline: "none", background: "#fff", boxSizing: "border-box" }} />
+            </div>
+
+            {refundModal.mode === "full" && (
+              <div style={{ marginBottom: 18 }}>
+                <label style={{ display: "block", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 }}>
+                  Message au client (optionnel)
+                </label>
+                <textarea
+                  rows={3}
+                  value={refundModal.customMessage}
+                  onChange={e => setRefundModal(m => m ? { ...m, customMessage: e.target.value } : null)}
+                  placeholder="Mot personnel ajouté à l'email d'annulation..."
+                  style={{ width: "100%", padding: "10px 12px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)", fontSize: 14, outline: "none", background: "#fff", resize: "vertical", boxSizing: "border-box", fontFamily: "inherit" }} />
+              </div>
+            )}
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <button
+                onClick={() => setRefundModal(null)}
+                disabled={refundModal.sending}
+                style={{ padding: "13px", borderRadius: 12, background: "transparent", color: "#1a1410", fontWeight: 800, fontSize: 14, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer" }}>
+                Annuler
+              </button>
+              <button
+                onClick={confirmRefund}
+                disabled={refundModal.sending || (refundModal.mode === "partial" && refundModal.amount <= 0)}
+                style={{ padding: "13px", borderRadius: 12, background: refundModal.sending ? "#e5e7eb" : "#dc2626", color: refundModal.sending ? "#9ca3af" : "#fff", fontWeight: 900, fontSize: 14, border: "none", cursor: refundModal.sending ? "not-allowed" : "pointer" }}>
+                {refundModal.sending ? "⏳ Remboursement..." : refundModal.mode === "full" ? "Confirmer l'annulation" : "Confirmer le remboursement"}
               </button>
             </div>
           </div>

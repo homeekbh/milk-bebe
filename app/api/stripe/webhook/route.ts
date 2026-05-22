@@ -139,6 +139,19 @@ export async function POST(req: Request) {
             console.warn("[stripe-webhook] stripe_payment_intent_id non persisté (colonne manquante?):", piErr.message);
           }
         }
+
+        // Best-effort: persister carrier (déduction serveur, pas via metadata
+        // Stripe). M!LK n'utilise plus que Colissimo / La Poste — on hardcode.
+        // cf. migration 003 qui crée la colonne carrier avec default 'colissimo'.
+        if (orderData?.id) {
+          const { error: cErr } = await supabaseServer
+            .from("orders")
+            .update({ carrier: "colissimo" })
+            .eq("id", orderData.id);
+          if (cErr) {
+            console.warn("[stripe-webhook] carrier non persisté (colonne manquante?):", cErr.message);
+          }
+        }
       }
 
       // ✅ Batch load produits — 1 requête au lieu de N (sert à mapper item.slug → id

@@ -15,17 +15,19 @@ const ENDPOINTS = [
 ];
 
 /**
- * GET /api/servicepoints?postal_code=06500&country=FR
+ * GET /api/servicepoints?postal_code=06500&carrier=colissimo&country=FR
  *
- * Cherche les Points Relais Mondial Relay autour d'un code postal.
+ * Cherche les Points Relais autour d'un code postal pour un transporteur donné.
+ * Default: carrier=colissimo (M!LK n'utilise plus que Colissimo / La Poste).
  * Les consignes automatiques (lockers) sont systématiquement exclues — on
- * ne propose plus que le retrait chez un commerçant.
+ * ne propose plus que le retrait chez un commerçant / bureau de poste.
  * Cascade entre 2 endpoints Sendcloud. Si TOUS échouent → fallback_manual:true
  * (le client tape manuellement le nom/adresse de son relais préféré).
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const postalCode = (searchParams.get("postal_code") ?? "").trim();
+  const carrier    = (searchParams.get("carrier") ?? "colissimo").toLowerCase();
   const country    = (searchParams.get("country") ?? "FR").toUpperCase();
 
   if (!postalCode || !/^\d{4,5}$/.test(postalCode)) {
@@ -35,7 +37,7 @@ export async function GET(req: NextRequest) {
   const attempts: Array<{ url: string; status: number; ok: boolean; body_preview: string; count?: number }> = [];
 
   for (const base of ENDPOINTS) {
-    const url = `${base}?country=${encodeURIComponent(country)}&carrier=mondial_relay&postal_code=${encodeURIComponent(postalCode)}`;
+    const url = `${base}?country=${encodeURIComponent(country)}&carrier=${encodeURIComponent(carrier)}&postal_code=${encodeURIComponent(postalCode)}`;
     console.error(`[servicepoints] → ${url}`);
     try {
       const res = await fetch(url, {

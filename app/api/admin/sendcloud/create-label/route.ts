@@ -338,9 +338,16 @@ export async function POST(req: NextRequest) {
     // request_label: true force la génération synchrone de l'étiquette PDF.
     // Sans ce flag, Sendcloud crée le parcel en "announced" sans étiquette,
     // et le colis n'apparaît même pas dans le panel Sendcloud.
+    //
+    // label_format: "a6" — Colissimo / La Poste recommandent du A6 (105×148mm)
+    // pour les colis légers. Si Sendcloud renvoie un 400 sur cette clé, les logs
+    // Vercel diront le nom de propriété attendu (peut varier selon contrat) — on
+    // ajustera. Le PDF retourné par la suite peut aussi être A4 par défaut côté
+    // panel.sendcloud.sc selon les paramètres du compte.
     const shipWithProps: Record<string, any> = {
       shipping_option_code: shippingOptionCode,
       request_label:        true,
+      label_format:         "a6",
     };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 

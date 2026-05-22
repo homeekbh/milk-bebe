@@ -108,23 +108,73 @@ export async function POST(req: NextRequest) {
 
       // Notification email admin si livré
       if (newStatus === "livree") {
+        const shortId = order.id.slice(0, 8).toUpperCase();
+        const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
         await resend.emails.send({
           from:    "M!LK <contact@milkbebe.fr>",
           to:      ["contact@milkbebe.fr"],
-          subject: `✅ Colis livré — commande #${order.id.slice(0, 8).toUpperCase()}`,
+          subject: `✅ Colis livré — commande #${shortId}`,
           html: `
             <div style="font-family:sans-serif;padding:24px;max-width:500px">
               <h2 style="color:#1a1410">Colis livré ✅</h2>
-              <p>La commande <strong>#${order.id.slice(0, 8).toUpperCase()}</strong> 
+              <p>La commande <strong>#${shortId}</strong>
               de <strong>${order.customer_name}</strong> a été livrée.</p>
               <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
-              <a href="${process.env.NEXT_PUBLIC_BASE_URL}/admin/commandes" 
+              <a href="${baseUrl}/admin/commandes"
                 style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c49a4a;color:#1a1410;font-weight:900;text-decoration:none;border-radius:10px">
                 Voir dans l'admin →
               </a>
             </div>
           `,
         }).catch(() => {});
+
+        // Notification email CLIENT — confirme la livraison + invite à
+        // redécouvrir la collection / laisser un avis.
+        // Best-effort, indépendant de la réussite de l'email admin.
+        if (order.customer_email) {
+          const prenom = String(order.customer_name ?? "").split(" ")[0] ?? "";
+          await resend.emails.send({
+            from:    "M!LK <contact@milkbebe.fr>",
+            to:      order.customer_email,
+            subject: `Votre colis M!LK est arrivé ! 📦`,
+            html: `<!DOCTYPE html>
+<html lang="fr">
+<body style="margin:0;padding:0;background:#1a1410;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
+  <div style="max-width:540px;margin:0 auto;padding:40px 20px">
+    <div style="text-align:center;margin-bottom:28px">
+      <div style="display:inline-block;background:#c49a4a;border-radius:12px;padding:14px 28px">
+        <span style="color:#1a1410;font-weight:950;font-size:24px;letter-spacing:-1px">M!LK</span>
+      </div>
+    </div>
+    <div style="background:#2a2018;border-radius:20px;padding:32px;border:1px solid rgba(242,237,230,0.08);margin-bottom:24px">
+      <h1 style="margin:0 0 14px;color:#f2ede6;font-size:24px;font-weight:950;letter-spacing:-0.5px">
+        ${prenom ? `${prenom}, votre` : "Votre"} colis est arrivé 📦
+      </h1>
+      <p style="margin:0 0 14px;color:rgba(242,237,230,0.7);font-size:15px;line-height:1.7">
+        Votre commande <strong style="color:#f2ede6">#${shortId}</strong> vient d'être livrée.
+        Bébé peut désormais profiter de la douceur du bambou M!LK 🌿
+      </p>
+      <p style="margin:0;color:rgba(242,237,230,0.55);font-size:14px;line-height:1.7">
+        Une question ou un souci ? Répondez à cet email — on revient vers vous sous 24h.
+      </p>
+    </div>
+    <div style="text-align:center;display:grid;gap:10px;margin-bottom:24px">
+      <a href="${baseUrl}/produits" style="display:inline-block;background:#c49a4a;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
+        Redécouvrir la collection M!LK →
+      </a>
+      <a href="${baseUrl}/avis" style="display:inline-block;color:rgba(242,237,230,0.55);padding:10px;font-weight:700;font-size:13px;text-decoration:underline">
+        Laisser un avis
+      </a>
+    </div>
+    <div style="text-align:center;color:rgba(242,237,230,0.2);font-size:12px;line-height:1.8">
+      <p style="margin:0">M!LK — Essentiels bébé en bambou premium</p>
+      <p style="margin:4px 0 0">contact@milkbebe.fr</p>
+    </div>
+  </div>
+</body>
+</html>`,
+          }).catch(() => {});
+        }
       }
 
       // Notification email admin si retour

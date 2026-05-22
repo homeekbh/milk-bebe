@@ -82,9 +82,12 @@ function cleanNotes(raw: string | null | undefined): string {
   return s;
 }
 
-// Transporteurs M!LK — liste fixe Mondial Relay (3 options pour colis bébé bambou < 250g)
+// Transporteurs M!LK — Colissimo (2 options pour colis bébé bambou < 1kg).
+// Les codes ci-dessous sont des identifiants UI uniquement ; le backend
+// /api/admin/sendcloud/create-label utilise /fetch-shipping-options qui matche
+// par nom de transporteur dynamiquement (cf. wantedKey="colissimo").
 type SendcloudProduct = {
-  code:         string;        // ID Sendcloud (string pour usage uniforme)
+  code:         string;
   name:         string;
   carrier_name: string;
   carrier_code: string;
@@ -94,18 +97,18 @@ type SendcloudProduct = {
   delivery_type: "point_relais" | "home";
 };
 
-const MONDIAL_OPTIONS: SendcloudProduct[] = [
+const COLISSIMO_OPTIONS: SendcloudProduct[] = [
   {
-    code: "10327", name: "Mondial Relay Point Relais (0-1kg)",
-    carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
+    code: "colissimo:home", name: "Colissimo Domicile",
+    carrier_name: "Colissimo", carrier_code: "colissimo",
     contract_id: null, weight_min: 0, weight_max: 1,
-    delivery_type: "point_relais",
+    delivery_type: "home",
   },
   {
-    code: "10314", name: "Mondial Relay Home (0-0.5kg)",
-    carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
-    contract_id: null, weight_min: 0, weight_max: 0.5,
-    delivery_type: "home",
+    code: "colissimo:service_point", name: "Colissimo Point Relais",
+    carrier_name: "Colissimo", carrier_code: "colissimo",
+    contract_id: null, weight_min: 0, weight_max: 1,
+    delivery_type: "point_relais",
   },
 ];
 
@@ -140,8 +143,8 @@ function getTrackingUrl(transporteur: string, tracking: string): string | null {
   if (t.includes("dhl")) return `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${tracking}`;
   if (t.includes("dpd")) return `https://trace.dpd.fr/fr/trace/${tracking}`;
   if (t.includes("gls")) return `https://gls-group.com/FR/fr/suivi-colis?match=${tracking}`;
-  if (t.includes("mondial relay") || t.includes("mondial")) return `https://www.mondialrelay.fr/suivi-de-colis/?NumeroExpedition=${tracking}`;
-  return null;
+  // Colissimo / La Poste est le default — retourne le tracker Laposte si carrier inconnu
+  return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
 }
 
 // ── Fenêtre impression étiquette ─────────────────────────────────────────────
@@ -269,8 +272,11 @@ export default function AdminCommandes() {
   const [orders,     setOrders]     = useState<Order[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState<string | null>(null);
-  const [search,     setSearch]     = useState("");
-  const [statusFilter, setStatusFilter] = useState("");
+  const [search,         setSearch]         = useState("");
+  const [statusFilter,   setStatusFilter]   = useState("");
+  // Filtre transporteur — mode livraison choisi par le client.
+  // "all" = tout, "home" = Colissimo Domicile, "point_relais" = Colissimo Point Relais
+  const [carrierFilter,  setCarrierFilter]  = useState<"all" | "home" | "point_relais">("all");
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
 
@@ -286,7 +292,7 @@ export default function AdminCommandes() {
   const [errorParcelId,  setErrorParcelId]  = useState<string | null>(null);
 
   // Liste fixe (plus de fetch dynamique — 3 options M!LK)
-  const mondialProducts = MONDIAL_OPTIONS;
+  const colissimoProducts = COLISSIMO_OPTIONS;
 
   // Modale confirmation expédition
   const [shipModal, setShipModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
@@ -323,7 +329,7 @@ export default function AdminCommandes() {
       setTracking(order.tracking_number ?? "");
       setNotes(cleanNotes(order.notes));
       // Auto-sélection selon delivery_type
-      const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === order.delivery_type);
+      const matched = COLISSIMO_OPTIONS.find(o => o.delivery_type === order.delivery_type);
       setTransporteur(matched ? JSON.stringify(matched) : "");
     }
   }, [selected, orders]);
@@ -369,7 +375,7 @@ export default function AdminCommandes() {
         method: "POST",
         body: JSON.stringify({
           order_id:     order.id,
-          transporteur: t.carrier_name ?? "mondial relay",
+          transporteur: t.carrier_name ?? "colissimo",
           customer: {
             name:     order.customer_name,
             email:    order.customer_email,
@@ -648,11 +654,22 @@ export default function AdminCommandes() {
     await load();
   }
 
+  // Helper : commande expédiée depuis >24h sans numéro de suivi.
+  // Sert de signal d'alerte côté admin pour relancer Sendcloud ou contacter
+  // le client.
+  function isShippedTooLongAgo(o: Order): boolean {
+    if (o.shipping_status !== "expediee") return false;
+    if (o.tracking_number && o.tracking_number.length > 0) return false;
+    const ageMs = Date.now() - new Date(o.created_at).getTime();
+    return ageMs > 24 * 3600 * 1000;
+  }
+
   const filtered = orders.filter(o => {
     const q = search.toLowerCase();
-    const matchSearch = !q || (o.customer_name ?? "").toLowerCase().includes(q) || (o.customer_email ?? "").toLowerCase().includes(q) || o.id.includes(q);
-    const matchStatus = !statusFilter || o.shipping_status === statusFilter;
-    return matchSearch && matchStatus;
+    const matchSearch  = !q || (o.customer_name ?? "").toLowerCase().includes(q) || (o.customer_email ?? "").toLowerCase().includes(q) || o.id.includes(q);
+    const matchStatus  = !statusFilter || o.shipping_status === statusFilter;
+    const matchCarrier = carrierFilter === "all" || normalizeDeliveryType(o.delivery_type) === carrierFilter;
+    return matchSearch && matchStatus && matchCarrier;
   });
 
   const isCancelled = (o: Order) => o.shipping_status === "annulee" || (o as any).status === "annulee" || (o as any).status === "remboursee";
@@ -714,6 +731,14 @@ export default function AdminCommandes() {
             <option key={k} value={k}>{v.label}</option>
           ))}
         </select>
+        <select
+          value={carrierFilter} onChange={e => setCarrierFilter(e.target.value as "all" | "home" | "point_relais")}
+          style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fff", outline: "none" }}
+        >
+          <option value="all">Tous transporteurs</option>
+          <option value="home">📦 Colissimo Domicile</option>
+          <option value="point_relais">📦 Colissimo Point Relais</option>
+        </select>
         <a href="/api/admin/export/commandes" download
           style={{ padding: "11px 18px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, textDecoration: "none", whiteSpace: "nowrap" }}>
           ⬇ CSV
@@ -758,6 +783,13 @@ export default function AdminCommandes() {
                   <span style={{ fontSize: 20, color: "rgba(26,20,16,0.3)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
                 </div>
 
+                {/* Alerte : expédiée depuis plus de 24h sans n° de suivi */}
+                {isShippedTooLongAgo(order) && (
+                  <div style={{ padding: "10px 24px", background: "#fef3c7", borderTop: "1px solid #fde68a", color: "#92400e", fontSize: 12, fontWeight: 700, display: "flex", alignItems: "center", gap: 8 }}>
+                    ⚠ Expédiée depuis plus de 24h sans numéro de suivi — relancer Sendcloud ou contacter le client.
+                  </div>
+                )}
+
                 {/* ── Panneau détail ── */}
                 {isOpen && selectedOrder && (
                   <div style={{ padding: "0 24px 28px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
@@ -791,7 +823,7 @@ export default function AdminCommandes() {
                           </div>
                         </div>
 
-                        {/* Mode de livraison Mondial Relay */}
+                        {/* Mode de livraison Colissimo */}
                         <div style={{ background: "#ede8df", borderRadius: 12, padding: "16px 18px" }}>
                           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>
                             Mode de livraison
@@ -800,7 +832,7 @@ export default function AdminCommandes() {
                             order.relay_id ? (
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", marginBottom: 4 }}>
-                                  📦 Point Relais Mondial Relay
+                                  📦 Colissimo Point Relais
                                 </div>
                                 <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>{order.relay_name ?? "—"}</div>
                                 <div style={{ fontSize: 13, color: "rgba(26,20,16,0.7)", lineHeight: 1.6 }}>
@@ -884,11 +916,11 @@ export default function AdminCommandes() {
                         {order.delivery_type ? (
                           (() => {
                             const dt      = normalizeDeliveryType(order.delivery_type);
-                            const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === dt);
+                            const matched = COLISSIMO_OPTIONS.find(o => o.delivery_type === dt);
                             const icon    = dt === "home" ? "🏠" : "📦";
                             const label   =
-                              dt === "home" ? "Livraison à domicile (Mondial Relay)" :
-                                              "Point Relais Mondial Relay";
+                              dt === "home" ? "Colissimo Domicile" :
+                                              "Colissimo Point Relais";
                             return (
                               <div style={{ background: "#1a1410", borderRadius: 12, padding: "16px 18px", color: "#f2ede6" }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(196,154,74,0.8)", marginBottom: 8 }}>
@@ -926,7 +958,7 @@ export default function AdminCommandes() {
                               ⚠️ Mode de livraison non renseigné — sélection manuelle requise
                             </label>
                             <div style={{ display: "grid", gap: 8 }}>
-                              {mondialProducts.map(t => {
+                              {colissimoProducts.map(t => {
                                 const key = t.code;
                                 const isSelected = (() => { try { return JSON.parse(transporteur).code === key; } catch { return false; } })();
                                 return (

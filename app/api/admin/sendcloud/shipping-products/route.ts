@@ -16,11 +16,12 @@ const CANDIDATE_ENDPOINTS = [
   "https://panel.sendcloud.sc/api/v2/shipping_methods",
 ];
 
-// Fallback hardcoded si TOUS les endpoints échouent — codes Mondial Relay typiques.
+// Fallback hardcoded si TOUS les endpoints échouent — codes Colissimo génériques.
 // Le user peut quand même tenter la génération d'étiquette, le backend create-label
-// utilise /fetch-shipping-options qui retournera les vrais codes.
-const HARDCODED_MONDIAL_FALLBACK = [
-  { code: "mondial_relay:home_l", name: "Mondial Relay — Point Relais 24h",  carrier_name: "Mondial Relay", carrier_code: "mondial_relay", contract_id: null, weight_min: null, weight_max: 20, _fallback: true },
+// utilise /fetch-shipping-options qui retournera les vrais codes/contract_id.
+const HARDCODED_COLISSIMO_FALLBACK = [
+  { code: "colissimo:home",          name: "Colissimo Domicile",     carrier_name: "Colissimo", carrier_code: "colissimo", contract_id: null, weight_min: 0, weight_max: 1, _fallback: true },
+  { code: "colissimo:service_point", name: "Colissimo Point Relais", carrier_name: "Colissimo", carrier_code: "colissimo", contract_id: null, weight_min: 0, weight_max: 1, _fallback: true },
 ];
 
 function normalizeProducts(raw: any[], filter: string): any[] {
@@ -41,18 +42,18 @@ function normalizeProducts(raw: any[], filter: string): any[] {
 }
 
 /**
- * GET /api/admin/sendcloud/shipping-products?carrier=mondial
+ * GET /api/admin/sendcloud/shipping-products?carrier=colissimo
  *
  * Teste plusieurs endpoints Sendcloud en cascade jusqu'à trouver le bon.
  * Logue chaque tentative dans Vercel pour diagnostiquer.
- * Retourne fallback hardcoded si tout échoue.
+ * Retourne fallback hardcoded (Colissimo Domicile + Point Relais) si tout échoue.
  */
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
 
   const { searchParams } = new URL(req.url);
-  const filter = (searchParams.get("carrier") ?? "mondial").toLowerCase();
+  const filter = (searchParams.get("carrier") ?? "colissimo").toLowerCase();
 
   const attempts: Array<{ endpoint: string; status: number; ok: boolean; body_preview: string; matched_count?: number }> = [];
 
@@ -110,9 +111,9 @@ export async function GET(req: NextRequest) {
   // → fallback hardcoded pour ne pas bloquer l'admin
   console.error(`[sendcloud:shipping] all endpoints failed — using hardcoded fallback for "${filter}"`);
   return Response.json({
-    products:    HARDCODED_MONDIAL_FALLBACK,
+    products:    HARDCODED_COLISSIMO_FALLBACK,
     source:      "hardcoded_fallback",
-    matched:     HARDCODED_MONDIAL_FALLBACK.length,
+    matched:     HARDCODED_COLISSIMO_FALLBACK.length,
     attempts,
     warning:     "Aucun endpoint Sendcloud n'a retourné de produits — fallback codes typiques utilisés. Vérifie les logs Vercel pour le détail des tentatives.",
   });

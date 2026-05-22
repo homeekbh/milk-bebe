@@ -2,6 +2,7 @@
 import { headers } from "next/headers";
 import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
+import { logActivity } from "@/lib/server/audit";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 const resend  = new Resend(process.env.RESEND_API_KEY);
@@ -267,6 +268,168 @@ export async function POST(req: Request) {
     } catch (err: any) {
       process.env.NODE_ENV !== "production" && console.error("❌ Webhook processing error:", err.message);
       return new Response(`Processing error: ${err.message}`, { status: 500 });
+    }
+  }
+
+  // ── payment_intent.payment_failed — paiement échoué ──────────────────────
+  // On marque la commande en "payment_failed" pour la suivre côté admin.
+  // Stock NON décrémenté (le webhook checkout.session.completed n'a pas été
+  // déclenché car le paiement n'est jamais allé jusqu'au bout) → rien à
+  // réintégrer.
+  if (event.type === "payment_intent.payment_failed") {
+    const pi = event.data.object as Stripe.PaymentIntent;
+    process.env.NODE_ENV !== "production" && console.error("⚠️ Payment failed:", pi.id, pi.last_payment_error?.message);
+
+    try {
+      // On essaie de retrouver la commande via stripe_payment_intent_id si stocké,
+      // sinon via le stripe_session_id en remontant à la session (paiement échoué
+      // = il peut quand même y avoir une session associée).
+      let order: any = null;
+
+      // Première tentative : colonne stripe_payment_intent_id si elle existe
+      const { data: byPi } = await supabaseServer
+        .from("orders").select("id, amount_total, customer_email, stripe_session_id")
+        .eq("stripe_payment_intent_id", pi.id).maybeSingle();
+      if (byPi) order = byPi;
+
+      // Deuxième tentative : remonter via la session liée à ce payment_intent
+      if (!order) {
+        try {
+          const sessions = await stripe.checkout.sessions.list({ payment_intent: pi.id, limit: 1 });
+          const sid = sessions.data[0]?.id;
+          if (sid) {
+            const { data: bySid } = await supabaseServer
+              .from("orders").select("id, amount_total, customer_email, stripe_session_id")
+              .eq("stripe_session_id", sid).maybeSingle();
+            if (bySid) order = bySid;
+          }
+        } catch {}
+      }
+
+      if (order) {
+        await supabaseServer.from("orders").update({
+          status: "payment_failed",
+        }).eq("id", order.id);
+
+        await logActivity(
+          "commande_echec_paiement",
+          `Paiement échoué pour commande #${String(order.id).slice(0, 8).toUpperCase()}`,
+          {
+            entity_id: order.id,
+            meta: {
+              payment_intent_id: pi.id,
+              error_code:        pi.last_payment_error?.code ?? null,
+              error_message:     pi.last_payment_error?.message ?? null,
+              amount:            (pi.amount ?? 0) / 100,
+              customer_email:    order.customer_email,
+            },
+          }
+        );
+      } else {
+        // Aucune commande retrouvée (cas normal : la session n'a jamais été completée,
+        // donc l'order n'existe pas en base). On log quand même l'événement.
+        await logActivity(
+          "commande_echec_paiement",
+          `Paiement échoué (aucune commande associée) — PI ${pi.id}`,
+          {
+            meta: {
+              payment_intent_id: pi.id,
+              error_code:        pi.last_payment_error?.code ?? null,
+              error_message:     pi.last_payment_error?.message ?? null,
+              amount:            (pi.amount ?? 0) / 100,
+            },
+          }
+        );
+      }
+    } catch (err: any) {
+      process.env.NODE_ENV !== "production" && console.error("❌ payment_intent.payment_failed handler:", err.message);
+      // On ne return pas 500 — l'événement est ack
+    }
+  }
+
+  // ── charge.refunded — remboursement Stripe (manuel dashboard ou via API) ─
+  // Cet événement est déclenché APRÈS création d'un refund. Couvre :
+  //  - Refunds créés via notre /api/admin/commandes/[id] (action cancel_refund/refund_partial)
+  //  - Refunds créés manuellement dans le Stripe Dashboard
+  //  - Refunds automatiques (chargeback, etc.)
+  // On met le statut à "refunded" et on log.
+  if (event.type === "charge.refunded") {
+    const charge = event.data.object as Stripe.Charge;
+    process.env.NODE_ENV !== "production" && console.log("💸 Charge refunded:", charge.id, charge.amount_refunded);
+
+    try {
+      const piId = typeof charge.payment_intent === "string"
+        ? charge.payment_intent
+        : charge.payment_intent?.id ?? null;
+
+      let order: any = null;
+
+      if (piId) {
+        // Tentative via stripe_payment_intent_id si stocké
+        const { data: byPi } = await supabaseServer
+          .from("orders").select("id, amount_total, customer_email, stripe_session_id, status")
+          .eq("stripe_payment_intent_id", piId).maybeSingle();
+        if (byPi) order = byPi;
+
+        // Fallback : remonter via la session
+        if (!order) {
+          try {
+            const sessions = await stripe.checkout.sessions.list({ payment_intent: piId, limit: 1 });
+            const sid = sessions.data[0]?.id;
+            if (sid) {
+              const { data: bySid } = await supabaseServer
+                .from("orders").select("id, amount_total, customer_email, stripe_session_id, status")
+                .eq("stripe_session_id", sid).maybeSingle();
+              if (bySid) order = bySid;
+            }
+          } catch {}
+        }
+      }
+
+      const refundAmount = (charge.amount_refunded ?? 0) / 100;
+
+      if (order) {
+        // Ne pas écraser si déjà refunded (évite race condition avec notre endpoint admin)
+        const alreadyRefunded = String(order.status ?? "").toLowerCase() === "refunded";
+        if (!alreadyRefunded) {
+          await supabaseServer.from("orders").update({
+            status:        "refunded",
+            refund_amount: refundAmount,
+            refunded_at:   new Date().toISOString(),
+          }).eq("id", order.id);
+        }
+
+        await logActivity(
+          "commande_remboursee",
+          `Commande #${String(order.id).slice(0, 8).toUpperCase()} remboursée — ${refundAmount.toFixed(2)} €`,
+          {
+            entity_id: order.id,
+            meta: {
+              charge_id:         charge.id,
+              payment_intent_id: piId,
+              amount_refunded:   refundAmount,
+              currency:          charge.currency,
+              customer_email:    order.customer_email,
+              source:            alreadyRefunded ? "stripe_webhook_after_admin_action" : "stripe_webhook",
+            },
+          }
+        );
+      } else {
+        // Aucune commande retrouvée — on log quand même
+        await logActivity(
+          "commande_remboursee",
+          `Remboursement reçu (aucune commande associée) — ${refundAmount.toFixed(2)} €`,
+          {
+            meta: {
+              charge_id:         charge.id,
+              payment_intent_id: piId,
+              amount_refunded:   refundAmount,
+            },
+          }
+        );
+      }
+    } catch (err: any) {
+      process.env.NODE_ENV !== "production" && console.error("❌ charge.refunded handler:", err.message);
     }
   }
 

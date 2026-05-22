@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -42,6 +43,21 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseServer
     .from("products").insert([clean]).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  await logActivity(
+    "produit_cree",
+    `Produit créé : ${data.name ?? data.id}`,
+    {
+      entity_id:   data.id,
+      entity_name: data.name ?? null,
+      meta: {
+        price_ttc: data.price_ttc,
+        stock:     data.stock,
+        published: data.published ?? null,
+      },
+    }
+  );
+
   return Response.json(data);
 }
 
@@ -63,9 +79,43 @@ export async function PUT(req: NextRequest) {
   if ("fiche_cards" in rest) clean.fiche_cards  = Array.isArray(rest.fiche_cards) ? rest.fiche_cards : null;
   if ("fiche_faqs"  in rest) clean.fiche_faqs   = Array.isArray(rest.fiche_faqs)  ? rest.fiche_faqs  : null;
 
+  // Charger l'état actuel pour détecter les champs modifiés (prix/stock/published)
+  const { data: before } = await supabaseServer
+    .from("products")
+    .select("name, price_ttc, promo_price, stock, published")
+    .eq("id", id).single();
+
   const { data, error } = await supabaseServer
     .from("products").update(clean).eq("id", id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  // Détecter les changements significatifs
+  const changes: Record<string, { old: any; new: any }> = {};
+  if (before) {
+    if ("price_ttc"   in clean && before.price_ttc   !== data.price_ttc)   changes.price_ttc   = { old: before.price_ttc,   new: data.price_ttc };
+    if ("promo_price" in clean && before.promo_price !== data.promo_price) changes.promo_price = { old: before.promo_price, new: data.promo_price };
+    if ("stock"       in clean && before.stock       !== data.stock)       changes.stock       = { old: before.stock,       new: data.stock };
+    if ("published"   in clean && before.published   !== data.published)   changes.published   = { old: before.published,   new: data.published };
+  }
+
+  const changeKeys = Object.keys(changes);
+  const summary = changeKeys.length > 0
+    ? changeKeys.map(k => `${k}: ${changes[k].old} → ${changes[k].new}`).join(", ")
+    : "champs divers";
+
+  await logActivity(
+    "produit_modifie",
+    `Produit modifié : ${data.name ?? data.id} (${summary})`,
+    {
+      entity_id:   data.id,
+      entity_name: data.name ?? null,
+      meta: {
+        changes,
+        fields_updated: Object.keys(clean),
+      },
+    }
+  );
+
   return Response.json(data);
 }
 
@@ -78,7 +128,7 @@ export async function DELETE(req: NextRequest) {
 
   const { data: product } = await supabaseServer
     .from("products")
-    .select("image_url, image_url_2, image_url_3, image_url_4")
+    .select("name, image_url, image_url_2, image_url_3, image_url_4")
     .eq("id", id).single();
 
   if (product) {
@@ -92,5 +142,15 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabaseServer.from("products").delete().eq("id", id);
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  await logActivity(
+    "produit_supprime",
+    `Produit supprimé : ${product?.name ?? id}`,
+    {
+      entity_id:   id,
+      entity_name: product?.name ?? null,
+    }
+  );
+
   return Response.json({ ok: true });
 }

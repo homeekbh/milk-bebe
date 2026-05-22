@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 const BASE_CATEGORIES = ["bodies", "pyjamas", "gigoteuses", "accessoires"];
@@ -67,16 +68,24 @@ export async function POST(req: NextRequest) {
     .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
     .replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
 
+  const finalLabel = label || clean;
+
   try {
     const { error } = await supabaseServer
       .from("categories")
-      .upsert([{ slug: clean, label: label || clean }], { onConflict: "slug" });
+      .upsert([{ slug: clean, label: finalLabel }], { onConflict: "slug" });
     if (error && !error.message.includes("does not exist")) {
       return Response.json({ error: error.message }, { status: 400 });
     }
   } catch {}
 
-  return Response.json({ ok: true, slug: clean, label: label || clean });
+  await logActivity(
+    "categorie_creee",
+    `Cat\u00e9gorie cr\u00e9\u00e9e : ${finalLabel} (${clean})`,
+    { entity_name: finalLabel, meta: { slug: clean, label: finalLabel } }
+  );
+
+  return Response.json({ ok: true, slug: clean, label: finalLabel });
 }
 
 export async function PUT(req: NextRequest) {
@@ -88,6 +97,14 @@ export async function PUT(req: NextRequest) {
     return Response.json({ error: "slug et label requis" }, { status: 400 });
   }
 
+  // Charger l'ancien label pour le log
+  let oldLabel: string | null = null;
+  try {
+    const { data: existing } = await supabaseServer
+      .from("categories").select("label").eq("slug", slug).single();
+    oldLabel = existing?.label ?? null;
+  } catch {}
+
   try {
     const { error } = await supabaseServer
       .from("categories")
@@ -96,6 +113,12 @@ export async function PUT(req: NextRequest) {
       return Response.json({ error: error.message }, { status: 400 });
     }
   } catch {}
+
+  await logActivity(
+    "categorie_modifiee",
+    `Catégorie modifiée : ${oldLabel ?? slug} → ${label}`,
+    { entity_name: label, meta: { slug, old_label: oldLabel, new_label: label } }
+  );
 
   return Response.json({ ok: true });
 }
@@ -119,9 +142,23 @@ export async function DELETE(req: NextRequest) {
     }, { status: 400 });
   }
 
+  // Charger le label avant suppression pour le log
+  let oldLabel: string | null = null;
+  try {
+    const { data: existing } = await supabaseServer
+      .from("categories").select("label").eq("slug", slug).single();
+    oldLabel = existing?.label ?? null;
+  } catch {}
+
   try {
     await supabaseServer.from("categories").delete().eq("slug", slug);
   } catch {}
+
+  await logActivity(
+    "categorie_supprimee",
+    `Catégorie supprimée : ${oldLabel ?? slug}`,
+    { entity_name: oldLabel ?? slug, meta: { slug, label: oldLabel } }
+  );
 
   return Response.json({ ok: true });
 }

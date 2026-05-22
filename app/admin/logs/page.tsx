@@ -14,6 +14,7 @@ type LogEntry = {
 };
 
 const TYPE_STYLE: Record<string, { bg: string; color: string; icon: string; label: string }> = {
+  // Produits (legacy + FR)
   product_create:  { bg: "#dcfce7", color: "#166534", icon: "✚", label: "Création" },
   product_update:  { bg: "#fef3c7", color: "#92400e", icon: "✎", label: "Modification" },
   product_delete:  { bg: "#fee2e2", color: "#b91c1c", icon: "✕", label: "Suppression" },
@@ -22,8 +23,29 @@ const TYPE_STYLE: Record<string, { bg: string; color: string; icon: string; labe
   product_stock:   { bg: "#fff7ed", color: "#c2410c", icon: "📦", label: "Stock" },
   product_promo:   { bg: "#fef9c3", color: "#854d0e", icon: "🏷", label: "Promo" },
   product_text:    { bg: "#f0fdf4", color: "#15803d", icon: "✏️", label: "Texte" },
-  order_shipped:   { bg: "#ede9fe", color: "#6d28d9", icon: "🚚", label: "Expédition" },
-  order_status:    { bg: "#f1f5f9", color: "#475569", icon: "🔄", label: "Statut" },
+  produit_cree:    { bg: "#dcfce7", color: "#166534", icon: "✚", label: "Produit créé" },
+  produit_modifie: { bg: "#fef3c7", color: "#92400e", icon: "✎", label: "Produit modifié" },
+  produit_supprime:{ bg: "#fee2e2", color: "#b91c1c", icon: "✕", label: "Produit supprimé" },
+
+  // Catégories
+  categorie_creee:     { bg: "#dcfce7", color: "#166534", icon: "📁", label: "Catégorie créée" },
+  categorie_modifiee:  { bg: "#fef3c7", color: "#92400e", icon: "📁", label: "Catégorie modifiée" },
+  categorie_supprimee: { bg: "#fee2e2", color: "#b91c1c", icon: "📁", label: "Catégorie supprimée" },
+
+  // Commandes (legacy + FR)
+  order_shipped:    { bg: "#ede9fe", color: "#6d28d9", icon: "🚚", label: "Expédition" },
+  order_status:     { bg: "#f1f5f9", color: "#475569", icon: "🔄", label: "Statut" },
+  commande_expediee:             { bg: "#dbeafe", color: "#1e40af", icon: "🚚", label: "Expédiée" },
+  commande_livree:               { bg: "#dcfce7", color: "#166534", icon: "✅", label: "Livrée" },
+  commande_retour:               { bg: "#fee2e2", color: "#b91c1c", icon: "↩", label: "Retour" },
+  commande_statut_modifie:       { bg: "#f1f5f9", color: "#475569", icon: "🔄", label: "Statut" },
+  commande_annulee:              { bg: "#fee2e2", color: "#dc2626", icon: "↺", label: "Annulée" },
+  commande_remboursee:           { bg: "#fecaca", color: "#991b1b", icon: "💸", label: "Remboursée" },
+  commande_remboursee_partielle: { bg: "#ffedd5", color: "#c2410c", icon: "💰", label: "Remb. partiel" },
+  commande_echec_paiement:       { bg: "#fee2e2", color: "#b91c1c", icon: "❌", label: "Échec paiement" },
+  commande_cancel_email_sent:    { bg: "#f1f5f9", color: "#475569", icon: "✉", label: "Email annulation" },
+
+  // Promos & stock
   promo_create:    { bg: "#fff1f2", color: "#be123c", icon: "🎟", label: "Code promo" },
   promo_delete:    { bg: "#fee2e2", color: "#b91c1c", icon: "🗑", label: "Code promo" },
   stock_alert:     { bg: "#fef3c7", color: "#b45309", icon: "⚠️", label: "Alerte stock" },
@@ -86,14 +108,18 @@ export default function AdminLogs() {
   });
 
   const FILTERS = [
-    { value: "",               label: "Tout" },
-    { value: "product_photo",  label: "📷 Photos" },
-    { value: "product_stock",  label: "📦 Stock" },
-    { value: "product_text",   label: "✏️ Textes" },
-    { value: "product_promo",  label: "🏷 Promos" },
-    { value: "order_shipped",  label: "🚚 Expéditions" },
-    { value: "product_create", label: "✚ Créations" },
-    { value: "product_delete", label: "✕ Suppressions" },
+    { value: "",                       label: "Tout" },
+    { value: "commande_expediee",      label: "🚚 Expéditions" },
+    { value: "commande_livree",        label: "✅ Livrées" },
+    { value: "commande_annulee",       label: "↺ Annulations" },
+    { value: "commande_remboursee",    label: "💸 Remboursements" },
+    { value: "commande_retour",        label: "↩ Retours" },
+    { value: "produit_cree",           label: "✚ Produits créés" },
+    { value: "produit_modifie",        label: "✎ Produits modifiés" },
+    { value: "produit_supprime",       label: "✕ Produits supprimés" },
+    { value: "categorie_creee",        label: "📁 Catégories" },
+    { value: "product_photo",          label: "📷 Photos" },
+    { value: "product_stock",          label: "📦 Stock" },
   ];
 
   return (

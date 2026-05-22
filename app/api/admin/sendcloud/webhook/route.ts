@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { logActivity }    from "@/lib/server/audit";
 import { Resend }         from "resend";
 import type { NextRequest } from "next/server";
 
@@ -77,10 +78,33 @@ export async function POST(req: NextRequest) {
       if ((RANK[newStatus] ?? 0) <= (RANK[order.shipping_status] ?? 0) && newStatus !== "retour") continue;
 
       // Mettre à jour le statut
+      const oldStatus = order.shipping_status;
       await supabaseServer
         .from("orders")
         .update({ shipping_status: newStatus })
         .eq("id", order.id);
+
+      // logActivity — type selon nouveau statut, on log uniquement les transitions significatives
+      const logType =
+        newStatus === "livree"   ? "commande_livree"   :
+        newStatus === "retour"   ? "commande_retour"   :
+        newStatus === "expediee" ? "commande_expediee" :
+        "commande_statut_modifie";
+      await logActivity(
+        logType,
+        `Sendcloud webhook: ${oldStatus ?? "(none)"} → ${newStatus} pour #${String(order.id).slice(0, 8).toUpperCase()}`,
+        {
+          entity_id: order.id,
+          meta: {
+            source:           "sendcloud_webhook",
+            old_status:       oldStatus,
+            new_status:       newStatus,
+            tracking_number:  trackingNumber,
+            customer_email:   order.customer_email,
+            sendcloud_status: statusCode,
+          },
+        }
+      );
 
       // Notification email admin si livré
       if (newStatus === "livree") {

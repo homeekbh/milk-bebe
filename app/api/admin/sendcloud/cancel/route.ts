@@ -60,11 +60,12 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Reset Supabase — la commande revient en "en préparation"
+    // Reset Supabase — statut "cancelled" (pour que le bouton "Informer le client" s'affiche)
+    // Le bouton "Générer l'étiquette" reste actif car il vérifie !order.label_url (réinitialisé)
     const { error: updateErr } = await supabaseServer
       .from("orders")
       .update({
-        shipping_status:     "pending",
+        shipping_status:     "cancelled",
         tracking_number:     null,
         label_url:           null,
         sendcloud_parcel_id: null,

@@ -163,8 +163,13 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    console.error(`[sendcloud] === REQUEST order=${order_id} transporteur="${transporteur}" weight=${weightKg}kg ===`);
+    console.error(`[sendcloud] === REQUEST order=${order_id} delivery_type="${deliveryType ?? "(none)"}" transporteur="${transporteur}" weight=${weightKg}kg ===`);
     console.error(`[sendcloud] from=${fromAddress.city}/${fromAddress.postal_code}  to=${toAddress.city}/${toAddress.postal_code}/${toAddress.country_code}`);
+    if (deliveryType === "home") {
+      console.error(`[sendcloud] HOME mode → pas de to_service_point, livraison à l'adresse domicile`);
+    } else if (relayId) {
+      console.error(`[sendcloud] RELAY mode → to_service_point sera attaché: ${relayId}`);
+    }
 
     // ── 2. Fetch shipping options ───────────────────────────────────────────
     const optsBody = {

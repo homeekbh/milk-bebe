@@ -66,7 +66,19 @@ const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
   shipped:   { label: "Expédiée",       bg: "#dcfce7", color: "#166534" },
   delivered: { label: "Livrée",         bg: "#c49a4a", color: "#1a1410" },
   returned:  { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
+  cancelled: { label: "Annulée",        bg: "#fee2e2", color: "#7f1d1d" },
 };
+
+/**
+ * Nettoie les notes — masque les anciennes données techniques (JSON brut)
+ * qui ressemblent à {"label":"...","carrier":"...","sendcloud_id":...}
+ */
+function cleanNotes(raw: string | null | undefined): string {
+  const s = String(raw ?? "").trim();
+  if (!s) return "";
+  if (s.startsWith("{") || s.startsWith("[")) return "";
+  return s;
+}
 
 // Transporteurs M!LK — liste fixe Mondial Relay (3 options pour colis bébé bambou < 250g)
 type SendcloudProduct = {
@@ -290,7 +302,7 @@ export default function AdminCommandes() {
     const order = orders.find(o => o.id === selected);
     if (order) {
       setTracking(order.tracking_number ?? "");
-      setNotes(order.notes ?? "");
+      setNotes(cleanNotes(order.notes));
       // Auto-sélection selon delivery_type
       const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === order.delivery_type);
       setTransporteur(matched ? JSON.stringify(matched) : "");
@@ -996,8 +1008,8 @@ export default function AdminCommandes() {
                           </button>
                         )}
 
-                        {/* "Informer le client" — visible après annulation (= statut pending mais notes contiennent encore l'historique) */}
-                        {!order.tracking_number && order.shipping_status === "pending" && order.notes?.includes("Transporteur:") && (
+                        {/* "Informer le client" — visible UNIQUEMENT si shipping_status = "cancelled" */}
+                        {order.shipping_status === "cancelled" && (
                           (() => {
                             const sent = order.notes?.match(/\[CANCEL_EMAIL_SENT:([^\]]+)\]/);
                             if (sent) {

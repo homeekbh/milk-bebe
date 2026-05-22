@@ -120,6 +120,14 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Commande introuvable" }, { status: 404 });
     }
 
+    const deliveryType = order.delivery_type as ("point_relais" | "locker" | "home" | null);
+    const relayId      = order.relay_id as (string | null);
+
+    // Validation : si point_relais ou locker → relay_id obligatoire
+    if ((deliveryType === "point_relais" || deliveryType === "locker") && !relayId) {
+      return Response.json({ error: "Point relais manquant — saisie manuelle requise dans la commande" }, { status: 400 });
+    }
+
     const addr = order.shipping_address ?? {};
     if (!addr.line1 || !addr.postal_code || !addr.city) {
       console.error("[sendcloud] Adresse incomplète:", JSON.stringify(addr));
@@ -268,10 +276,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4. Announce shipment ────────────────────────────────────────────────
-    // Payload MINIMAL : pas de label_details, pas de house_number dupliqué,
-    // pas de champs vides, contract_id en integer si présent.
     const shipWithProps: Record<string, any> = { shipping_option_code: shippingOptionCode };
     if (contractId !== null) shipWithProps.contract_id = contractId;
+
+    // Si point_relais ou locker → on attache le service point sélectionné par le client
+    if (relayId && (deliveryType === "point_relais" || deliveryType === "locker")) {
+      shipWithProps.to_service_point = relayId;
+    }
 
     const announceBody = {
       from_address: fromAddress,

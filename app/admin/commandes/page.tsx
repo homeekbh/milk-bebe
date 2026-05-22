@@ -49,6 +49,16 @@ type Order = {
   promo_code?: string;
   discount?: number;
   stripe_session_id?: string;
+  delivery_type?: "point_relais" | "locker" | "home" | null;
+  delivery_price?: number | null;
+  relay_id?: string | null;
+  relay_name?: string | null;
+  relay_address?: string | null;
+  relay_city?: string | null;
+  relay_postal_code?: string | null;
+  relay_type?: string | null;
+  label_url?: string | null;
+  sendcloud_parcel_id?: string | null;
 };
 
 const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
@@ -341,9 +351,24 @@ export default function AdminCommandes() {
     }
   }
 
+  // Construit le payload des infos livraison à passer aux emails
+  function getDeliveryPayload(order: Order) {
+    const relay = (order.delivery_type === "point_relais" || order.delivery_type === "locker") && order.relay_id ? {
+      id:          order.relay_id,
+      name:        order.relay_name,
+      street:      order.relay_address,
+      city:        order.relay_city,
+      postal_code: order.relay_postal_code,
+      type:        order.relay_type,
+    } : null;
+    const home_address = order.delivery_type === "home" ? order.shipping_address : null;
+    return { delivery_type: order.delivery_type ?? null, relay, home_address };
+  }
+
   // Construit l'aperçu HTML de l'email d'expédition via la route /api/emails/shipped?preview=1
   async function buildShipPreview(order: Order, customMessage: string): Promise<string> {
     const carrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
+    const deliveryPayload = getDeliveryPayload(order);
     try {
       const res = await adminFetch("/api/emails/shipped", {
         method:  "POST",
@@ -356,6 +381,7 @@ export default function AdminCommandes() {
           items:          order.items,
           custom_message: customMessage,
           preview:        true,
+          ...deliveryPayload,
         }),
       });
       if (!res.ok) return `<p style="padding:20px;color:#b91c1c">Erreur génération aperçu (${res.status})</p>`;
@@ -414,6 +440,7 @@ export default function AdminCommandes() {
             transporteur:   carrier,
             items:          order.items,
             custom_message: shipModal.customMessage,
+            ...getDeliveryPayload(order),
           }),
         });
         if (!emailRes.ok) {
@@ -670,18 +697,59 @@ export default function AdminCommandes() {
                           </div>
                         </div>
 
-                        {/* Adresse livraison */}
-                        {addr && (
-                          <div style={{ background: "#ede8df", borderRadius: 12, padding: "16px 18px" }}>
-                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>Adresse de livraison</div>
+                        {/* Mode de livraison Mondial Relay */}
+                        <div style={{ background: "#ede8df", borderRadius: 12, padding: "16px 18px" }}>
+                          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>
+                            Mode de livraison
+                          </div>
+                          {(order.delivery_type === "point_relais" || order.delivery_type === "locker") ? (
+                            order.relay_id ? (
+                              <div>
+                                <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", marginBottom: 4 }}>
+                                  {order.delivery_type === "locker" ? "🔒 Locker" : "📦 Point Relais"} Mondial Relay
+                                </div>
+                                <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>{order.relay_name ?? "—"}</div>
+                                <div style={{ fontSize: 13, color: "rgba(26,20,16,0.7)", lineHeight: 1.6 }}>
+                                  {order.relay_address ?? ""}<br />
+                                  {order.relay_postal_code ?? ""} {order.relay_city ?? ""}
+                                </div>
+                                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", marginTop: 6, fontFamily: "monospace" }}>ID Sendcloud : {order.relay_id}</div>
+                              </div>
+                            ) : (
+                              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700 }}>
+                                ⚠ Point relais non renseigné — saisie manuelle requise avant génération étiquette
+                              </div>
+                            )
+                          ) : order.delivery_type === "home" ? (
+                            <div>
+                              <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", marginBottom: 6 }}>🏠 Livraison à domicile</div>
+                              {addr ? (
+                                <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.7, color: "#1a1410" }}>
+                                  {addr.name ?? order.customer_name}<br />
+                                  {addr.line1}{addr.line2 ? <><br />{addr.line2}</> : ""}<br />
+                                  {addr.postal_code} {addr.city}<br />
+                                  {addr.country ?? "FR"}
+                                </div>
+                              ) : (
+                                <div style={{ fontSize: 13, color: "#92400e", fontWeight: 700 }}>⚠ Adresse domicile manquante</div>
+                              )}
+                            </div>
+                          ) : addr ? (
                             <div style={{ fontSize: 14, fontWeight: 700, lineHeight: 1.8, color: "#1a1410" }}>
                               {addr.name ?? order.customer_name}<br />
                               {addr.line1}{addr.line2 ? <><br />{addr.line2}</> : ""}<br />
                               {addr.postal_code} {addr.city}<br />
                               {addr.country ?? "FR"}
                             </div>
-                          </div>
-                        )}
+                          ) : (
+                            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Aucune info de livraison</div>
+                          )}
+                          {order.delivery_price !== null && order.delivery_price !== undefined && (
+                            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginTop: 8 }}>
+                              Frais : {Number(order.delivery_price).toFixed(2)} €
+                            </div>
+                          )}
+                        </div>
 
                         {/* Boutons étiquettes */}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>

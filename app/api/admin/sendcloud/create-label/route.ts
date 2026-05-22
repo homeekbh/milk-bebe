@@ -205,6 +205,7 @@ export async function POST(req: NextRequest) {
     // ── 3. Match par nom de transporteur ────────────────────────────────────
     const carrierLower = String(transporteur ?? "").toLowerCase();
     const wantedKey =
+      carrierLower.includes("mondial")    ? "mondial"    :
       carrierLower.includes("colissimo")  ? "colissimo"  :
       carrierLower.includes("chronopost") ? "chronopost" :
       carrierLower.includes("la poste")   ? "colissimo"  :

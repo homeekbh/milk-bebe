@@ -58,14 +58,16 @@ const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
   returned:  { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
 };
 
-// Méthodes Sendcloud — IDs auto-sélectionnés selon le poids (<1kg pour vêtements bébé)
-const TRANSPORTEURS = [
-  { label: "🟠 Colissimo Domicile",         carrier: "La Poste — Colissimo", sendcloud_id: 371  }, // 0-0.25kg
-  { label: "🟠 Colissimo Domicile 0.25kg+", carrier: "La Poste — Colissimo", sendcloud_id: 366  }, // 0.25-0.5kg
-  { label: "🟠 Colissimo Domicile 0.5kg+",  carrier: "La Poste — Colissimo", sendcloud_id: 367  }, // 0.5-0.75kg
-  { label: "🟠 Colissimo Domicile 0.75kg+", carrier: "La Poste — Colissimo", sendcloud_id: 364  }, // 0.75-1kg
-  { label: "🔵 Chronopost 18h (express)",   carrier: "Chronopost",           sendcloud_id: 1345 }, // 0-2kg
-];
+// Transporteurs Sendcloud — chargés dynamiquement au mount via /api/admin/sendcloud/shipping-products
+type SendcloudProduct = {
+  code:         string;
+  name:         string;
+  carrier_name: string;
+  carrier_code: string;
+  contract_id:  number | null;
+  weight_min?:  number | null;
+  weight_max?:  number | null;
+};
 
 const ADRESSE_EXPEDITEUR = {
   nom:     "M!LK — Essentiels Bébé (EKBH)",
@@ -228,6 +230,20 @@ export default function AdminCommandes() {
   const [generatingLabel, setGeneratingLabel] = useState(false);
   const [labelError,     setLabelError]     = useState("");
 
+  // Produits Mondial Relay chargés dynamiquement
+  const [mondialProducts, setMondialProducts] = useState<SendcloudProduct[]>([]);
+  const [productsLoading, setProductsLoading] = useState(false);
+  const [productsError,   setProductsError]   = useState("");
+
+  // Modale confirmation expédition
+  const [shipModal, setShipModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
+
+  // Modale annulation expédition
+  const [cancelModal, setCancelModal] = useState<{ orderId: string; cancelling: boolean } | null>(null);
+
+  // Modale informer client de l'annulation
+  const [cancelEmailModal, setCancelEmailModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
+
   async function load() {
     setLoading(true);
     const res  = await adminFetch("/api/admin/commandes-data");
@@ -237,6 +253,23 @@ export default function AdminCommandes() {
   }
 
   useEffect(() => { load(); }, []);
+
+  // Charge les produits Mondial Relay disponibles côté Sendcloud
+  useEffect(() => {
+    setProductsLoading(true);
+    setProductsError("");
+    adminFetch("/api/admin/sendcloud/shipping-products?carrier=mondial")
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data?.products)) {
+          setMondialProducts(data.products);
+        } else if (data?.error) {
+          setProductsError(data.error);
+        }
+      })
+      .catch(e => setProductsError(e?.message ?? "Erreur réseau"))
+      .finally(() => setProductsLoading(false));
+  }, []);
 
   // Quand on ouvre une commande, pré-remplir les champs
   useEffect(() => {
@@ -280,9 +313,8 @@ export default function AdminCommandes() {
       const res = await adminFetch("/api/admin/sendcloud/create-label", {
         method: "POST",
         body: JSON.stringify({
-          order_id:      order.id,
-          transporteur:  t.carrier,
-          sendcloud_id:  t.sendcloud_id,
+          order_id:     order.id,
+          transporteur: t.carrier_name ?? "mondial relay",
           customer: {
             name:     order.customer_name,
             email:    order.customer_email,
@@ -298,6 +330,7 @@ export default function AdminCommandes() {
       if (data.tracking_number) {
         setTracking(data.tracking_number);
         if (data.label_url) setLabelUrl(data.label_url);
+        await load();
       } else {
         setLabelError(data.error ?? "Erreur génération étiquette");
       }
@@ -308,9 +341,55 @@ export default function AdminCommandes() {
     }
   }
 
-  async function handleShip(order: Order) {
+  // Construit l'aperçu HTML de l'email d'expédition via la route /api/emails/shipped?preview=1
+  async function buildShipPreview(order: Order, customMessage: string): Promise<string> {
+    const carrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
+    try {
+      const res = await adminFetch("/api/emails/shipped", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          email:          order.customer_email,
+          prenom:         order.customer_name?.split(" ")[0] ?? "",
+          tracking:       tracking.trim() || order.tracking_number || "",
+          transporteur:   carrier,
+          items:          order.items,
+          custom_message: customMessage,
+          preview:        true,
+        }),
+      });
+      if (!res.ok) return `<p style="padding:20px;color:#b91c1c">Erreur génération aperçu (${res.status})</p>`;
+      return await res.text();
+    } catch (e: any) {
+      return `<p style="padding:20px;color:#b91c1c">Erreur réseau: ${e?.message ?? "inconnue"}</p>`;
+    }
+  }
+
+  // Ouvre la modale d'expédition (au lieu d'envoyer auto)
+  async function openShipModal(order: Order) {
     if (!tracking.trim() || !transporteur) return;
-    setSaving(true);
+    const previewHtml = await buildShipPreview(order, "");
+    setShipModal({ orderId: order.id, previewHtml, customMessage: "", sending: false });
+  }
+
+  // Rafraîchit la preview quand le custom_message change
+  async function refreshShipPreview(customMessage: string) {
+    if (!shipModal) return;
+    const order = orders.find(o => o.id === shipModal.orderId);
+    if (!order) return;
+    const previewHtml = await buildShipPreview(order, customMessage);
+    setShipModal(s => s ? { ...s, customMessage, previewHtml } : null);
+  }
+
+  // Marque la commande expédiée, et envoie OU non l'email selon le bouton cliqué
+  async function confirmShip(sendEmail: boolean) {
+    if (!shipModal) return;
+    const order = orders.find(o => o.id === shipModal.orderId);
+    if (!order) return;
+    setShipModal({ ...shipModal, sending: true });
+
+    const carrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
+    // 1. Update Supabase
     await adminFetch("/api/admin/commandes-data", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
@@ -318,41 +397,134 @@ export default function AdminCommandes() {
         id:              order.id,
         shipping_status: "shipped",
         tracking_number: tracking.trim(),
-        notes:           `Transporteur: ${transporteur}${notes ? " — " + notes : ""}`,
+        notes:           `Transporteur: ${carrier}${notes ? " — " + notes : ""}`,
       }),
     });
-    // Envoyer email expédition au client avec le lien de tracking
-    let emailOk = true;
-    try {
-      const emailRes = await adminFetch("/api/emails/shipped", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({
-          email:        order.customer_email,
-          prenom:       order.customer_name?.split(" ")[0] ?? "",
-          tracking:     tracking.trim(),
-          transporteur: selectedCarrier,
-          items:        order.items,
-        }),
-      });
-      if (!emailRes.ok) {
-        emailOk = false;
-        const errorBody = await emailRes.text().catch(() => "");
-        console.error("Email shipped failed:", emailRes.status, errorBody);
+
+    // 2. Envoie email seulement si demandé
+    if (sendEmail) {
+      try {
+        const emailRes = await adminFetch("/api/emails/shipped", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            email:          order.customer_email,
+            prenom:         order.customer_name?.split(" ")[0] ?? "",
+            tracking:       tracking.trim(),
+            transporteur:   carrier,
+            items:          order.items,
+            custom_message: shipModal.customMessage,
+          }),
+        });
+        if (!emailRes.ok) {
+          const errorBody = await emailRes.text().catch(() => "");
+          console.error("Email shipped failed:", emailRes.status, errorBody);
+          alert("⚠ Commande marquée expédiée, mais l'email client n'a pas pu être envoyé.");
+        }
+      } catch (e) {
+        console.error("Email shipped network error:", e);
+        alert("⚠ Commande marquée expédiée, mais l'email client n'a pas pu être envoyé (réseau).");
       }
-    } catch (e) {
-      emailOk = false;
-      console.error("Email shipped network error:", e);
     }
-    if (!emailOk) {
-      alert("⚠ Commande marquée expédiée, mais l'email client n'a pas pu être envoyé. Vérifie les logs ou renvoie manuellement.");
-    }
+
     await load();
-    await logActivity("order_shipped", `Commande expédiée via ${selectedCarrier}`, { entity_id: selectedOrder?.id ?? "" });
-    setSaving(false);
+    await logActivity("order_shipped", `Commande expédiée via ${carrier}${sendEmail ? " (email envoyé)" : " (sans email)"}`, { entity_id: order.id });
+    setShipModal(null);
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   }
+
+  // === ANNULATION ===
+  async function confirmCancel() {
+    if (!cancelModal) return;
+    setCancelModal({ ...cancelModal, cancelling: true });
+    const res = await adminFetch("/api/admin/sendcloud/cancel", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ order_id: cancelModal.orderId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      alert(`Erreur annulation: ${data.error ?? `HTTP ${res.status}`}`);
+      setCancelModal(null);
+      return;
+    }
+    await load();
+    await logActivity("order_cancelled", "Expédition annulée — aucun email envoyé", { entity_id: cancelModal.orderId });
+    setCancelModal(null);
+    alert("Expédition annulée — aucun email envoyé au client");
+  }
+
+  async function buildCancelPreview(order: Order, customMessage: string): Promise<string> {
+    try {
+      const res = await adminFetch("/api/emails/cancellation", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          email:          order.customer_email,
+          prenom:         order.customer_name?.split(" ")[0] ?? "",
+          order_number:   order.id,
+          custom_message: customMessage,
+          preview:        true,
+        }),
+      });
+      if (!res.ok) return `<p style="padding:20px;color:#b91c1c">Erreur génération aperçu (${res.status})</p>`;
+      return await res.text();
+    } catch (e: any) {
+      return `<p style="padding:20px;color:#b91c1c">Erreur réseau: ${e?.message ?? "inconnue"}</p>`;
+    }
+  }
+
+  async function openCancelEmailModal(order: Order) {
+    const previewHtml = await buildCancelPreview(order, "");
+    setCancelEmailModal({ orderId: order.id, previewHtml, customMessage: "", sending: false });
+  }
+
+  async function refreshCancelEmailPreview(customMessage: string) {
+    if (!cancelEmailModal) return;
+    const order = orders.find(o => o.id === cancelEmailModal.orderId);
+    if (!order) return;
+    const previewHtml = await buildCancelPreview(order, customMessage);
+    setCancelEmailModal(s => s ? { ...s, customMessage, previewHtml } : null);
+  }
+
+  async function sendCancellationEmail() {
+    if (!cancelEmailModal) return;
+    const order = orders.find(o => o.id === cancelEmailModal.orderId);
+    if (!order) return;
+    setCancelEmailModal({ ...cancelEmailModal, sending: true });
+    const res = await adminFetch("/api/emails/cancellation", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        email:          order.customer_email,
+        prenom:         order.customer_name?.split(" ")[0] ?? "",
+        order_number:   order.id,
+        custom_message: cancelEmailModal.customMessage,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Erreur envoi email: ${err.error ?? `HTTP ${res.status}`}`);
+      setCancelEmailModal({ ...cancelEmailModal, sending: false });
+      return;
+    }
+    // Marque l'envoi de l'email d'annulation dans notes
+    const marker = `[CANCEL_EMAIL_SENT:${new Date().toISOString()}]`;
+    const newNotes = (order.notes ?? "").includes("CANCEL_EMAIL_SENT") ? order.notes : `${order.notes ?? ""} ${marker}`.trim();
+    await adminFetch("/api/admin/commandes-data", {
+      method:  "PUT",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ id: order.id, notes: newNotes }),
+    });
+    await load();
+    await logActivity("order_cancel_email_sent", "Email d'annulation envoyé au client", { entity_id: order.id });
+    setCancelEmailModal(null);
+    alert("Email d'annulation envoyé au client");
+  }
+
+  // L'ancien handleShip envoyait l'email auto. Maintenant openShipModal ouvre une modale
+  // avec preview + champ message + 2 boutons (envoyer / sans email).
 
   async function updateStatus(id: string, shipping_status: string) {
     await adminFetch("/api/admin/commandes-data", {
@@ -375,7 +547,7 @@ export default function AdminCommandes() {
   const shipped    = orders.filter(o => o.shipping_status === "shipped").length;
   const selectedOrder = orders.find(o => o.id === selected);
 
-  const selectedCarrier = (() => { try { return JSON.parse(transporteur).carrier; } catch { return transporteur; } })();
+  const selectedCarrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
   const canShip = tracking.trim().length > 0 && transporteur.length > 0;
 
   return (
@@ -552,22 +724,42 @@ export default function AdminCommandes() {
                             Transporteur *
                           </label>
                           <div style={{ display: "grid", gap: 8 }}>
-                            {TRANSPORTEURS.map(t => (
-                              <button
-                                key={t.sendcloud_id}
-                                onClick={() => setTransporteur(JSON.stringify(t))}
-                                style={{
-                                  padding: "12px 16px", borderRadius: 10, border: `2px solid ${transporteur && JSON.parse(transporteur).sendcloud_id === t.sendcloud_id ? "#1a1410" : "rgba(0,0,0,0.12)"}`,
-                                  fontSize: 13, fontWeight: 700, background: transporteur && JSON.parse(transporteur).sendcloud_id === t.sendcloud_id ? "#1a1410" : "#fff",
-                                  color: transporteur && JSON.parse(transporteur).sendcloud_id === t.sendcloud_id ? "#f2ede6" : "#1a1410",
-                                  cursor: "pointer", textAlign: "left", transition: "all 0.15s",
-                                  display: "flex", justifyContent: "space-between", alignItems: "center",
-                                }}
-                              >
-                                <span>{t.label}</span>
-                                <span style={{ fontSize: 11, opacity: 0.5, fontFamily: "monospace" }}>ID {t.sendcloud_id}</span>
-                              </button>
-                            ))}
+                            {productsLoading && (
+                              <div style={{ padding: "10px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)" }}>⏳ Chargement Mondial Relay...</div>
+                            )}
+                            {productsError && (
+                              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
+                                ✕ {productsError}
+                              </div>
+                            )}
+                            {!productsLoading && !productsError && mondialProducts.length === 0 && (
+                              <div style={{ padding: "10px 14px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 12, fontWeight: 700 }}>
+                                ⚠ Aucun produit Mondial Relay actif sur ton compte Sendcloud.
+                              </div>
+                            )}
+                            {mondialProducts.map(t => {
+                              const key = t.code;
+                              const isSelected = (() => { try { return JSON.parse(transporteur).code === key; } catch { return false; } })();
+                              const weight = (t.weight_min || t.weight_max) ? ` · ${t.weight_min ?? 0}-${t.weight_max ?? "?"}kg` : "";
+                              return (
+                                <button
+                                  key={key}
+                                  onClick={() => setTransporteur(JSON.stringify(t))}
+                                  style={{
+                                    padding: "12px 16px", borderRadius: 10,
+                                    border: `2px solid ${isSelected ? "#1a1410" : "rgba(0,0,0,0.12)"}`,
+                                    fontSize: 13, fontWeight: 700,
+                                    background: isSelected ? "#1a1410" : "#fff",
+                                    color: isSelected ? "#f2ede6" : "#1a1410",
+                                    cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                                    display: "flex", justifyContent: "space-between", alignItems: "center",
+                                  }}
+                                >
+                                  <span>📦 {t.name || t.carrier_name}{weight}</span>
+                                  <span style={{ fontSize: 10, opacity: 0.5, fontFamily: "monospace" }}>{key}</span>
+                                </button>
+                              );
+                            })}
                           </div>
                         </div>
 
@@ -662,15 +854,15 @@ export default function AdminCommandes() {
                         )}
 
                         <button
-                          onClick={() => handleShip(order)}
-                          disabled={!canShip || saving || order.shipping_status === "shipped"}
+                          onClick={() => openShipModal(order)}
+                          disabled={!canShip || order.shipping_status === "shipped"}
                           style={{
                             padding: "15px",
                             borderRadius: 12,
                             border: "none",
                             fontWeight: 900,
                             fontSize: 15,
-                            cursor: (!canShip || saving || order.shipping_status === "shipped") ? "not-allowed" : "pointer",
+                            cursor: (!canShip || order.shipping_status === "shipped") ? "not-allowed" : "pointer",
                             background: order.shipping_status === "shipped"
                               ? "#dcfce7"
                               : canShip
@@ -686,15 +878,46 @@ export default function AdminCommandes() {
                         >
                           {order.shipping_status === "shipped"
                             ? "✅ Déjà expédiée"
-                            : saving
-                              ? "Enregistrement..."
-                              : "🚚 Marquer comme expédiée"}
+                            : "🚚 Marquer comme expédiée…"}
                         </button>
 
                         {saved && (
                           <div style={{ padding: "10px 14px", borderRadius: 10, background: "#dcfce7", fontSize: 13, fontWeight: 700, color: "#166534", textAlign: "center" }}>
-                            ✅ Statut mis à jour — Email envoyé au client !
+                            ✅ Statut mis à jour
                           </div>
+                        )}
+
+                        {/* === ANNULATION === Visible si tracking présent ET pas annulée déjà */}
+                        {order.tracking_number && order.shipping_status !== "cancelled" && (
+                          <button
+                            onClick={() => setCancelModal({ orderId: order.id, cancelling: false })}
+                            style={{ padding: "12px 16px", borderRadius: 12, background: "#fef2f2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
+                          >
+                            ↺ Annuler l'expédition
+                          </button>
+                        )}
+
+                        {/* "Informer le client" — visible après annulation (= statut pending mais notes contiennent encore l'historique) */}
+                        {!order.tracking_number && order.shipping_status === "pending" && order.notes?.includes("Transporteur:") && (
+                          (() => {
+                            const sent = order.notes?.match(/\[CANCEL_EMAIL_SENT:([^\]]+)\]/);
+                            if (sent) {
+                              const date = new Date(sent[1]).toLocaleString("fr-FR", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+                              return (
+                                <button disabled style={{ padding: "12px 16px", borderRadius: 12, background: "#e5e7eb", color: "#6b7280", fontWeight: 800, fontSize: 13, border: "none", cursor: "not-allowed" }}>
+                                  ✉️ Email envoyé le {date}
+                                </button>
+                              );
+                            }
+                            return (
+                              <button
+                                onClick={() => openCancelEmailModal(order)}
+                                style={{ padding: "12px 16px", borderRadius: 12, background: "#fff7ed", color: "#9a3412", fontWeight: 800, fontSize: 13, border: "1px solid #fed7aa", cursor: "pointer" }}
+                              >
+                                ✉️ Informer le client de l'annulation
+                              </button>
+                            );
+                          })()
                         )}
 
                         {/* Changer statut manuellement */}
@@ -724,6 +947,184 @@ export default function AdminCommandes() {
           })}
         </div>
       )}
+
+      {/* ══ MODALE 1 — CONFIRMATION EXPÉDITION ══ */}
+      {shipModal && (
+        <div
+          onClick={() => !shipModal.sending && setShipModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, maxWidth: 900, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 32 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Confirmer l'expédition</h2>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Aperçu de l'email + option message personnalisé</p>
+              </div>
+              <button onClick={() => !shipModal.sending && setShipModal(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+              {/* Colonne preview email */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
+                <iframe
+                  srcDoc={shipModal.previewHtml}
+                  style={{ width: "100%", height: 480, border: "1px solid rgba(0,0,0,0.1)", borderRadius: 10, background: "#fff" }}
+                  title="Aperçu email expédition"
+                />
+              </div>
+
+              {/* Colonne champ message + boutons */}
+              <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", display: "block", marginBottom: 6 }}>
+                    Message personnalisé (optionnel)
+                  </label>
+                  <textarea
+                    value={shipModal.customMessage}
+                    onChange={e => refreshShipPreview(e.target.value)}
+                    placeholder="Ex: Votre colis a été déposé ce matin, bonne réception !"
+                    rows={5}
+                    style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                  <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 4 }}>Le message s'ajoute dans l'email avant la signature.</div>
+                </div>
+
+                <button
+                  onClick={() => confirmShip(true)}
+                  disabled={shipModal.sending}
+                  style={{ padding: "14px 18px", borderRadius: 12, background: shipModal.sending ? "#e5e7eb" : "#c49a4a", color: shipModal.sending ? "#9ca3af" : "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: shipModal.sending ? "not-allowed" : "pointer" }}
+                >
+                  {shipModal.sending ? "⏳ Envoi..." : "✉️ Envoyer la confirmation au client"}
+                </button>
+
+                <button
+                  onClick={() => confirmShip(false)}
+                  disabled={shipModal.sending}
+                  style={{ padding: "14px 18px", borderRadius: 12, background: "transparent", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "2px solid rgba(26,20,16,0.15)", cursor: shipModal.sending ? "not-allowed" : "pointer" }}
+                >
+                  Marquer expédiée sans email
+                </button>
+
+                <button
+                  onClick={() => setShipModal(null)}
+                  disabled={shipModal.sending}
+                  style={{ padding: "10px 18px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center" }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODALE 2 — CONFIRMATION ANNULATION ══ */}
+      {cancelModal && (
+        <div
+          onClick={() => !cancelModal.cancelling && setCancelModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, maxWidth: 500, width: "100%", padding: 32 }}
+          >
+            <h2 style={{ margin: "0 0 16px", fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Annuler cette expédition ?</h2>
+            <div style={{ padding: "14px 16px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 13, color: "#92400e", marginBottom: 20, lineHeight: 1.6 }}>
+              ⚠️ Cette action va :
+              <ul style={{ margin: "8px 0 0 18px", padding: 0 }}>
+                <li>Annuler le colis côté Sendcloud</li>
+                <li>Effacer le numéro de suivi, l'étiquette et l'ID parcel</li>
+                <li>Repasser la commande en « En préparation »</li>
+                <li><strong>Aucun email envoyé au client</strong></li>
+              </ul>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+              <button
+                onClick={() => setCancelModal(null)}
+                disabled={cancelModal.cancelling}
+                style={{ padding: "12px 18px", borderRadius: 12, background: "transparent", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer" }}
+              >
+                Annuler
+              </button>
+              <button
+                onClick={() => confirmCancel()}
+                disabled={cancelModal.cancelling}
+                style={{ padding: "12px 18px", borderRadius: 12, background: cancelModal.cancelling ? "#e5e7eb" : "#dc2626", color: cancelModal.cancelling ? "#9ca3af" : "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: cancelModal.cancelling ? "not-allowed" : "pointer" }}
+              >
+                {cancelModal.cancelling ? "⏳ Annulation..." : "Confirmer l'annulation"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODALE 3 — INFORMER CLIENT DE L'ANNULATION ══ */}
+      {cancelEmailModal && (
+        <div
+          onClick={() => !cancelEmailModal.sending && setCancelEmailModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, maxWidth: 900, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 32 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Email d'annulation au client</h2>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Aperçu + message personnalisé</p>
+              </div>
+              <button onClick={() => !cancelEmailModal.sending && setCancelEmailModal(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
+                <iframe
+                  srcDoc={cancelEmailModal.previewHtml}
+                  style={{ width: "100%", height: 480, border: "1px solid rgba(0,0,0,0.1)", borderRadius: 10, background: "#fff" }}
+                  title="Aperçu email annulation"
+                />
+              </div>
+
+              <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", display: "block", marginBottom: 6 }}>
+                    Message personnalisé (optionnel)
+                  </label>
+                  <textarea
+                    value={cancelEmailModal.customMessage}
+                    onChange={e => refreshCancelEmailPreview(e.target.value)}
+                    placeholder="Ex: Désolés pour la gêne occasionnée, n'hésitez pas à nous contacter."
+                    rows={5}
+                    style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                <button
+                  onClick={() => sendCancellationEmail()}
+                  disabled={cancelEmailModal.sending}
+                  style={{ padding: "14px 18px", borderRadius: 12, background: cancelEmailModal.sending ? "#e5e7eb" : "#c49a4a", color: cancelEmailModal.sending ? "#9ca3af" : "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: cancelEmailModal.sending ? "not-allowed" : "pointer" }}
+                >
+                  {cancelEmailModal.sending ? "⏳ Envoi..." : "✉️ Envoyer l'email au client"}
+                </button>
+
+                <button
+                  onClick={() => setCancelEmailModal(null)}
+                  disabled={cancelEmailModal.sending}
+                  style={{ padding: "10px 18px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

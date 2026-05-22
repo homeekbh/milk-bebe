@@ -138,11 +138,19 @@ export async function POST(req: NextRequest) {
       console.error(`[sendcloud:create-label] FORCE_RECREATE — un parcel ${order.sendcloud_parcel_id} existait déjà pour ${order_id}`);
     }
 
-    const deliveryType = order.delivery_type as ("point_relais" | "locker" | "home" | null);
+    // Les anciennes commandes "locker" sont traitées comme "point_relais"
+    // (même transporteur Mondial Relay, même flow). Le mode locker a été
+    // supprimé du choix client.
+    const rawDeliveryType = order.delivery_type as (string | null);
+    const deliveryType: "point_relais" | "home" | null =
+      rawDeliveryType === "locker"       ? "point_relais" :
+      rawDeliveryType === "point_relais" ? "point_relais" :
+      rawDeliveryType === "home"         ? "home"         :
+      null;
     const relayId      = order.relay_id as (string | null);
-    const isRelayMode  = deliveryType === "point_relais" || deliveryType === "locker";
+    const isRelayMode  = deliveryType === "point_relais";
 
-    // Validation : si point_relais ou locker → relay_id obligatoire
+    // Validation : si point_relais → relay_id obligatoire
     if (isRelayMode && !relayId) {
       return Response.json({ error: "Point relais manquant — saisie manuelle requise dans la commande" }, { status: 400 });
     }
@@ -150,7 +158,7 @@ export async function POST(req: NextRequest) {
     const addr = order.shipping_address ?? {};
 
     // Validation adresse client UNIQUEMENT pour home (ou si delivery_type absent = ancienne commande)
-    // En mode point_relais/locker : Sendcloud utilise l'adresse du service point,
+    // En mode point_relais : Sendcloud utilise l'adresse du service point,
     // pas besoin de valider l'adresse client (souvent vide ou incomplète).
     if (!isRelayMode && (!addr.line1 || !addr.postal_code || !addr.city)) {
       console.error("[sendcloud] Adresse incomplète (mode home):", JSON.stringify(addr));
@@ -162,7 +170,7 @@ export async function POST(req: NextRequest) {
 
     // Adresse destinataire — construction différente selon mode
     //   - Home : adresse complète du client (validée ci-dessus)
-    //   - Relais/Locker : minimum requis par Sendcloud (name + country) ; les
+    //   - Point Relais : minimum requis par Sendcloud (name + country) ; les
     //     champs adresse seront overridés par le service point côté Sendcloud
     //     dès qu'on attache to_service_point dans ship_with.properties.
     const customerName = sanitizeName(addr.name || order.customer_name || "Client");
@@ -336,8 +344,8 @@ export async function POST(req: NextRequest) {
     };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 
-    // Si point_relais ou locker → on attache le service point sélectionné par le client
-    if (relayId && (deliveryType === "point_relais" || deliveryType === "locker")) {
+    // Si point_relais → on attache le service point sélectionné par le client
+    if (relayId && deliveryType === "point_relais") {
       shipWithProps.to_service_point = relayId;
     }
 

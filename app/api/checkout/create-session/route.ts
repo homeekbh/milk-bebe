@@ -32,11 +32,11 @@ export async function POST(req: Request) {
     }
 
     // ── Validation du mode de livraison ──────────────────────────────────────
-    const ALLOWED_DELIVERY = ["point_relais", "locker", "home"];
+    const ALLOWED_DELIVERY = ["point_relais", "home"];
     if (!delivery_type || !ALLOWED_DELIVERY.includes(delivery_type)) {
       return Response.json({ error: "Mode de livraison invalide" }, { status: 400 });
     }
-    if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
+    if (delivery_type === "point_relais" && (!relay || !relay.id)) {
       return Response.json({ error: "Point relais manquant" }, { status: 400 });
     }
     if (delivery_type === "home") {
@@ -121,9 +121,9 @@ export async function POST(req: Request) {
 
     if (deliveryCost > 0) {
       const labelLiv =
-        delivery_type === "home"         ? "Livraison à domicile (Mondial Relay)" :
-        delivery_type === "locker"       ? "Livraison Locker Mondial Relay"      :
-                                            "Livraison Point Relais Mondial Relay";
+        delivery_type === "home"
+          ? "Livraison à domicile (Mondial Relay)"
+          : "Livraison Point Relais Mondial Relay";
       lineItems.push({
         price_data: {
           currency:     "eur",
@@ -134,10 +134,10 @@ export async function POST(req: Request) {
       });
     }
 
-    // Pour point_relais/locker : pas besoin de demander l'adresse à Stripe
-    // (le client va retirer au point relais sélectionné).
-    // Pour home : on demande l'adresse de livraison à Stripe en plus, mais
-    // celle qu'on a déjà côté UI sert de référence.
+    // Pour point_relais : pas besoin de demander l'adresse à Stripe (le client
+    // va retirer au point relais sélectionné). Pour home : on demande l'adresse
+    // de livraison à Stripe en plus, mais celle qu'on a déjà côté UI sert de
+    // référence.
     const sessionParams: any = {
       // Carte uniquement. Apple Pay / Google Pay s'affichent automatiquement
       // sur les navigateurs compatibles (Safari, Chrome Android) via "card".

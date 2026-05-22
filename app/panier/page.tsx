@@ -36,7 +36,7 @@ declare global {
   }
 }
 
-type DeliveryType = "point_relais" | "locker" | "home";
+type DeliveryType = "point_relais" | "home";
 
 type ServicePoint = {
   id: string;
@@ -110,7 +110,7 @@ export default function CartPage() {
     } catch {}
   }, [deliveryType, selectedRelay, homeAddress, postalSearch]);
 
-  async function searchServicePoints(type: "point_relais" | "locker") {
+  async function searchServicePoints() {
     const cp = postalSearch.trim();
     if (!/^\d{4,5}$/.test(cp)) {
       setSearchError("Code postal invalide (4 ou 5 chiffres)");
@@ -122,7 +122,7 @@ export default function CartPage() {
     setSearchResults([]);
     setFallbackManual(false);
     try {
-      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&type=${type}`);
+      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&type=point_relais`);
       const data = await res.json();
       if (!res.ok || data.error === true) {
         setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
@@ -142,7 +142,7 @@ export default function CartPage() {
     }
   }
 
-  function applyManualRelay(type: "point_relais" | "locker") {
+  function applyManualRelay() {
     const { name, address, city, postal_code } = manualRelay;
     if (!name.trim() || !address.trim() || !city.trim() || !/^\d{4,5}$/.test(postal_code)) {
       setSearchError("Remplis tous les champs pour la saisie manuelle.");
@@ -163,7 +163,7 @@ export default function CartPage() {
   function switchDelivery(type: DeliveryType) {
     setDeliveryType(type);
     setCheckoutError("");
-    widgetInited.current = false; // re-init widget si on bascule entre PR et Locker
+    widgetInited.current = false; // re-init widget si on bascule entre modes
     if (type === "home") {
       setSelectedRelay(null);
       setSearchResults([]);
@@ -209,22 +209,16 @@ export default function CartPage() {
     })();
   }, []);
 
-  // Initialise le widget quand on est en mode point_relais/locker, scripts chargés
+  // Initialise le widget quand on est en mode point_relais, scripts chargés
   useEffect(() => {
     if (!mrReady) return;
-    if (deliveryType !== "point_relais" && deliveryType !== "locker") return;
+    if (deliveryType !== "point_relais") return;
     if (selectedRelay) return;
     if (widgetInited.current) return;
 
     const $ = window.$;
     const $container = $("#" + widgetContainerId);
     if (!$container.length) return;
-
-    // Mode Mondial Relay selon le choix client :
-    //   "24R" = Point Relais commerçant uniquement
-    //   "24L" = Locker 24/7 uniquement
-    //   "24X" = Mix (pas utilisé ici, on sépare)
-    const mrMode = deliveryType === "locker" ? "24L" : "24R";
 
     try {
       $container.empty();
@@ -239,7 +233,7 @@ export default function CartPage() {
         Weight:           "250",
         NbResults:        5,
         SearchDelay:      "0",
-        Mode:             mrMode,
+        Mode:             "24R", // Point Relais commerçant uniquement
         OnParcelShopSelected: (data: any) => {
           if (!data) return;
           setSelectedRelay({
@@ -300,8 +294,8 @@ export default function CartPage() {
   // Livraison complétée ?
   const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
   const deliveryReady   =
-    deliveryType === "home" ? homeComplete :
-    (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
+    deliveryType === "home"         ? homeComplete    :
+    deliveryType === "point_relais" ? !!selectedRelay :
     false;
 
   // Sauvegarde panier abandonné
@@ -374,7 +368,7 @@ export default function CartPage() {
           customer_email: user?.email ?? guestEmail.trim(),
           delivery_type:  deliveryType,
           delivery_price: shipping,
-          relay:          (deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay ? {
+          relay:          deliveryType === "point_relais" && selectedRelay ? {
             id:          selectedRelay.id,
             name:        selectedRelay.name,
             street:      selectedRelay.street,
@@ -617,7 +611,6 @@ export default function CartPage() {
                   <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
                     {([
                       { type: "point_relais" as const, icon: "📦", label: "Point Relais Mondial Relay", sub: "Retrait chez un commerçant", price: PRICE_RELAY },
-                      { type: "locker"       as const, icon: "🔒", label: "Locker Mondial Relay",        sub: "Consigne automatique 24h/24", price: PRICE_RELAY },
                       { type: "home"         as const, icon: "🏠", label: "Livraison à domicile",        sub: "Mondial Relay Home",          price: PRICE_HOME  },
                     ]).map(opt => {
                       const active = deliveryType === opt.type;
@@ -644,7 +637,7 @@ export default function CartPage() {
                   </div>
 
                   {/* Widget Mondial Relay officiel */}
-                  {(deliveryType === "point_relais" || deliveryType === "locker") && !selectedRelay && (
+                  {deliveryType === "point_relais" && !selectedRelay && (
                     <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, marginBottom: 10 }}>
                       {!mrReady && !mrError && (
                         <div style={{ padding: "20px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
@@ -691,7 +684,7 @@ export default function CartPage() {
                                 style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
                             </div>
                             <button
-                              onClick={() => applyManualRelay(deliveryType as "point_relais" | "locker")}
+                              onClick={() => applyManualRelay()}
                               style={{ padding: "9px", borderRadius: 6, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
                               Valider mon point relais
                             </button>
@@ -703,7 +696,7 @@ export default function CartPage() {
                   )}
 
                   {/* Récap relais sélectionné */}
-                  {(deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay && (
+                  {deliveryType === "point_relais" && selectedRelay && (
                     <div style={{ background: "#dcfce7", borderRadius: 12, padding: 14, marginBottom: 10, border: "1px solid #86efac" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                         <div style={{ flex: "1 1 200px", minWidth: 0 }}>

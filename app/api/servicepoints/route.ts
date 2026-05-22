@@ -15,16 +15,17 @@ const ENDPOINTS = [
 ];
 
 /**
- * GET /api/servicepoints?postal_code=06500&type=point_relais|locker&country=FR
+ * GET /api/servicepoints?postal_code=06500&country=FR
  *
- * Cherche les service points Mondial Relay autour d'un code postal.
+ * Cherche les Points Relais Mondial Relay autour d'un code postal.
+ * Les consignes automatiques (lockers) sont systématiquement exclues — on
+ * ne propose plus que le retrait chez un commerçant.
  * Cascade entre 2 endpoints Sendcloud. Si TOUS échouent → fallback_manual:true
  * (le client tape manuellement le nom/adresse de son relais préféré).
  */
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const postalCode = (searchParams.get("postal_code") ?? "").trim();
-  const type       = (searchParams.get("type") ?? "point_relais").toLowerCase();
   const country    = (searchParams.get("country") ?? "FR").toUpperCase();
 
   if (!postalCode || !/^\d{4,5}$/.test(postalCode)) {
@@ -57,13 +58,15 @@ export async function GET(req: NextRequest) {
 
       const all: any[] = Array.isArray(json) ? json : (Array.isArray(json?.data) ? json.data : (Array.isArray(json?.service_points) ? json.service_points : []));
 
+      // Toujours exclure les consignes automatiques (lockers) — on ne propose
+      // plus que les Points Relais commerçants.
       const isLockerSP = (sp: any) => {
         if (sp.is_locker === true) return true;
         if (typeof sp.type === "string" && /locker|consigne/i.test(sp.type)) return true;
         return /locker|consigne|automatique/i.test(String(sp.name ?? ""));
       };
 
-      const filtered = all.filter(sp => type === "locker" ? isLockerSP(sp) : !isLockerSP(sp));
+      const filtered = all.filter(sp => !isLockerSP(sp));
       const results  = filtered.slice(0, 5).map((sp: any) => ({
         id:            String(sp.id ?? sp.code ?? ""),
         name:          sp.name ?? "",
@@ -76,7 +79,7 @@ export async function GET(req: NextRequest) {
       }));
 
       attempts[attempts.length - 1].count = results.length;
-      console.error(`[servicepoints] ${base} → ${all.length} raw, ${results.length} filtrés "${type}"`);
+      console.error(`[servicepoints] ${base} → ${all.length} raw, ${results.length} après exclusion lockers`);
 
       if (results.length > 0) {
         return Response.json({ results, empty: false, source: base, attempts });

@@ -49,7 +49,9 @@ type Order = {
   promo_code?: string;
   discount?: number;
   stripe_session_id?: string;
-  delivery_type?: "point_relais" | "locker" | "home" | null;
+  // 'locker' n'est plus proposé au client mais peut exister sur des
+  // commandes historiques antérieures à la migration 002_remove_locker.sql.
+  delivery_type?: "point_relais" | "home" | "locker" | null;
   delivery_price?: number | null;
   relay_id?: string | null;
   relay_name?: string | null;
@@ -89,7 +91,7 @@ type SendcloudProduct = {
   contract_id:  number | null;
   weight_min?:  number | null;
   weight_max?:  number | null;
-  delivery_type: "point_relais" | "locker" | "home";
+  delivery_type: "point_relais" | "home";
 };
 
 const MONDIAL_OPTIONS: SendcloudProduct[] = [
@@ -100,18 +102,24 @@ const MONDIAL_OPTIONS: SendcloudProduct[] = [
     delivery_type: "point_relais",
   },
   {
-    code: "29146", name: "Mondial Relay Locker (0.25-0.5kg)",
-    carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
-    contract_id: null, weight_min: 0.25, weight_max: 0.5,
-    delivery_type: "locker",
-  },
-  {
     code: "10314", name: "Mondial Relay Home (0-0.5kg)",
     carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
     contract_id: null, weight_min: 0, weight_max: 0.5,
     delivery_type: "home",
   },
 ];
+
+/**
+ * Normalise le delivery_type pour l'affichage admin : les anciennes commandes
+ * en 'locker' sont traitées comme 'point_relais' (purge définitive de l'option,
+ * cf. migration 002_remove_locker.sql qui réécrit la donnée en base).
+ */
+function normalizeDeliveryType(t: string | null | undefined): "point_relais" | "home" | null {
+  if (t === "home")         return "home";
+  if (t === "point_relais") return "point_relais";
+  if (t === "locker")       return "point_relais"; // legacy → point_relais
+  return null;
+}
 
 const ADRESSE_EXPEDITEUR = {
   nom:     "M!LK — Essentiels Bébé (EKBH)",
@@ -325,7 +333,7 @@ export default function AdminCommandes() {
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
         if (err.pending) {
-          alert(`⏳ Étiquette pas encore prête côté Sendcloud (parcel #${err.parcel_id ?? "?"}).\n\nMondial Relay Locker peut prendre plusieurs minutes pour générer le PDF.\nRéessayer dans 30 secondes avec le bouton "Vérifier l'étiquette".`);
+          alert(`⏳ Étiquette pas encore prête côté Sendcloud (parcel #${err.parcel_id ?? "?"}).\n\nLa génération peut prendre plusieurs minutes.\nRéessayer dans 30 secondes avec le bouton "Vérifier l'étiquette".`);
         } else {
           alert(`Impossible d'ouvrir l'étiquette : ${err.error ?? `HTTP ${res.status}`}`);
         }
@@ -384,9 +392,11 @@ export default function AdminCommandes() {
     }
   }
 
-  // Construit le payload des infos livraison à passer aux emails
+  // Construit le payload des infos livraison à passer aux emails.
+  // Normalise les legacy 'locker' → 'point_relais' pour les emails sortants.
   function getDeliveryPayload(order: Order) {
-    const relay = (order.delivery_type === "point_relais" || order.delivery_type === "locker") && order.relay_id ? {
+    const dt = normalizeDeliveryType(order.delivery_type);
+    const relay = dt === "point_relais" && order.relay_id ? {
       id:          order.relay_id,
       name:        order.relay_name,
       street:      order.relay_address,
@@ -394,8 +404,8 @@ export default function AdminCommandes() {
       postal_code: order.relay_postal_code,
       type:        order.relay_type,
     } : null;
-    const home_address = order.delivery_type === "home" ? order.shipping_address : null;
-    return { delivery_type: order.delivery_type ?? null, relay, home_address };
+    const home_address = dt === "home" ? order.shipping_address : null;
+    return { delivery_type: dt, relay, home_address };
   }
 
   // Construit l'aperçu HTML de l'email d'expédition via la route /api/emails/shipped?preview=1
@@ -775,11 +785,11 @@ export default function AdminCommandes() {
                           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>
                             Mode de livraison
                           </div>
-                          {(order.delivery_type === "point_relais" || order.delivery_type === "locker") ? (
+                          {normalizeDeliveryType(order.delivery_type) === "point_relais" ? (
                             order.relay_id ? (
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", marginBottom: 4 }}>
-                                  {order.delivery_type === "locker" ? "🔒 Locker" : "📦 Point Relais"} Mondial Relay
+                                  📦 Point Relais Mondial Relay
                                 </div>
                                 <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>{order.relay_name ?? "—"}</div>
                                 <div style={{ fontSize: 13, color: "rgba(26,20,16,0.7)", lineHeight: 1.6 }}>
@@ -862,12 +872,12 @@ export default function AdminCommandes() {
                         {/* Mode de livraison — info READ-ONLY (auto depuis order.delivery_type) */}
                         {order.delivery_type ? (
                           (() => {
-                            const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === order.delivery_type);
-                            const icon = order.delivery_type === "home" ? "🏠" : order.delivery_type === "locker" ? "🔒" : "📦";
-                            const label =
-                              order.delivery_type === "home"   ? "Livraison à domicile (Mondial Relay)" :
-                              order.delivery_type === "locker" ? "Locker Mondial Relay" :
-                                                                  "Point Relais Mondial Relay";
+                            const dt      = normalizeDeliveryType(order.delivery_type);
+                            const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === dt);
+                            const icon    = dt === "home" ? "🏠" : "📦";
+                            const label   =
+                              dt === "home" ? "Livraison à domicile (Mondial Relay)" :
+                                              "Point Relais Mondial Relay";
                             return (
                               <div style={{ background: "#1a1410", borderRadius: 12, padding: "16px 18px", color: "#f2ede6" }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(196,154,74,0.8)", marginBottom: 8 }}>
@@ -876,7 +886,7 @@ export default function AdminCommandes() {
                                 <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 10 }}>
                                   {icon} {label}
                                 </div>
-                                {(order.delivery_type === "point_relais" || order.delivery_type === "locker") && order.relay_id ? (
+                                {dt === "point_relais" && order.relay_id ? (
                                   <>
                                     <div style={{ fontSize: 14, fontWeight: 800 }}>{order.relay_name ?? "—"}</div>
                                     <div style={{ fontSize: 13, color: "rgba(242,237,230,0.65)", lineHeight: 1.6, marginTop: 4 }}>
@@ -886,7 +896,7 @@ export default function AdminCommandes() {
                                       ID Sendcloud : {order.relay_id}
                                     </div>
                                   </>
-                                ) : order.delivery_type === "home" && addr ? (
+                                ) : dt === "home" && addr ? (
                                   <div style={{ fontSize: 13, color: "rgba(242,237,230,0.7)", lineHeight: 1.6 }}>
                                     {addr.line1}<br />
                                     {addr.postal_code} {addr.city}
@@ -1011,7 +1021,7 @@ export default function AdminCommandes() {
                               </button>
                             )}
                             {/* Bouton "Vérifier l'étiquette" : parcel créé côté Sendcloud
-                                mais PDF pas encore généré (cas Mondial Relay Locker async). */}
+                                mais PDF pas encore généré (génération async). */}
                             {!labelUrl && (order as any).sendcloud_parcel_id && (
                               <div style={{ display: "grid", gap: 8 }}>
                                 <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", textAlign: "center" }}>

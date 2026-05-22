@@ -22,6 +22,28 @@ import Link         from "next/link";
 import { useRouter } from "next/navigation";
 
 const FREE_SHIPPING_THRESHOLD = 60;
+const PRICE_RELAY = 4.90;
+const PRICE_HOME  = 6.90;
+
+type DeliveryType = "point_relais" | "locker" | "home";
+
+type ServicePoint = {
+  id: string;
+  name: string;
+  street: string;
+  city: string;
+  postal_code: string;
+  distance: number | null;
+  opening_hours: string | null;
+};
+
+type HomeAddress = {
+  name:        string;
+  line1:       string;
+  postal_code: string;
+  city:        string;
+  country:     string;
+};
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
@@ -36,6 +58,74 @@ export default function CartPage() {
   const [guestEmail,    setGuestEmail]    = useState("");
   const [guestError,    setGuestError]    = useState("");
   const [checkoutError, setCheckoutError] = useState("");
+
+  // ── Livraison Mondial Relay ──────────────────────────────────────────────
+  const [deliveryType,    setDeliveryType]    = useState<DeliveryType | null>(null);
+  const [postalSearch,    setPostalSearch]    = useState("");
+  const [searching,       setSearching]       = useState(false);
+  const [searchResults,   setSearchResults]   = useState<ServicePoint[]>([]);
+  const [searchError,     setSearchError]     = useState("");
+  const [searchEmpty,     setSearchEmpty]     = useState(false);
+  const [selectedRelay,   setSelectedRelay]   = useState<ServicePoint | null>(null);
+  const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
+
+  // Charger depuis localStorage au mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("milk_delivery_choice");
+      if (!raw) return;
+      const d = JSON.parse(raw);
+      if (d.deliveryType)  setDeliveryType(d.deliveryType);
+      if (d.selectedRelay) setSelectedRelay(d.selectedRelay);
+      if (d.homeAddress)   setHomeAddress(d.homeAddress);
+      if (d.postalSearch)  setPostalSearch(d.postalSearch);
+    } catch {}
+  }, []);
+
+  // Sauvegarder dans localStorage à chaque changement
+  useEffect(() => {
+    try {
+      localStorage.setItem("milk_delivery_choice", JSON.stringify({
+        deliveryType, selectedRelay, homeAddress, postalSearch,
+      }));
+    } catch {}
+  }, [deliveryType, selectedRelay, homeAddress, postalSearch]);
+
+  async function searchServicePoints(type: "point_relais" | "locker") {
+    const cp = postalSearch.trim();
+    if (!/^\d{4,5}$/.test(cp)) {
+      setSearchError("Code postal invalide (4 ou 5 chiffres)");
+      return;
+    }
+    setSearching(true);
+    setSearchError("");
+    setSearchEmpty(false);
+    setSearchResults([]);
+    try {
+      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&type=${type}`);
+      const data = await res.json();
+      if (!res.ok || data.error) {
+        setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
+      } else {
+        setSearchResults(data.results ?? []);
+        setSearchEmpty(!!data.empty);
+      }
+    } catch (e: any) {
+      setSearchError("Erreur réseau : " + (e?.message ?? "inconnue"));
+    } finally {
+      setSearching(false);
+    }
+  }
+
+  function switchDelivery(type: DeliveryType) {
+    setDeliveryType(type);
+    setCheckoutError("");
+    if (type === "home") {
+      setSelectedRelay(null);
+      setSearchResults([]);
+      setSearchEmpty(false);
+    }
+  }
 
   const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
 
@@ -65,12 +155,21 @@ export default function CartPage() {
     }
   }, [subtotal]); // ✅ Se déclenche à chaque changement de sous-total
 
-  const discount    = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
-  const freeShip    = promoData?.free_shipping ?? false;
-  const shipping    = (subtotal - discount >= FREE_SHIPPING_THRESHOLD || freeShip) ? 0 : 4.9;
-  const total       = Math.max(0, subtotal - discount) + shipping;
-  const remaining   = Math.max(0, FREE_SHIPPING_THRESHOLD - (subtotal - discount));
-  const pct         = Math.min(100, ((subtotal - discount) / FREE_SHIPPING_THRESHOLD) * 100);
+  const discount     = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
+  const freeShip     = promoData?.free_shipping ?? false;
+  const basePrice    = deliveryType === "home" ? PRICE_HOME : PRICE_RELAY;
+  const shippingFree = (subtotal - discount >= FREE_SHIPPING_THRESHOLD) || freeShip;
+  const shipping     = shippingFree ? 0 : (deliveryType ? basePrice : 0);
+  const total        = Math.max(0, subtotal - discount) + shipping;
+  const remaining    = Math.max(0, FREE_SHIPPING_THRESHOLD - (subtotal - discount));
+  const pct          = Math.min(100, ((subtotal - discount) / FREE_SHIPPING_THRESHOLD) * 100);
+
+  // Livraison complétée ?
+  const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
+  const deliveryReady   =
+    deliveryType === "home" ? homeComplete :
+    (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
+    false;
 
   // Sauvegarde panier abandonné
   useEffect(() => {
@@ -118,6 +217,12 @@ export default function CartPage() {
       }
     }
 
+    // Vérifier que la livraison est complète
+    if (!deliveryReady) {
+      setCheckoutError("Veuillez compléter votre choix de livraison.");
+      return;
+    }
+
     fbqTrack("InitiateCheckout", { value: items.reduce((a,it) => a + (it.price??0)*(it.quantity??1), 0), currency: "EUR", num_items: items.reduce((a,it) => a + it.quantity, 0) });
     // ✅ Sauvegarder l'email guest pour la success page (conversion panier abandonné)
     if (!user && guestEmail.trim()) {
@@ -130,10 +235,21 @@ export default function CartPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           items,
-          promo_code:    promoData?.code    ?? null,
-          discount:      promoData?.discount ?? 0,
-          free_shipping: promoData?.free_shipping ?? false,
+          promo_code:     promoData?.code    ?? null,
+          discount:       promoData?.discount ?? 0,
+          free_shipping:  promoData?.free_shipping ?? false,
           customer_email: user?.email ?? guestEmail.trim(),
+          delivery_type:  deliveryType,
+          delivery_price: shipping,
+          relay:          (deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay ? {
+            id:          selectedRelay.id,
+            name:        selectedRelay.name,
+            street:      selectedRelay.street,
+            city:        selectedRelay.city,
+            postal_code: selectedRelay.postal_code,
+            type:        deliveryType,
+          } : null,
+          home_address:   deliveryType === "home" ? homeAddress : null,
         }),
       });
       const data = await res.json();
@@ -327,13 +443,145 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* ── MODE DE LIVRAISON ── */}
+                <div style={{ marginBottom: 20 }}>
+                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
+                  <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
+                    {([
+                      { type: "point_relais" as const, icon: "📦", label: "Point Relais Mondial Relay", sub: "Retrait chez un commerçant", price: PRICE_RELAY },
+                      { type: "locker"       as const, icon: "🔒", label: "Locker Mondial Relay",        sub: "Consigne automatique 24h/24", price: PRICE_RELAY },
+                      { type: "home"         as const, icon: "🏠", label: "Livraison à domicile",        sub: "Mondial Relay Home",          price: PRICE_HOME  },
+                    ]).map(opt => {
+                      const active = deliveryType === opt.type;
+                      return (
+                        <button
+                          key={opt.type}
+                          onClick={() => switchDelivery(opt.type)}
+                          style={{
+                            display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
+                            padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                            border: `2px solid ${active ? "#1a1410" : "rgba(26,20,16,0.1)"}`,
+                            background: active ? "#1a1410" : "#fff", color: active ? "#f2ede6" : "#1a1410",
+                            fontFamily: "inherit",
+                          }}>
+                          <span style={{ fontSize: 22 }}>{opt.icon}</span>
+                          <span>
+                            <div style={{ fontSize: 14, fontWeight: 800 }}>{opt.label}</div>
+                            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
+                          </span>
+                          <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Recherche relais/locker */}
+                  {(deliveryType === "point_relais" || deliveryType === "locker") && !selectedRelay && (
+                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 8, color: "#1a1410" }}>📍 Code postal</div>
+                      <div style={{ display: "flex", gap: 8 }}>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          maxLength={5}
+                          value={postalSearch}
+                          onChange={e => { setPostalSearch(e.target.value.replace(/\D/g, "")); setSearchError(""); }}
+                          onKeyDown={e => e.key === "Enter" && searchServicePoints(deliveryType)}
+                          placeholder="06500"
+                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#fff" }}
+                        />
+                        <button
+                          onClick={() => searchServicePoints(deliveryType)}
+                          disabled={searching || !postalSearch}
+                          style={{ padding: "10px 16px", borderRadius: 8, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 13, border: "none", cursor: searching || !postalSearch ? "not-allowed" : "pointer", opacity: searching || !postalSearch ? 0.5 : 1 }}>
+                          {searching ? "..." : "Rechercher"}
+                        </button>
+                      </div>
+                      {searchError && (
+                        <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: "#fee2e2", fontSize: 12, fontWeight: 700, color: "#b91c1c", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                          <span>⚠ {searchError}</span>
+                          <button onClick={() => searchServicePoints(deliveryType)} style={{ background: "none", border: "none", color: "#b91c1c", fontSize: 12, fontWeight: 800, textDecoration: "underline", cursor: "pointer" }}>Réessayer</button>
+                        </div>
+                      )}
+                      {searchEmpty && !searchError && (
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fef3c7", fontSize: 12, color: "#92400e", fontWeight: 700, marginBottom: 8 }}>
+                            Aucun point disponible ici. Livraison à domicile pour {PRICE_HOME.toFixed(2)} € ?
+                          </div>
+                          <button
+                            onClick={() => switchDelivery("home")}
+                            style={{ width: "100%", padding: "10px", borderRadius: 8, background: "#c49a4a", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
+                            Choisir la livraison à domicile
+                          </button>
+                        </div>
+                      )}
+                      {searchResults.length > 0 && (
+                        <div style={{ marginTop: 10, display: "grid", gap: 6 }}>
+                          {searchResults.map(r => (
+                            <button
+                              key={r.id}
+                              onClick={() => setSelectedRelay(r)}
+                              style={{ textAlign: "left", padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid rgba(26,20,16,0.1)", cursor: "pointer", fontFamily: "inherit" }}>
+                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                                <span style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>{r.name}</span>
+                                {r.distance !== null && <span style={{ fontSize: 11, color: "rgba(26,20,16,0.5)" }}>{r.distance < 1000 ? `${r.distance}m` : `${(r.distance / 1000).toFixed(1)}km`}</span>}
+                              </div>
+                              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.55)", marginTop: 3 }}>{r.street}, {r.postal_code} {r.city}</div>
+                              {r.opening_hours && <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 3 }}>{r.opening_hours}</div>}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Récap relais sélectionné */}
+                  {(deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay && (
+                    <div style={{ background: "#dcfce7", borderRadius: 12, padding: 14, marginBottom: 10, border: "1px solid #86efac" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: 13, fontWeight: 900, color: "#166534", marginBottom: 4 }}>✓ {selectedRelay.name}</div>
+                          <div style={{ fontSize: 12, color: "#1a1410" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
+                        </div>
+                        <button onClick={() => setSelectedRelay(null)} style={{ background: "none", border: "none", fontSize: 12, fontWeight: 800, color: "#166534", textDecoration: "underline", cursor: "pointer" }}>Modifier</button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Adresse domicile */}
+                  {deliveryType === "home" && (
+                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 8 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>🏠 Adresse de livraison</div>
+                      <input type="text" autoComplete="name" placeholder="Prénom Nom"
+                        value={homeAddress.name} onChange={e => setHomeAddress(a => ({ ...a, name: e.target.value }))}
+                        style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
+                      <input type="text" autoComplete="street-address" placeholder="Adresse complète"
+                        value={homeAddress.line1} onChange={e => setHomeAddress(a => ({ ...a, line1: e.target.value }))}
+                        style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
+                      <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 8 }}>
+                        <input type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="CP"
+                          value={homeAddress.postal_code} onChange={e => setHomeAddress(a => ({ ...a, postal_code: e.target.value.replace(/\D/g, "") }))}
+                          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontFamily: "monospace", outline: "none", background: "#fff" }} />
+                        <input type="text" autoComplete="address-level2" placeholder="Ville"
+                          value={homeAddress.city} onChange={e => setHomeAddress(a => ({ ...a, city: e.target.value }))}
+                          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
                 {checkoutError && (
                   <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
                     ⚠ {checkoutError}
                   </div>
                 )}
-                <button onClick={handleCheckout} disabled={loading || items.length === 0}
-                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || items.length === 0) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || items.length === 0) ? "not-allowed" : "pointer", marginBottom: 12 }}>
+                {!deliveryReady && deliveryType && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
+                    Veuillez compléter votre choix de livraison
+                  </div>
+                )}
+                <button onClick={handleCheckout} disabled={loading || items.length === 0 || !deliveryReady}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || items.length === 0 || !deliveryReady) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || items.length === 0 || !deliveryReady) ? "not-allowed" : "pointer", marginBottom: 12 }}>
                   {loading ? "Redirection..." : "Passer au paiement →"}
                 </button>
 

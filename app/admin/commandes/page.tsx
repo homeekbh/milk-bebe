@@ -303,6 +303,9 @@ export default function AdminCommandes() {
   // Modale informer client de l'annulation
   const [cancelEmailModal, setCancelEmailModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
 
+  // Modale envoi instructions de retour au client
+  const [returnEmailModal, setReturnEmailModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
+
   // Modale "Annuler + Rembourser Stripe" (action IRRÉVERSIBLE)
   const [refundModal, setRefundModal] = useState<{ orderId: string; amount: number; reason: string; customMessage: string; sending: boolean; mode: "full" | "partial" } | null>(null);
 
@@ -642,6 +645,68 @@ export default function AdminCommandes() {
     alert("Email d'annulation envoyé au client");
   }
 
+  // ── Envoi instructions de retour au client ─────────────────────────────
+  async function buildReturnPreview(order: Order, customMessage: string): Promise<string> {
+    try {
+      const res = await adminFetch("/api/emails/retour", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          email:          order.customer_email,
+          prenom:         order.customer_name?.split(" ")[0] ?? "",
+          order_number:   order.id,
+          custom_message: customMessage,
+          preview:        true,
+        }),
+      });
+      if (!res.ok) return `<p style="padding:20px;color:#b91c1c">Erreur génération aperçu (${res.status})</p>`;
+      return await res.text();
+    } catch (e: any) {
+      return `<p style="padding:20px;color:#b91c1c">Erreur réseau: ${e?.message ?? "inconnue"}</p>`;
+    }
+  }
+
+  async function openReturnEmailModal(order: Order) {
+    const previewHtml = await buildReturnPreview(order, "");
+    setReturnEmailModal({ orderId: order.id, previewHtml, customMessage: "", sending: false });
+  }
+
+  async function refreshReturnEmailPreview(customMessage: string) {
+    if (!returnEmailModal) return;
+    const order = orders.find(o => o.id === returnEmailModal.orderId);
+    if (!order) return;
+    const previewHtml = await buildReturnPreview(order, customMessage);
+    setReturnEmailModal(s => s ? { ...s, customMessage, previewHtml } : null);
+  }
+
+  async function sendReturnInstructions() {
+    if (!returnEmailModal) return;
+    const order = orders.find(o => o.id === returnEmailModal.orderId);
+    if (!order) return;
+    setReturnEmailModal({ ...returnEmailModal, sending: true });
+    const res = await adminFetch("/api/emails/retour", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        email:          order.customer_email,
+        prenom:         order.customer_name?.split(" ")[0] ?? "",
+        order_number:   order.id,
+        custom_message: returnEmailModal.customMessage,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Erreur envoi email: ${err.error ?? `HTTP ${res.status}`}`);
+      setReturnEmailModal({ ...returnEmailModal, sending: false });
+      return;
+    }
+    await logActivity("commande_retour_email_sent", `Instructions de retour envoyées à ${order.customer_email}`, {
+      entity_id: order.id,
+    });
+    setReturnEmailModal(null);
+    alert("Instructions de retour envoyées au client");
+  }
+
   // L'ancien handleShip envoyait l'email auto. Maintenant openShipModal ouvre une modale
   // avec preview + champ message + 2 boutons (envoyer / sans email).
 
@@ -901,6 +966,12 @@ export default function AdminCommandes() {
                             style={{ padding: "12px 16px", borderRadius: 12, background: "#ede8df", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                           >
                             ↩️ Étiquette retour (interne)
+                          </button>
+                          <button
+                            onClick={() => openReturnEmailModal(order)}
+                            style={{ gridColumn: "1 / -1", padding: "12px 16px", borderRadius: 12, background: "#e0f2fe", color: "#075985", fontWeight: 800, fontSize: 13, border: "2px solid #bae6fd", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                          >
+                            ✉️ Envoyer instructions retour au client
                           </button>
                         </div>
                       </div>
@@ -1451,6 +1522,69 @@ export default function AdminCommandes() {
                 <button
                   onClick={() => setCancelEmailModal(null)}
                   disabled={cancelEmailModal.sending}
+                  style={{ padding: "10px 18px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODALE 4 — INSTRUCTIONS DE RETOUR AU CLIENT ══ */}
+      {returnEmailModal && (
+        <div
+          onClick={() => !returnEmailModal.sending && setReturnEmailModal(null)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, maxWidth: 900, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 32 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Instructions de retour au client</h2>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Aperçu + message personnalisé · Adresse de retour, étapes Colissimo, délai 14j, frais client</p>
+              </div>
+              <button onClick={() => !returnEmailModal.sending && setReturnEmailModal(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
+                <iframe
+                  srcDoc={returnEmailModal.previewHtml}
+                  style={{ width: "100%", height: 480, border: "1px solid rgba(0,0,0,0.1)", borderRadius: 10, background: "#fff" }}
+                  title="Aperçu email retour"
+                />
+              </div>
+
+              <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", display: "block", marginBottom: 6 }}>
+                    Message personnalisé (optionnel)
+                  </label>
+                  <textarea
+                    value={returnEmailModal.customMessage}
+                    onChange={e => refreshReturnEmailPreview(e.target.value)}
+                    placeholder="Ex: N'hésitez pas à nous écrire si le produit ne convenait pas, on adore comprendre."
+                    rows={5}
+                    style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                <button
+                  onClick={() => sendReturnInstructions()}
+                  disabled={returnEmailModal.sending}
+                  style={{ padding: "14px 18px", borderRadius: 12, background: returnEmailModal.sending ? "#e5e7eb" : "#0284c7", color: returnEmailModal.sending ? "#9ca3af" : "#fff", fontWeight: 900, fontSize: 14, border: "none", cursor: returnEmailModal.sending ? "not-allowed" : "pointer" }}
+                >
+                  {returnEmailModal.sending ? "⏳ Envoi..." : "✉️ Envoyer les instructions"}
+                </button>
+
+                <button
+                  onClick={() => setReturnEmailModal(null)}
+                  disabled={returnEmailModal.sending}
                   style={{ padding: "10px 18px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
                 >
                   Annuler

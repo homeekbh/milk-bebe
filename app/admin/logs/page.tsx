@@ -44,6 +44,7 @@ const TYPE_STYLE: Record<string, { bg: string; color: string; icon: string; labe
   commande_remboursee_partielle: { bg: "#ffedd5", color: "#c2410c", icon: "💰", label: "Remb. partiel" },
   commande_echec_paiement:       { bg: "#fee2e2", color: "#b91c1c", icon: "❌", label: "Échec paiement" },
   commande_cancel_email_sent:    { bg: "#f1f5f9", color: "#475569", icon: "✉", label: "Email annulation" },
+  commande_retour_email_sent:    { bg: "#e0f2fe", color: "#075985", icon: "↩", label: "Email retour" },
 
   // Promos & stock
   promo_create:    { bg: "#fff1f2", color: "#be123c", icon: "🎟", label: "Code promo" },

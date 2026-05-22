@@ -135,16 +135,38 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // 3. Réintégrer le stock
     const stockResult = await restoreStock(order.items ?? []);
 
-    // 4. Update Supabase
-    await supabaseServer.from("orders").update({
-      status:           "remboursee",
-      shipping_status:  "annulee",
+    // 4. Update Supabase — EN 2 ÉTAPES pour ne pas tout perdre si certaines
+    // colonnes optionnelles n'existent pas en base (refund_id, refunded_at, etc.).
+    //
+    // Étape 1 (GARANTI) — colonnes qui existent à coup sûr (status + shipping_status)
+    const { error: updateErr1 } = await supabaseServer.from("orders").update({
+      status:          "remboursee",
+      shipping_status: "annulee",
+    }).eq("id", orderId);
+    if (updateErr1) {
+      console.error("[commandes/cancel] Supabase update statuts:", updateErr1.message);
+      // Stripe a déjà remboursé — on retourne l'erreur mais le refund reste valide
+      return Response.json({
+        error:           "Refund Stripe OK mais update Supabase a échoué",
+        details:         updateErr1.message,
+        refund_id:       refundId,
+        refund_amount:   refundAmount,
+        stock_restored:  stockResult.restored,
+      }, { status: 500 });
+    }
+
+    // Étape 2 (BEST-EFFORT) — colonnes optionnelles. Si manquantes en base,
+    // l'erreur est loggée mais ne bloque pas (les statuts sont déjà à jour).
+    const { error: updateErr2 } = await supabaseServer.from("orders").update({
       refund_id:        refundId,
       refund_amount:    refundAmount,
       refunded_at:      new Date().toISOString(),
       cancelled_at:     new Date().toISOString(),
       cancelled_reason: body?.reason ?? null,
     }).eq("id", orderId);
+    if (updateErr2) {
+      console.warn("[commandes/cancel] Colonnes optionnelles non disponibles (refund_id, refunded_at, cancelled_at, cancelled_reason). Migration ALTER TABLE à exécuter:", updateErr2.message);
+    }
 
     // 5. Envoyer email annulation au client (best-effort)
     let emailOk = true;
@@ -220,13 +242,31 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // Cumul si refund partiel déjà existant
     const previousRefund = Number(order.refund_amount ?? 0);
     const cumul          = previousRefund + amount;
+    const newStatus      = cumul >= Number(order.amount_total ?? 0) ? "remboursee" : "rembours_partiel";
 
-    await supabaseServer.from("orders").update({
-      status:        cumul >= Number(order.amount_total ?? 0) ? "remboursee" : "rembours_partiel",
+    // Étape 1 — garanti : status seulement
+    const { error: updateErr1 } = await supabaseServer.from("orders").update({
+      status: newStatus,
+    }).eq("id", orderId);
+    if (updateErr1) {
+      console.error("[commandes/refund_partial] Supabase update status:", updateErr1.message);
+      return Response.json({
+        error:         "Refund partiel Stripe OK mais update Supabase a échoué",
+        details:       updateErr1.message,
+        refund_id:     refund.id,
+        amount,
+      }, { status: 500 });
+    }
+
+    // Étape 2 — best-effort : colonnes optionnelles
+    const { error: updateErr2 } = await supabaseServer.from("orders").update({
       refund_id:     refund.id,
       refund_amount: cumul,
       refunded_at:   new Date().toISOString(),
     }).eq("id", orderId);
+    if (updateErr2) {
+      console.warn("[commandes/refund_partial] Colonnes optionnelles non disponibles. ALTER TABLE à exécuter:", updateErr2.message);
+    }
 
     await logActivity("commande_remboursee_partielle", `Remboursement partiel ${amount.toFixed(2)} € sur #${orderId.slice(0,8)}`, {
       entity_id: orderId,
@@ -238,10 +278,22 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
 
   // === ACTION: mark_delivered ===
   if (action === "mark_delivered") {
-    await supabaseServer.from("orders").update({
+    // Étape 1 — garanti
+    const { error: updateErr1 } = await supabaseServer.from("orders").update({
       shipping_status: "livree",
-      delivered_at:    new Date().toISOString(),
     }).eq("id", orderId);
+    if (updateErr1) {
+      console.error("[commandes/mark_delivered] Supabase update:", updateErr1.message);
+      return Response.json({ error: updateErr1.message }, { status: 500 });
+    }
+
+    // Étape 2 — best-effort (colonne delivered_at peut ne pas exister)
+    const { error: updateErr2 } = await supabaseServer.from("orders").update({
+      delivered_at: new Date().toISOString(),
+    }).eq("id", orderId);
+    if (updateErr2) {
+      console.warn("[commandes/mark_delivered] delivered_at non disponible:", updateErr2.message);
+    }
 
     await logActivity("commande_livree", `Commande #${orderId.slice(0,8)} marquée livrée`, {
       entity_id: orderId,

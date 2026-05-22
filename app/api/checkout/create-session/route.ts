@@ -32,12 +32,12 @@ export async function POST(req: Request) {
     }
 
     // ── Validation du mode de livraison ──────────────────────────────────────
-    const ALLOWED_DELIVERY = ["point_relais", "home"];
+    // Point Relais temporairement désactivé — seul "home" est accepté.
+    // À réactiver en ajoutant "point_relais" dans ALLOWED_DELIVERY + restaurant
+    // la branche de validation relay.id.
+    const ALLOWED_DELIVERY = ["home"];
     if (!delivery_type || !ALLOWED_DELIVERY.includes(delivery_type)) {
-      return Response.json({ error: "Mode de livraison invalide" }, { status: 400 });
-    }
-    if (delivery_type === "point_relais" && (!relay || !relay.id)) {
-      return Response.json({ error: "Point relais manquant" }, { status: 400 });
+      return Response.json({ error: "Mode de livraison invalide (seul 'home' est disponible actuellement)" }, { status: 400 });
     }
     if (delivery_type === "home") {
       if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
@@ -114,6 +114,8 @@ export async function POST(req: Request) {
     }
 
     // ── Livraison : prix dynamique selon type
+    // Point Relais désactivé temporairement → seule la branche home tourne
+    // en pratique. Le ternaire est conservé pour réactiver facilement.
     const subtotal        = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
     const hasFreeShipping = free_shipping || subtotal >= 60;
     const baseDelivery    = delivery_type === "home" ? 8.66 : 6.82;

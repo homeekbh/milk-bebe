@@ -76,17 +76,25 @@ export default function CartPage() {
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
 
-  // Charger depuis localStorage au mount
+  // Charger depuis localStorage au mount.
+  // Point Relais temporairement désactivé — toute valeur legacy "point_relais"
+  // est forcée à "home". À retirer quand le PR sera réactivé via l'API
+  // La Poste directe.
   useEffect(() => {
     try {
       const raw = localStorage.getItem("milk_delivery_choice");
-      if (!raw) return;
+      if (!raw) {
+        setDeliveryType("home");
+        return;
+      }
       const d = JSON.parse(raw);
-      if (d.deliveryType)  setDeliveryType(d.deliveryType);
-      if (d.selectedRelay) setSelectedRelay(d.selectedRelay);
-      if (d.homeAddress)   setHomeAddress(d.homeAddress);
-      if (d.postalSearch)  setPostalSearch(d.postalSearch);
-    } catch {}
+      const t = d.deliveryType === "point_relais" ? "home" : (d.deliveryType ?? "home");
+      setDeliveryType(t);
+      if (d.homeAddress) setHomeAddress(d.homeAddress);
+      // selectedRelay et postalSearch volontairement non restaurés (PR désactivé)
+    } catch {
+      setDeliveryType("home");
+    }
   }, []);
 
   // Sauvegarder dans localStorage à chaque changement
@@ -487,9 +495,12 @@ export default function CartPage() {
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
                   <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
+                    {/* Point Relais temporairement désactivé — sera réactivé
+                        via l'API La Poste directe. La const PRICE_RELAY et
+                        toute l'UI conditionnelle deliveryType==="point_relais"
+                        restent en place pour la réactivation. */}
                     {([
-                      { type: "point_relais" as const, icon: "📦", label: "Colissimo Point Relais", sub: "Bureau de Poste ou commerçant · 2-3 jours ouvrés", price: PRICE_RELAY },
-                      { type: "home"         as const, icon: "🏠", label: "Colissimo Domicile",      sub: "Livraison à domicile · 2-3 jours ouvrés",          price: PRICE_HOME  },
+                      { type: "home" as const, icon: "🏠", label: "Colissimo Domicile", sub: "Livraison à domicile · 2-3 jours ouvrés", price: PRICE_HOME },
                     ]).map(opt => {
                       const active = deliveryType === opt.type;
                       return (

@@ -139,7 +139,15 @@ export async function POST(req: Request) {
     // Pour home : on demande l'adresse de livraison à Stripe en plus, mais
     // celle qu'on a déjà côté UI sert de référence.
     const sessionParams: any = {
+      // Carte uniquement. Apple Pay / Google Pay s'affichent automatiquement
+      // sur les navigateurs compatibles (Safari, Chrome Android) via "card".
+      // Stripe Link désactivé (pas listé → ne s'affiche pas).
       payment_method_types: ["card"],
+      payment_method_options: {
+        card: {
+          request_three_d_secure: "automatic",
+        },
+      },
       line_items:           lineItems,
       mode:                 "payment",
       billing_address_collection: "auto",

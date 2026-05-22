@@ -210,7 +210,11 @@ export async function POST(req: NextRequest) {
       carrierLower.includes("la poste")   ? "colissimo"  :
       carrierLower;
 
-    const selected = options.find((o: any) => {
+    // Pour livraison domestique (même pays), on EXCLUT les options "international"
+    // sinon Sendcloud refuse avec "No shipping option could be found".
+    const isDomestic = fromAddress.country_code === toAddress.country_code;
+
+    const matchesCarrier = (o: any) => {
       const carrierName = String(o?.carrier?.name ?? "").toLowerCase();
       const carrierCode = String(o?.carrier?.code ?? "").toLowerCase();
       const optName     = String(o?.name ?? "").toLowerCase();
@@ -221,7 +225,32 @@ export async function POST(req: NextRequest) {
         optName.includes(wantedKey)     ||
         optCode.includes(wantedKey)
       );
-    }) ?? options[0];
+    };
+
+    const isInternationalOption = (o: any) => {
+      const code = String(o?.shipping_option_code ?? o?.code ?? "").toLowerCase();
+      const name = String(o?.name ?? "").toLowerCase();
+      return code.includes("international") || name.includes("international");
+    };
+
+    const isDomesticOption = (o: any) => {
+      const code = String(o?.shipping_option_code ?? o?.code ?? "").toLowerCase();
+      return code.includes(":home/") || code.includes(":domestic/") || code.includes(":national/");
+    };
+
+    // Priorité : domestic match → carrier match non-international → carrier match → 1er fallback
+    const selected =
+      (isDomestic && options.find(o => matchesCarrier(o) && isDomesticOption(o))) ||
+      (isDomestic && options.find(o => matchesCarrier(o) && !isInternationalOption(o))) ||
+      options.find(o => matchesCarrier(o)) ||
+      options[0];
+
+    if (isDomestic && selected && isInternationalOption(selected)) {
+      console.error(`[sendcloud] WARN: livraison domestique FR→FR mais seul "${selected?.shipping_option_code}" (international) trouvé — Sendcloud va probablement refuser`);
+    }
+
+    // Log COMPLET des codes dispo (au-delà du sample) si on cherche encore à comprendre
+    console.error(`[sendcloud] all available codes:`, options.map((o: any) => o.shipping_option_code ?? o.code).filter(Boolean).join(" | "));
 
     const shippingOptionCode = selected?.shipping_option_code ?? selected?.code ?? null;
     // contract_id DOIT être un integer ou omis — sinon Sendcloud renvoie 400

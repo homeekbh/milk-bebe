@@ -94,9 +94,9 @@ const MONDIAL_OPTIONS: SendcloudProduct[] = [
     delivery_type: "locker",
   },
   {
-    code: "10315", name: "Mondial Relay Home (0.5-1kg)",
+    code: "10314", name: "Mondial Relay Home (0-0.5kg)",
     carrier_name: "Mondial Relay", carrier_code: "mondial_relay",
-    contract_id: null, weight_min: 0.5, weight_max: 1,
+    contract_id: null, weight_min: 0, weight_max: 0.5,
     delivery_type: "home",
   },
 ];
@@ -791,37 +791,76 @@ export default function AdminCommandes() {
                           Gestion expédition
                         </div>
 
-                        {/* Transporteur */}
-                        <div style={{ display: "grid", gap: 6 }}>
-                          <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)" }}>
-                            Transporteur *
-                          </label>
-                          <div style={{ display: "grid", gap: 8 }}>
-                            {mondialProducts.map(t => {
-                              const key = t.code;
-                              const isSelected = (() => { try { return JSON.parse(transporteur).code === key; } catch { return false; } })();
-                              const weight = (t.weight_min || t.weight_max) ? ` · ${t.weight_min ?? 0}-${t.weight_max ?? "?"}kg` : "";
-                              return (
-                                <button
-                                  key={key}
-                                  onClick={() => setTransporteur(JSON.stringify(t))}
-                                  style={{
-                                    padding: "12px 16px", borderRadius: 10,
-                                    border: `2px solid ${isSelected ? "#1a1410" : "rgba(0,0,0,0.12)"}`,
-                                    fontSize: 13, fontWeight: 700,
-                                    background: isSelected ? "#1a1410" : "#fff",
-                                    color: isSelected ? "#f2ede6" : "#1a1410",
-                                    cursor: "pointer", textAlign: "left", transition: "all 0.15s",
-                                    display: "flex", justifyContent: "space-between", alignItems: "center",
-                                  }}
-                                >
-                                  <span>📦 {t.name || t.carrier_name}{weight}</span>
-                                  <span style={{ fontSize: 10, opacity: 0.5, fontFamily: "monospace" }}>{key}</span>
-                                </button>
-                              );
-                            })}
+                        {/* Mode de livraison — info READ-ONLY (auto depuis order.delivery_type) */}
+                        {order.delivery_type ? (
+                          (() => {
+                            const matched = MONDIAL_OPTIONS.find(o => o.delivery_type === order.delivery_type);
+                            const icon = order.delivery_type === "home" ? "🏠" : order.delivery_type === "locker" ? "🔒" : "📦";
+                            const label =
+                              order.delivery_type === "home"   ? "Livraison à domicile (Mondial Relay)" :
+                              order.delivery_type === "locker" ? "Locker Mondial Relay" :
+                                                                  "Point Relais Mondial Relay";
+                            return (
+                              <div style={{ background: "#1a1410", borderRadius: 12, padding: "16px 18px", color: "#f2ede6" }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(196,154,74,0.8)", marginBottom: 8 }}>
+                                  Mode de livraison
+                                </div>
+                                <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 10 }}>
+                                  {icon} {label}
+                                </div>
+                                {(order.delivery_type === "point_relais" || order.delivery_type === "locker") && order.relay_id ? (
+                                  <>
+                                    <div style={{ fontSize: 14, fontWeight: 800 }}>{order.relay_name ?? "—"}</div>
+                                    <div style={{ fontSize: 13, color: "rgba(242,237,230,0.65)", lineHeight: 1.6, marginTop: 4 }}>
+                                      {order.relay_address ?? ""}{order.relay_address ? ", " : ""}{order.relay_postal_code ?? ""} {order.relay_city ?? ""}
+                                    </div>
+                                    <div style={{ fontSize: 11, color: "rgba(242,237,230,0.4)", marginTop: 8, fontFamily: "monospace" }}>
+                                      ID Sendcloud : {order.relay_id}
+                                    </div>
+                                  </>
+                                ) : order.delivery_type === "home" && addr ? (
+                                  <div style={{ fontSize: 13, color: "rgba(242,237,230,0.7)", lineHeight: 1.6 }}>
+                                    {addr.line1}<br />
+                                    {addr.postal_code} {addr.city}
+                                  </div>
+                                ) : null}
+                                <div style={{ fontSize: 11, color: "rgba(242,237,230,0.5)", marginTop: 10, padding: "8px 10px", background: "rgba(196,154,74,0.1)", borderRadius: 6 }}>
+                                  ↪ Transporteur sélectionné automatiquement : <strong style={{ color: "#c49a4a" }}>{matched?.name ?? "—"}</strong> (ID {matched?.code ?? "—"})
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          /* Fallback : delivery_type absent (ancienne commande) → select manuel */
+                          <div style={{ display: "grid", gap: 6 }}>
+                            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#92400e" }}>
+                              ⚠️ Mode de livraison non renseigné — sélection manuelle requise
+                            </label>
+                            <div style={{ display: "grid", gap: 8 }}>
+                              {mondialProducts.map(t => {
+                                const key = t.code;
+                                const isSelected = (() => { try { return JSON.parse(transporteur).code === key; } catch { return false; } })();
+                                return (
+                                  <button
+                                    key={key}
+                                    onClick={() => setTransporteur(JSON.stringify(t))}
+                                    style={{
+                                      padding: "12px 16px", borderRadius: 10,
+                                      border: `2px solid ${isSelected ? "#1a1410" : "rgba(0,0,0,0.12)"}`,
+                                      fontSize: 13, fontWeight: 700,
+                                      background: isSelected ? "#1a1410" : "#fff",
+                                      color: isSelected ? "#f2ede6" : "#1a1410",
+                                      cursor: "pointer", textAlign: "left", transition: "all 0.15s",
+                                      display: "flex", justifyContent: "space-between", alignItems: "center",
+                                    }}>
+                                    <span>📦 {t.name}</span>
+                                    <span style={{ fontSize: 10, opacity: 0.5, fontFamily: "monospace" }}>{key}</span>
+                                  </button>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
+                        )}
 
                         {/* Numéro de suivi */}
                         <div style={{ display: "grid", gap: 6 }}>

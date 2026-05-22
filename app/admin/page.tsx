@@ -4,18 +4,29 @@ import Link from "next/link";
 export const dynamic  = "force-dynamic";
 export const revalidate = 0;
 
+// Une commande est "valide" (contribue au CA) si elle n'a pas été annulée ni remboursée
+function isValidOrder(o: any): boolean {
+  const s = String(o?.status ?? "").toLowerCase();
+  const sh = String(o?.shipping_status ?? "").toLowerCase();
+  if (s === "refunded" || s === "cancelled") return false;
+  if (sh === "cancelled" || sh === "returned") return false;
+  return true;
+}
+
 async function getStats() {
 
   const [{ data: products }, { data: orders }, { data: allOrders }, { count: subsCountExact }] = await Promise.all([
     supabaseServer.from("products").select("*").order("stock", { ascending: true }),
     supabaseServer.from("orders").select("*").order("created_at", { ascending: false }).limit(10),
-    supabaseServer.from("orders").select("amount_total, created_at"),
+    supabaseServer.from("orders").select("amount_total, created_at, status, shipping_status"),
     supabaseServer.from("newsletter_subscribers").select("id", { count: "exact", head: true }),
   ]);
 
   const prods       = products ?? [];
   const ords        = orders   ?? [];
   const allOrds     = allOrders ?? [];
+  const validOrds   = allOrds.filter(isValidOrder);
+  const cancelledOrds = allOrds.filter(o => !isValidOrder(o));
   const totalProducts = prods.length;
   const stockValue    = prods.reduce((s, p) => s + (p.stock ?? 0) * (p.price_ttc ?? 0), 0);
   const lowStock      = prods.filter(p => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length;
@@ -23,17 +34,32 @@ async function getStats() {
   const alerts        = prods.filter(p => (p.stock ?? 0) <= 5).slice(0, 6);
 
   const today     = new Date(); today.setHours(0,0,0,0);
-  const todayOrds = allOrds.filter(o => new Date(o.created_at) >= today);
+  const todayOrds = validOrds.filter(o => new Date(o.created_at) >= today);
   const caToday   = todayOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const caTotal   = allOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const ordsCount = allOrds.length;
+  // CA total exclut annulées/remboursées
+  const caTotal   = validOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+  const ordsCount = validOrds.length;
+  const cancelledCount = cancelledOrds.length;
   const subsCount = subsCountExact ?? 0;
 
-  return { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, subsCount, todayOrds };
+  return { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, cancelledCount, subsCount, todayOrds };
+}
+
+// Badge statut commande dynamique selon shipping_status + status
+function OrderStatusBadge({ shipping_status, status }: { shipping_status?: string | null; status?: string | null }) {
+  const s  = String(status ?? "").toLowerCase();
+  const sh = String(shipping_status ?? "pending").toLowerCase();
+
+  if (s === "refunded")    return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Remboursée</span>;
+  if (s === "cancelled" || sh === "cancelled") return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Annulée</span>;
+  if (sh === "returned")   return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#b91c1c", fontSize: 13, fontWeight: 800 }}>Retour</span>;
+  if (sh === "delivered")  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#c49a4a", color: "#1a1410", fontSize: 13, fontWeight: 800 }}>Livrée</span>;
+  if (sh === "shipped")    return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#dbeafe", color: "#1e40af", fontSize: 13, fontWeight: 800 }}>Expédiée</span>;
+  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 800 }}>En préparation</span>;
 }
 
 export default async function AdminDashboard() {
-  const { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, subsCount, todayOrds } = await getStats();
+  const { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, cancelledCount, subsCount, todayOrds } = await getStats();
 
   const dateStr = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
@@ -74,7 +100,8 @@ export default async function AdminDashboard() {
       {/* KPIs */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 36 }}>
         <KPI label="CA aujourd'hui"   value={`${caToday.toFixed(2)} €`}  sub={`${todayOrds.length} commande(s)`} color="#1a1410" />
-        <KPI label="CA total"         value={`${caTotal.toFixed(0)} €`}   sub={`${ordsCount} commandes`}          color="#1a1410" />
+        <KPI label="CA total"         value={`${caTotal.toFixed(0)} €`}   sub={`${ordsCount} valides, exclut annulées`} color="#1a1410" />
+        <KPI label="Annulées"         value={String(cancelledCount)}      sub="Hors CA"                           color={cancelledCount > 0 ? "#7f1d1d" : "#166534"} />
         <KPI label="Produits"         value={String(totalProducts)}        sub="Dans le catalogue"                 color="#1a1410" />
         <KPI label="Valeur du stock"  value={`${stockValue.toFixed(0)} €`} sub="TTC × unités"                     color="#1a1410" />
         <KPI label="Ruptures"         value={String(outOfStock)}           sub="Stock = 0"                         color={outOfStock > 0 ? "#b91c1c" : "#166534"} />
@@ -159,12 +186,7 @@ export default async function AdminDashboard() {
                       {Number(o.amount_total).toFixed(2)} €
                     </td>
                     <td style={{ padding: "16px 20px" }}>
-                      {o.shipping_status === "shipped"
-                        ? <span style={{ padding: "5px 12px", borderRadius: 99, background: "#dcfce7", color: "#166534", fontSize: 13, fontWeight: 800 }}>Expédiée</span>
-                        : o.shipping_status === "delivered"
-                        ? <span style={{ padding: "5px 12px", borderRadius: 99, background: "#c49a4a", color: "#1a1410", fontSize: 13, fontWeight: 800 }}>Livrée</span>
-                        : <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 800 }}>En préparation</span>
-                      }
+                      <OrderStatusBadge shipping_status={o.shipping_status} status={o.status} />
                     </td>
                     <td style={{ padding: "16px 20px", textAlign: "right" }}>
                       <Link href={`/admin/commandes`} style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", textDecoration: "none", padding: "8px 16px", borderRadius: 10, border: "2px solid rgba(26,20,16,0.2)", display: "inline-block" }}>

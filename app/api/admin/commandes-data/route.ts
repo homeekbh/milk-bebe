@@ -12,10 +12,16 @@ export async function GET(req: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false })
       .limit(50000);
-    if (error) return Response.json([]);
+    if (error) {
+      // Log explicite — avant on swallow silencieusement, ce qui cachait les
+      // erreurs Supabase (ex: colonne manquante après migration)
+      console.error("[admin/commandes-data] Supabase error:", error.message, error.details);
+      return Response.json({ error: error.message, details: error.details ?? null }, { status: 500 });
+    }
     return Response.json(data ?? []);
-  } catch {
-    return Response.json([]);
+  } catch (e: any) {
+    console.error("[admin/commandes-data] exception:", e?.message);
+    return Response.json({ error: e?.message ?? "Erreur interne" }, { status: 500 });
   }
 }
 

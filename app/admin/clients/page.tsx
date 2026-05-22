@@ -4,35 +4,56 @@ import Link from "next/link";
 export const dynamic  = "force-dynamic";
 export const revalidate = 0;
 
+function isValidOrder(o: any): boolean {
+  const s  = String(o?.status ?? "").toLowerCase();
+  const sh = String(o?.shipping_status ?? "").toLowerCase();
+  if (s === "refunded" || s === "cancelled") return false;
+  if (sh === "cancelled" || sh === "returned") return false;
+  return true;
+}
+
 export default async function AdminClients() {
   const { data: orders } = await supabaseServer
     .from("orders")
-    .select("customer_email, customer_name, created_at, amount_total, items, shipping_address, shipping_status")
+    .select("id, customer_email, customer_name, created_at, amount_total, items, shipping_address, shipping_status, status")
     .order("created_at", { ascending: false });
 
-  // Construire profils clients
+  // Construire profils clients — comptabilise total ET valides séparément
   const map = new Map<string, any>();
   for (const o of orders ?? []) {
     if (!o.customer_email) continue;
     if (!map.has(o.customer_email)) {
       map.set(o.customer_email, {
-        email:   o.customer_email,
-        name:    o.customer_name ?? "—",
-        orders:  0,
-        total:   0,
-        lastOrder: o.created_at,
-        lastAddress: o.shipping_address,
-        lastStatus:  o.shipping_status,
-        allItems: [],
+        email:        o.customer_email,
+        name:         o.customer_name ?? "—",
+        orders:       0,         // toutes (annulées incluses, pour info)
+        validOrders:  0,         // pour "récurrent" et CA
+        total:        0,         // CA valide (exclut annulées)
+        lastOrder:    o.created_at,
+        lastAddress:  o.shipping_address,
+        lastStatus:   o.shipping_status,
+        allItems:     [],
+        orderHistory: [] as any[],
       });
     }
     const c = map.get(o.customer_email);
     c.orders += 1;
-    c.total  += Number(o.amount_total ?? 0);
+    const valid = isValidOrder(o);
+    if (valid) {
+      c.validOrders += 1;
+      c.total       += Number(o.amount_total ?? 0);
+    }
     if (Array.isArray(o.items)) c.allItems.push(...o.items);
+    c.orderHistory.push({
+      id:             o.id,
+      created_at:     o.created_at,
+      amount_total:   o.amount_total,
+      shipping_status: o.shipping_status,
+      status:         o.status,
+    });
   }
   const clients = Array.from(map.values()).sort((a, b) => b.total - a.total);
-  const totalCA = clients.reduce((s, c) => s + c.total, 0);
+  const totalCA = clients.reduce((s, c) => s + c.total, 0);  // déjà exclut annulées
 
   return (
     <div style={{ padding: "36px 40px", maxWidth: 1100 }}>
@@ -43,14 +64,18 @@ export default async function AdminClients() {
         </div>
       </div>
 
-      {/* Stats */}
+      {/* Stats — toutes les valeurs excluent commandes annulées/remboursées */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 16, marginBottom: 32 }}>
-        {[
-          { label: "Clients uniques",     value: clients.length,                                                                       color: "#1a1410" },
-          { label: "CA total",            value: `${totalCA.toFixed(0)} €`,                                                            color: "#1a1410" },
-          { label: "Panier moyen",        value: `${clients.length > 0 ? (totalCA / (orders?.length ?? 1)).toFixed(2) : "0.00"} €`,    color: "#c49a4a" },
-          { label: "Clients récurrents",  value: clients.filter(c => c.orders > 1).length,                                            color: "#166534" },
-        ].map(stat => (
+        {(() => {
+          const totalValidOrders = clients.reduce((s, c) => s + c.validOrders, 0);
+          const recurrents = clients.filter(c => c.validOrders >= 2).length;
+          return [
+            { label: "Clients uniques",     value: clients.length,                                                                                            color: "#1a1410" },
+            { label: "CA valide",           value: `${totalCA.toFixed(0)} €`,                                                                                 color: "#1a1410" },
+            { label: "Panier moyen",        value: `${totalValidOrders > 0 ? (totalCA / totalValidOrders).toFixed(2) : "0.00"} €`,                            color: "#c49a4a" },
+            { label: "Clients récurrents",  value: recurrents,                                                                                                color: "#166534" },
+          ];
+        })().map(stat => (
           <div key={stat.label} style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.1)" }}>
             <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>{stat.label}</div>
             <div style={{ fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
@@ -72,7 +97,7 @@ export default async function AdminClients() {
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
                     <div style={{ fontSize: 20, fontWeight: 900, color: "#1a1410" }}>{c.name}</div>
-                    {c.orders > 1 && (
+                    {c.validOrders >= 2 && (
                       <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(196,154,74,0.15)", color: "#c49a4a", fontSize: 12, fontWeight: 800 }}>Client récurrent</span>
                     )}
                   </div>
@@ -97,7 +122,12 @@ export default async function AdminClients() {
                 {/* Stats droite */}
                 <div style={{ textAlign: "right" }}>
                   <div style={{ fontSize: 28, fontWeight: 950, color: "#1a1410", letterSpacing: -1 }}>{c.total.toFixed(2)} €</div>
-                  <div style={{ fontSize: 14, color: "rgba(26,20,16,0.4)", marginTop: 4 }}>{c.orders} commande{c.orders > 1 ? "s" : ""}</div>
+                  <div style={{ fontSize: 14, color: "rgba(26,20,16,0.4)", marginTop: 4 }}>
+                    {c.validOrders} commande{c.validOrders > 1 ? "s" : ""} valide{c.validOrders > 1 ? "s" : ""}
+                    {c.orders > c.validOrders && (
+                      <span style={{ marginLeft: 6, fontSize: 12, color: "#b91c1c" }}> · {c.orders - c.validOrders} annulée(s)</span>
+                    )}
+                  </div>
                   <div style={{ fontSize: 13, color: "rgba(26,20,16,0.35)", marginTop: 4 }}>
                     {new Date(c.lastOrder).toLocaleDateString("fr-FR", { day: "numeric", month: "short", year: "numeric" })}
                   </div>

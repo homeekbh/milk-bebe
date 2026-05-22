@@ -290,7 +290,12 @@ export default function AdminCommandes() {
     setLoading(true);
     const res  = await adminFetch("/api/admin/commandes-data");
     const data = await res.json();
-    setOrders(Array.isArray(data) ? data : []);
+    if (!res.ok || !Array.isArray(data)) {
+      console.error("[admin/commandes] API error:", data);
+      setOrders([]);
+    } else {
+      setOrders(data);
+    }
     setLoading(false);
   }
 
@@ -586,9 +591,14 @@ export default function AdminCommandes() {
     return matchSearch && matchStatus;
   });
 
-  const totalCA    = orders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const pending    = orders.filter(o => o.shipping_status === "pending").length;
-  const shipped    = orders.filter(o => o.shipping_status === "shipped").length;
+  const isCancelled = (o: Order) => o.shipping_status === "cancelled" || (o as any).status === "cancelled" || (o as any).status === "refunded";
+  const validOrders = orders.filter(o => !isCancelled(o));
+  const totalCA     = validOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);  // exclut annulées
+  const pending     = orders.filter(o => o.shipping_status === "pending" && !isCancelled(o)).length;
+  const shipped     = orders.filter(o => o.shipping_status === "shipped").length;
+  const delivered   = orders.filter(o => o.shipping_status === "delivered").length;
+  const cancelled   = orders.filter(o => isCancelled(o)).length;
+  const refunded    = orders.filter(o => (o as any).status === "refunded").length;
   const selectedOrder = orders.find(o => o.id === selected);
 
   const selectedCarrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
@@ -601,18 +611,21 @@ export default function AdminCommandes() {
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontSize: 34, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Commandes</h1>
         <div style={{ fontSize: 15, color: "rgba(26,20,16,0.5)", marginTop: 4, fontWeight: 600 }}>
-          {orders.length} commande{orders.length > 1 ? "s" : ""} · CA total : {totalCA.toFixed(2)} €
+          {orders.length} commande{orders.length > 1 ? "s" : ""} · CA valide : {totalCA.toFixed(2)} €
         </div>
       </div>
 
-      {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 14, marginBottom: 28 }}>
+      {/* KPIs — compteurs séparés par statut */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 28 }}>
         {[
-          { label: "Total",          value: orders.length,                                                            color: "#1a1410" },
-          { label: "En préparation", value: pending,                                                                   color: "#92400e" },
-          { label: "Expédiées",      value: shipped,                                                                   color: "#166534" },
-          { label: "CA Total",       value: `${totalCA.toFixed(0)} €`,                                                color: "#c49a4a" },
-          { label: "Panier moyen",   value: orders.length > 0 ? `${(totalCA / orders.length).toFixed(2)} €` : "—",   color: "#1a1410" },
+          { label: "Total",          value: orders.length,                                                              color: "#1a1410" },
+          { label: "En préparation", value: pending,                                                                     color: "#92400e" },
+          { label: "Expédiées",      value: shipped,                                                                     color: "#1e40af" },
+          { label: "Livrées",        value: delivered,                                                                   color: "#166534" },
+          { label: "Annulées",       value: cancelled,                                                                   color: cancelled > 0 ? "#7f1d1d" : "#166534" },
+          { label: "Remboursées",    value: refunded,                                                                    color: refunded  > 0 ? "#7f1d1d" : "#166534" },
+          { label: "CA valide",      value: `${totalCA.toFixed(0)} €`,                                                  color: "#c49a4a" },
+          { label: "Panier moyen",   value: validOrders.length > 0 ? `${(totalCA / validOrders.length).toFixed(2)} €` : "—", color: "#1a1410" },
         ].map(stat => (
           <div key={stat.label} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", padding: "16px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 26, fontWeight: 950, letterSpacing: -1, color: stat.color, lineHeight: 1 }}>{stat.value}</div>

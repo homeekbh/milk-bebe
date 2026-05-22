@@ -309,7 +309,13 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 4. Announce shipment ────────────────────────────────────────────────
-    const shipWithProps: Record<string, any> = { shipping_option_code: shippingOptionCode };
+    // request_label: true force la génération synchrone de l'étiquette PDF.
+    // Sans ce flag, Sendcloud crée le parcel en "announced" sans étiquette,
+    // et le colis n'apparaît même pas dans le panel Sendcloud.
+    const shipWithProps: Record<string, any> = {
+      shipping_option_code: shippingOptionCode,
+      request_label:        true,
+    };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 
     // Si point_relais ou locker → on attache le service point sélectionné par le client

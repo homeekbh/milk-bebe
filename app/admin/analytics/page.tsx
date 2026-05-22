@@ -20,33 +20,10 @@ function adminFetch(url: string, options: RequestInit = {}) {
 }
 
 import { useEffect, useState, useMemo } from "react";
+import { isValidOrder, getNetAmount } from "@/lib/orders";
 
 type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; promo_code?: string | null; discount?: number; shipping_address?: any; refund_amount?: number | null; };
 type Period = "7j" | "30j" | "90j" | "tout";
-
-// ─── Helpers financiers (règle ABSOLUE) ──────────────────────────────────────
-// Une commande contribue au CA si :
-//   - status ∈ { 'payee', 'rembours_partiel' }
-//   - status ∉ { 'remboursee', 'annulee', 'echec_paiement' }
-//   - shipping_status ≠ 'annulee'
-// rembours_partiel : inclus avec montant net (amount_total - refund_amount)
-function isValidOrder(o: any): boolean {
-  const s  = String(o?.status ?? "").toLowerCase();
-  const sh = String(o?.shipping_status ?? "").toLowerCase();
-  if (s === "remboursee" || s === "annulee" || s === "echec_paiement") return false;
-  if (sh === "annulee" || sh === "retour") return false;
-  // Si pas de status (commandes très anciennes pré-migration) on considère valide
-  // tant que shipping_status ≠ annulee/retour
-  if (s && s !== "payee" && s !== "rembours_partiel") return false;
-  return true;
-}
-
-// Montant qui compte vraiment dans le CA : total - refund_amount (si partiel)
-function getNetAmount(o: any): number {
-  const total  = Number(o?.amount_total ?? 0);
-  const refund = Number(o?.refund_amount ?? 0);
-  return Math.max(0, total - refund);
-}
 
 const C = {
   bg: "#0d0b09", bg2: "#161210", card: "#1c1814",
@@ -325,35 +302,41 @@ export default function AdminStats() {
 
   // Heure de pointe
   const byHour: Record<number, number> = {};
-  filtered.forEach(o => { const h = new Date(o.created_at).getHours(); byHour[h] = (byHour[h] ?? 0) + 1; });
+  // Heure de pointe — basée sur commandes valides uniquement (annulées exclues)
+  validFiltered.forEach(o => { const h = new Date(o.created_at).getHours(); byHour[h] = (byHour[h] ?? 0) + 1; });
   const peakHour = Object.entries(byHour).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
   const hourData = Array.from({ length: 24 }, (_, h) => ({ label: `${h}h`, value: byHour[h] ?? 0 }));
 
-  // Jour de pointe
+  // Jour de pointe — commandes valides uniquement
   const JOURS = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
   const byDay: Record<number, number> = {};
-  filtered.forEach(o => { const d = new Date(o.created_at).getDay(); byDay[d] = (byDay[d] ?? 0) + 1; });
+  validFiltered.forEach(o => { const d = new Date(o.created_at).getDay(); byDay[d] = (byDay[d] ?? 0) + 1; });
   const peakDay = Object.entries(byDay).sort((a, b) => Number(b[1]) - Number(a[1]))[0];
   const dayData = Array.from({ length: 7 }, (_, d) => ({ label: JOURS[d], value: byDay[d] ?? 0 }));
 
-  // Top produits
+  // Top produits — commandes valides + CA net proratisé
+  // Pour rembours_partiel: on multiplie chaque item par (getNetAmount / amount_total)
+  // pour répartir équitablement le remboursement partiel sur tous les produits.
   const topProducts = useMemo(() => {
     const map: Record<string, { name: string; qty: number; ca: number }> = {};
-    filtered.forEach(o => {
+    validFiltered.forEach(o => {
+      const total = Number(o.amount_total ?? 0);
+      const net   = getNetAmount(o);
+      const ratio = total > 0 ? net / total : 1;  // facteur de proratisation
       (Array.isArray(o.items) ? o.items : []).forEach((item: any) => {
         const key = item.name?.split(" — ")[0] ?? "Inconnu";
         if (!map[key]) map[key] = { name: key, qty: 0, ca: 0 };
         map[key].qty += item.quantity ?? 1;
-        map[key].ca  += (item.price ?? 0) * (item.quantity ?? 1);
+        map[key].ca  += (item.price ?? 0) * (item.quantity ?? 1) * ratio;
       });
     });
     return Object.values(map).sort((a, b) => b.ca - a.ca).slice(0, 6);
-  }, [filtered]);
+  }, [validFiltered]);
 
-  // Ventes par catégorie
+  // Ventes par catégorie — commandes valides uniquement
   const byCategory = useMemo(() => {
     const cats: Record<string, number> = {};
-    filtered.forEach(o => {
+    validFiltered.forEach(o => {
       (Array.isArray(o.items) ? o.items : []).forEach((item: any) => {
         const cat = item.category_slug ?? "Autre";
         cats[cat] = (cats[cat] ?? 0) + (item.quantity ?? 1);
@@ -361,12 +344,12 @@ export default function AdminStats() {
     });
     const colors = [C.amber, "#e87b4a", C.blue, C.purple, C.green];
     return Object.entries(cats).map(([label, value], i) => ({ label, value, color: colors[i % colors.length] }));
-  }, [filtered]);
+  }, [validFiltered]);
 
-  // Statuts livraison
+  // Statuts livraison — commandes valides uniquement (les annulées ont leur propre KPI)
   const byShipping = useMemo(() => {
     const map: Record<string, number> = { "En préparation": 0, "Expédiée": 0, "Livrée": 0, "Retour": 0 };
-    filtered.forEach(o => {
+    validFiltered.forEach(o => {
       const s = o.shipping_status ?? "en_preparation";
       if (s === "en_preparation") map["En préparation"]++;
       if (s === "expediee")       map["Expédiée"]++;
@@ -375,7 +358,7 @@ export default function AdminStats() {
     });
     const colors = [C.amber, C.blue, C.green, C.red];
     return Object.entries(map).filter(([, v]) => v > 0).map(([label, value], i) => ({ label, value, color: colors[i] }));
-  }, [filtered]);
+  }, [validFiltered]);
 
   // Top alertes réassort (produits les plus demandés)
   const topAlerts = useMemo(() => {

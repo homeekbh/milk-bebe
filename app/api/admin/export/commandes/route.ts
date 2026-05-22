@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
-import { requireAdmin }   from "@/lib/admin-auth";
+import { requireAdmin } from "@/lib/admin-auth";
+import { getNetAmount } from "@/lib/orders";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -17,13 +18,22 @@ export async function GET(req: NextRequest) {
     const itemsStr = Array.isArray(o.items)
       ? o.items.map((i: any) => `${i.name}×${i.quantity}`).join("|")
       : "";
+
+    const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+    const refundAmount = Number(o.refund_amount ?? 0);
+    const netAmount    = getNetAmount(o);
+
     return [
-      new Date(o.created_at).toLocaleDateString("fr-FR"),
+      formatDate(o.created_at),
       o.customer_name   ?? "",
       o.customer_email  ?? "",
-      Number(o.amount_total).toFixed(2),
+      Number(o.amount_total ?? 0).toFixed(2),
       o.promo_code      ?? "",
       Number(o.discount ?? 0).toFixed(2),
+      o.status          ?? "",           // Nouveau : statut paiement (payee/remboursee/...)
+      refundAmount.toFixed(2),           // Nouveau : montant remboursé
+      formatDate(o.refunded_at),         // Nouveau : date remboursement
+      netAmount.toFixed(2),              // Nouveau : montant NET qui compte dans le CA
       o.shipping_status ?? "en_preparation",
       o.tracking_number ?? "",
       addrStr,
@@ -31,8 +41,23 @@ export async function GET(req: NextRequest) {
     ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
   });
 
-  const header = ["Date", "Nom", "Email", "Montant", "Code promo", "Remise", "Statut livraison", "Numéro suivi", "Adresse", "Articles"].join(";");
-  const csv    = "\uFEFF" + [header, ...rows].join("\n");
+  const header = [
+    "Date",
+    "Nom",
+    "Email",
+    "Montant brut (€)",
+    "Code promo",
+    "Remise (€)",
+    "Statut paiement",
+    "Remboursé (€)",
+    "Date remb.",
+    "Montant net (€)",
+    "Statut livraison",
+    "Numéro suivi",
+    "Adresse",
+    "Articles",
+  ].join(";");
+  const csv = "﻿" + [header, ...rows].join("\n");
 
   return new Response(csv, {
     headers: {

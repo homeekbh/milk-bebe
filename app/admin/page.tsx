@@ -1,24 +1,16 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
+import { isValidOrder, getNetAmount } from "@/lib/orders";
 import Link from "next/link";
 
 export const dynamic  = "force-dynamic";
 export const revalidate = 0;
-
-// Une commande est "valide" (contribue au CA) si elle n'a pas été annulée ni remboursée
-function isValidOrder(o: any): boolean {
-  const s = String(o?.status ?? "").toLowerCase();
-  const sh = String(o?.shipping_status ?? "").toLowerCase();
-  if (s === "remboursee" || s === "annulee") return false;
-  if (sh === "annulee" || sh === "retour") return false;
-  return true;
-}
 
 async function getStats() {
 
   const [{ data: products }, { data: orders }, { data: allOrders }, { count: subsCountExact }] = await Promise.all([
     supabaseServer.from("products").select("*").order("stock", { ascending: true }),
     supabaseServer.from("orders").select("*").order("created_at", { ascending: false }).limit(10),
-    supabaseServer.from("orders").select("amount_total, created_at, status, shipping_status"),
+    supabaseServer.from("orders").select("amount_total, refund_amount, created_at, status, shipping_status"),
     supabaseServer.from("newsletter_subscribers").select("id", { count: "exact", head: true }),
   ]);
 
@@ -35,9 +27,9 @@ async function getStats() {
 
   const today     = new Date(); today.setHours(0,0,0,0);
   const todayOrds = validOrds.filter(o => new Date(o.created_at) >= today);
-  const caToday   = todayOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  // CA total exclut annulées/remboursées
-  const caTotal   = validOrds.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+  // CA = montant NET (amount_total - refund_amount pour partiels)
+  const caToday   = todayOrds.reduce((s, o) => s + getNetAmount(o), 0);
+  const caTotal   = validOrds.reduce((s, o) => s + getNetAmount(o), 0);
   const ordsCount = validOrds.length;
   const cancelledCount = cancelledOrds.length;
   const subsCount = subsCountExact ?? 0;

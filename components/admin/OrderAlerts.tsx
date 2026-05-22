@@ -66,11 +66,16 @@ export default function OrderAlerts() {
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
+    // Inclure UNIQUEMENT les commandes payées en attente de préparation.
+    // Doublure de filtres (positifs + négatifs) en defense-in-depth contre
+    // tout état incohérent en base (ex: status='payee' + shipping_status='annulee').
     const { data } = await supabase
       .from("orders")
       .select("id, created_at, customer_name, amount_total, items")
       .eq("status", "payee")
       .in("shipping_status", ["en_preparation", "processing", ""])
+      .not("status",          "in", "(remboursee,annulee,echec_paiement,rembours_partiel)")
+      .not("shipping_status", "in", "(annulee,retour,livree,expediee)")
       .order("created_at", { ascending: true });
     setOrders(data ?? []);
     setLoading(false);
@@ -155,10 +160,11 @@ export default function OrderAlerts() {
                   </div>
                 </div>
 
-                {/* Montant */}
+                {/* Montant — amount_total est déjà en euros côté DB (cf. webhook
+                    Stripe qui divise par 100 avant l'insert) */}
                 <div style={{ flexShrink: 0, textAlign: "right" }}>
                   <div style={{ fontWeight: 900, fontSize: 15, color: "#c49a4a" }}>
-                    {((order.amount_total ?? 0) / 100).toFixed(2)} €
+                    {Number(order.amount_total ?? 0).toFixed(2)} €
                   </div>
                   <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
                     {new Date(order.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short" })} à {new Date(order.created_at).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}

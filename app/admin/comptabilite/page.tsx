@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import { isValidOrder, getNetAmount } from "@/lib/orders";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -33,7 +34,11 @@ interface Order {
   items: any[];
   promo_code?: string;
   discount?: number;
-  shipping_status: string;
+  // Champs requis par isValidOrder / getNetAmount — sans eux les commandes
+  // annulées/remboursées seraient comptées dans le CA mensuel.
+  status?:          string | null;
+  shipping_status?: string | null;
+  refund_amount?:   number | null;
 }
 
 interface MonthData {
@@ -61,6 +66,11 @@ export default function AdminComptabilite() {
       .catch(() => setLoading(false));
   }, []);
 
+  // Source unique de vérité : seules les commandes valides au sens M!LK
+  // (cf. lib/orders.ts) contribuent au CA. Filtre AVANT toute agrégation
+  // pour exclure annulées/remboursées/échecs paiement.
+  const validOrders = useMemo(() => orders.filter(isValidOrder), [orders]);
+
   const months = useMemo((): MonthData[] => {
     const map: Record<string, MonthData> = {};
 
@@ -70,13 +80,16 @@ export default function AdminComptabilite() {
       map[key]    = { key, label, ca: 0, orders: 0, avg: 0, discount: 0, net: 0 };
     }
 
-    for (const o of orders) {
+    for (const o of validOrders) {
       const d = new Date(o.created_at);
       if (d.getFullYear() !== year) continue;
       const key = `${year}-${String(d.getMonth() + 1).padStart(2, "0")}`;
       const entry = map[key];
       if (!entry) continue;
-      entry.ca       += Number(o.amount_total ?? 0);
+      // getNetAmount = amount_total - refund_amount (clamp 0). Pour les
+      // remboursements partiels (status='rembours_partiel'), le CA tient
+      // déjà compte du montant remboursé.
+      entry.ca       += getNetAmount(o);
       entry.orders   += 1;
       entry.discount += Number(o.discount ?? 0);
     }
@@ -86,11 +99,11 @@ export default function AdminComptabilite() {
       avg: m.orders > 0 ? m.ca / m.orders : 0,
       net: m.ca - m.discount,
     }));
-  }, [orders, year]);
+  }, [validOrders, year]);
 
-  const yearOrders = orders.filter(o => new Date(o.created_at).getFullYear() === year);
-  const totalCA    = yearOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const totalDis   = yearOrders.reduce((s, o) => s + Number(o.discount    ?? 0), 0);
+  const yearOrders = validOrders.filter(o => new Date(o.created_at).getFullYear() === year);
+  const totalCA    = yearOrders.reduce((s, o) => s + getNetAmount(o), 0);
+  const totalDis   = yearOrders.reduce((s, o) => s + Number(o.discount ?? 0), 0);
   const maxCA      = Math.max(...months.map(m => m.ca), 1);
 
   function exportCSV() {

@@ -122,33 +122,61 @@ export async function POST(req: NextRequest) {
 
     const deliveryType = order.delivery_type as ("point_relais" | "locker" | "home" | null);
     const relayId      = order.relay_id as (string | null);
+    const isRelayMode  = deliveryType === "point_relais" || deliveryType === "locker";
 
     // Validation : si point_relais ou locker → relay_id obligatoire
-    if ((deliveryType === "point_relais" || deliveryType === "locker") && !relayId) {
+    if (isRelayMode && !relayId) {
       return Response.json({ error: "Point relais manquant — saisie manuelle requise dans la commande" }, { status: 400 });
     }
 
     const addr = order.shipping_address ?? {};
-    if (!addr.line1 || !addr.postal_code || !addr.city) {
-      console.error("[sendcloud] Adresse incomplète:", JSON.stringify(addr));
+
+    // Validation adresse client UNIQUEMENT pour home (ou si delivery_type absent = ancienne commande)
+    // En mode point_relais/locker : Sendcloud utilise l'adresse du service point,
+    // pas besoin de valider l'adresse client (souvent vide ou incomplète).
+    if (!isRelayMode && (!addr.line1 || !addr.postal_code || !addr.city)) {
+      console.error("[sendcloud] Adresse incomplète (mode home):", JSON.stringify(addr));
       return Response.json({ error: "Adresse de livraison incomplète (line1/postal_code/city manquant)" }, { status: 400 });
     }
 
     // Poids par défaut 0.250 kg (vêtement bébé bambou typique)
     const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
 
-    // Adresse destinataire — compacte (sans clés vides)
-    const toAddressRaw = {
-      name:           sanitizeName(addr.name || order.customer_name || "Client"),
-      company_name:   addr.company,
-      address_line_1: addr.line1,
-      address_line_2: addr.line2,
-      postal_code:    addr.postal_code,
-      city:           addr.city,
-      country_code:   String(addr.country ?? "FR").toUpperCase().slice(0, 2),
-      phone_number:   addr.phone,
-      email:          order.customer_email,
-    };
+    // Adresse destinataire — construction différente selon mode
+    //   - Home : adresse complète du client (validée ci-dessus)
+    //   - Relais/Locker : minimum requis par Sendcloud (name + country) ; les
+    //     champs adresse seront overridés par le service point côté Sendcloud
+    //     dès qu'on attache to_service_point dans ship_with.properties.
+    const customerName = sanitizeName(addr.name || order.customer_name || "Client");
+
+    const toAddressRaw = isRelayMode
+      ? {
+          // Mode relais : on envoie le minimum + pays. Sendcloud ignore les
+          // autres champs car to_service_point prend le relais (jeu de mots).
+          name:           customerName,
+          email:          order.customer_email,
+          phone_number:   addr.phone,
+          country_code:   String(addr.country ?? "FR").toUpperCase().slice(0, 2),
+          // Fallback adresse vers l'adresse client si dispo, sinon adresse
+          // expéditeur (certaines APIs Sendcloud exigent les 3 champs même
+          // quand to_service_point est attaché). Sendcloud les ignore.
+          address_line_1: addr.line1       || FROM_ADDRESS.address_line_1,
+          postal_code:    addr.postal_code || FROM_ADDRESS.postal_code,
+          city:           addr.city        || FROM_ADDRESS.city,
+        }
+      : {
+          // Mode home : adresse complète du client (validée)
+          name:           customerName,
+          company_name:   addr.company,
+          address_line_1: addr.line1,
+          address_line_2: addr.line2,
+          postal_code:    addr.postal_code,
+          city:           addr.city,
+          country_code:   String(addr.country ?? "FR").toUpperCase().slice(0, 2),
+          phone_number:   addr.phone,
+          email:          order.customer_email,
+        };
+
     const toAddress   = compactAddress(toAddressRaw);
     const fromAddress = compactAddress(FROM_ADDRESS);
 

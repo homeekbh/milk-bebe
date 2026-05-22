@@ -249,6 +249,25 @@ export default function AdminCommandes() {
     }
   }, [selected, orders]);
 
+  // Télécharge le PDF d'étiquette via le proxy authentifié et l'ouvre dans un nouvel onglet
+  async function openLabelPdf(orderId: string) {
+    try {
+      const res = await adminFetch(`/api/admin/sendcloud/label-pdf?order_id=${encodeURIComponent(orderId)}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Impossible d'ouvrir l'étiquette : ${err.error ?? `HTTP ${res.status}`}`);
+        return;
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      // Libère le blob après 1 minute (le temps que le navigateur l'ouvre)
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (e: any) {
+      alert(`Erreur réseau : ${e?.message ?? "inconnue"}`);
+    }
+  }
+
   // Générer l'étiquette Sendcloud automatiquement
   async function generateLabel(order: Order) {
     if (!transporteur) { setLabelError("Choisis un transporteur d'abord"); return; }
@@ -494,17 +513,28 @@ export default function AdminCommandes() {
 
                         {/* Boutons étiquettes */}
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                          <button
-                            onClick={() => printLabel(order, "expedition")}
-                            style={{ padding: "12px 16px", borderRadius: 12, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                          >
-                            🖨️ Étiquette expédition
-                          </button>
+                          {(order as any).label_url ? (
+                            <button
+                              onClick={() => openLabelPdf(order.id)}
+                              style={{ padding: "12px 16px", borderRadius: 12, background: "#16a34a", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                              title="Télécharge le vrai PDF Colissimo via Sendcloud (proxy authentifié)"
+                            >
+                              🖨️ Étiquette PDF Colissimo
+                            </button>
+                          ) : (
+                            <button
+                              disabled
+                              style={{ padding: "12px 16px", borderRadius: 12, background: "#e5e7eb", color: "#9ca3af", fontWeight: 800, fontSize: 13, border: "none", cursor: "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                              title="Génère d'abord l'étiquette Sendcloud (colonne droite)"
+                            >
+                              📦 Étiquette à générer
+                            </button>
+                          )}
                           <button
                             onClick={() => printLabel(order, "retour")}
                             style={{ padding: "12px 16px", borderRadius: 12, background: "#ede8df", color: "#1a1410", fontWeight: 800, fontSize: 13, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
                           >
-                            ↩️ Étiquette retour
+                            ↩️ Étiquette retour (interne)
                           </button>
                         </div>
                       </div>
@@ -615,10 +645,11 @@ export default function AdminCommandes() {
                               </div>
                             )}
                             {labelUrl && (
-                              <a href={labelUrl} target="_blank" rel="noopener noreferrer"
-                                style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, textDecoration: "none", textAlign: "center", display: "block" }}>
+                              <button
+                                onClick={() => openLabelPdf(order.id)}
+                                style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
                                 🖨️ Imprimer l'étiquette PDF →
-                              </a>
+                              </button>
                             )}
                           </div>
                         )}

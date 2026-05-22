@@ -40,14 +40,77 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: "Commande introuvable" }, { status: 404 });
   }
 
-  if (!order.label_url) {
-    return Response.json({ error: "Étiquette non générée pour cette commande" }, { status: 404 });
+  let labelUrl: string = order.label_url ?? "";
+  let trackingNumber: string = order.tracking_number ?? "";
+
+  // ── Retry GET v2 si label_url manquant mais parcel_id présent ─────────────
+  // Cas typique : create-label a réussi à créer le parcel mais Sendcloud n'avait
+  // pas encore généré l'étiquette PDF (génération asynchrone). On retry ici
+  // jusqu'à 3× avec 2s entre chaque pour récupérer l'URL.
+  if (!labelUrl && order.sendcloud_parcel_id) {
+    console.error(`[sendcloud:label-pdf] label_url vide pour order ${orderId} (parcel ${order.sendcloud_parcel_id}) — retry GET v2`);
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        const retryRes = await fetch(`https://panel.sendcloud.sc/api/v2/parcels/${order.sendcloud_parcel_id}`, {
+          method:  "GET",
+          headers: {
+            Authorization: getBasicAuth(),
+            Accept:        "application/json",
+          },
+        });
+        const retryText = await retryRes.text();
+        let retryJson: any = null;
+        try { retryJson = JSON.parse(retryText); } catch {}
+
+        console.error(`[sendcloud:label-pdf retry ${attempt}/3] HTTP ${retryRes.status}`);
+
+        if (!retryRes.ok) {
+          console.error(`[sendcloud:label-pdf retry ${attempt}/3] body=${retryText.slice(0, 500)}`);
+          continue;
+        }
+
+        const parcel = retryJson?.parcel ?? retryJson?.data ?? retryJson;
+        const newTracking = parcel?.tracking_number ?? "";
+        const newLabel    =
+          parcel?.label?.normal_printer?.[0] ??
+          parcel?.label?.label_printer?.[0]  ??
+          (Array.isArray(parcel?.documents) ? parcel.documents.find((d: any) => d?.type === "label")?.link : null) ??
+          "";
+
+        if (newLabel) {
+          labelUrl = newLabel;
+          if (newTracking) trackingNumber = newTracking;
+          console.error(`[sendcloud:label-pdf retry ${attempt}/3] SUCCESS — label récupéré`);
+
+          // Persister en base pour ne plus repasser par le retry à la prochaine consultation
+          await supabaseServer.from("orders").update({
+            label_url:       labelUrl,
+            tracking_number: trackingNumber || order.tracking_number || null,
+          }).eq("id", orderId);
+
+          break;
+        } else {
+          console.error(`[sendcloud:label-pdf retry ${attempt}/3] label toujours vide, on continue`);
+        }
+      } catch (e: any) {
+        console.error(`[sendcloud:label-pdf retry ${attempt}/3] exception:`, e?.message);
+      }
+    }
+  }
+
+  if (!labelUrl) {
+    return Response.json({
+      error:     "Étiquette non encore générée — réessayer dans 30 secondes",
+      pending:   true,
+      parcel_id: order.sendcloud_parcel_id,
+    }, { status: 404 });
   }
 
   // Fetch PDF depuis Sendcloud avec Basic auth
   let labelRes: Response;
   try {
-    labelRes = await fetch(order.label_url, {
+    labelRes = await fetch(labelUrl, {
       headers: {
         Authorization: getBasicAuth(),
         Accept:        "application/pdf",
@@ -65,12 +128,12 @@ export async function GET(req: NextRequest) {
       error:            `Sendcloud HTTP ${labelRes.status}`,
       sendcloud_status: labelRes.status,
       sendcloud_body:   text.slice(0, 1500),
-      label_url:        order.label_url,
+      label_url:        labelUrl,
     }, { status: 502 });
   }
 
   const pdfBuffer = await labelRes.arrayBuffer();
-  const filename  = `etiquette-${(order.tracking_number ?? order.id).toString().slice(0, 30)}.pdf`;
+  const filename  = `etiquette-${(trackingNumber || order.id).toString().slice(0, 30)}.pdf`;
 
   return new Response(pdfBuffer, {
     status: 200,

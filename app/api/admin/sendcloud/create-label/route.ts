@@ -353,15 +353,67 @@ export async function POST(req: NextRequest) {
     // ── 5. Extraire tracking + label ────────────────────────────────────────
     const announceData = announceLog.json;
     const announced = announceData?.data?.parcels?.[0] ?? announceData?.parcels?.[0] ?? null;
-    const trackingNumber: string = announced?.tracking_number ?? "";
+    let trackingNumber: string = announced?.tracking_number ?? "";
     const documents: any[] = Array.isArray(announced?.documents) ? announced.documents : [];
     const labelDoc = documents.find(d => d?.type === "label") ?? documents[0];
-    const labelUrl: string = labelDoc?.link ?? "";
+    let labelUrl: string = labelDoc?.link ?? "";
     const parcelId = announced?.id ?? null;
 
-    console.error(`[sendcloud:announce] SUCCESS tracking=${trackingNumber} label=${labelUrl ? "OK" : "MISSING"}`);
+    console.error(`[sendcloud:announce] SUCCESS tracking=${trackingNumber || "(pending)"} label=${labelUrl ? "OK" : "MISSING"} parcel_id=${parcelId}`);
+
+    // ── 5bis. Retry GET v2 si label_url vide ─────────────────────────────────
+    // Sendcloud génère parfois l'étiquette de façon asynchrone après l'announce.
+    // On retry 3× avec 2s entre chaque sur GET /api/v2/parcels/{id} qui retourne
+    // l'URL du label PDF dès qu'il est prêt.
+    if (!labelUrl && parcelId) {
+      console.error(`[sendcloud:retry] label_url vide pour parcel ${parcelId} — démarrage retry GET v2`);
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        await new Promise(r => setTimeout(r, 2000));
+        try {
+          const retryRes = await fetch(`https://panel.sendcloud.sc/api/v2/parcels/${parcelId}`, {
+            method:  "GET",
+            headers: {
+              Authorization: getBasicAuth(),
+              Accept:        "application/json",
+            },
+          });
+          const retryText = await retryRes.text();
+          let retryJson: any = null;
+          try { retryJson = JSON.parse(retryText); } catch {}
+
+          console.error(`[sendcloud:retry ${attempt}/3] HTTP ${retryRes.status}`);
+
+          if (!retryRes.ok) {
+            console.error(`[sendcloud:retry ${attempt}/3] body=${retryText.slice(0, 500)}`);
+            continue;
+          }
+
+          // Format v2 : { parcel: { tracking_number, label: { normal_printer: [...], label_printer: [...] } } }
+          const parcel = retryJson?.parcel ?? retryJson?.data ?? retryJson;
+          const newTracking = parcel?.tracking_number ?? "";
+          const newLabel    =
+            parcel?.label?.normal_printer?.[0] ??
+            parcel?.label?.label_printer?.[0]  ??
+            (Array.isArray(parcel?.documents) ? parcel.documents.find((d: any) => d?.type === "label")?.link : null) ??
+            "";
+
+          if (newLabel) {
+            labelUrl = newLabel;
+            if (newTracking) trackingNumber = newTracking;
+            console.error(`[sendcloud:retry ${attempt}/3] SUCCESS — label récupéré`);
+            break;
+          } else {
+            console.error(`[sendcloud:retry ${attempt}/3] label toujours vide, on continue`);
+          }
+        } catch (e: any) {
+          console.error(`[sendcloud:retry ${attempt}/3] exception:`, e?.message);
+        }
+      }
+    }
 
     // ── 6. Update Supabase ──────────────────────────────────────────────────
+    // Même si label_url toujours vide, on sauvegarde le parcel_id pour permettre
+    // un retry manuel ultérieur via /api/admin/sendcloud/label-pdf
     const { error: updateErr } = await supabaseServer
       .from("orders")
       .update({
@@ -373,6 +425,19 @@ export async function POST(req: NextRequest) {
       })
       .eq("id", order_id);
     if (updateErr) console.error("[sendcloud] Supabase update error:", updateErr);
+
+    // ── 7. Réponse selon disponibilité du label ─────────────────────────────
+    if (!labelUrl) {
+      return Response.json({
+        ok:              true,
+        pending:         true,
+        tracking_number: trackingNumber,
+        label_url:       null,
+        parcel_id:       parcelId,
+        shipping_option: selected?.name ?? shippingOptionCode,
+        message:         `Colis créé (ID: ${parcelId}) — étiquette en cours, réessayer dans 30 secondes`,
+      });
+    }
 
     return Response.json({
       ok:              true,

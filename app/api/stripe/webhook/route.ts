@@ -89,6 +89,16 @@ export async function POST(req: Request) {
         ? { ...homeAddrParsed, line2: homeAddrParsed.line2 ?? "" }
         : shippingAddress;
 
+      // Persister payment_intent_id pour permettre les lookups depuis
+      // charge.refunded / payment_intent.payment_failed.
+      const paymentIntentId =
+        typeof (session as any).payment_intent === "string"
+          ? (session as any).payment_intent
+          : (session as any).payment_intent?.id ?? null;
+
+      // ─ Upsert en 2 étapes : status/statuts (GARANTI) + colonnes optionnelles
+      //   (stripe_payment_intent_id) en best-effort. Si la colonne manque, on
+      //   ne perd pas l'upsert principal (cf. migration 001 commit D).
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .upsert([{
@@ -118,16 +128,28 @@ export async function POST(req: Request) {
         process.env.NODE_ENV !== "production" && console.error("❌ Order upsert error:", orderError.message);
       } else {
         process.env.NODE_ENV !== "production" && console.log("✅ Order saved:", orderData?.id);
+
+        // Best-effort: persister payment_intent_id séparément (colonne optionnelle)
+        if (paymentIntentId && orderData?.id) {
+          const { error: piErr } = await supabaseServer
+            .from("orders")
+            .update({ stripe_payment_intent_id: paymentIntentId })
+            .eq("id", orderData.id);
+          if (piErr) {
+            console.warn("[stripe-webhook] stripe_payment_intent_id non persisté (colonne manquante?):", piErr.message);
+          }
+        }
       }
 
-      // ✅ Batch load produits — 1 requête au lieu de N
+      // ✅ Batch load produits — 1 requête au lieu de N (sert à mapper item.slug → id
+      // et à logguer le nom du produit dans les alertes stock)
       const _itemIds   = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
       const _itemSlugs = [...new Set(items.map((i: any) => i.slug).filter(Boolean))];
       const { data: _allProds } = await supabaseServer
-        .from("products").select("id, stock, slug, sizes_stock, name")
+        .from("products").select("id, slug, name")
         .in("id", _itemIds.length ? _itemIds : ["none"]);
       const { data: _allProds2 } = _itemSlugs.length
-        ? await supabaseServer.from("products").select("id, stock, slug, sizes_stock, name").in("slug", _itemSlugs)
+        ? await supabaseServer.from("products").select("id, slug, name").in("slug", _itemSlugs)
         : { data: [] };
       const _prodsMap: Record<string, any> = {};
       [...(_allProds ?? []), ...(_allProds2 ?? [])].forEach((p: any) => {
@@ -135,67 +157,85 @@ export async function POST(req: Request) {
         _prodsMap[p.slug] = p;
       });
 
-      // #17 — tracker les anomalies stock pour notifier l'admin si nécessaire
-      const stockIssues: Array<{ slug: string; name: string; requested: number; available: number; size?: string }> = [];
+      // #1/#8 — Décrément stock ATOMIQUE via RPC Supabase (cf. migration 001
+      // commit D). SELECT FOR UPDATE dans la fonction = deux paiements
+      // simultanés sur le dernier exemplaire ne peuvent plus réussir tous
+      // les deux. Si le stock est insuffisant côté serveur, on tracke
+      // l'anomalie pour notifier l'admin (le client reçoit quand même sa
+      // confirmation — il a payé, on ne peut pas le laisser dans le silence).
+      const stockIssues: Array<{ slug: string; name: string; requested: number; available: number; size?: string; error?: string }> = [];
 
       for (const item of items) {
-        let productData: any = _prodsMap[item.id] ?? _prodsMap[item.slug] ?? null;
+        const productData: any = _prodsMap[item.id] ?? _prodsMap[item.slug] ?? null;
+        const productId = productData?.id ?? item.id ?? null;
 
-        if (!productData) {
+        if (!productId) {
           console.warn("⚠️ Product not found for item:", item);
-          stockIssues.push({ slug: item.slug ?? "(inconnu)", name: item.name ?? "(inconnu)", requested: item.quantity ?? 1, available: 0 });
+          stockIssues.push({
+            slug: item.slug ?? "(inconnu)",
+            name: item.name ?? "(inconnu)",
+            requested: item.quantity ?? 1,
+            available: 0,
+            error: "product_not_found",
+          });
           continue;
         }
 
-        const qty = item.quantity ?? 1;
-        const availableGlobal = productData.stock ?? 0;
-        const newStock = Math.max(0, availableGlobal - qty);
-        const updatePayload: Record<string, any> = { stock: newStock };
-
-        // Détecter stock insuffisant (global)
-        if (qty > availableGlobal) {
-          stockIssues.push({
-            slug:      productData.slug,
-            name:      productData.name ?? item.name,
-            requested: qty,
-            available: availableGlobal,
-          });
-        }
-
+        const qty    = item.quantity ?? 1;
         const taille = extractTailleFromName(item.name ?? "");
-        if (taille) {
-          const currentSizesStock: Record<string, number> = productData.sizes_stock ?? {};
-          const currentTailleStock = currentSizesStock[taille] ?? 0;
-          const newTailleStock     = Math.max(0, currentTailleStock - qty);
-          updatePayload.sizes_stock = {
-            ...currentSizesStock,
-            [taille]: newTailleStock,
-          };
-          process.env.NODE_ENV !== "production" && console.log(`✅ sizes_stock[${taille}]: ${currentTailleStock} → ${newTailleStock}`);
 
-          // Détecter stock insuffisant sur la taille spécifique
-          if (qty > currentTailleStock) {
-            stockIssues.push({
-              slug:      productData.slug,
-              name:      productData.name ?? item.name,
-              requested: qty,
-              available: currentTailleStock,
-              size:      taille,
-            });
+        const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+          p_product_id: productId,
+          p_quantity:   qty,
+          p_size:       taille,
+        });
+
+        if (rpcErr) {
+          // La RPC n'existe pas encore → fallback non-atomique (read-modify-write).
+          // On garde l'ancien comportement comme filet de sécurité pendant la
+          // période où la migration SQL n'est pas encore exécutée en prod.
+          console.error("[stripe-webhook] RPC decrement_stock_atomic indispo, fallback non-atomique:", rpcErr.message);
+
+          const { data: fallbackProd } = await supabaseServer
+            .from("products").select("id, stock, sizes_stock, name, slug")
+            .eq("id", productId).single();
+          if (!fallbackProd) {
+            stockIssues.push({ slug: item.slug ?? "(?)", name: item.name ?? "(?)", requested: qty, available: 0, error: "fallback_product_not_found" });
+            continue;
           }
-        } else {
-          process.env.NODE_ENV !== "production" && console.log(`ℹ️ Pas de taille identifiée pour "${item.name}" — stock global uniquement`);
+          const availableGlobal = fallbackProd.stock ?? 0;
+          if (qty > availableGlobal) {
+            stockIssues.push({ slug: fallbackProd.slug, name: fallbackProd.name, requested: qty, available: availableGlobal });
+          }
+          const newStock = Math.max(0, availableGlobal - qty);
+          const updatePayload: Record<string, any> = { stock: newStock };
+          if (taille) {
+            const sizesStock: Record<string, number> = fallbackProd.sizes_stock ?? {};
+            const currentTailleStock = sizesStock[taille] ?? 0;
+            if (qty > currentTailleStock) {
+              stockIssues.push({ slug: fallbackProd.slug, name: fallbackProd.name, requested: qty, available: currentTailleStock, size: taille });
+            }
+            updatePayload.sizes_stock = { ...sizesStock, [taille]: Math.max(0, currentTailleStock - qty) };
+          }
+          await supabaseServer.from("products").update(updatePayload).eq("id", productId);
+          continue;
         }
 
-        const { error: stockError } = await supabaseServer
-          .from("products")
-          .update(updatePayload)
-          .eq("id", productData.id);
-
-        if (stockError) {
-          process.env.NODE_ENV !== "production" && console.error("❌ Stock update error:", productData.slug, stockError.message);
+        // La RPC renvoie un JSON {ok, ...}
+        const result = rpcResult as any;
+        if (!result?.ok) {
+          const errCode = String(result?.error ?? "unknown");
+          console.error(`[stripe-webhook] RPC stock failed: ${errCode}`, result);
+          stockIssues.push({
+            slug:      productData?.slug ?? item.slug ?? "(?)",
+            name:      productData?.name ?? item.name ?? "(?)",
+            requested: qty,
+            available: Number(result?.available ?? 0),
+            size:      taille ?? undefined,
+            error:     errCode,
+          });
         } else {
-          process.env.NODE_ENV !== "production" && console.log(`✅ Stock updated: ${productData.slug} → global: ${newStock}`);
+          process.env.NODE_ENV !== "production" && console.log(`✅ Stock atomic OK: ${productData?.slug ?? productId} → ${result.new_stock}${taille ? ` (taille ${taille}: ${result.new_size_stock})` : ""}`);
         }
       }
 

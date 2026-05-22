@@ -44,12 +44,39 @@ export async function GET(req: NextRequest) {
   let trackingNumber: string = order.tracking_number ?? "";
 
   // ── Retry GET v2 si label_url manquant mais parcel_id présent ─────────────
-  // Cas typique : create-label a réussi à créer le parcel mais Sendcloud n'avait
-  // pas encore généré l'étiquette PDF (génération asynchrone). On retry ici
-  // jusqu'à 3× avec 2s entre chaque pour récupérer l'URL.
+  // Cas typique : create-label a réussi à créer le parcel mais Sendcloud n'a
+  // pas généré l'étiquette PDF (souvent parce que le parcel a été créé sans
+  // request_label: true avant le fix d350807). On force d'abord la génération
+  // avec PUT /api/v2/parcels (set request_label = true), puis on retry GET.
   if (!labelUrl && order.sendcloud_parcel_id) {
-    console.error(`[sendcloud:label-pdf] label_url vide pour order ${orderId} (parcel ${order.sendcloud_parcel_id}) — retry GET v2`);
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    console.error(`[sendcloud:label-pdf] label_url vide pour order ${orderId} (parcel ${order.sendcloud_parcel_id}) — PUT request_label puis retry GET v2`);
+
+    // Étape 1 — PUT pour DÉCLENCHER la génération de l'étiquette sur un parcel
+    // déjà announced. Sendcloud accepte `request_label: true` dans le PUT pour
+    // les parcels en état "ready_to_send" ou "announced sans label".
+    try {
+      const putRes = await fetch(`https://panel.sendcloud.sc/api/v2/parcels`, {
+        method:  "PUT",
+        headers: {
+          Authorization:  getBasicAuth(),
+          "Content-Type": "application/json",
+          Accept:         "application/json",
+        },
+        body: JSON.stringify({
+          parcel: {
+            id:            Number(order.sendcloud_parcel_id),
+            request_label: true,
+          },
+        }),
+      });
+      const putText = await putRes.text();
+      console.error(`[sendcloud:label-pdf PUT request_label] HTTP ${putRes.status} body=${putText.slice(0, 600)}`);
+    } catch (e: any) {
+      console.error(`[sendcloud:label-pdf PUT request_label] exception:`, e?.message);
+    }
+
+    // Étape 2 — GET retry jusqu'à 4× avec 2s entre chaque pour récupérer l'URL
+    for (let attempt = 1; attempt <= 4; attempt++) {
       await new Promise(r => setTimeout(r, 2000));
       try {
         const retryRes = await fetch(`https://panel.sendcloud.sc/api/v2/parcels/${order.sendcloud_parcel_id}`, {
@@ -63,10 +90,10 @@ export async function GET(req: NextRequest) {
         let retryJson: any = null;
         try { retryJson = JSON.parse(retryText); } catch {}
 
-        console.error(`[sendcloud:label-pdf retry ${attempt}/3] HTTP ${retryRes.status}`);
+        console.error(`[sendcloud:label-pdf retry ${attempt}/4] HTTP ${retryRes.status}`);
 
         if (!retryRes.ok) {
-          console.error(`[sendcloud:label-pdf retry ${attempt}/3] body=${retryText.slice(0, 500)}`);
+          console.error(`[sendcloud:label-pdf retry ${attempt}/4] body=${retryText.slice(0, 500)}`);
           continue;
         }
 
@@ -81,20 +108,24 @@ export async function GET(req: NextRequest) {
         if (newLabel) {
           labelUrl = newLabel;
           if (newTracking) trackingNumber = newTracking;
-          console.error(`[sendcloud:label-pdf retry ${attempt}/3] SUCCESS — label récupéré`);
+          console.error(`[sendcloud:label-pdf retry ${attempt}/4] SUCCESS — label récupéré`);
 
-          // Persister en base pour ne plus repasser par le retry à la prochaine consultation
+          // Persister en base — 2-step pour ne pas tout perdre si une colonne manque
           await supabaseServer.from("orders").update({
-            label_url:       labelUrl,
-            tracking_number: trackingNumber || order.tracking_number || null,
+            label_url: labelUrl,
           }).eq("id", orderId);
+          if (trackingNumber && trackingNumber !== order.tracking_number) {
+            await supabaseServer.from("orders").update({
+              tracking_number: trackingNumber,
+            }).eq("id", orderId);
+          }
 
           break;
         } else {
-          console.error(`[sendcloud:label-pdf retry ${attempt}/3] label toujours vide, on continue`);
+          console.error(`[sendcloud:label-pdf retry ${attempt}/4] label toujours vide (status: ${parcel?.status?.message ?? "?"}), on continue`);
         }
       } catch (e: any) {
-        console.error(`[sendcloud:label-pdf retry ${attempt}/3] exception:`, e?.message);
+        console.error(`[sendcloud:label-pdf retry ${attempt}/4] exception:`, e?.message);
       }
     }
   }

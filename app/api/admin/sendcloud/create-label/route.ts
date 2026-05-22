@@ -120,6 +120,24 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Commande introuvable" }, { status: 404 });
     }
 
+    // GARDE-FOU — si un parcel Sendcloud existe déjà, on n'en crée PAS un nouveau.
+    // Chaque clic accidentel sur "Créer étiquette" créerait sinon un nouveau colis
+    // facturé chez Sendcloud (cas observé : 3 parcels pour la même commande).
+    // À la place, on renvoie un message qui pointe l'admin vers "Vérifier
+    // l'étiquette" (label-pdf), qui s'occupe de récupérer/forcer le label sur
+    // le parcel existant.
+    if (order.sendcloud_parcel_id) {
+      const force = req.headers.get("x-force-recreate") === "true";
+      if (!force) {
+        return Response.json({
+          error:     "Un colis Sendcloud existe déjà pour cette commande.",
+          parcel_id: order.sendcloud_parcel_id,
+          hint:      "Utilise 'Vérifier l'étiquette' pour récupérer le PDF. Si tu veux vraiment recréer (rare), renvoie la requête avec l'en-tête x-force-recreate: true.",
+        }, { status: 409 });
+      }
+      console.error(`[sendcloud:create-label] FORCE_RECREATE — un parcel ${order.sendcloud_parcel_id} existait déjà pour ${order_id}`);
+    }
+
     const deliveryType = order.delivery_type as ("point_relais" | "locker" | "home" | null);
     const relayId      = order.relay_id as (string | null);
     const isRelayMode  = deliveryType === "point_relais" || deliveryType === "locker";
@@ -417,20 +435,32 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 6. Update Supabase ──────────────────────────────────────────────────
-    // Même si label_url toujours vide, on sauvegarde le parcel_id pour permettre
-    // un retry manuel ultérieur via /api/admin/sendcloud/label-pdf
-    const { error: updateErr } = await supabaseServer
+    // ── 6. Update Supabase — 2-step pour ne pas tout perdre si une colonne
+    // optionnelle (label_url, sendcloud_parcel_id, shipped_at) manque.
+    //
+    // Étape 1 (GARANTI) — colonnes qui existent à coup sûr (statut)
+    const { error: updateErr1 } = await supabaseServer
       .from("orders")
       .update({
-        shipping_status:     "expediee",
-        tracking_number:     trackingNumber || null,
-        label_url:           labelUrl       || null,
-        sendcloud_parcel_id: parcelId       || null,
+        shipping_status: "expediee",
+        tracking_number: trackingNumber || null,
+      })
+      .eq("id", order_id);
+    if (updateErr1) console.error("[sendcloud] Supabase update statut/tracking:", updateErr1);
+
+    // Étape 2 (BEST-EFFORT) — colonnes optionnelles. Si l'une manque,
+    // l'erreur est loggée mais le statut/tracking sont déjà à jour.
+    const { error: updateErr2 } = await supabaseServer
+      .from("orders")
+      .update({
+        label_url:           labelUrl || null,
+        sendcloud_parcel_id: parcelId || null,
         shipped_at:          new Date().toISOString(),
       })
       .eq("id", order_id);
-    if (updateErr) console.error("[sendcloud] Supabase update error:", updateErr);
+    if (updateErr2) {
+      console.warn("[sendcloud] Colonnes optionnelles non disponibles (label_url, sendcloud_parcel_id, shipped_at). Migration ALTER TABLE à exécuter:", updateErr2.message);
+    }
 
     // ── 7. Réponse selon disponibilité du label ─────────────────────────────
     if (!labelUrl) {

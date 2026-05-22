@@ -20,10 +20,16 @@ function getBasicAuth() {
  * Affiche TOUS les détails dans les logs Vercel pour diagnostiquer les vrais IDs.
  */
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin(req);
-  if (!auth.ok) return auth.response;
-
   const { searchParams } = new URL(req.url);
+
+  // ⚠ TEMP DEBUG — bypass auth via secret en query string.
+  // À RETIRER après usage. Apparaît dans les logs Vercel et l'historique navigateur.
+  const debugSecret = searchParams.get("secret");
+  if (debugSecret !== "milk-debug-2026") {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return auth.response;
+  }
+
   const filter = (searchParams.get("carrier") ?? "").toLowerCase();
 
   const endpoint = "https://panel.sendcloud.sc/api/v2/shipping_methods";

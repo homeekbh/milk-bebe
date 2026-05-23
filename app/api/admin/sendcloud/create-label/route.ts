@@ -73,12 +73,11 @@ const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
 };
 
 // Codes qui n'acceptent PAS to_service_point dans le body announce.
-// Sendcloud route automatiquement vers le point/bureau le plus proche
-// via le postal_code — envoyer to_service_point génère l'erreur
-// "Service point carrier does not match shipping method".
-const CODES_WITHOUT_SERVICE_POINT = new Set([
-  "colissimo:post-office",
-]);
+// Vide pour l'instant : "colissimo:post-office" exige bien
+// to_service_point (testé en prod, Sendcloud refuse sinon avec
+// "A service point is required for the selected shipping method").
+// À remplir si on rencontre des codes qui rejettent to_service_point.
+const CODES_WITHOUT_SERVICE_POINT = new Set<string>([]);
 
 function pickShippingOption(
   options: any[],
@@ -395,15 +394,12 @@ export async function POST(req: NextRequest) {
       order_number: String(order.id ?? "").slice(0, 30),
       request_label: true,
     };
-    // to_service_point : envoyé UNIQUEMENT si le code l'accepte.
-    // Certains codes (ex: colissimo:post-office) routent automatiquement
-    // vers le bureau le plus proche via le postal_code et rejettent
-    // to_service_point avec "Service point carrier does not match shipping method".
-    if (numericRelayId && !CODES_WITHOUT_SERVICE_POINT.has(shippingOptionCode)) {
+    // to_service_point : envoyé pour TOUS les codes quand un relais est
+    // sélectionné. La logique de skip via CODES_WITHOUT_SERVICE_POINT est
+    // conservée comme garde-fou pour le futur, mais le set est vide.
+    if (numericRelayId) {
       announceBody.to_service_point = { id: String(numericRelayId) };
       console.log(`[sendcloud] to_service_point.id="${numericRelayId}" attaché (code=${shippingOptionCode})`);
-    } else if (numericRelayId) {
-      console.log(`[sendcloud] to_service_point OMIS — code "${shippingOptionCode}" route automatiquement via postal_code (CODES_WITHOUT_SERVICE_POINT)`);
     }
 
     const announceBodyStr = JSON.stringify(announceBody);

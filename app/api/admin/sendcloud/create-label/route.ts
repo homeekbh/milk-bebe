@@ -302,13 +302,25 @@ export async function POST(req: NextRequest) {
     );
 
     // ── 3. Match par nom de transporteur ET par delivery_type ───────────────
-    const carrierLower = String(transporteur ?? "").toLowerCase();
+    // PRIORITÉ : order.carrier (choisi par le client au checkout, source de
+    // vérité). Le `transporteur` passé dans le body de la requête sert de
+    // fallback historique (l'admin avait l'habitude de le sélectionner
+    // manuellement avec une dropdown). Désormais c'est piloté par la commande.
+    const carrierFromOrder = String(order.carrier ?? "").toLowerCase();
+    const carrierFromBody  = String(transporteur ?? "").toLowerCase();
+    const effectiveCarrier =
+      carrierFromOrder === "mondial_relay" || carrierFromOrder === "colissimo"
+        ? carrierFromOrder
+        : carrierFromBody;
+    console.log("[sendcloud] carrier resolution:", { from_order: order.carrier, from_body: transporteur, effective: effectiveCarrier });
+    console.error("[sendcloud] carrier resolution:", { from_order: order.carrier, from_body: transporteur, effective: effectiveCarrier });
+
     const wantedCarrier =
-      carrierLower.includes("mondial")    ? "mondial"    :
-      carrierLower.includes("colissimo")  ? "colissimo"  :
-      carrierLower.includes("chronopost") ? "chronopost" :
-      carrierLower.includes("la poste")   ? "colissimo"  :
-      carrierLower;
+      effectiveCarrier.includes("mondial")    ? "mondial"    :
+      effectiveCarrier.includes("colissimo")  ? "colissimo"  :
+      effectiveCarrier.includes("chronopost") ? "chronopost" :
+      effectiveCarrier.includes("la poste")   ? "colissimo"  :
+      effectiveCarrier;
 
     // wantedType vient du delivery_type normalisé en haut du handler.
     // Sert à matcher l'option Sendcloud appropriée :

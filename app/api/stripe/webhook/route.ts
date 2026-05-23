@@ -145,10 +145,13 @@ export async function POST(req: Request) {
         // le metadata est manquant (anciennes commandes ou bug client).
         if (orderData?.id) {
           const carrierFromMeta = session.metadata?.carrier;
+          console.log("[webhook] carrier from metadata:", carrierFromMeta);
+          console.log("[webhook] full metadata keys:", Object.keys(session.metadata ?? {}).join(", "));
           const carrierValue =
             carrierFromMeta === "mondial_relay" || carrierFromMeta === "colissimo"
               ? carrierFromMeta
               : "colissimo";
+          console.log("[webhook] persisting carrier:", carrierValue, "for order:", orderData.id);
           const { error: cErr } = await supabaseServer
             .from("orders")
             .update({ carrier: carrierValue })

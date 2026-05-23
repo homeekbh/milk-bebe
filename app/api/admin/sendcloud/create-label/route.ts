@@ -168,6 +168,13 @@ export async function POST(req: NextRequest) {
     // Poids par défaut 0.250 kg (vêtement bébé bambou typique)
     const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
 
+    // Téléphone : OBLIGATOIRE pour Sendcloud (sinon "Telephone is required
+    // for this shipment"). Cascade de sources, fallback générique +33600000000
+    // qui satisfait Sendcloud sans être affiché au destinataire pour les
+    // livraisons en Point Relais (le client n'a pas saisi son tél au checkout).
+    const phoneNumber =
+      String(addr.phone ?? order.customer_phone ?? order.phone ?? "+33600000000").trim() || "+33600000000";
+
     // Adresse destinataire — construction différente selon mode
     //   - Home : adresse complète du client (validée ci-dessus)
     //   - Point Relais : minimum requis par Sendcloud (name + country) ; les
@@ -181,7 +188,7 @@ export async function POST(req: NextRequest) {
           // autres champs car to_service_point prend le relais (jeu de mots).
           name:           customerName,
           email:          order.customer_email,
-          phone_number:   addr.phone,
+          phone_number:   phoneNumber,
           country_code:   String(addr.country ?? "FR").toUpperCase().slice(0, 2),
           // Fallback adresse vers l'adresse client si dispo, sinon adresse
           // expéditeur (certaines APIs Sendcloud exigent les 3 champs même
@@ -199,7 +206,7 @@ export async function POST(req: NextRequest) {
           postal_code:    addr.postal_code,
           city:           addr.city,
           country_code:   String(addr.country ?? "FR").toUpperCase().slice(0, 2),
-          phone_number:   addr.phone,
+          phone_number:   phoneNumber,
           email:          order.customer_email,
         };
 
@@ -391,9 +398,19 @@ export async function POST(req: NextRequest) {
     };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 
-    // Si point_relais OU locker → on attache le service point sélectionné par le client
+    // Si point_relais OU locker → on attache le service point sélectionné.
+    // CRITIQUE : Sendcloud v3 attend to_service_point en INTEGER (pas string).
+    // Si on envoie "14908542" (string), Sendcloud répond "A service point is
+    // required for the selected shipping method" même si la clé est présente.
+    // On convertit donc en integer quand la valeur est numérique.
     if (relayId && (deliveryType === "point_relais" || deliveryType === "locker")) {
-      shipWithProps.to_service_point = relayId;
+      const numericRelayId = typeof relayId === "string" && /^\d+$/.test(relayId)
+        ? parseInt(relayId, 10)
+        : relayId;
+      shipWithProps.to_service_point = numericRelayId;
+      console.error(`[sendcloud] to_service_point set to: ${numericRelayId} (typeof=${typeof numericRelayId})`);
+    } else if (isRelayMode && !relayId) {
+      console.error(`[sendcloud] ⚠ isRelayMode=true mais relayId MANQUANT — Sendcloud va rejeter`);
     }
 
     const announceBody = {

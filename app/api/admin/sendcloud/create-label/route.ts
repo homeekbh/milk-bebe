@@ -201,7 +201,23 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Adresse de livraison incomplète (line1/postal_code/city manquant)" }, { status: 400 });
     }
 
-    const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
+    // Poids final envoyé à Sendcloud :
+    //   - Source : order.total_weight_g (en grammes) → /1000 pour kg
+    //   - Fallback : 1.000 kg si absent
+    //   - Minimum : 1.000 kg (exigé par Colissimo International / Service Point
+    //     qui rejette les poids < 1 kg avec "No shipping option could be found
+    //     for the given weight and/or dimensions"). On uplift à 1.000 kg même
+    //     si le colis réel pèse moins — Colissimo facture au palier supérieur
+    //     de toute façon.
+    const weightFromDb = order.total_weight_g ? order.total_weight_g / 1000 : 1.000;
+    const weightKg = Math.max(1.000, weightFromDb);
+    const weightKgStr = weightKg.toFixed(3); // string formatée à 3 décimales
+    console.log("[sendcloud:weight]", JSON.stringify({
+      source_g:     order.total_weight_g,
+      computed_kg:  weightFromDb,
+      final_kg:     weightKg,
+      final_str:    weightKgStr,
+    }));
     const phoneNumber = String(order.customer_phone ?? addr.phone ?? order.phone ?? "+33600000000").trim() || "+33600000000";
     const customerName = sanitizeName(addr.name || order.customer_name || "Client");
     const numericRelayId = relayId && /^\d+$/.test(String(relayId)) ? parseInt(String(relayId), 10) : null;
@@ -250,7 +266,7 @@ export async function POST(req: NextRequest) {
     const optionsBody: Record<string, any> = {
       from_address: { id: senderAddressId },
       to_address:   { country_iso_2: fetchCountry, postal_code: fetchPostalCode },
-      weight:       { value: 0.250, unit: "kg" },
+      weight:       { value: weightKg, unit: "kg" },
     };
     if (numericRelayId) {
       optionsBody.to_service_point = numericRelayId;
@@ -368,7 +384,7 @@ export async function POST(req: NextRequest) {
         email:          order.customer_email ?? "",
         phone_number:   phoneNumber,
       },
-      parcels:      [{ weight: { value: "0.250", unit: "kg" } }],
+      parcels:      [{ weight: { value: weightKgStr, unit: "kg" } }],
       order_number: String(order.id ?? "").slice(0, 30),
       request_label: true,
     };

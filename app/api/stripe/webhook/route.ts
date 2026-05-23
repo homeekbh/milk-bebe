@@ -140,13 +140,18 @@ export async function POST(req: Request) {
           }
         }
 
-        // Best-effort: persister carrier (déduction serveur, pas via metadata
-        // Stripe). M!LK n'utilise plus que Colissimo / La Poste — on hardcode.
-        // cf. migration 003 qui crée la colonne carrier avec default 'colissimo'.
+        // Persister le carrier choisi par le client (depuis metadata Stripe
+        // peuplé par /api/checkout/create-session). Fallback "colissimo" si
+        // le metadata est manquant (anciennes commandes ou bug client).
         if (orderData?.id) {
+          const carrierFromMeta = session.metadata?.carrier;
+          const carrierValue =
+            carrierFromMeta === "mondial_relay" || carrierFromMeta === "colissimo"
+              ? carrierFromMeta
+              : "colissimo";
           const { error: cErr } = await supabaseServer
             .from("orders")
-            .update({ carrier: "colissimo" })
+            .update({ carrier: carrierValue })
             .eq("id", orderData.id);
           if (cErr) {
             console.warn("[stripe-webhook] carrier non persisté (colonne manquante?):", cErr.message);

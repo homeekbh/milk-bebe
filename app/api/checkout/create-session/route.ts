@@ -23,22 +23,80 @@ function extractTailleFromName(name: string): string | null {
   return null;
 }
 
+// ── Matrice prix livraison — source unique de vérité ────────────────────────
+// Aligné avec le sélecteur côté panier. Si tu ajoutes/modifies un tarif ici,
+// le panier le reflètera automatiquement (il lit ces mêmes valeurs via
+// /api/settings/public + son propre miroir constants).
+const DELIVERY_PRICES: Record<string, Record<string, number>> = {
+  mondial_relay: {
+    point_relais: 3.50,
+    locker:       3.50,
+    home:         5.20,
+  },
+  colissimo: {
+    point_relais: 5.90,
+    home:         7.70,
+  },
+};
+
+const ALLOWED_CARRIER  = Object.keys(DELIVERY_PRICES);
+const ALLOWED_DELIVERY = ["home", "point_relais", "locker"];
+
+// Labels Stripe par combinaison carrier × type
+function deliveryLabel(carrier: string, deliveryType: string): string {
+  const map: Record<string, Record<string, string>> = {
+    mondial_relay: {
+      point_relais: "Mondial Relay Point Relais",
+      locker:       "Mondial Relay Locker",
+      home:         "Mondial Relay Domicile",
+    },
+    colissimo: {
+      point_relais: "Colissimo Point Relais",
+      home:         "Colissimo Domicile",
+    },
+  };
+  return map[carrier]?.[deliveryType] ?? `${carrier} ${deliveryType}`;
+}
+
+// Lit le seuil livraison offerte depuis la table settings (default 60€).
+async function getFreeShippingThreshold(): Promise<number> {
+  try {
+    const { data } = await supabaseServer
+      .from("settings")
+      .select("value")
+      .eq("key", "free_shipping_threshold")
+      .single();
+    const n = Number(data?.value);
+    return Number.isFinite(n) ? n : 60;
+  } catch {
+    return 60;
+  }
+}
+
 export async function POST(req: Request) {
   try {
-    const { items, promo_code, discount, free_shipping, customer_email, delivery_type, relay, home_address } = await req.json();
+    const { items, promo_code, discount, free_shipping, customer_email, delivery_type, carrier, relay, home_address } = await req.json();
 
     if (!items || items.length === 0) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
     }
 
-    // ── Validation du mode de livraison ──────────────────────────────────────
-    // Point Relais temporairement désactivé — seul "home" est accepté.
-    // À réactiver en ajoutant "point_relais" dans ALLOWED_DELIVERY + restaurant
-    // la branche de validation relay.id.
-    const ALLOWED_DELIVERY = ["home"];
-    if (!delivery_type || !ALLOWED_DELIVERY.includes(delivery_type)) {
-      return Response.json({ error: "Mode de livraison invalide (seul 'home' est disponible actuellement)" }, { status: 400 });
+    // ── Validation transporteur + mode de livraison ──────────────────────────
+    if (!carrier || !ALLOWED_CARRIER.includes(carrier)) {
+      return Response.json({ error: `Transporteur invalide (autorisés: ${ALLOWED_CARRIER.join(", ")})` }, { status: 400 });
     }
+    if (!delivery_type || !ALLOWED_DELIVERY.includes(delivery_type)) {
+      return Response.json({ error: `Mode de livraison invalide (autorisés: ${ALLOWED_DELIVERY.join(", ")})` }, { status: 400 });
+    }
+    // Combinaison carrier × type doit exister dans la matrice
+    if (DELIVERY_PRICES[carrier]?.[delivery_type] === undefined) {
+      return Response.json({ error: `Combinaison ${carrier}/${delivery_type} non disponible` }, { status: 400 });
+    }
+    // Point relais / locker → relay.id obligatoire
+    if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
+      return Response.json({ error: "Point relais manquant" }, { status: 400 });
+    }
+    // Domicile → adresse complète
     if (delivery_type === "home") {
       if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
         return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
@@ -113,23 +171,20 @@ export async function POST(req: Request) {
       });
     }
 
-    // ── Livraison : prix dynamique selon type
-    // Point Relais désactivé temporairement → seule la branche home tourne
-    // en pratique. Le ternaire est conservé pour réactiver facilement.
-    const subtotal        = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
-    const hasFreeShipping = free_shipping || subtotal >= 60;
-    const baseDelivery    = delivery_type === "home" ? 8.66 : 6.82;
-    const deliveryCost    = hasFreeShipping ? 0 : baseDelivery;
+    // ── Livraison : prix depuis la matrice DELIVERY_PRICES ──────────────────
+    // Le seuil "livraison offerte dès X€" est lu depuis la table settings.
+    // free_shipping=true côté code promo court-circuite la livraison aussi.
+    const subtotal           = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
+    const freeShipThreshold  = await getFreeShippingThreshold();
+    const hasFreeShipping    = free_shipping || subtotal >= freeShipThreshold;
+    const baseDelivery       = DELIVERY_PRICES[carrier][delivery_type];
+    const deliveryCost       = hasFreeShipping ? 0 : baseDelivery;
 
     if (deliveryCost > 0) {
-      const labelLiv =
-        delivery_type === "home"
-          ? "Colissimo Domicile"
-          : "Colissimo Point Relais";
       lineItems.push({
         price_data: {
           currency:     "eur",
-          product_data: { name: labelLiv },
+          product_data: { name: deliveryLabel(carrier, delivery_type) },
           unit_amount:  Math.round(deliveryCost * 100),
         },
         quantity: 1,
@@ -163,6 +218,7 @@ export async function POST(req: Request) {
         promo_code:        promo_code    ?? "",
         discount:          String(discount   ?? 0),
         free_shipping:     String(free_shipping ?? false),
+        carrier,
         delivery_type,
         delivery_price:    String(deliveryCost),
         relay_id:          relay?.id          ?? "",

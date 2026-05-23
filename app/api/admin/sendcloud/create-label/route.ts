@@ -45,67 +45,60 @@ function extractError(json: any, fallback: string): string {
 }
 
 /**
- * Sélectionne le bon shipping_option_code dans la liste retournée par
- * /fetch-shipping-options selon carrier + delivery_type.
+ * Mapping hardcodé carrier × delivery_type → shipping_option_code exact
+ * confirmé sur ce compte Sendcloud (via /fetch-shipping-options).
  *
- * Logique :
- *   - colissimo + point_relais  → contient "colissimo" ET "service_point", DOMESTIC prioritaire
- *   - colissimo + home          → contient "colissimo" SANS "service_point", DOMESTIC prioritaire
- *   - mondial_relay + point_relais → contient "mondial_relay" ET "service_point", DOMESTIC prioritaire
- *   - mondial_relay + locker    → contient "mondial_relay" ET "locker"
- *   - mondial_relay + home      → contient "mondial_relay" SANS "service_point" SANS "locker"
+ * Important :
+ *   - "colissimo:post-office" supporte PAS to_service_point (Bureau de Poste,
+ *     pas point relais). C'est PAS le code pour Colissimo Point Relais.
+ *   - "colissimo:international/service_point" est le SEUL code Colissimo
+ *     avec last_mile=service_point disponible sur ce compte, et il accepte
+ *     to_service_point.id même pour une livraison FR domestique (Sendcloud
+ *     route correctement selon le service point sélectionné).
  *
- * Pour TOUS les modes, on PRÉFÈRE l'option qui ne contient PAS "international"
- * (sinon Sendcloud peut router vers Belgique/Suisse pour une commande FR).
- * Fallback : 1ère option qui matche le carrier+type peu importe la zone.
+ * Configurable via env vars SENDCLOUD_OPTION_CODE_<CARRIER>_<TYPE> si
+ * Sendcloud renomme/désactive un code sur le contrat.
  */
-function pickShippingOption(options: any[], carrier: string, deliveryType: string): any | null {
-  if (!Array.isArray(options) || options.length === 0) return null;
+const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
+  colissimo: {
+    point_relais: "colissimo:international/service_point",
+    home:         "colissimo:home/fr",
+  },
+  mondial_relay: {
+    point_relais: "mondial_relay:service_point,dualapi/size=l,c2c",
+    home:         "mondial_relay:home_domestic,dualapi/c2c",
+    // locker : non confirmé sur ce compte — à ajouter quand activé
+  },
+};
 
+function pickShippingOption(
+  options: any[],
+  carrier: string,
+  deliveryType: string,
+): { selected: any | null; expectedCode: string | null } {
   const carrierKey = carrier.toLowerCase().includes("mondial") ? "mondial_relay" : "colissimo";
 
-  const blobOf = (o: any): string => {
-    const name = String(o?.name ?? "").toLowerCase();
-    const code = String(o?.code ?? o?.shipping_option_code ?? "").toLowerCase();
-    const carrierName = String(o?.carrier?.name ?? "").toLowerCase();
-    const carrierCode = String(o?.carrier?.code ?? "").toLowerCase();
-    return `${name} ${code} ${carrierName} ${carrierCode}`;
-  };
+  // Override env var prioritaire
+  const envKey = `SENDCLOUD_OPTION_CODE_${carrierKey.toUpperCase()}_${deliveryType.toUpperCase()}`;
+  const envCode = process.env[envKey];
 
-  const hasCarrier       = (b: string) => b.includes(carrierKey) || b.includes(carrierKey.replace("_", " ")) || b.includes(carrierKey.replace("_", ""));
-  const hasServicePoint  = (b: string) => /service[_ -]?point|point[_ -]?relais/.test(b);
-  const hasLocker        = (b: string) => /locker|consigne/.test(b);
-  const isInternational  = (b: string) => /international/.test(b);
-
-  // Filtre par carrier + type voulu → sous-ensemble candidat
-  let candidates: any[] = [];
-  if (deliveryType === "point_relais") {
-    candidates = options.filter(o => {
-      const b = blobOf(o);
-      return hasCarrier(b) && hasServicePoint(b) && !hasLocker(b);
-    });
-  } else if (deliveryType === "locker") {
-    candidates = options.filter(o => {
-      const b = blobOf(o);
-      return hasCarrier(b) && hasLocker(b);
-    });
-  } else {
-    // home
-    candidates = options.filter(o => {
-      const b = blobOf(o);
-      return hasCarrier(b) && !hasServicePoint(b) && !hasLocker(b);
-    });
-    // Si vide, on fallback large : toute option du carrier
-    if (candidates.length === 0) {
-      candidates = options.filter(o => hasCarrier(blobOf(o)));
-    }
+  const expectedCode = envCode || SENDCLOUD_OPTION_CODES[carrierKey]?.[deliveryType] || null;
+  if (!expectedCode) {
+    return { selected: null, expectedCode: null };
   }
 
-  if (candidates.length === 0) return null;
+  // Cherche dans la liste retournée par Sendcloud. Si le code exact y est,
+  // on retourne l'objet correspondant (pour récupérer son `.name`).
+  // Sinon, on retourne un stub minimal — le code sera quand même envoyé
+  // à announce (Sendcloud validera de son côté).
+  const found = Array.isArray(options)
+    ? options.find(o => (o?.code ?? o?.shipping_option_code) === expectedCode)
+    : null;
 
-  // Priorité DOMESTIC : préférer ceux qui ne sont PAS marqués "international"
-  const domestic = candidates.filter(o => !isInternational(blobOf(o)));
-  return domestic[0] ?? candidates[0];
+  return {
+    selected: found ?? { code: expectedCode, name: expectedCode, _from: "hardcoded_mapping" },
+    expectedCode,
+  };
 }
 
 /**
@@ -321,24 +314,34 @@ export async function POST(req: NextRequest) {
     console.error("[sendcloud:v3:all-options]", allOptionsDump);
 
     // ── 4. Choisir le bon shipping_option_code ──────────────────────────────
-    const selected = pickShippingOption(allOptions, effectiveCarrier, deliveryType);
-    if (!selected) {
+    // Mapping hardcodé (cf. SENDCLOUD_OPTION_CODES). On NE fait PAS de regex
+    // matching parce que les noms des codes varient (ex: "colissimo:post-office"
+    // n'accepte PAS to_service_point alors qu'il contient pas "international").
+    // Seul le code exact validé sur le compte est fiable.
+    const { selected, expectedCode } = pickShippingOption(allOptions, effectiveCarrier, deliveryType);
+    if (!selected || !expectedCode) {
       return Response.json({
-        error: `Aucune option Sendcloud trouvée pour ${effectiveCarrier}/${deliveryType}. Vérifie que ton contrat Sendcloud inclut cette combinaison.`,
+        error: `Aucun shipping_option_code configuré pour ${effectiveCarrier}/${deliveryType}. Ajoute SENDCLOUD_OPTION_CODE_${effectiveCarrier.toUpperCase()}_${deliveryType.toUpperCase()} dans les env vars Vercel, ou complète SENDCLOUD_OPTION_CODES dans le code.`,
         available_codes: allCodes,
       }, { status: 400 });
     }
-    const shippingOptionCode = selected.code ?? selected.shipping_option_code;
+    const shippingOptionCode = expectedCode;
+    const codeFoundInOptions = allCodes.includes(expectedCode);
     const pickedLog = JSON.stringify({
       effectiveCarrier,
       deliveryType,
-      picked_code:     shippingOptionCode,
-      picked_name:     selected.name,
-      is_international: /international/i.test(`${shippingOptionCode ?? ""} ${selected.name ?? ""}`),
-      all_available_codes: allCodes,
+      picked_code:           shippingOptionCode,
+      picked_name:           selected.name,
+      source:                selected._from === "hardcoded_mapping" ? "hardcoded (not in available_codes)" : "hardcoded (matched in available_codes)",
+      code_found_in_options: codeFoundInOptions,
+      all_available_codes:   allCodes,
     });
     console.log("[sendcloud:v3:picked]",  pickedLog);
     console.error("[sendcloud:v3:picked]", pickedLog);
+
+    if (!codeFoundInOptions) {
+      console.warn(`[sendcloud] ⚠ code "${expectedCode}" PAS dans les options retournées — Sendcloud risque de rejeter. Codes dispos: ${allCodes.join(" | ")}`);
+    }
 
     // ── 5. POST /api/v3/shipments/announce ──────────────────────────────────
     // Structure v3 conforme à la spec OpenAPI officielle Sendcloud :

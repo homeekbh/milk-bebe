@@ -269,9 +269,16 @@ export async function POST(req: NextRequest) {
     console.error(`[sendcloud:v3:options] SELECTED code=${shippingOptionCode} name=${selected.name}`);
 
     // ── 5. POST /api/v3/shipments/announce ──────────────────────────────────
+    // Structure v3 attendue par Sendcloud :
+    //   shipping_option_code va dans ship_with: { code, properties: {} }
+    //   from_address, to_address, parcels, ship_with sont REQUIS au top-level
+    //   du shipment object (pas dans un nested "properties" ni autre wrapper).
     const shipmentObj: Record<string, any> = {
-      shipping_option_code: shippingOptionCode,
-      from_address:         { id: senderAddressId },
+      ship_with: {
+        code:       shippingOptionCode,
+        properties: {},
+      },
+      from_address: { id: senderAddressId },
       to_address: {
         name:           customerName,
         address_line_1: addr.line1 || "",
@@ -291,8 +298,8 @@ export async function POST(req: NextRequest) {
 
     const announceBody = { shipments: [shipmentObj] };
     const announceBodyStr = JSON.stringify(announceBody);
-    console.log("[sendcloud:v3:body]",  announceBodyStr);
-    console.error("[sendcloud:v3:body]", announceBodyStr);
+    console.log("[sendcloud:v3:announce:body]",  announceBodyStr);
+    console.error("[sendcloud:v3:announce:body]", announceBodyStr);
 
     const announceRes = await fetch(`${SENDCLOUD_V3_API}/shipments/announce`, {
       method:  "POST",

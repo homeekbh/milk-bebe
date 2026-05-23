@@ -54,6 +54,22 @@ function normalizeServicePoint(sp: any, countryFallback: string) {
     street = `${street}${street ? ", " : ""}${sp.address_line_2}`.trim();
   }
 
+  // Normalisation opening_hours — Sendcloud peut renvoyer :
+  //   - une string déjà formatée : "Lun-Ven 9h-19h"
+  //   - un objet keyed par jour : { "1": "09:00-19:00", "2": "...", "B": null }
+  //   - un tableau d'objets : [{ day: "monday", from: "09:00", to: "19:00" }]
+  // On convertit TOUJOURS en string ou null pour éviter React error #31
+  // ("Objects are not valid as a React child") au moment du rendu.
+  const rawHours =
+    sp.opening_hours
+    ?? sp.formatted_opening_times
+    ?? sp.formatted_opening_hours
+    ?? sp.hours
+    ?? sp.opening_hours_text
+    ?? null;
+
+  const opening_hours = formatOpeningHours(rawHours);
+
   return {
     id:            String(sp.id ?? sp.code ?? sp.location_id ?? ""),
     name:          String(sp.name ?? sp.shop_name ?? sp.display_name ?? sp.parcel_shop_name ?? ""),
@@ -64,15 +80,62 @@ function normalizeServicePoint(sp: any, countryFallback: string) {
     distance:      typeof sp.distance === "number" ? sp.distance :
                    typeof sp.distance_km === "number" ? sp.distance_km :
                    sp.distance ? Number(sp.distance) : null,
-    opening_hours: sp.opening_hours
-                     ?? sp.formatted_opening_times
-                     ?? sp.formatted_opening_hours
-                     ?? sp.hours
-                     ?? sp.opening_hours_text
-                     ?? null,
+    opening_hours, // toujours string | null
     lat:           sp.latitude  ?? sp.lat ?? null,
     lng:           sp.longitude ?? sp.lng ?? null,
   };
+}
+
+// Convertit n'importe quelle représentation d'horaires en string lisible.
+// CRITIQUE : ne JAMAIS retourner un objet (sinon React explose au rendu).
+function formatOpeningHours(raw: unknown): string | null {
+  if (raw == null) return null;
+  if (typeof raw === "string") {
+    const trimmed = raw.trim();
+    return trimmed.length > 0 ? trimmed : null;
+  }
+  if (typeof raw === "number") return String(raw);
+
+  // Tableau d'objets : [{ day, from, to }, ...]
+  if (Array.isArray(raw)) {
+    const parts = raw
+      .map(slot => {
+        if (typeof slot === "string") return slot.trim();
+        if (slot && typeof slot === "object") {
+          const day  = (slot as any).day  ?? (slot as any).weekday ?? "";
+          const from = (slot as any).from ?? (slot as any).open    ?? "";
+          const to   = (slot as any).to   ?? (slot as any).close   ?? "";
+          if (day || from || to) return `${day} ${from}${from && to ? "-" : ""}${to}`.trim();
+        }
+        return "";
+      })
+      .filter(Boolean);
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+
+  // Objet keyed par jour : { "1": "09:00-19:00", "2": "..." }
+  if (typeof raw === "object") {
+    const dayLabels: Record<string, string> = {
+      "0": "Dim", "1": "Lun", "2": "Mar", "3": "Mer", "4": "Jeu", "5": "Ven", "6": "Sam", "7": "Dim",
+      monday: "Lun", tuesday: "Mar", wednesday: "Mer", thursday: "Jeu",
+      friday: "Ven", saturday: "Sam", sunday: "Dim",
+    };
+    const parts: string[] = [];
+    for (const [key, val] of Object.entries(raw as Record<string, unknown>)) {
+      if (val == null || val === "") continue;
+      const day = dayLabels[key.toLowerCase()] ?? key;
+      const valStr =
+        typeof val === "string"       ? val :
+        typeof val === "number"       ? String(val) :
+        Array.isArray(val)            ? val.filter(Boolean).map(v => typeof v === "string" ? v : JSON.stringify(v)).join(", ") :
+        typeof val === "object" && val ? Object.values(val).filter(Boolean).map(v => typeof v === "string" ? v : "").filter(Boolean).join(", ") :
+                                         "";
+      if (valStr) parts.push(`${day}: ${valStr}`);
+    }
+    return parts.length > 0 ? parts.join(" · ") : null;
+  }
+
+  return null;
 }
 
 /**

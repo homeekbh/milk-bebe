@@ -122,7 +122,21 @@ export default function CartPage() {
         setCarrier(c);
         setDeliveryType(t);
       }
-      if (d.selectedRelay) setSelectedRelay(d.selectedRelay);
+      if (d.selectedRelay) {
+        // Sanitization défensive : un selectedRelay legacy depuis Sendcloud
+        // peut contenir un opening_hours OBJET (clés "1", "2", "B"...) qui
+        // provoque React error #31 au rendu. On force string|null partout.
+        const sr = d.selectedRelay;
+        setSelectedRelay({
+          id:            String(sr.id ?? ""),
+          name:          String(sr.name ?? ""),
+          street:        String(sr.street ?? ""),
+          city:          String(sr.city ?? ""),
+          postal_code:   String(sr.postal_code ?? ""),
+          distance:      typeof sr.distance === "number" ? sr.distance : null,
+          opening_hours: typeof sr.opening_hours === "string" ? sr.opening_hours : null,
+        });
+      }
       if (d.homeAddress)   setHomeAddress(d.homeAddress);
       if (d.postalSearch)  setPostalSearch(d.postalSearch);
     } catch {}
@@ -668,7 +682,7 @@ export default function CartPage() {
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 900, color: "#166534", marginBottom: 4, wordBreak: "break-word" }}>{selectedRelay.name}</div>
                           <div style={{ fontSize: 12, color: "#1a1410", wordBreak: "break-word" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
-                          {selectedRelay.opening_hours && (
+                          {typeof selectedRelay.opening_hours === "string" && selectedRelay.opening_hours && (
                             <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", marginTop: 4, fontStyle: "italic" }}>🕐 {selectedRelay.opening_hours}</div>
                           )}
                         </div>
@@ -827,7 +841,7 @@ export default function CartPage() {
                     <div style={{ fontSize: 12, color: "rgba(26,20,16,0.65)", lineHeight: 1.5 }}>
                       {sp.street ?? ""}{sp.street ? ", " : ""}{sp.postal_code ?? ""} {sp.city ?? ""}
                     </div>
-                    {sp.opening_hours && (
+                    {typeof sp.opening_hours === "string" && sp.opening_hours && (
                       <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 2, fontStyle: "italic" }}>
                         🕐 {sp.opening_hours}
                       </div>

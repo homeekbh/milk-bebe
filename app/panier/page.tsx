@@ -91,6 +91,10 @@ export default function CartPage() {
   const [manualRelay,     setManualRelay]     = useState({ name: "", address: "", city: "", postal_code: "" });
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
+  // Téléphone obligatoire (exigé par Sendcloud pour tous les transporteurs).
+  // Format français : 10 chiffres minimum (06/07/+33...).
+  const [customerPhone,   setCustomerPhone]   = useState("");
+  const [phoneError,      setPhoneError]      = useState("");
   // Modale isolée pour la sélection du point relais / locker.
   // Évite que le widget de recherche perturbe le layout principal
   // (et corrige le crash "Application error" observé en inline).
@@ -137,8 +141,9 @@ export default function CartPage() {
           opening_hours: typeof sr.opening_hours === "string" ? sr.opening_hours : null,
         });
       }
-      if (d.homeAddress)   setHomeAddress(d.homeAddress);
-      if (d.postalSearch)  setPostalSearch(d.postalSearch);
+      if (d.homeAddress)    setHomeAddress(d.homeAddress);
+      if (d.postalSearch)   setPostalSearch(d.postalSearch);
+      if (d.customerPhone)  setCustomerPhone(String(d.customerPhone));
     } catch {}
   }, []);
 
@@ -146,10 +151,17 @@ export default function CartPage() {
   useEffect(() => {
     try {
       localStorage.setItem("milk_delivery_choice", JSON.stringify({
-        carrier, deliveryType, selectedRelay, homeAddress, postalSearch,
+        carrier, deliveryType, selectedRelay, homeAddress, postalSearch, customerPhone,
       }));
     } catch {}
-  }, [carrier, deliveryType, selectedRelay, homeAddress, postalSearch]);
+  }, [carrier, deliveryType, selectedRelay, homeAddress, postalSearch, customerPhone]);
+
+  // Validation téléphone : 10 chiffres min, accepte 06/07/01-05/+33...
+  function isValidPhone(p: string): boolean {
+    const digits = String(p ?? "").replace(/[^\d+]/g, "");
+    // +33 suivi de 9 chiffres OU 10 chiffres exactement
+    return /^\+33[1-9]\d{8}$/.test(digits) || /^0[1-9]\d{8}$/.test(digits);
+  }
 
   async function searchServicePoints() {
     const cp = postalSearch.trim();
@@ -287,8 +299,10 @@ export default function CartPage() {
 
   // Livraison complétée ?
   const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
+  const phoneOk         = isValidPhone(customerPhone);
   const deliveryReady   =
     !carrier || !deliveryType                                    ? false        :
+    !phoneOk                                                      ? false        :  // téléphone obligatoire dans tous les cas
     deliveryType === "home"                                      ? homeComplete :
     (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
     false;
@@ -339,6 +353,12 @@ export default function CartPage() {
       }
     }
 
+    // Vérifier téléphone
+    if (!isValidPhone(customerPhone)) {
+      setPhoneError("Numéro de téléphone obligatoire (10 chiffres).");
+      setCheckoutError("Veuillez saisir un numéro de téléphone valide.");
+      return;
+    }
     // Vérifier que la livraison est complète
     if (!deliveryReady) {
       setCheckoutError("Veuillez compléter votre choix de livraison.");
@@ -362,6 +382,7 @@ export default function CartPage() {
           discount:       promoData?.discount ?? 0,
           free_shipping:  promoData?.free_shipping ?? false,
           customer_email: user?.email ?? guestEmail.trim(),
+          customer_phone: customerPhone.trim(),
           carrier,
           delivery_type:  deliveryType,
           delivery_price: shipping,
@@ -708,7 +729,7 @@ export default function CartPage() {
 
                   {/* Adresse domicile */}
                   {deliveryType === "home" && (
-                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 8 }}>
+                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 8, marginBottom: 10 }}>
                       <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>🏠 Adresse de livraison</div>
                       <input type="text" autoComplete="name" placeholder="Prénom Nom"
                         value={homeAddress.name} onChange={e => setHomeAddress(a => ({ ...a, name: e.target.value }))}
@@ -723,6 +744,37 @@ export default function CartPage() {
                         <input type="text" autoComplete="address-level2" placeholder="Ville"
                           value={homeAddress.city} onChange={e => setHomeAddress(a => ({ ...a, city: e.target.value }))}
                           style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Téléphone — obligatoire pour TOUS les modes de livraison.
+                      Sendcloud exige phone_number sur to_address pour générer
+                      l'étiquette ; sans téléphone l'étiquette est refusée. */}
+                  {carrier && deliveryType && (
+                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 6, marginBottom: 10 }}>
+                      <label style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
+                        📞 Numéro de téléphone <span style={{ color: "#b91c1c" }}>*</span>
+                      </label>
+                      <input
+                        type="tel"
+                        inputMode="tel"
+                        autoComplete="tel"
+                        placeholder="Ex : 06 12 34 56 78"
+                        value={customerPhone}
+                        onChange={e => { setCustomerPhone(e.target.value); setPhoneError(""); }}
+                        onBlur={() => {
+                          if (customerPhone && !isValidPhone(customerPhone)) {
+                            setPhoneError("Format invalide (10 chiffres, ex : 06 12 34 56 78 ou +33 6 12 34 56 78)");
+                          }
+                        }}
+                        style={{ padding: "10px 12px", borderRadius: 8, border: phoneError ? "1.5px solid #b91c1c" : "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }}
+                      />
+                      {phoneError && (
+                        <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>⚠ {phoneError}</div>
+                      )}
+                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", lineHeight: 1.5 }}>
+                        Utilisé par le transporteur pour vous prévenir en cas de problème de livraison.
                       </div>
                     </div>
                   )}

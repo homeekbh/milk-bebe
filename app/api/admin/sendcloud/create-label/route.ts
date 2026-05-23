@@ -168,12 +168,18 @@ export async function POST(req: NextRequest) {
     // Poids par défaut 0.250 kg (vêtement bébé bambou typique)
     const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
 
-    // Téléphone : OBLIGATOIRE pour Sendcloud (sinon "Telephone is required
-    // for this shipment"). Cascade de sources, fallback générique +33600000000
-    // qui satisfait Sendcloud sans être affiché au destinataire pour les
-    // livraisons en Point Relais (le client n'a pas saisi son tél au checkout).
+    // Téléphone : OBLIGATOIRE pour Sendcloud. Priorité au champ saisi au
+    // checkout panier (orders.customer_phone, migration 005). Fallbacks pour
+    // les commandes legacy avant cette colonne. Le numéro générique
+    // +33600000000 reste en dernier recours.
     const phoneNumber =
-      String(addr.phone ?? order.customer_phone ?? order.phone ?? "+33600000000").trim() || "+33600000000";
+      String(order.customer_phone ?? addr.phone ?? order.phone ?? "+33600000000").trim() || "+33600000000";
+    console.error(`[sendcloud] phone resolved=${phoneNumber} (source=${
+      order.customer_phone ? "order.customer_phone" :
+      addr.phone           ? "shipping_address.phone" :
+      order.phone          ? "order.phone" :
+                             "FALLBACK +33600000000"
+    })`);
 
     // Adresse destinataire — construction différente selon mode
     //   - Home : adresse complète du client (validée ci-dessus)
@@ -398,6 +404,15 @@ export async function POST(req: NextRequest) {
     };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 
+    // Logs détaillés pour diagnostiquer "service point required" :
+    console.error(`[sendcloud:diag] relayId brut from DB=${JSON.stringify(relayId)} typeof=${typeof relayId}`);
+    console.error(`[sendcloud:diag] isRelayMode=${isRelayMode}`);
+    console.error(`[sendcloud:diag] deliveryType=${deliveryType}`);
+    console.error(`[sendcloud:diag] order.relay_id=${JSON.stringify(order.relay_id)}`);
+    console.error(`[sendcloud:diag] order.relay_name=${JSON.stringify(order.relay_name)}`);
+    console.error(`[sendcloud:diag] order.delivery_type=${JSON.stringify(order.delivery_type)}`);
+    console.error(`[sendcloud:diag] order.carrier=${JSON.stringify(order.carrier)}`);
+
     // Si point_relais OU locker → on attache le service point sélectionné.
     // CRITIQUE : Sendcloud v3 attend to_service_point en INTEGER (pas string).
     // Si on envoie "14908542" (string), Sendcloud répond "A service point is
@@ -411,7 +426,11 @@ export async function POST(req: NextRequest) {
       console.error(`[sendcloud] to_service_point set to: ${numericRelayId} (typeof=${typeof numericRelayId})`);
     } else if (isRelayMode && !relayId) {
       console.error(`[sendcloud] ⚠ isRelayMode=true mais relayId MANQUANT — Sendcloud va rejeter`);
+    } else {
+      console.error(`[sendcloud] to_service_point PAS attaché — relayId=${relayId ?? "null"} deliveryType=${deliveryType}`);
     }
+
+    console.error(`[sendcloud:diag] ship_with.properties COMPLET=${JSON.stringify(shipWithProps)}`);
 
     const announceBody = {
       from_address: fromAddress,

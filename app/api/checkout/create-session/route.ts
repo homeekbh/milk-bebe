@@ -75,7 +75,7 @@ async function getFreeShippingThreshold(): Promise<number> {
 
 export async function POST(req: Request) {
   try {
-    const { items, promo_code, discount, free_shipping, customer_email, delivery_type, carrier, relay, home_address } = await req.json();
+    const { items, promo_code, discount, free_shipping, customer_email, customer_phone, delivery_type, carrier, relay, home_address } = await req.json();
 
     if (!items || items.length === 0) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
@@ -221,6 +221,7 @@ export async function POST(req: Request) {
         carrier,
         delivery_type,
         delivery_price:    String(deliveryCost),
+        customer_phone:    String(customer_phone ?? "").slice(0, 30),
         relay_id:          relay?.id          ?? "",
         relay_name:        relay?.name        ?? "",
         relay_street:      relay?.street      ?? "",

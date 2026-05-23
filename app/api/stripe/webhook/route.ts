@@ -157,6 +157,19 @@ export async function POST(req: Request) {
             console.warn("[stripe-webhook] carrier non persisté (colonne manquante?):", cErr.message);
           }
         }
+
+        // Persister customer_phone si présent dans metadata (best-effort
+        // 2-step — la colonne peut ne pas exister avant migration 005).
+        const phoneFromMeta = session.metadata?.customer_phone;
+        if (orderData?.id && phoneFromMeta && phoneFromMeta.trim().length > 0) {
+          const { error: pErr } = await supabaseServer
+            .from("orders")
+            .update({ customer_phone: phoneFromMeta.trim() })
+            .eq("id", orderData.id);
+          if (pErr) {
+            console.warn("[stripe-webhook] customer_phone non persisté (colonne manquante?):", pErr.message);
+          }
+        }
       }
 
       // ✅ Batch load produits — 1 requête au lieu de N (sert à mapper item.slug → id

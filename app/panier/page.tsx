@@ -91,6 +91,10 @@ export default function CartPage() {
   const [manualRelay,     setManualRelay]     = useState({ name: "", address: "", city: "", postal_code: "" });
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
+  // Modale isolée pour la sélection du point relais / locker.
+  // Évite que le widget de recherche perturbe le layout principal
+  // (et corrige le crash "Application error" observé en inline).
+  const [relayModalOpen,  setRelayModalOpen]  = useState(false);
 
   // Seuil livraison offerte — lu depuis /api/settings/public au mount (cache
   // CDN 60s). Default DEFAULT_FREE_SHIPPING_THRESHOLD si l'API échoue.
@@ -176,6 +180,7 @@ export default function CartPage() {
   function selectServicePoint(sp: ServicePoint) {
     setSelectedRelay(sp);
     setSearchError("");
+    setRelayModalOpen(false);
   }
 
   function applyManualRelay() {
@@ -194,11 +199,24 @@ export default function CartPage() {
       opening_hours: null,
     });
     setSearchError("");
+    setRelayModalOpen(false);
+  }
+
+  function openRelayModal() {
+    setSearchError("");
+    setSearchEmpty(false);
+    setFallbackManual(false);
+    setRelayModalOpen(true);
+  }
+
+  function closeRelayModal() {
+    setRelayModalOpen(false);
   }
 
   // Sélectionne une option (carrier + type) parmi la matrice DELIVERY_PRICES.
   // Reset systématique du relais sélectionné quand on change (un PR Mondial
   // Relay n'est pas valide pour Colissimo, et inversement).
+  // Pour point_relais et locker → ouvre directement la modale de sélection.
   function switchDelivery(c: Carrier, t: DeliveryType) {
     setCarrier(c);
     setDeliveryType(t);
@@ -208,6 +226,11 @@ export default function CartPage() {
     setSearchEmpty(false);
     setFallbackManual(false);
     setSearchError("");
+    if (t === "point_relais" || t === "locker") {
+      setRelayModalOpen(true);
+    } else {
+      setRelayModalOpen(false);
+    }
   }
 
   const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
@@ -519,9 +542,19 @@ export default function CartPage() {
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
                     <span>Livraison</span>
-                    <span style={{ fontWeight: 700, color: shipping === 0 ? "#16a34a" : undefined }}>
-                      {shipping === 0 ? "Offerte" : `${shipping.toFixed(2)} €`}
-                    </span>
+                    {!carrier || !deliveryType ? (
+                      <span style={{ fontWeight: 700, color: "rgba(26,20,16,0.4)", fontStyle: "italic" }}>
+                        À calculer
+                      </span>
+                    ) : shippingFree ? (
+                      <span style={{ fontWeight: 700, color: "#16a34a" }}>
+                        Offerte
+                      </span>
+                    ) : (
+                      <span style={{ fontWeight: 700 }}>
+                        {shipping.toFixed(2)} €
+                      </span>
+                    )}
                   </div>
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
@@ -623,131 +656,15 @@ export default function CartPage() {
                     </div>
                   </div>
 
-                  {/* Sélecteur Point Relais / Locker — UI custom carrier-aware.
-                      Affiché pour Mondial Relay (PR + Locker) ET Colissimo (PR). */}
-                  {(deliveryType === "point_relais" || deliveryType === "locker") && carrier && !selectedRelay && (
-                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, marginBottom: 10 }}>
-                      {/* Recherche par code postal */}
-                      <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
-                        <input
-                          type="text"
-                          inputMode="numeric"
-                          maxLength={5}
-                          placeholder="Code postal"
-                          value={postalSearch}
-                          onChange={e => setPostalSearch(e.target.value.replace(/\D/g, ""))}
-                          onKeyDown={e => e.key === "Enter" && searchServicePoints()}
-                          style={{ flex: 1, padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#fff" }}
-                        />
-                        <button
-                          onClick={searchServicePoints}
-                          disabled={searching}
-                          style={{ padding: "10px 18px", borderRadius: 8, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: searching ? "wait" : "pointer", opacity: searching ? 0.6 : 1 }}>
-                          {searching ? "..." : "🔍 Rechercher"}
-                        </button>
-                      </div>
-
-                      {searchError && (
-                        <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
-                          ⚠ {searchError}
-                        </div>
-                      )}
-
-                      {searching && (
-                        <div style={{ padding: "20px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
-                          ⏳ Recherche {deliveryType === "locker" ? "des lockers" : "des Points Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} à proximité...
-                        </div>
-                      )}
-
-                      {/* Liste des résultats */}
-                      {!searching && searchResults.length > 0 && (
-                        <div style={{ display: "grid", gap: 8, maxHeight: 380, overflowY: "auto", paddingRight: 4 }}>
-                          {searchResults.map(sp => (
-                            <button
-                              key={sp.id}
-                              onClick={() => selectServicePoint(sp)}
-                              style={{ textAlign: "left", background: "#fff", border: "1px solid rgba(26,20,16,0.1)", borderRadius: 10, padding: "12px 14px", cursor: "pointer", fontFamily: "inherit", display: "grid", gap: 4 }}>
-                              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                                <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", lineHeight: 1.3 }}>{sp.name}</div>
-                                {sp.distance != null && (
-                                  <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", whiteSpace: "nowrap", flexShrink: 0 }}>
-                                    {sp.distance.toFixed(1)} km
-                                  </div>
-                                )}
-                              </div>
-                              <div style={{ fontSize: 12, color: "rgba(26,20,16,0.65)", lineHeight: 1.5 }}>
-                                {sp.street}{sp.street ? ", " : ""}{sp.postal_code} {sp.city}
-                              </div>
-                              {sp.opening_hours && (
-                                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 2, fontStyle: "italic" }}>
-                                  🕐 {sp.opening_hours}
-                                </div>
-                              )}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-
-                      {/* Aucun résultat */}
-                      {!searching && searchEmpty && searchResults.length === 0 && (
-                        <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center" }}>
-                          Aucun {deliveryType === "locker" ? "locker" : "Point Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
-                        </div>
-                      )}
-
-                      {/* Lien saisie manuelle (toujours dispo) */}
-                      <div style={{ marginTop: 12, padding: "8px 12px", fontSize: 11, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
-                        Vous préférez ?
-                        {" "}
-                        <button onClick={() => setFallbackManual(true)} style={{ background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 11, textDecoration: "underline", cursor: "pointer" }}>
-                          Saisir manuellement
-                        </button>
-                      </div>
-
-                      {/* Mode saisie manuelle */}
-                      {fallbackManual && (
-                        <div style={{ marginTop: 12, padding: 12, borderRadius: 10, background: "#fff", border: "1px solid rgba(26,20,16,0.1)" }}>
-                          <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 8, color: "#1a1410" }}>
-                            ✍️ Saisie manuelle — entrez l'adresse de votre point relais préféré :
-                          </div>
-                          <div style={{ display: "grid", gap: 6 }}>
-                            <input type="text" placeholder="Nom du point relais (ex: Tabac de la Gare)"
-                              value={manualRelay.name}
-                              onChange={e => setManualRelay(r => ({ ...r, name: e.target.value }))}
-                              style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
-                            <input type="text" placeholder="Adresse complète"
-                              value={manualRelay.address}
-                              onChange={e => setManualRelay(r => ({ ...r, address: e.target.value }))}
-                              style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
-                            <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 6 }}>
-                              <input type="text" inputMode="numeric" maxLength={5} placeholder="CP"
-                                value={manualRelay.postal_code}
-                                onChange={e => setManualRelay(r => ({ ...r, postal_code: e.target.value.replace(/\D/g, "") }))}
-                                style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, fontFamily: "monospace", outline: "none" }} />
-                              <input type="text" placeholder="Ville"
-                                value={manualRelay.city}
-                                onChange={e => setManualRelay(r => ({ ...r, city: e.target.value }))}
-                                style={{ padding: "8px 10px", borderRadius: 6, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none" }} />
-                            </div>
-                            <button
-                              onClick={() => applyManualRelay()}
-                              style={{ padding: "9px", borderRadius: 6, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
-                              Valider mon point relais
-                            </button>
-                            {searchError && <div style={{ fontSize: 11, color: "#b91c1c", fontWeight: 700, marginTop: 4 }}>⚠ {searchError}</div>}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Récap relais sélectionné (Point Relais OU Locker) */}
+                  {/* Récap relais sélectionné — affiché quand carrier+type sont
+                      en PR/Locker. Le widget de recherche lui-même est isolé
+                      dans une modale (cf. plus bas dans le JSX). */}
                   {(deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay && (
                     <div style={{ background: "#dcfce7", borderRadius: 12, padding: 14, marginBottom: 10, border: "1px solid #86efac" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                         <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                           <div style={{ fontSize: 11, fontWeight: 800, color: "#166534", marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                            ✓ {deliveryType === "locker" ? "Locker" : "Point Relais"} sélectionné
+                            📍 {deliveryType === "locker" ? "Locker" : "Point Relais"} sélectionné
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 900, color: "#166534", marginBottom: 4, wordBreak: "break-word" }}>{selectedRelay.name}</div>
                           <div style={{ fontSize: 12, color: "#1a1410", wordBreak: "break-word" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
@@ -756,12 +673,23 @@ export default function CartPage() {
                           )}
                         </div>
                         <button
-                          onClick={() => setSelectedRelay(null)}
+                          onClick={openRelayModal}
                           style={{ background: "transparent", border: "1px solid #166534", fontSize: 12, fontWeight: 800, color: "#166534", padding: "10px 14px", minHeight: 44, borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
                           Changer
                         </button>
                       </div>
                     </div>
+                  )}
+
+                  {/* PR/Locker sélectionné dans le type mais aucun relais choisi
+                      encore → bouton pour rouvrir la modale (cas où l'utilisateur
+                      a fermé la modale sans choisir). */}
+                  {(deliveryType === "point_relais" || deliveryType === "locker") && !selectedRelay && (
+                    <button
+                      onClick={openRelayModal}
+                      style={{ width: "100%", padding: "14px 16px", borderRadius: 12, background: "#fef3c7", color: "#92400e", fontWeight: 800, fontSize: 13, border: "2px dashed #fde68a", cursor: "pointer", marginBottom: 10 }}>
+                      📍 Choisir votre {deliveryType === "locker" ? "locker" : "point relais"} →
+                    </button>
                   )}
 
                   {/* Adresse domicile */}
@@ -816,6 +744,160 @@ export default function CartPage() {
           </div>
         )}
       </div>
+
+      {/* ══ MODALE — SÉLECTION POINT RELAIS / LOCKER ══════════════════════ */}
+      {relayModalOpen && carrier && (deliveryType === "point_relais" || deliveryType === "locker") && (
+        <div
+          onClick={closeRelayModal}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, maxWidth: 560, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 24, boxShadow: "0 24px 60px rgba(0,0,0,0.4)" }}
+          >
+            {/* Header modale */}
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, gap: 12 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 20, fontWeight: 950, color: "#1a1410", letterSpacing: -0.5 }}>
+                  Choisir votre {deliveryType === "locker" ? "locker" : "point relais"}
+                </h2>
+                <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>
+                  {carrier === "mondial_relay" ? "📦 Mondial Relay" : "🚀 Colissimo / La Poste"}
+                </div>
+              </div>
+              <button
+                onClick={closeRelayModal}
+                aria-label="Fermer"
+                style={{ background: "none", border: "none", fontSize: 26, lineHeight: 1, cursor: "pointer", color: "rgba(26,20,16,0.4)", padding: 0, width: 32, height: 32 }}>
+                ×
+              </button>
+            </div>
+
+            {/* Recherche par code postal */}
+            <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
+              <input
+                type="text"
+                inputMode="numeric"
+                maxLength={5}
+                placeholder="Code postal"
+                value={postalSearch}
+                onChange={e => setPostalSearch(e.target.value.replace(/\D/g, ""))}
+                onKeyDown={e => e.key === "Enter" && searchServicePoints()}
+                style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1.5px solid rgba(26,20,16,0.15)", fontSize: 15, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#faf8f4" }}
+              />
+              <button
+                onClick={searchServicePoints}
+                disabled={searching}
+                style={{ padding: "11px 22px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 14, cursor: searching ? "wait" : "pointer", opacity: searching ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                {searching ? "..." : "🔍 Rechercher"}
+              </button>
+            </div>
+
+            {searchError && (
+              <div style={{ padding: "10px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700, marginBottom: 10 }}>
+                ⚠ {searchError}
+              </div>
+            )}
+
+            {searching && (
+              <div style={{ padding: "24px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
+                ⏳ Recherche {deliveryType === "locker" ? "des lockers" : "des Points Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} à proximité...
+              </div>
+            )}
+
+            {/* Liste des résultats */}
+            {!searching && searchResults.length > 0 && (
+              <div style={{ display: "grid", gap: 8, maxHeight: 380, overflowY: "auto", marginBottom: 10 }}>
+                {searchResults.map(sp => (
+                  <button
+                    key={sp.id ?? `${sp.postal_code}-${sp.name}`}
+                    onClick={() => selectServicePoint(sp)}
+                    style={{ textAlign: "left", background: "#faf8f4", border: "1.5px solid rgba(26,20,16,0.08)", borderRadius: 10, padding: "12px 14px", cursor: "pointer", fontFamily: "inherit", display: "grid", gap: 4, transition: "all 0.15s" }}
+                    onMouseOver={e => { e.currentTarget.style.background = "#fff"; e.currentTarget.style.borderColor = "#1a1410"; }}
+                    onMouseOut={e => { e.currentTarget.style.background = "#faf8f4"; e.currentTarget.style.borderColor = "rgba(26,20,16,0.08)"; }}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#1a1410", lineHeight: 1.3 }}>{sp.name ?? "(sans nom)"}</div>
+                      {sp.distance != null && (
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", whiteSpace: "nowrap", flexShrink: 0 }}>
+                          {Number(sp.distance).toFixed(1)} km
+                        </div>
+                      )}
+                    </div>
+                    <div style={{ fontSize: 12, color: "rgba(26,20,16,0.65)", lineHeight: 1.5 }}>
+                      {sp.street ?? ""}{sp.street ? ", " : ""}{sp.postal_code ?? ""} {sp.city ?? ""}
+                    </div>
+                    {sp.opening_hours && (
+                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 2, fontStyle: "italic" }}>
+                        🕐 {sp.opening_hours}
+                      </div>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Aucun résultat */}
+            {!searching && searchEmpty && searchResults.length === 0 && (
+              <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center", marginBottom: 10 }}>
+                Aucun {deliveryType === "locker" ? "locker" : "Point Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
+              </div>
+            )}
+
+            {/* Lien saisie manuelle */}
+            <div style={{ marginTop: 12, padding: "8px 12px", fontSize: 12, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
+              Pas de résultat satisfaisant ?
+              {" "}
+              <button onClick={() => setFallbackManual(v => !v)} style={{ background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 12, textDecoration: "underline", cursor: "pointer" }}>
+                {fallbackManual ? "Masquer" : "Saisir manuellement"}
+              </button>
+            </div>
+
+            {/* Mode saisie manuelle */}
+            {fallbackManual && (
+              <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.1)" }}>
+                <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10, color: "#1a1410" }}>
+                  ✍️ Entrez l'adresse de votre point relais préféré :
+                </div>
+                <div style={{ display: "grid", gap: 6 }}>
+                  <input type="text" placeholder="Nom du point relais (ex: Tabac de la Gare)"
+                    value={manualRelay.name}
+                    onChange={e => setManualRelay(r => ({ ...r, name: e.target.value }))}
+                    style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
+                  <input type="text" placeholder="Adresse complète"
+                    value={manualRelay.address}
+                    onChange={e => setManualRelay(r => ({ ...r, address: e.target.value }))}
+                    style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
+                  <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 6 }}>
+                    <input type="text" inputMode="numeric" maxLength={5} placeholder="CP"
+                      value={manualRelay.postal_code}
+                      onChange={e => setManualRelay(r => ({ ...r, postal_code: e.target.value.replace(/\D/g, "") }))}
+                      style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, fontFamily: "monospace", outline: "none", background: "#fff" }} />
+                    <input type="text" placeholder="Ville"
+                      value={manualRelay.city}
+                      onChange={e => setManualRelay(r => ({ ...r, city: e.target.value }))}
+                      style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
+                  </div>
+                  <button
+                    onClick={() => applyManualRelay()}
+                    style={{ padding: "10px", borderRadius: 7, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
+                    Valider ce point relais
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Bouton Annuler */}
+            <div style={{ marginTop: 16, display: "flex", justifyContent: "flex-end" }}>
+              <button
+                onClick={closeRelayModal}
+                style={{ padding: "10px 22px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.6)", fontWeight: 700, fontSize: 13, border: "1px solid rgba(26,20,16,0.15)", cursor: "pointer" }}>
+                Annuler
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -335,6 +335,18 @@ export async function POST(req: NextRequest) {
     console.log("[sendcloud:v3:all-options]",  allOptionsDump);
     console.error("[sendcloud:v3:all-options]", allOptionsDump);
 
+    // Dump COMPLET avec toutes les fonctionnalités (last_mile, carrier,
+    // contract, functionalities, etc.) pour identifier le bon code Colissimo
+    // Service Point (vs colissimo:post-office qui est Bureau de Poste).
+    const fullOptionsDump = JSON.stringify(allOptions);
+    console.log("[sendcloud:v3:full-options]",  fullOptionsDump.slice(0, 8000));
+    console.error("[sendcloud:v3:full-options]", fullOptionsDump.slice(0, 8000));
+    // Si la liste dépasse 8000 chars, log la longueur totale pour qu'on sache
+    // qu'on a tronqué
+    if (fullOptionsDump.length > 8000) {
+      console.log(`[sendcloud:v3:full-options] (truncated — total length=${fullOptionsDump.length} chars)`);
+    }
+
     // ── 4. Choisir le bon shipping_option_code ──────────────────────────────
     // Mapping hardcodé (cf. SENDCLOUD_OPTION_CODES). On NE fait PAS de regex
     // matching parce que les noms des codes varient (ex: "colissimo:post-office"
@@ -432,6 +444,10 @@ export async function POST(req: NextRequest) {
         sendcloud_body:   announceJson,
         sendcloud_raw:    announceText.slice(0, 3000),
         payload_sent:     announceBody,
+        // Diagnostic : toutes les options Sendcloud disponibles, avec leurs
+        // fonctionnalités (last_mile, carrier, etc.) pour identifier le bon
+        // code à hardcoder dans SENDCLOUD_OPTION_CODES.
+        all_options_full: allOptions,
       }, { status: 400 });
     }
 

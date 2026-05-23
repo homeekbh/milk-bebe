@@ -342,10 +342,11 @@ export async function POST(req: NextRequest) {
 
     // ── 5. POST /api/v3/shipments/announce ──────────────────────────────────
     // Structure v3 attendue par Sendcloud :
-    //   shipping_option_code va dans ship_with: { code, properties: {} }
-    //   from_address, to_address, parcels, ship_with sont REQUIS au top-level
-    //   du shipment object (pas dans un nested "properties" ni autre wrapper).
-    const shipmentObj: Record<string, any> = {
+    //   Pas de wrapper "shipments: [...]" — tous les champs sont à la RACINE.
+    //   ship_with: { code, properties: {} }, from_address, to_address,
+    //   parcels, order_number, request_label, et optionnellement
+    //   to_service_point: { id } pour PR/Locker.
+    const announceBody: Record<string, any> = {
       ship_with: {
         code:       shippingOptionCode,
         properties: {},
@@ -365,10 +366,9 @@ export async function POST(req: NextRequest) {
       request_label: true,
     };
     if (numericRelayId) {
-      shipmentObj.to_service_point = { id: numericRelayId };
+      announceBody.to_service_point = { id: numericRelayId };
     }
 
-    const announceBody = { shipments: [shipmentObj] };
     const announceBodyStr = JSON.stringify(announceBody);
     console.log("[sendcloud:v3:announce:body]",  announceBodyStr);
     console.error("[sendcloud:v3:announce:body]", announceBodyStr);
@@ -403,11 +403,16 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 6. Extraire tracking + label_url ────────────────────────────────────
-    // Format v3 : { shipments: [{ id, tracking_number, label: { normal_printer: [...] }, ... }] }
-    const shipments = Array.isArray(announceJson?.shipments) ? announceJson.shipments :
-                      Array.isArray(announceJson?.data)      ? announceJson.data      :
-                      [];
-    const shipment = shipments[0] ?? null;
+    // Format v3 sans wrapper "shipments" : la réponse est l'objet shipment
+    // directement, ou wrappé dans "data". On gère les deux + fallback
+    // historique "shipments[0]" pour rester rétro-compatible si Sendcloud
+    // varie selon les endpoints.
+    const shipment =
+      announceJson?.data
+      ?? (Array.isArray(announceJson?.shipments) ? announceJson.shipments[0] : null)
+      ?? (Array.isArray(announceJson?.data)      ? announceJson.data[0]      : null)
+      ?? announceJson
+      ?? null;
 
     if (!shipment) {
       return Response.json({

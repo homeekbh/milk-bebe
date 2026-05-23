@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 const SENDCLOUD_API = "https://panel.sendcloud.sc/api/v3";
@@ -14,11 +15,21 @@ function getBasicAuth() {
  * POST /api/admin/sendcloud/cancel
  * Body: { order_id: string }
  *
- * 1. Charge la commande
- * 2. POST /parcels/{parcel_id}/cancel côté Sendcloud
- * 3. Reset les champs orders (tracking, label_url, parcel_id, shipped_at)
- *    + shipping_status = "annulee"
- * 4. Aucun email automatique
+ * DISTINCTION IMPORTANTE — cette route n'annule que l'ÉTIQUETTE Sendcloud,
+ * PAS la commande. La commande Stripe reste active, AUCUN remboursement n'est
+ * effectué. À utiliser quand l'admin a généré une étiquette par erreur et
+ * veut la refaire (ou changer de transporteur, de point relais, etc.).
+ *
+ * Workflow :
+ *   1. Charge la commande
+ *   2. POST /parcels/{parcel_id}/cancel côté Sendcloud (best-effort)
+ *   3. Reset les champs Sendcloud (tracking, label_url, parcel_id, shipped_at)
+ *   4. shipping_status revient à "en_preparation" (retour arrière → permet
+ *      de regénérer une nouvelle étiquette dans la foulée)
+ *   5. Log "etiquette_sendcloud_annulee" — distinct de "commande_annulee"
+ *
+ * Pour annuler la commande ET rembourser le client, utiliser plutôt
+ * /api/admin/commandes/[id] avec action=cancel_refund.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -60,12 +71,13 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Reset Supabase — statut "annulee" (pour que le bouton "Informer le client" s'affiche)
-    // Le bouton "Générer l'étiquette" reste actif car il vérifie !order.label_url (réinitialisé)
+    // Reset Supabase — retour à "en_preparation" (NB: PAS "annulee" !)
+    // La commande reste active, on revient juste à l'étape "à expédier" pour
+    // permettre la régénération d'une nouvelle étiquette.
     const { error: updateErr } = await supabaseServer
       .from("orders")
       .update({
-        shipping_status:     "annulee",
+        shipping_status:     "en_preparation",
         tracking_number:     null,
         label_url:           null,
         sendcloud_parcel_id: null,
@@ -77,6 +89,12 @@ export async function POST(req: NextRequest) {
       console.error("[sendcloud:cancel] Supabase update error:", updateErr);
       return Response.json({ error: updateErr.message }, { status: 500 });
     }
+
+    await logActivity(
+      "etiquette_sendcloud_annulee",
+      `Étiquette Sendcloud annulée pour #${String(order_id).slice(0,8).toUpperCase()} — commande reste active`,
+      { entity_id: order_id, meta: { parcel_id: parcelId } }
+    );
 
     return Response.json({ ok: true, parcel_id: parcelId });
   } catch (e: any) {

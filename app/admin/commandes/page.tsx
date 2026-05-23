@@ -274,9 +274,9 @@ export default function AdminCommandes() {
   const [selected,   setSelected]   = useState<string | null>(null);
   const [search,         setSearch]         = useState("");
   const [statusFilter,   setStatusFilter]   = useState("");
-  // Filtre transporteur — mode livraison choisi par le client.
-  // "all" = tout, "home" = Colissimo Domicile, "point_relais" = Colissimo Point Relais
-  const [carrierFilter,  setCarrierFilter]  = useState<"all" | "home" | "point_relais">("all");
+  // Filtre transporteur — peut filtrer par carrier (mondial_relay/colissimo)
+  // OU par delivery_type (home/point_relais/locker). "all" = tout.
+  const [carrierFilter,  setCarrierFilter]  = useState<"all" | "mondial_relay" | "colissimo" | "home" | "point_relais" | "locker">("all");
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
 
@@ -540,9 +540,9 @@ export default function AdminCommandes() {
       return;
     }
     await load();
-    await logActivity("order_cancelled", "Expédition annulée — aucun email envoyé", { entity_id: cancelModal.orderId });
+    await logActivity("etiquette_sendcloud_annulee", "Étiquette Sendcloud annulée — commande reste active", { entity_id: cancelModal.orderId });
     setCancelModal(null);
-    alert("Expédition annulée — aucun email envoyé au client");
+    alert("Étiquette Sendcloud annulée — la commande reste active. Tu peux en générer une nouvelle.");
   }
 
   async function buildCancelPreview(order: Order, customMessage: string): Promise<string> {
@@ -733,7 +733,13 @@ export default function AdminCommandes() {
     const q = search.toLowerCase();
     const matchSearch  = !q || (o.customer_name ?? "").toLowerCase().includes(q) || (o.customer_email ?? "").toLowerCase().includes(q) || o.id.includes(q);
     const matchStatus  = !statusFilter || o.shipping_status === statusFilter;
-    const matchCarrier = carrierFilter === "all" || normalizeDeliveryType(o.delivery_type) === carrierFilter;
+    // Filtre carrier multi-mode : par carrier OU par delivery_type
+    const orderCarrier = (o as any).carrier as string | undefined;
+    const orderType    = o.delivery_type as string | undefined;
+    const matchCarrier =
+      carrierFilter === "all"                                                  ? true :
+      carrierFilter === "mondial_relay" || carrierFilter === "colissimo"        ? orderCarrier === carrierFilter :
+      /* home|point_relais|locker */                                              orderType === carrierFilter;
     return matchSearch && matchStatus && matchCarrier;
   });
 
@@ -797,12 +803,15 @@ export default function AdminCommandes() {
           ))}
         </select>
         <select
-          value={carrierFilter} onChange={e => setCarrierFilter(e.target.value as "all" | "home" | "point_relais")}
+          value={carrierFilter} onChange={e => setCarrierFilter(e.target.value as any)}
           style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fff", outline: "none" }}
         >
           <option value="all">Tous transporteurs</option>
-          <option value="home">📦 Colissimo Domicile</option>
-          <option value="point_relais">📦 Colissimo Point Relais</option>
+          <option value="mondial_relay">📦 Mondial Relay</option>
+          <option value="colissimo">🚀 Colissimo</option>
+          <option value="home">🏠 Domicile (tous carriers)</option>
+          <option value="point_relais">📍 Point Relais (tous carriers)</option>
+          <option value="locker">🔒 Locker (tous carriers)</option>
         </select>
         <a href="/api/admin/export/commandes" download
           style={{ padding: "11px 18px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, textDecoration: "none", whiteSpace: "nowrap" }}>
@@ -842,9 +851,32 @@ export default function AdminCommandes() {
                   <div style={{ fontWeight: 950, fontSize: 18, color: "#1a1410", whiteSpace: "nowrap" }}>
                     {Number(order.amount_total).toFixed(2)} €
                   </div>
-                  <span style={{ padding: "5px 14px", borderRadius: 99, background: status.bg, color: status.color, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
-                    {status.label}
-                  </span>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 4, alignItems: "flex-end" }}>
+                    <span style={{ padding: "5px 14px", borderRadius: 99, background: status.bg, color: status.color, fontSize: 12, fontWeight: 800, whiteSpace: "nowrap" }}>
+                      {status.label}
+                    </span>
+                    {(() => {
+                      const c   = (order as any).carrier as string | undefined;
+                      const dt  = normalizeDeliveryType(order.delivery_type);
+                      if (!c && !dt) return null;
+                      const carrierLabel = c === "mondial_relay" ? "📦 Mondial Relay" : c === "colissimo" ? "🚀 Colissimo" : null;
+                      const typeLabel    = dt === "home" ? "Domicile" : dt === "point_relais" ? "Point Relais" : dt === "locker" ? "Locker" : null;
+                      return (
+                        <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                          {carrierLabel && (
+                            <span style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(26,20,16,0.06)", color: "rgba(26,20,16,0.7)", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+                              {carrierLabel}
+                            </span>
+                          )}
+                          {typeLabel && (
+                            <span style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(196,154,74,0.15)", color: "#8b6c2f", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
+                              {typeLabel}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </div>
                   <span style={{ fontSize: 20, color: "rgba(26,20,16,0.3)", transform: isOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>▾</span>
                 </div>
 
@@ -1203,13 +1235,16 @@ export default function AdminCommandes() {
                           </div>
                         )}
 
-                        {/* === ANNULATION === Visible si tracking présent ET pas annulée déjà */}
+                        {/* === ANNULER ÉTIQUETTE SENDCLOUD === Visible si tracking
+                            présent ET pas annulée. N'annule QUE l'étiquette : la
+                            commande reste active, AUCUN remboursement Stripe. */}
                         {order.tracking_number && order.shipping_status !== "annulee" && (
                           <button
                             onClick={() => setCancelModal({ orderId: order.id, cancelling: false })}
+                            title="Annule l'étiquette côté Sendcloud uniquement. La commande reste active et n'est PAS remboursée. Permet de regénérer une étiquette différente (transporteur ou point relais)."
                             style={{ padding: "12px 16px", borderRadius: 12, background: "#fef2f2", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
                           >
-                            ↺ Annuler l'expédition (Sendcloud uniquement)
+                            🏷 Annuler l'étiquette Sendcloud
                           </button>
                         )}
 
@@ -1366,15 +1401,21 @@ export default function AdminCommandes() {
             onClick={e => e.stopPropagation()}
             style={{ background: "#fff", borderRadius: 18, maxWidth: 500, width: "100%", padding: 32 }}
           >
-            <h2 style={{ margin: "0 0 16px", fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Annuler cette expédition ?</h2>
-            <div style={{ padding: "14px 16px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 13, color: "#92400e", marginBottom: 20, lineHeight: 1.6 }}>
-              ⚠️ Cette action va :
+            <h2 style={{ margin: "0 0 16px", fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Annuler l'étiquette Sendcloud ?</h2>
+            <div style={{ padding: "14px 16px", borderRadius: 10, background: "#dbeafe", border: "1px solid #bfdbfe", fontSize: 13, color: "#1e40af", marginBottom: 14, lineHeight: 1.6 }}>
+              ℹ️ <strong>Cette action n'annule QUE l'étiquette</strong>, pas la commande :
               <ul style={{ margin: "8px 0 0 18px", padding: 0 }}>
-                <li>Annuler le colis côté Sendcloud</li>
-                <li>Effacer le numéro de suivi, l'étiquette et l'ID parcel</li>
-                <li>Repasser la commande en « En préparation »</li>
-                <li><strong>Aucun email envoyé au client</strong></li>
+                <li>Annule le colis côté Sendcloud (libère le numéro de suivi)</li>
+                <li>Efface le tracking, le label PDF et l'ID parcel</li>
+                <li>Repasse la commande en <strong>« En préparation »</strong></li>
+                <li>Tu pourras regénérer une étiquette différente</li>
               </ul>
+            </div>
+            <div style={{ padding: "12px 16px", borderRadius: 10, background: "#fef2f2", border: "1px solid #fecaca", fontSize: 13, color: "#7f1d1d", marginBottom: 20, lineHeight: 1.6 }}>
+              ⚠ <strong>La commande Stripe reste active</strong>. AUCUN remboursement n'est effectué.
+              Aucun email automatique n'est envoyé au client.
+              <br />
+              Pour annuler ET rembourser, utilise le bouton "🔴 Annuler + Rembourser Stripe".
             </div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
               <button
@@ -1387,9 +1428,9 @@ export default function AdminCommandes() {
               <button
                 onClick={() => confirmCancel()}
                 disabled={cancelModal.cancelling}
-                style={{ padding: "12px 18px", borderRadius: 12, background: cancelModal.cancelling ? "#e5e7eb" : "#dc2626", color: cancelModal.cancelling ? "#9ca3af" : "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: cancelModal.cancelling ? "not-allowed" : "pointer" }}
+                style={{ padding: "12px 18px", borderRadius: 12, background: cancelModal.cancelling ? "#e5e7eb" : "#1d4ed8", color: cancelModal.cancelling ? "#9ca3af" : "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: cancelModal.cancelling ? "not-allowed" : "pointer" }}
               >
-                {cancelModal.cancelling ? "⏳ Annulation..." : "Confirmer l'annulation"}
+                {cancelModal.cancelling ? "⏳ Annulation..." : "Annuler l'étiquette"}
               </button>
             </div>
           </div>

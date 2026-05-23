@@ -191,12 +191,45 @@ export async function POST(req: NextRequest) {
     const customerName = sanitizeName(addr.name || order.customer_name || "Client");
     const numericRelayId = relayId && /^\d+$/.test(String(relayId)) ? parseInt(String(relayId), 10) : null;
 
-    // Postal code pour fetch-shipping-options : relay_postal_code en relais, sinon
-    // postal_code client (Sendcloud calcule le service point le plus proche).
-    const fetchPostalCode = isRelayMode
-      ? (order.relay_postal_code || addr.postal_code || "06500")
-      : (addr.postal_code || "06500");
-    const fetchCountry = String(addr.country ?? "FR").toUpperCase().slice(0, 2);
+    // Adresse destinataire : SOURCE différente selon le mode.
+    //
+    // Mode PR/Locker : le client a sélectionné un point relais — c'est l'adresse
+    // du RELAIS qu'on doit envoyer à Sendcloud, stockée dans les colonnes
+    // relay_address / relay_city / relay_postal_code (pas dans shipping_address
+    // qui est laissé vide au checkout en mode relais).
+    //
+    // Mode Home : adresse saisie au checkout dans shipping_address (JSONB).
+    const recipientAddressLine1 = isRelayMode
+      ? String(order.relay_address ?? "")
+      : String(addr.line1 ?? "");
+    const recipientCity = isRelayMode
+      ? String(order.relay_city ?? "")
+      : String(addr.city ?? "");
+    const recipientPostalCode = isRelayMode
+      ? String(order.relay_postal_code ?? "")
+      : String(addr.postal_code ?? "");
+    const recipientCountry = String(addr.country ?? "FR").toUpperCase().slice(0, 2);
+
+    // Log explicite pour diagnostiquer les sources d'adresse
+    console.log("[sendcloud:address]", JSON.stringify({
+      isRelayMode,
+      source:             isRelayMode ? "relay_* columns" : "shipping_address JSON",
+      recipientName:      customerName,
+      address_line_1:     recipientAddressLine1,
+      city:               recipientCity,
+      postal_code:        recipientPostalCode,
+      country_iso_2:      recipientCountry,
+      phone:              phoneNumber,
+      // Sources brutes pour vérif :
+      relay_address:      order.relay_address,
+      relay_city:         order.relay_city,
+      relay_postal_code:  order.relay_postal_code,
+      shipping_address:   addr,
+    }));
+
+    // Postal code pour fetch-shipping-options = postal_code du destinataire
+    const fetchPostalCode = recipientPostalCode || "06500";
+    const fetchCountry    = recipientCountry;
 
     // ── 3. POST /api/v3/fetch-shipping-options ──────────────────────────────
     const optionsBody: Record<string, any> = {
@@ -281,10 +314,10 @@ export async function POST(req: NextRequest) {
       from_address: { id: senderAddressId },
       to_address: {
         name:           customerName,
-        address_line_1: addr.line1 || "",
-        city:           addr.city || "",
-        postal_code:    addr.postal_code || fetchPostalCode,
-        country_iso_2:  fetchCountry,
+        address_line_1: recipientAddressLine1,
+        city:           recipientCity,
+        postal_code:    recipientPostalCode,
+        country_iso_2:  recipientCountry,
         email:          order.customer_email ?? "",
         phone_number:   phoneNumber,
       },

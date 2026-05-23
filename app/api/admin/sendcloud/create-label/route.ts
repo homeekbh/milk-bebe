@@ -2,9 +2,10 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
-// API v3 Sendcloud — host api.sendcloud.sc (différent de panel.sendcloud.sc).
-// Flow en 2 étapes : fetch-shipping-options puis shipments/announce.
-const SENDCLOUD_V3_API = "https://api.sendcloud.sc/api/v3";
+// API v3 Sendcloud — host panel.sendcloud.sc (les endpoints v3 y sont exposés
+// sous /api/v3/...). Flow en 2 étapes : fetch-shipping-options puis
+// shipments/announce.
+const SENDCLOUD_V3_API = "https://panel.sendcloud.sc/api/v3";
 
 function getBasicAuth() {
   const pub = process.env.SENDCLOUD_PUBLIC_KEY ?? "";
@@ -89,7 +90,7 @@ function pickShippingOption(options: any[], carrier: string, deliveryType: strin
  * POST /api/admin/sendcloud/create-label
  * Body: { order_id: string, transporteur?: string }
  *
- * Flow v3 (api.sendcloud.sc) :
+ * Flow v3 (panel.sendcloud.sc) :
  *   1. Charger commande + valider
  *   2. POST /api/v3/fetch-shipping-options → liste des options dispos
  *   3. Sélectionner le bon shipping_option_code selon carrier + delivery_type

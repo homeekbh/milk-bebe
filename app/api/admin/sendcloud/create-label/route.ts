@@ -120,6 +120,25 @@ export async function POST(req: NextRequest) {
       return Response.json({ error: "Commande introuvable" }, { status: 404 });
     }
 
+    // ⚡️ LOG START — première trace que cette route s'exécute, AVANT toute
+    // logique. Si tu ne vois pas ce log dans Vercel Functions Logs après
+    // un test, c'est que le déploiement n'est pas actif (cache CDN / build
+    // pas terminé). Utilise console.log ET console.error pour couvrir les
+    // deux niveaux (INFO + ERROR) dans le filtre Vercel.
+    const startSnapshot = {
+      build_marker: "2026-05-23-phone+diag-v2",
+      order_id:     order.id,
+      relay_id:     order.relay_id,
+      relay_name:   order.relay_name,
+      delivery_type: order.delivery_type,
+      carrier:      order.carrier,
+      sendcloud_parcel_id: order.sendcloud_parcel_id,
+      shipping_status:     order.shipping_status,
+      customer_phone:      order.customer_phone,
+    };
+    console.log("[sendcloud:START]", JSON.stringify(startSnapshot));
+    console.error("[sendcloud:START]", JSON.stringify(startSnapshot));
+
     // GARDE-FOU — si un parcel Sendcloud existe déjà, on n'en crée PAS un nouveau.
     // Chaque clic accidentel sur "Créer étiquette" créerait sinon un nouveau colis
     // facturé chez Sendcloud (cas observé : 3 parcels pour la même commande).
@@ -404,14 +423,22 @@ export async function POST(req: NextRequest) {
     };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 
-    // Logs détaillés pour diagnostiquer "service point required" :
-    console.error(`[sendcloud:diag] relayId brut from DB=${JSON.stringify(relayId)} typeof=${typeof relayId}`);
-    console.error(`[sendcloud:diag] isRelayMode=${isRelayMode}`);
-    console.error(`[sendcloud:diag] deliveryType=${deliveryType}`);
-    console.error(`[sendcloud:diag] order.relay_id=${JSON.stringify(order.relay_id)}`);
-    console.error(`[sendcloud:diag] order.relay_name=${JSON.stringify(order.relay_name)}`);
-    console.error(`[sendcloud:diag] order.delivery_type=${JSON.stringify(order.delivery_type)}`);
-    console.error(`[sendcloud:diag] order.carrier=${JSON.stringify(order.carrier)}`);
+    // Logs détaillés pour diagnostiquer "service point required" — émis en
+    // console.log ET console.error pour apparaître dans Vercel quel que soit
+    // le filtre (INFO / ERROR).
+    const diag = {
+      relayId_raw:    relayId,
+      relayId_type:   typeof relayId,
+      isRelayMode,
+      deliveryType,
+      order_relay_id:        order.relay_id,
+      order_relay_name:      order.relay_name,
+      order_delivery_type:   order.delivery_type,
+      order_carrier:         order.carrier,
+      order_sendcloud_parcel_id: order.sendcloud_parcel_id,
+    };
+    console.log("[sendcloud:diag]", JSON.stringify(diag));
+    console.error("[sendcloud:diag]", JSON.stringify(diag));
 
     // Si point_relais OU locker → on attache le service point sélectionné.
     // CRITIQUE : Sendcloud v3 attend to_service_point en INTEGER (pas string).
@@ -423,14 +450,19 @@ export async function POST(req: NextRequest) {
         ? parseInt(relayId, 10)
         : relayId;
       shipWithProps.to_service_point = numericRelayId;
+      console.log(`[sendcloud] to_service_point set to: ${numericRelayId} (typeof=${typeof numericRelayId})`);
       console.error(`[sendcloud] to_service_point set to: ${numericRelayId} (typeof=${typeof numericRelayId})`);
     } else if (isRelayMode && !relayId) {
-      console.error(`[sendcloud] ⚠ isRelayMode=true mais relayId MANQUANT — Sendcloud va rejeter`);
+      console.log("[sendcloud] ⚠ isRelayMode=true mais relayId MANQUANT — Sendcloud va rejeter");
+      console.error("[sendcloud] ⚠ isRelayMode=true mais relayId MANQUANT — Sendcloud va rejeter");
     } else {
+      console.log(`[sendcloud] to_service_point PAS attaché — relayId=${relayId ?? "null"} deliveryType=${deliveryType}`);
       console.error(`[sendcloud] to_service_point PAS attaché — relayId=${relayId ?? "null"} deliveryType=${deliveryType}`);
     }
 
-    console.error(`[sendcloud:diag] ship_with.properties COMPLET=${JSON.stringify(shipWithProps)}`);
+    const shipWithPropsStr = JSON.stringify(shipWithProps);
+    console.log("[sendcloud:diag] ship_with.properties COMPLET=" + shipWithPropsStr);
+    console.error("[sendcloud:diag] ship_with.properties COMPLET=" + shipWithPropsStr);
 
     const announceBody = {
       from_address: fromAddress,
@@ -442,7 +474,9 @@ export async function POST(req: NextRequest) {
       order_number: String(order.id ?? "").slice(0, 30),
       parcels:      [parcel],
     };
-    console.error(`[sendcloud:announce] BODY SENT:`, JSON.stringify(announceBody));
+    const announceBodyStr = JSON.stringify(announceBody);
+    console.log("[sendcloud:announce] BODY SENT:", announceBodyStr);
+    console.error("[sendcloud:announce] BODY SENT:", announceBodyStr);
 
     const announceRes = await fetch(`${SENDCLOUD_API}/shipments/announce`, {
       method:  "POST",

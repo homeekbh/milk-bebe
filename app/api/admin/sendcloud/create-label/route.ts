@@ -49,19 +49,20 @@ function extractError(json: any, fallback: string): string {
  * confirmé sur ce compte Sendcloud (via /fetch-shipping-options).
  *
  * Important :
- *   - "colissimo:post-office" supporte PAS to_service_point (Bureau de Poste,
- *     pas point relais). C'est PAS le code pour Colissimo Point Relais.
- *   - "colissimo:international/service_point" est le SEUL code Colissimo
- *     avec last_mile=service_point disponible sur ce compte, et il accepte
- *     to_service_point.id même pour une livraison FR domestique (Sendcloud
- *     route correctement selon le service point sélectionné).
+ *   - "colissimo:post-office" est le code "Colissimo Service Point" / Bureau
+ *     de Poste sur ce compte. Sendcloud route automatiquement vers le point
+ *     relais le plus proche via le postal_code — ON N'ENVOIE PAS
+ *     to_service_point pour ce code (cf. CODES_WITHOUT_SERVICE_POINT).
+ *   - "colissimo:home/fr" pour la livraison domicile domestique FR.
+ *   - "mondial_relay:service_point,dualapi/size=l,c2c" pour Mondial Relay
+ *     PR — accepte to_service_point.id.
  *
  * Configurable via env vars SENDCLOUD_OPTION_CODE_<CARRIER>_<TYPE> si
  * Sendcloud renomme/désactive un code sur le contrat.
  */
 const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
   colissimo: {
-    point_relais: "colissimo:international/service_point",
+    point_relais: "colissimo:post-office",
     home:         "colissimo:home/fr",
   },
   mondial_relay: {
@@ -70,6 +71,14 @@ const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
     // locker : non confirmé sur ce compte — à ajouter quand activé
   },
 };
+
+// Codes qui n'acceptent PAS to_service_point dans le body announce.
+// Sendcloud route automatiquement vers le point/bureau le plus proche
+// via le postal_code — envoyer to_service_point génère l'erreur
+// "Service point carrier does not match shipping method".
+const CODES_WITHOUT_SERVICE_POINT = new Set([
+  "colissimo:post-office",
+]);
 
 function pickShippingOption(
   options: any[],
@@ -202,21 +211,19 @@ export async function POST(req: NextRequest) {
     }
 
     // Poids final envoyé à Sendcloud :
-    //   - Source : order.total_weight_g (en grammes) → /1000 pour kg
-    //   - Fallback : 1.000 kg si absent
-    //   - Minimum : 1.000 kg (exigé par Colissimo International / Service Point
-    //     qui rejette les poids < 1 kg avec "No shipping option could be found
-    //     for the given weight and/or dimensions"). On uplift à 1.000 kg même
-    //     si le colis réel pèse moins — Colissimo facture au palier supérieur
-    //     de toute façon.
-    const weightFromDb = order.total_weight_g ? order.total_weight_g / 1000 : 1.000;
-    const weightKg = Math.max(1.000, weightFromDb);
-    const weightKgStr = weightKg.toFixed(3); // string formatée à 3 décimales
+    //   - announce.parcels[].weight = poids réel de la commande
+    //     (order.total_weight_g / 1000), fallback 0.250 kg.
+    //   - fetch-shipping-options.weight = 0.250 hardcodé pour récupérer
+    //     TOUTES les options disponibles incluant les petites tranches
+    //     (colissimo:post-office en tranche 0-0.25 kg sur ce compte).
+    const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
+    const weightKgStr = weightKg.toFixed(3);
+    const fetchWeightKg = 0.250; // hardcoded pour fetch-shipping-options
     console.log("[sendcloud:weight]", JSON.stringify({
-      source_g:     order.total_weight_g,
-      computed_kg:  weightFromDb,
-      final_kg:     weightKg,
-      final_str:    weightKgStr,
+      source_g:           order.total_weight_g,
+      announce_kg:        weightKg,
+      announce_str:       weightKgStr,
+      fetch_options_kg:   fetchWeightKg,
     }));
     const phoneNumber = String(order.customer_phone ?? addr.phone ?? order.phone ?? "+33600000000").trim() || "+33600000000";
     const customerName = sanitizeName(addr.name || order.customer_name || "Client");
@@ -266,7 +273,7 @@ export async function POST(req: NextRequest) {
     const optionsBody: Record<string, any> = {
       from_address: { id: senderAddressId },
       to_address:   { country_iso_2: fetchCountry, postal_code: fetchPostalCode },
-      weight:       { value: weightKg, unit: "kg" },
+      weight:       { value: fetchWeightKg, unit: "kg" },
     };
     if (numericRelayId) {
       optionsBody.to_service_point = numericRelayId;
@@ -388,8 +395,15 @@ export async function POST(req: NextRequest) {
       order_number: String(order.id ?? "").slice(0, 30),
       request_label: true,
     };
-    if (numericRelayId) {
+    // to_service_point : envoyé UNIQUEMENT si le code l'accepte.
+    // Certains codes (ex: colissimo:post-office) routent automatiquement
+    // vers le bureau le plus proche via le postal_code et rejettent
+    // to_service_point avec "Service point carrier does not match shipping method".
+    if (numericRelayId && !CODES_WITHOUT_SERVICE_POINT.has(shippingOptionCode)) {
       announceBody.to_service_point = { id: String(numericRelayId) };
+      console.log(`[sendcloud] to_service_point.id="${numericRelayId}" attaché (code=${shippingOptionCode})`);
+    } else if (numericRelayId) {
+      console.log(`[sendcloud] to_service_point OMIS — code "${shippingOptionCode}" route automatiquement via postal_code (CODES_WITHOUT_SERVICE_POINT)`);
     }
 
     const announceBodyStr = JSON.stringify(announceBody);

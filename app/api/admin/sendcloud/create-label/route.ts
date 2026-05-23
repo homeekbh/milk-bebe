@@ -341,32 +341,36 @@ export async function POST(req: NextRequest) {
     console.error("[sendcloud:v3:picked]", pickedLog);
 
     // ── 5. POST /api/v3/shipments/announce ──────────────────────────────────
-    // Structure v3 attendue par Sendcloud :
-    //   Pas de wrapper "shipments: [...]" — tous les champs sont à la RACINE.
-    //   ship_with: { code, properties: {} }, from_address, to_address,
-    //   parcels, order_number, request_label, et optionnellement
-    //   to_service_point: { id } pour PR/Locker.
+    // Structure v3 conforme à la spec OpenAPI officielle Sendcloud :
+    //   - ship_with.type = "shipping_option_code" (DISCRIMINATOR obligatoire)
+    //   - ship_with.properties.shipping_option_code (la clé est nommée comme le type)
+    //   - from_address.sender_address_id (PAS "id")
+    //   - to_address.country_code (PAS "country_iso_2")
+    //   - to_service_point.id en STRING
+    //   - parcels[].weight.value en STRING
     const announceBody: Record<string, any> = {
       ship_with: {
-        code:       shippingOptionCode,
-        properties: {},
+        type: "shipping_option_code",
+        properties: {
+          shipping_option_code: shippingOptionCode,
+        },
       },
-      from_address: { id: senderAddressId },
+      from_address: { sender_address_id: senderAddressId },
       to_address: {
         name:           customerName,
         address_line_1: recipientAddressLine1,
         city:           recipientCity,
         postal_code:    recipientPostalCode,
-        country_iso_2:  recipientCountry,
+        country_code:   recipientCountry,
         email:          order.customer_email ?? "",
         phone_number:   phoneNumber,
       },
-      parcels:      [{ weight: { value: 0.250, unit: "kg" } }],
+      parcels:      [{ weight: { value: "0.250", unit: "kg" } }],
       order_number: String(order.id ?? "").slice(0, 30),
       request_label: true,
     };
     if (numericRelayId) {
-      announceBody.to_service_point = { id: numericRelayId };
+      announceBody.to_service_point = { id: String(numericRelayId) };
     }
 
     const announceBodyStr = JSON.stringify(announceBody);

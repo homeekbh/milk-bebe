@@ -391,6 +391,25 @@ export default function AdminCommandes() {
         }),
       });
       const data = await res.json();
+
+      // DIAGNOSTIC : dump complet de la réponse côté console navigateur
+      // pour debug rapide sans avoir besoin d'accéder aux logs Vercel.
+      // Ouvre DevTools (F12) → Console pour voir le payload exact envoyé
+      // à Sendcloud et la réponse brute.
+      console.log("═══ [create-label] RESPONSE FULL DUMP ═══");
+      console.log("HTTP status:", res.status);
+      console.log("data:", data);
+      if (data.payload_sent) {
+        console.log("📤 payload_sent à Sendcloud:", JSON.stringify(data.payload_sent, null, 2));
+      }
+      if (data.sendcloud_body) {
+        console.log("📥 sendcloud_body (réponse):", JSON.stringify(data.sendcloud_body, null, 2));
+      }
+      if (data.sendcloud_raw) {
+        console.log("📥 sendcloud_raw:", data.sendcloud_raw);
+      }
+      console.log("═══════════════════════════════════════════");
+
       if (data.tracking_number) {
         setTracking(data.tracking_number);
         if (data.label_url) setLabelUrl(data.label_url);

@@ -311,6 +311,15 @@ export async function POST(req: NextRequest) {
     const allCodes = allOptions.map((o: any) => o.code ?? o.shipping_option_code).filter(Boolean);
     console.log(`[sendcloud:v3:options] ${allOptions.length} options trouvées, codes:`, allCodes.join(" | "));
 
+    // Dump exhaustif : tous les codes + noms retournés par Sendcloud, AVANT
+    // tout filtre pickShippingOption. Sert à identifier le code exact
+    // disponible sur ce compte (ex : colissimo:home vs colissimo:domestic_home).
+    const allOptionsDump = JSON.stringify(
+      allOptions.map((o: any) => ({ code: o.code ?? o.shipping_option_code, name: o.name }))
+    );
+    console.log("[sendcloud:v3:all-options]",  allOptionsDump);
+    console.error("[sendcloud:v3:all-options]", allOptionsDump);
+
     // ── 4. Choisir le bon shipping_option_code ──────────────────────────────
     const selected = pickShippingOption(allOptions, effectiveCarrier, deliveryType);
     if (!selected) {

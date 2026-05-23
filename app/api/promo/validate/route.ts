@@ -16,6 +16,27 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
+// Coût livraison maximum à couvrir si un code free_shipping est appliqué.
+// Aligné sur DELIVERY_PRICES.colissimo.home = 7.70€ (le plus cher de la
+// matrice). Comme on ne sait pas encore quel transporteur sera choisi
+// par le client au moment de la validation du code, on couvre le max
+// pour éviter qu'il paie une différence.
+const MAX_DELIVERY_COST = 7.70;
+
+async function getFreeShippingThreshold(): Promise<number> {
+  try {
+    const { data } = await supabaseServer
+      .from("settings")
+      .select("value")
+      .eq("key", "free_shipping_threshold")
+      .single();
+    const n = Number(data?.value);
+    return Number.isFinite(n) ? n : 60;
+  } catch {
+    return 60;
+  }
+}
+
 export async function POST(req: NextRequest) {
   // Rate limiting
   const ip = req.headers.get("x-forwarded-for") ?? "unknown";
@@ -41,6 +62,10 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "Ce code a expiré" }, { status: 400 });
   }
 
+  if (data.starts_at && new Date(data.starts_at) > new Date()) {
+    return Response.json({ error: "Ce code n'est pas encore actif" }, { status: 400 });
+  }
+
   if (data.max_uses !== null && data.uses_count >= data.max_uses) {
     return Response.json({ error: "Ce code a atteint son nombre maximum d'utilisations" }, { status: 400 });
   }
@@ -55,18 +80,36 @@ export async function POST(req: NextRequest) {
   const promoType  = data.type ?? data.discount_type ?? "";
   const promoValue = Number(data.value ?? data.discount_value ?? 0);
 
-  let discount     = 0;
+  let discount      = 0;
   let free_shipping = false;
 
+  // Type principal : pourcentage / fixe / livraison offerte
   if (promoType === "percent") {
     discount = Math.round((total * promoValue) / 100 * 100) / 100;
   } else if (promoType === "fixed") {
     discount = Math.min(promoValue, total);
   } else if (promoType === "free_shipping") {
     free_shipping = true;
-    // Couvre 100% de la livraison max (Colissimo Domicile = 8.66€).
-    // Point Relais à 6.82€ → la diff de 1.84€ profite au client.
-    discount      = 8.66;
+    discount      = MAX_DELIVERY_COST;
+  }
+
+  // Flag free_shipping ORTHOGONAL au type — un code % ou € peut aussi
+  // offrir la livraison via cette case à cocher (migration 004).
+  if (data.free_shipping === true) {
+    free_shipping = true;
+    // Pour les codes %/€ qui cochent free_shipping, on garde le discount
+    // sur les produits ET on met free_shipping=true. La livraison sera
+    // mise à 0 côté checkout.
+  }
+
+  // Cumul livraison automatique : si commande ≥ seuil ET le code n'interdit
+  // pas le cumul → la livraison est offerte d'office (même si free_shipping
+  // n'est pas coché sur le code).
+  const threshold = await getFreeShippingThreshold();
+  const totalAfterDiscount = Math.max(0, total - (promoType === "free_shipping" ? 0 : discount));
+  const cumulOk = data.cumulable_avec_livraison !== false; // null/undefined/true → cumul OK
+  if (cumulOk && totalAfterDiscount >= threshold) {
+    free_shipping = true;
   }
 
   return Response.json({
@@ -77,5 +120,13 @@ export async function POST(req: NextRequest) {
     discount,
     free_shipping,
     new_total:     Math.max(0, total - discount),
+    // Métadonnées utiles pour debug / UI
+    meta: {
+      free_shipping_from_type:       promoType === "free_shipping",
+      free_shipping_from_flag:       data.free_shipping === true,
+      free_shipping_from_threshold:  cumulOk && totalAfterDiscount >= threshold,
+      threshold,
+      cumulable_avec_livraison:      cumulOk,
+    },
   });
 }

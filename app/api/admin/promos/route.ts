@@ -24,17 +24,22 @@ export async function POST(req: NextRequest) {
 
   const body  = await req.json();
   // ✅ Construction explicite — jamais de ...body (risque colonnes inconnues)
-  const clean = {
-    code:           (body.code ?? "").toUpperCase().trim(),
-    discount_type:  body.discount_type ?? "percent",
-    discount_value: isNaN(parseFloat(body.discount_value)) ? 0 : parseFloat(body.discount_value),
-    min_order:      body.min_order  ? parseFloat(body.min_order)  : null,
-    max_uses:       body.max_uses   ? parseInt(body.max_uses)     : null,
-    expires_at:     body.expires_at || null,
-    starts_at:      body.starts_at  || null,
-    active:         body.active !== undefined ? body.active : true,
-    uses_count:     0,
+  const clean: Record<string, any> = {
+    code:                     (body.code ?? "").toUpperCase().trim(),
+    discount_type:            body.discount_type ?? "percent",
+    discount_value:           isNaN(parseFloat(body.discount_value)) ? 0 : parseFloat(body.discount_value),
+    min_order:                body.min_order  ? parseFloat(body.min_order)  : null,
+    max_uses:                 body.max_uses   ? parseInt(body.max_uses)     : null,
+    expires_at:               body.expires_at || null,
+    starts_at:                body.starts_at  || null,
+    active:                   body.active !== undefined ? body.active : true,
+    uses_count:               0,
+    // Nouveaux champs (migration 004) — orthogonaux au type principal
+    free_shipping:            Boolean(body.free_shipping),
+    cumulable_avec_livraison: body.cumulable_avec_livraison !== undefined ? Boolean(body.cumulable_avec_livraison) : true,
   };
+  // Si discount_type='free_shipping' → forcer free_shipping=true (cohérence)
+  if (clean.discount_type === "free_shipping") clean.free_shipping = true;
 
   if (!clean.code) return Response.json({ error: "Code manquant" }, { status: 400 });
 
@@ -44,6 +49,7 @@ export async function POST(req: NextRequest) {
 
   await logActivity("promo_create", `Code promo créé : ${clean.code}`, {
     code: clean.code, discount_value: clean.discount_value, discount_type: clean.discount_type,
+    free_shipping: clean.free_shipping, cumulable_avec_livraison: clean.cumulable_avec_livraison,
   });
   return Response.json(data);
 }
@@ -56,14 +62,18 @@ export async function PUT(req: NextRequest) {
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
 
   const clean: any = {};
-  if (rest.code           !== undefined) clean.code           = String(rest.code).toUpperCase().trim();
-  if (rest.discount_value !== undefined) clean.discount_value = isNaN(parseFloat(rest.discount_value)) ? 0 : parseFloat(rest.discount_value);
-  if (rest.discount_type  !== undefined) clean.discount_type  = rest.discount_type;
-  if (rest.min_order      !== undefined) clean.min_order      = rest.min_order ? parseFloat(rest.min_order) : null;
-  if (rest.max_uses       !== undefined) clean.max_uses       = rest.max_uses  ? parseInt(rest.max_uses)   : null;
-  if (rest.expires_at     !== undefined) clean.expires_at     = rest.expires_at || null;
-  if (rest.starts_at      !== undefined) clean.starts_at      = rest.starts_at  || null;
-  if (rest.active         !== undefined) clean.active         = rest.active;
+  if (rest.code                     !== undefined) clean.code                     = String(rest.code).toUpperCase().trim();
+  if (rest.discount_value           !== undefined) clean.discount_value           = isNaN(parseFloat(rest.discount_value)) ? 0 : parseFloat(rest.discount_value);
+  if (rest.discount_type            !== undefined) clean.discount_type            = rest.discount_type;
+  if (rest.min_order                !== undefined) clean.min_order                = rest.min_order ? parseFloat(rest.min_order) : null;
+  if (rest.max_uses                 !== undefined) clean.max_uses                 = rest.max_uses  ? parseInt(rest.max_uses)   : null;
+  if (rest.expires_at               !== undefined) clean.expires_at               = rest.expires_at || null;
+  if (rest.starts_at                !== undefined) clean.starts_at                = rest.starts_at  || null;
+  if (rest.active                   !== undefined) clean.active                   = rest.active;
+  if (rest.free_shipping            !== undefined) clean.free_shipping            = Boolean(rest.free_shipping);
+  if (rest.cumulable_avec_livraison !== undefined) clean.cumulable_avec_livraison = Boolean(rest.cumulable_avec_livraison);
+  // Cohérence : si on passe à discount_type='free_shipping' → free_shipping=true
+  if (clean.discount_type === "free_shipping") clean.free_shipping = true;
 
   const { data, error } = await supabaseServer
     .from("promo_codes").update(clean).eq("id", id).select().single();

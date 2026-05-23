@@ -207,16 +207,23 @@ function DateRangePicker({
 
 // ── Page principale ───────────────────────────────────────────────────────────
 export default function AdminCodes() {
-  const [codes,   setCodes]   = useState<PromoCode[]>([]);
+  const [codes,   setCodes]   = useState<(PromoCode & { free_shipping?: boolean; cumulable_avec_livraison?: boolean })[]>([]);
   const [loading, setLoading] = useState(true);
   const [form,    setForm]    = useState({
     code: "", type: "percent", value: "",
     min_order: "", max_uses: "",
     starts_at: "", expires_at: "",
+    free_shipping: false,
+    cumulable_avec_livraison: true,
   });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
   const [success, setSuccess] = useState("");
+
+  // Bloc paramètres livraison (settings)
+  const [freeShipThreshold, setFreeShipThreshold] = useState<string>("60");
+  const [savingThreshold,   setSavingThreshold]   = useState(false);
+  const [thresholdSaved,    setThresholdSaved]    = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -228,7 +235,42 @@ export default function AdminCodes() {
     setLoading(false);
   }, []);
 
+  // Charge le seuil livraison depuis settings au mount
+  useEffect(() => {
+    adminFetch("/api/admin/settings")
+      .then(r => r.json())
+      .then(d => {
+        const v = d?.settings?.free_shipping_threshold;
+        if (v) setFreeShipThreshold(String(v));
+      })
+      .catch(() => {});
+  }, []);
+
   useEffect(() => { load(); }, [load]);
+
+  async function saveThreshold() {
+    const n = parseFloat(freeShipThreshold);
+    if (!Number.isFinite(n) || n < 0 || n > 10000) {
+      alert("Seuil invalide (0–10000 €)");
+      return;
+    }
+    setSavingThreshold(true);
+    try {
+      const res = await adminFetch("/api/admin/settings", {
+        method: "POST",
+        body:   JSON.stringify({ key: "free_shipping_threshold", value: String(n) }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Erreur : ${err.error ?? `HTTP ${res.status}`}`);
+      } else {
+        setThresholdSaved(true);
+        setTimeout(() => setThresholdSaved(false), 2500);
+      }
+    } finally {
+      setSavingThreshold(false);
+    }
+  }
 
   async function handleCreate() {
     const trimCode = form.code.trim();
@@ -248,14 +290,16 @@ export default function AdminCodes() {
     }
     setSaving(true); setError(""); setSuccess("");
     const body: Record<string, unknown> = {
-      code:           trimCode.toUpperCase(),
-      discount_type:  form.type,
-      discount_value: form.type === "free_shipping" ? 8.66 : parseFloat(form.value),
-      min_order:      form.min_order  ? parseFloat(form.min_order) : null,
-      max_uses:       form.max_uses   ? parseInt(form.max_uses)    : null,
-      starts_at:      form.starts_at  || null,
-      expires_at:     form.expires_at || null,
-      active:         true,
+      code:                     trimCode.toUpperCase(),
+      discount_type:            form.type,
+      discount_value:           form.type === "free_shipping" ? 7.70 : parseFloat(form.value),
+      min_order:                form.min_order  ? parseFloat(form.min_order) : null,
+      max_uses:                 form.max_uses   ? parseInt(form.max_uses)    : null,
+      starts_at:                form.starts_at  || null,
+      expires_at:               form.expires_at || null,
+      active:                   true,
+      free_shipping:            form.free_shipping || form.type === "free_shipping",
+      cumulable_avec_livraison: form.cumulable_avec_livraison,
     };
     const res  = await adminFetch("/api/admin/promos", {
       method: "POST", body: JSON.stringify(body),
@@ -263,7 +307,11 @@ export default function AdminCodes() {
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "Erreur lors de la création"); setSaving(false); return; }
     setSuccess("✅ Code créé avec succès !");
-    setForm({ code: "", type: "percent", value: "", min_order: "", max_uses: "", starts_at: "", expires_at: "" });
+    setForm({
+      code: "", type: "percent", value: "", min_order: "", max_uses: "",
+      starts_at: "", expires_at: "",
+      free_shipping: false, cumulable_avec_livraison: true,
+    });
     setTimeout(() => setSuccess(""), 4000);
     await load();
     setSaving(false);
@@ -295,6 +343,46 @@ export default function AdminCodes() {
       <h1 style={{ margin: "0 0 28px", fontSize: 32, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>
         Codes promos
       </h1>
+
+      {/* ══ BLOC PARAMÈTRES LIVRAISON ══ */}
+      <div style={{ background: "#1a1410", borderRadius: 16, padding: "22px 26px", marginBottom: 28, border: "1px solid rgba(196,154,74,0.3)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 14, flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "#c49a4a", marginBottom: 4 }}>
+              🚚 Paramètres livraison
+            </div>
+            <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)" }}>
+              Configure le seuil au-delà duquel la livraison est offerte automatiquement à tous les clients.
+            </div>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 10, alignItems: "end" }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>
+              Seuil livraison offerte (€)
+            </label>
+            <input
+              type="number"
+              min="0"
+              max="10000"
+              step="1"
+              value={freeShipThreshold}
+              onChange={e => { setFreeShipThreshold(e.target.value); setThresholdSaved(false); }}
+              placeholder="60"
+              style={{ padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.15)", fontSize: 16, fontWeight: 800, color: "#f2ede6", background: "rgba(255,255,255,0.05)", outline: "none" }}
+            />
+          </div>
+          <button
+            onClick={saveThreshold}
+            disabled={savingThreshold}
+            style={{ padding: "11px 22px", borderRadius: 10, background: savingThreshold ? "rgba(196,154,74,0.4)" : "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: savingThreshold ? "wait" : "pointer", whiteSpace: "nowrap" }}>
+            {savingThreshold ? "..." : thresholdSaved ? "✓ Enregistré" : "Enregistrer"}
+          </button>
+        </div>
+        <div style={{ marginTop: 10, fontSize: 12, color: "rgba(242,237,230,0.45)", fontStyle: "italic" }}>
+          ↪ Livraison offerte automatiquement dès <strong style={{ color: "#c49a4a" }}>{freeShipThreshold || 60}€</strong> de commande (hors livraison).
+        </div>
+      </div>
 
       {/* Stats */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 32 }}>
@@ -337,7 +425,7 @@ export default function AdminCodes() {
             <input type="number" value={form.value}
               onChange={e => setForm(f => ({ ...f, value: e.target.value }))}
               disabled={form.type === "free_shipping"}
-              placeholder={form.type === "percent" ? "Ex : 10" : form.type === "free_shipping" ? "8.66 € auto" : "Ex : 5.00"}
+              placeholder={form.type === "percent" ? "Ex : 10" : form.type === "free_shipping" ? "7.70 € auto" : "Ex : 5.00"}
               min="0" max={form.type === "percent" ? "100" : undefined}
               style={{ ...IS, opacity: form.type === "free_shipping" ? 0.5 : 1 }} />
           </div>
@@ -356,6 +444,51 @@ export default function AdminCodes() {
             <input type="number" value={form.max_uses}
               onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))}
               placeholder="Illimité" min="1" style={IS} />
+          </div>
+        </div>
+
+        {/* Ligne 2bis : options livraison (checkboxes) */}
+        <div style={{ background: "#faf8f4", borderRadius: 12, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", marginBottom: 12 }}>
+            Options livraison
+          </div>
+          <div style={{ display: "grid", gap: 10 }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={form.free_shipping || form.type === "free_shipping"}
+                disabled={form.type === "free_shipping"}
+                onChange={e => setForm(f => ({ ...f, free_shipping: e.target.checked }))}
+                style={{ marginTop: 3, width: 16, height: 16, accentColor: "#1a1410", cursor: form.type === "free_shipping" ? "not-allowed" : "pointer" }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
+                  Ce code offre la livraison
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", marginTop: 2 }}>
+                  Si coché, la livraison est gratuite peu importe le montant du panier
+                  (en plus de la remise principale).
+                  {form.type === "free_shipping" && <span style={{ color: "#c49a4a", fontWeight: 700 }}> Forcé à TRUE quand le type est "Livraison offerte".</span>}
+                </div>
+              </div>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={form.cumulable_avec_livraison}
+                onChange={e => setForm(f => ({ ...f, cumulable_avec_livraison: e.target.checked }))}
+                style={{ marginTop: 3, width: 16, height: 16, accentColor: "#1a1410" }}
+              />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
+                  Cumulable avec la livraison offerte automatique (seuil {freeShipThreshold}€)
+                </div>
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", marginTop: 2 }}>
+                  Si coché, le seuil "livraison offerte dès {freeShipThreshold}€" continue de s'appliquer
+                  même quand ce code est utilisé. Décocher si tu veux empêcher le cumul.
+                </div>
+              </div>
+            </label>
           </div>
         </div>
 
@@ -409,6 +542,16 @@ export default function AdminCodes() {
                     <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f5f0e8", fontSize: 12, fontWeight: 700, color: "#1a1410" }}>
                       {(c.discount_type ?? c.type) === "percent" ? `${c.discount_value ?? c.value}% off` : (c.discount_type ?? c.type) === "fixed" ? `-${c.discount_value ?? c.value}€` : "🚚 Livraison offerte"}
                     </span>
+                    {c.free_shipping && (c.discount_type ?? c.type) !== "free_shipping" && (
+                      <span style={{ padding: "3px 8px", borderRadius: 6, background: "#dcfce7", fontSize: 12, fontWeight: 700, color: "#166534" }}>
+                        + 🚚 Livraison offerte
+                      </span>
+                    )}
+                    {c.cumulable_avec_livraison === false && (
+                      <span style={{ padding: "3px 8px", borderRadius: 6, background: "#fef3c7", fontSize: 12, fontWeight: 700, color: "#92400e" }} title="Désactive la livraison offerte automatique tant que ce code est appliqué">
+                        Non cumulable
+                      </span>
+                    )}
                     {c.min_order && <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f5f0e8", fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.6)" }}>min. {c.min_order}€</span>}
                     <span style={{ padding: "3px 8px", borderRadius: 6, background: statusColor[status] + "18", fontSize: 12, fontWeight: 800, color: statusColor[status] }}>
                       {status}

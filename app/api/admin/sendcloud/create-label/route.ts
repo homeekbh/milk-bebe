@@ -138,21 +138,21 @@ export async function POST(req: NextRequest) {
       console.error(`[sendcloud:create-label] FORCE_RECREATE — un parcel ${order.sendcloud_parcel_id} existait déjà pour ${order_id}`);
     }
 
-    // Les anciennes commandes "locker" sont traitées comme "point_relais"
-    // (même transporteur Mondial Relay, même flow). Le mode locker a été
-    // supprimé du choix client.
+    // Le mode locker est de retour (commit refonte Mondial Relay). Les 3
+    // modes possibles : point_relais | locker | home.
     const rawDeliveryType = order.delivery_type as (string | null);
-    const deliveryType: "point_relais" | "home" | null =
-      rawDeliveryType === "locker"       ? "point_relais" :
+    const deliveryType: "point_relais" | "locker" | "home" | null =
       rawDeliveryType === "point_relais" ? "point_relais" :
+      rawDeliveryType === "locker"       ? "locker"       :
       rawDeliveryType === "home"         ? "home"         :
       null;
     const relayId      = order.relay_id as (string | null);
-    const isRelayMode  = deliveryType === "point_relais";
+    // isRelayMode = mode qui requiert un relay (PR ou locker, pas home)
+    const isRelayMode  = deliveryType === "point_relais" || deliveryType === "locker";
 
-    // Validation : si point_relais → relay_id obligatoire
+    // Validation : si point_relais OU locker → relay_id obligatoire
     if (isRelayMode && !relayId) {
-      return Response.json({ error: "Point relais manquant — saisie manuelle requise dans la commande" }, { status: 400 });
+      return Response.json({ error: "Point relais / locker manquant — saisie manuelle requise dans la commande" }, { status: 400 });
     }
 
     const addr = order.shipping_address ?? {};
@@ -269,17 +269,27 @@ export async function POST(req: NextRequest) {
       })))
     );
 
-    // ── 3. Match par nom de transporteur ────────────────────────────────────
+    // ── 3. Match par nom de transporteur ET par delivery_type ───────────────
     const carrierLower = String(transporteur ?? "").toLowerCase();
-    const wantedKey =
+    const wantedCarrier =
       carrierLower.includes("mondial")    ? "mondial"    :
       carrierLower.includes("colissimo")  ? "colissimo"  :
       carrierLower.includes("chronopost") ? "chronopost" :
       carrierLower.includes("la poste")   ? "colissimo"  :
       carrierLower;
 
+    // wantedType vient du delivery_type normalisé en haut du handler.
+    // Sert à matcher l'option Sendcloud appropriée :
+    //   point_relais → "Service Point" / "Point Relais"
+    //   locker       → "Locker"
+    //   home         → "Home" / "Domicile" / "Domestic"
+    const wantedType: "service_point" | "locker" | "home" | null =
+      deliveryType === "point_relais" ? "service_point" :
+      deliveryType === "locker"       ? "locker"        :
+      deliveryType === "home"         ? "home"          :
+      null;
+
     // Pour livraison domestique (même pays), on EXCLUT les options "international"
-    // sinon Sendcloud refuse avec "No shipping option could be found".
     const isDomestic = fromAddress.country_code === toAddress.country_code;
 
     const matchesCarrier = (o: any) => {
@@ -287,12 +297,34 @@ export async function POST(req: NextRequest) {
       const carrierCode = String(o?.carrier?.code ?? "").toLowerCase();
       const optName     = String(o?.name ?? "").toLowerCase();
       const optCode     = String(o?.shipping_option_code ?? o?.code ?? "").toLowerCase();
-      return wantedKey && (
-        carrierName.includes(wantedKey) ||
-        carrierCode.includes(wantedKey) ||
-        optName.includes(wantedKey)     ||
-        optCode.includes(wantedKey)
+      return wantedCarrier && (
+        carrierName.includes(wantedCarrier) ||
+        carrierCode.includes(wantedCarrier) ||
+        optName.includes(wantedCarrier)     ||
+        optCode.includes(wantedCarrier)
       );
+    };
+
+    // Matche l'option correspondant au delivery_type voulu :
+    // - service_point : "service point" / "point relais"
+    // - locker        : "locker" / "consigne"
+    // - home          : "home" / "domestic" / "domicile" (exclut explicitement
+    //                   les options point relais ou locker pour éviter une
+    //                   sélection erronée).
+    const matchesType = (o: any) => {
+      if (!wantedType) return true;
+      const optName = String(o?.name ?? "").toLowerCase();
+      const optCode = String(o?.shipping_option_code ?? o?.code ?? "").toLowerCase();
+      const blob    = `${optName} ${optCode}`;
+
+      if (wantedType === "service_point") {
+        return /service[- ]?point|point[- ]?relais/.test(blob);
+      }
+      if (wantedType === "locker") {
+        return /locker|consigne/.test(blob);
+      }
+      // home → exclut SP / locker
+      return !/service[- ]?point|point[- ]?relais|locker|consigne/.test(blob);
     };
 
     const isInternationalOption = (o: any) => {
@@ -306,8 +338,16 @@ export async function POST(req: NextRequest) {
       return code.includes(":home/") || code.includes(":domestic/") || code.includes(":national/");
     };
 
-    // Priorité : domestic match → carrier match non-international → carrier match → 1er fallback
+    // Priorité progressive (du plus précis au plus permissif) :
+    //   1. carrier + type + domestic + !international
+    //   2. carrier + type (sans contrainte international)
+    //   3. carrier + domestic
+    //   4. carrier seul
+    //   5. fallback : 1er résultat
     const selected =
+      (isDomestic && options.find(o => matchesCarrier(o) && matchesType(o) && isDomesticOption(o))) ||
+      (isDomestic && options.find(o => matchesCarrier(o) && matchesType(o) && !isInternationalOption(o))) ||
+      options.find(o => matchesCarrier(o) && matchesType(o)) ||
       (isDomestic && options.find(o => matchesCarrier(o) && isDomesticOption(o))) ||
       (isDomestic && options.find(o => matchesCarrier(o) && !isInternationalOption(o))) ||
       options.find(o => matchesCarrier(o)) ||
@@ -351,8 +391,8 @@ export async function POST(req: NextRequest) {
     };
     if (contractId !== null) shipWithProps.contract_id = contractId;
 
-    // Si point_relais → on attache le service point sélectionné par le client
-    if (relayId && deliveryType === "point_relais") {
+    // Si point_relais OU locker → on attache le service point sélectionné par le client
+    if (relayId && (deliveryType === "point_relais" || deliveryType === "locker")) {
       shipWithProps.to_service_point = relayId;
     }
 

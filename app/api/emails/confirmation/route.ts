@@ -22,8 +22,8 @@ function emailConfirmation(
   relay: any,
   homeAddress: any
 ): string {
-  // Bloc livraison dynamique selon delivery_type
-  const isRelay = deliveryType === "point_relais" && relay;
+  // Bloc livraison dynamique selon delivery_type — couvre PR et Locker
+  const isRelay = (deliveryType === "point_relais" || deliveryType === "locker") && relay;
   const isHome  = deliveryType === "home" && homeAddress;
   const mapsUrl = relay ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${relay.street ?? ""} ${relay.postal_code ?? ""} ${relay.city ?? ""}`)}` : "";
   const deliveryBlock = isRelay ? `

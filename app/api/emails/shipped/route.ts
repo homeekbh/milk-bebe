@@ -30,7 +30,8 @@ function buildHtml(opts: {
 }): string {
   const { prenom, tracking, transporteur, items, custom_message, delivery_type, relay, home_address } = opts;
   const trackingUrl = tracking && transporteur ? getTrackingUrl(transporteur, tracking) : null;
-  const isRelay = delivery_type === "point_relais" && relay;
+  // Inclut point_relais ET locker (Mondial Relay propose les deux)
+  const isRelay = (delivery_type === "point_relais" || delivery_type === "locker") && relay;
   const isHome  = delivery_type === "home" && home_address;
   const mapsUrl = isRelay ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${relay.street ?? ""} ${relay.postal_code ?? ""} ${relay.city ?? ""}`)}` : "";
   const deliveryBlock = isRelay ? `

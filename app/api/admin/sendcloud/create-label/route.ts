@@ -49,41 +49,63 @@ function extractError(json: any, fallback: string): string {
  * /fetch-shipping-options selon carrier + delivery_type.
  *
  * Logique :
- *   - colissimo + point_relais  → contient "colissimo" ET "service_point"
- *   - colissimo + home          → contient "colissimo" SANS "service_point"
- *   - mondial_relay + point_relais → contient "mondial_relay" ET "service_point"
+ *   - colissimo + point_relais  → contient "colissimo" ET "service_point", DOMESTIC prioritaire
+ *   - colissimo + home          → contient "colissimo" SANS "service_point", DOMESTIC prioritaire
+ *   - mondial_relay + point_relais → contient "mondial_relay" ET "service_point", DOMESTIC prioritaire
  *   - mondial_relay + locker    → contient "mondial_relay" ET "locker"
  *   - mondial_relay + home      → contient "mondial_relay" SANS "service_point" SANS "locker"
+ *
+ * Pour TOUS les modes, on PRÉFÈRE l'option qui ne contient PAS "international"
+ * (sinon Sendcloud peut router vers Belgique/Suisse pour une commande FR).
+ * Fallback : 1ère option qui matche le carrier+type peu importe la zone.
  */
 function pickShippingOption(options: any[], carrier: string, deliveryType: string): any | null {
   if (!Array.isArray(options) || options.length === 0) return null;
 
   const carrierKey = carrier.toLowerCase().includes("mondial") ? "mondial_relay" : "colissimo";
 
-  const matches = (o: any, predicate: (blob: string) => boolean): boolean => {
+  const blobOf = (o: any): string => {
     const name = String(o?.name ?? "").toLowerCase();
     const code = String(o?.code ?? o?.shipping_option_code ?? "").toLowerCase();
     const carrierName = String(o?.carrier?.name ?? "").toLowerCase();
     const carrierCode = String(o?.carrier?.code ?? "").toLowerCase();
-    return predicate(`${name} ${code} ${carrierName} ${carrierCode}`);
+    return `${name} ${code} ${carrierName} ${carrierCode}`;
   };
 
-  const hasCarrier = (blob: string) => blob.includes(carrierKey) || blob.includes(carrierKey.replace("_", " ")) || blob.includes(carrierKey.replace("_", ""));
-  const hasServicePoint = (blob: string) => /service[_ -]?point|point[_ -]?relais/.test(blob);
-  const hasLocker = (blob: string) => /locker|consigne/.test(blob);
+  const hasCarrier       = (b: string) => b.includes(carrierKey) || b.includes(carrierKey.replace("_", " ")) || b.includes(carrierKey.replace("_", ""));
+  const hasServicePoint  = (b: string) => /service[_ -]?point|point[_ -]?relais/.test(b);
+  const hasLocker        = (b: string) => /locker|consigne/.test(b);
+  const isInternational  = (b: string) => /international/.test(b);
 
+  // Filtre par carrier + type voulu → sous-ensemble candidat
+  let candidates: any[] = [];
   if (deliveryType === "point_relais") {
-    return options.find(o => matches(o, b => hasCarrier(b) && hasServicePoint(b)))
-        ?? options.find(o => matches(o, b => hasCarrier(b) && !hasLocker(b) && hasServicePoint(b)))
-        ?? null;
+    candidates = options.filter(o => {
+      const b = blobOf(o);
+      return hasCarrier(b) && hasServicePoint(b) && !hasLocker(b);
+    });
+  } else if (deliveryType === "locker") {
+    candidates = options.filter(o => {
+      const b = blobOf(o);
+      return hasCarrier(b) && hasLocker(b);
+    });
+  } else {
+    // home
+    candidates = options.filter(o => {
+      const b = blobOf(o);
+      return hasCarrier(b) && !hasServicePoint(b) && !hasLocker(b);
+    });
+    // Si vide, on fallback large : toute option du carrier
+    if (candidates.length === 0) {
+      candidates = options.filter(o => hasCarrier(blobOf(o)));
+    }
   }
-  if (deliveryType === "locker") {
-    return options.find(o => matches(o, b => hasCarrier(b) && hasLocker(b))) ?? null;
-  }
-  // home
-  return options.find(o => matches(o, b => hasCarrier(b) && !hasServicePoint(b) && !hasLocker(b)))
-      ?? options.find(o => matches(o, b => hasCarrier(b))) // fallback : 1er du carrier
-      ?? null;
+
+  if (candidates.length === 0) return null;
+
+  // Priorité DOMESTIC : préférer ceux qui ne sont PAS marqués "international"
+  const domestic = candidates.filter(o => !isInternational(blobOf(o)));
+  return domestic[0] ?? candidates[0];
 }
 
 /**
@@ -286,20 +308,28 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    console.log(`[sendcloud:v3:options] ${allOptions.length} options trouvées, codes:`,
-      allOptions.map((o: any) => o.code ?? o.shipping_option_code).filter(Boolean).join(" | "));
+    const allCodes = allOptions.map((o: any) => o.code ?? o.shipping_option_code).filter(Boolean);
+    console.log(`[sendcloud:v3:options] ${allOptions.length} options trouvées, codes:`, allCodes.join(" | "));
 
     // ── 4. Choisir le bon shipping_option_code ──────────────────────────────
     const selected = pickShippingOption(allOptions, effectiveCarrier, deliveryType);
     if (!selected) {
       return Response.json({
         error: `Aucune option Sendcloud trouvée pour ${effectiveCarrier}/${deliveryType}. Vérifie que ton contrat Sendcloud inclut cette combinaison.`,
-        available_codes: allOptions.map((o: any) => o.code ?? o.shipping_option_code).filter(Boolean),
+        available_codes: allCodes,
       }, { status: 400 });
     }
     const shippingOptionCode = selected.code ?? selected.shipping_option_code;
-    console.log(`[sendcloud:v3:options] SELECTED code=${shippingOptionCode} name=${selected.name}`);
-    console.error(`[sendcloud:v3:options] SELECTED code=${shippingOptionCode} name=${selected.name}`);
+    const pickedLog = JSON.stringify({
+      effectiveCarrier,
+      deliveryType,
+      picked_code:     shippingOptionCode,
+      picked_name:     selected.name,
+      is_international: /international/i.test(`${shippingOptionCode ?? ""} ${selected.name ?? ""}`),
+      all_available_codes: allCodes,
+    });
+    console.log("[sendcloud:v3:picked]",  pickedLog);
+    console.error("[sendcloud:v3:picked]", pickedLog);
 
     // ── 5. POST /api/v3/shipments/announce ──────────────────────────────────
     // Structure v3 attendue par Sendcloud :

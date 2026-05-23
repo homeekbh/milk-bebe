@@ -21,16 +21,29 @@ import { useState, useEffect, useCallback } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
 
-const FREE_SHIPPING_THRESHOLD = 60;
-const PRICE_RELAY = 6.82;   // Colissimo Point Relais
-const PRICE_HOME  = 8.66;   // Colissimo Domicile
+// Seuil par défaut si /api/settings/public échoue (chargement réseau)
+const DEFAULT_FREE_SHIPPING_THRESHOLD = 60;
 
-// Distance max (km) d'un point relais Colissimo affiché dans le sélecteur.
-// Au-delà on cache le résultat — un client n'ira jamais à 20 km pour récupérer
-// un colis bébé.
+// Matrice prix livraison — miroir EXACT de DELIVERY_PRICES dans
+// /api/checkout/create-session/route.ts. Si tu modifies un tarif, mets à
+// jour les DEUX endroits (côté checkout fait foi serveur, mais le panier
+// doit afficher la même chose au client).
+const DELIVERY_PRICES = {
+  mondial_relay: { point_relais: 3.50, locker: 3.50, home: 5.20 },
+  colissimo:     { point_relais: 5.90, locker: 0,    home: 7.70 }, // locker indisponible côté Colissimo (0 = bloqué)
+} as const;
+
+// Délais affichés par carrier (literal pour le sélecteur)
+const DELIVERY_DELAY: Record<string, string> = {
+  mondial_relay: "3-4 jours ouvrés",
+  colissimo:     "2-3 jours ouvrés",
+};
+
+// Distance max (km) d'un point relais affiché dans le sélecteur.
 const MAX_RELAY_DISTANCE_KM = 10;
 
-type DeliveryType = "point_relais" | "home";
+type Carrier      = "mondial_relay" | "colissimo";
+type DeliveryType = "point_relais" | "locker" | "home";
 
 type ServicePoint = {
   id: string;
@@ -64,7 +77,10 @@ export default function CartPage() {
   const [guestError,    setGuestError]    = useState("");
   const [checkoutError, setCheckoutError] = useState("");
 
-  // ── Livraison Colissimo (Domicile ou Point Relais La Poste) ─────────────
+  // ── Livraison : 2 carriers × jusqu'à 3 options ──────────────────────────
+  // Carrier + deliveryType bougent toujours ensemble. On les expose en deux
+  // states pour faciliter le rendu mais ils sont contraints par DELIVERY_PRICES.
+  const [carrier,         setCarrier]         = useState<Carrier | null>(null);
   const [deliveryType,    setDeliveryType]    = useState<DeliveryType | null>(null);
   const [postalSearch,    setPostalSearch]    = useState("");
   const [searching,       setSearching]       = useState(false);
@@ -76,40 +92,55 @@ export default function CartPage() {
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
 
+  // Seuil livraison offerte — lu depuis /api/settings/public au mount (cache
+  // CDN 60s). Default DEFAULT_FREE_SHIPPING_THRESHOLD si l'API échoue.
+  const [freeShippingThreshold, setFreeShippingThreshold] = useState<number>(DEFAULT_FREE_SHIPPING_THRESHOLD);
+  useEffect(() => {
+    fetch("/api/settings/public")
+      .then(r => r.json())
+      .then(d => {
+        const n = Number(d?.free_shipping_threshold);
+        if (Number.isFinite(n) && n > 0) setFreeShippingThreshold(n);
+      })
+      .catch(() => {});
+  }, []);
+
   // Charger depuis localStorage au mount.
-  // Point Relais temporairement désactivé — toute valeur legacy "point_relais"
-  // est forcée à "home". À retirer quand le PR sera réactivé via l'API
-  // La Poste directe.
   useEffect(() => {
     try {
       const raw = localStorage.getItem("milk_delivery_choice");
-      if (!raw) {
-        setDeliveryType("home");
-        return;
-      }
+      if (!raw) return;
       const d = JSON.parse(raw);
-      const t = d.deliveryType === "point_relais" ? "home" : (d.deliveryType ?? "home");
-      setDeliveryType(t);
-      if (d.homeAddress) setHomeAddress(d.homeAddress);
-      // selectedRelay et postalSearch volontairement non restaurés (PR désactivé)
-    } catch {
-      setDeliveryType("home");
-    }
+      // Valider que la combinaison carrier/deliveryType existe dans DELIVERY_PRICES
+      const c = d.carrier as Carrier | undefined;
+      const t = d.deliveryType as DeliveryType | undefined;
+      if (c && t && (DELIVERY_PRICES as any)[c]?.[t] > 0) {
+        setCarrier(c);
+        setDeliveryType(t);
+      }
+      if (d.selectedRelay) setSelectedRelay(d.selectedRelay);
+      if (d.homeAddress)   setHomeAddress(d.homeAddress);
+      if (d.postalSearch)  setPostalSearch(d.postalSearch);
+    } catch {}
   }, []);
 
   // Sauvegarder dans localStorage à chaque changement
   useEffect(() => {
     try {
       localStorage.setItem("milk_delivery_choice", JSON.stringify({
-        deliveryType, selectedRelay, homeAddress, postalSearch,
+        carrier, deliveryType, selectedRelay, homeAddress, postalSearch,
       }));
     } catch {}
-  }, [deliveryType, selectedRelay, homeAddress, postalSearch]);
+  }, [carrier, deliveryType, selectedRelay, homeAddress, postalSearch]);
 
   async function searchServicePoints() {
     const cp = postalSearch.trim();
     if (!/^\d{4,5}$/.test(cp)) {
       setSearchError("Code postal invalide (4 ou 5 chiffres)");
+      return;
+    }
+    if (!carrier) {
+      setSearchError("Sélectionnez d'abord un transporteur");
       return;
     }
     setSearching(true);
@@ -118,7 +149,7 @@ export default function CartPage() {
     setSearchResults([]);
     setFallbackManual(false);
     try {
-      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&carrier=colissimo`);
+      const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&carrier=${encodeURIComponent(carrier)}`);
       const data = await res.json();
       if (!res.ok || data.error === true) {
         setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
@@ -165,14 +196,18 @@ export default function CartPage() {
     setSearchError("");
   }
 
-  function switchDelivery(type: DeliveryType) {
-    setDeliveryType(type);
+  // Sélectionne une option (carrier + type) parmi la matrice DELIVERY_PRICES.
+  // Reset systématique du relais sélectionné quand on change (un PR Mondial
+  // Relay n'est pas valide pour Colissimo, et inversement).
+  function switchDelivery(c: Carrier, t: DeliveryType) {
+    setCarrier(c);
+    setDeliveryType(t);
     setCheckoutError("");
-    if (type === "home") {
-      setSelectedRelay(null);
-      setSearchResults([]);
-      setSearchEmpty(false);
-    }
+    setSelectedRelay(null);
+    setSearchResults([]);
+    setSearchEmpty(false);
+    setFallbackManual(false);
+    setSearchError("");
   }
 
   const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
@@ -205,18 +240,20 @@ export default function CartPage() {
 
   const discount     = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
   const freeShip     = promoData?.free_shipping ?? false;
-  const basePrice    = deliveryType === "home" ? PRICE_HOME : PRICE_RELAY;
-  const shippingFree = (subtotal - discount >= FREE_SHIPPING_THRESHOLD) || freeShip;
-  const shipping     = shippingFree ? 0 : (deliveryType ? basePrice : 0);
+  // Prix livraison depuis la matrice. 0 si carrier/type pas encore choisis.
+  const basePrice    = (carrier && deliveryType) ? ((DELIVERY_PRICES as any)[carrier][deliveryType] ?? 0) : 0;
+  const shippingFree = (subtotal - discount >= freeShippingThreshold) || freeShip;
+  const shipping     = shippingFree ? 0 : basePrice;
   const total        = Math.max(0, subtotal - discount) + shipping;
-  const remaining    = Math.max(0, FREE_SHIPPING_THRESHOLD - (subtotal - discount));
-  const pct          = Math.min(100, ((subtotal - discount) / FREE_SHIPPING_THRESHOLD) * 100);
+  const remaining    = Math.max(0, freeShippingThreshold - (subtotal - discount));
+  const pct          = Math.min(100, ((subtotal - discount) / freeShippingThreshold) * 100);
 
   // Livraison complétée ?
   const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
   const deliveryReady   =
-    deliveryType === "home"         ? homeComplete    :
-    deliveryType === "point_relais" ? !!selectedRelay :
+    !carrier || !deliveryType                                    ? false        :
+    deliveryType === "home"                                      ? homeComplete :
+    (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
     false;
 
   // Sauvegarde panier abandonné
@@ -278,6 +315,7 @@ export default function CartPage() {
     }
     setLoading(true);
     try {
+      const isRelayType = deliveryType === "point_relais" || deliveryType === "locker";
       const res  = await fetch("/api/checkout/create-session", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
@@ -287,9 +325,10 @@ export default function CartPage() {
           discount:       promoData?.discount ?? 0,
           free_shipping:  promoData?.free_shipping ?? false,
           customer_email: user?.email ?? guestEmail.trim(),
+          carrier,
           delivery_type:  deliveryType,
           delivery_price: shipping,
-          relay:          deliveryType === "point_relais" && selectedRelay ? {
+          relay:          isRelayType && selectedRelay ? {
             id:          selectedRelay.id,
             name:        selectedRelay.name,
             street:      selectedRelay.street,
@@ -491,42 +530,102 @@ export default function CartPage() {
                   </div>
                 </div>
 
-                {/* ── MODE DE LIVRAISON ── */}
+                {/* ── MODE DE LIVRAISON ── 2 transporteurs × 5 options ───── */}
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
-                  <div style={{ display: "grid", gap: 8, marginBottom: 14 }}>
-                    {/* Point Relais temporairement désactivé — sera réactivé
-                        via l'API La Poste directe. La const PRICE_RELAY et
-                        toute l'UI conditionnelle deliveryType==="point_relais"
-                        restent en place pour la réactivation. */}
-                    {([
-                      { type: "home" as const, icon: "🏠", label: "Colissimo Domicile", sub: "Livraison à domicile · 2-3 jours ouvrés", price: PRICE_HOME },
-                    ]).map(opt => {
-                      const active = deliveryType === opt.type;
-                      return (
-                        <button
-                          key={opt.type}
-                          onClick={() => switchDelivery(opt.type)}
-                          style={{
-                            display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
-                            padding: "12px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                            border: `2px solid ${active ? "#1a1410" : "rgba(26,20,16,0.1)"}`,
-                            background: active ? "#1a1410" : "#fff", color: active ? "#f2ede6" : "#1a1410",
-                            fontFamily: "inherit",
-                          }}>
-                          <span style={{ fontSize: 22 }}>{opt.icon}</span>
-                          <span>
-                            <div style={{ fontSize: 14, fontWeight: 800 }}>{opt.label}</div>
-                            <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
-                          </span>
-                          <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
-                        </button>
-                      );
-                    })}
+
+                  {/* Section Mondial Relay — 3 options, badge "Le moins cher" sur Point Relais */}
+                  <div style={{ marginBottom: 16 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
+                        📦 Mondial Relay
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>{DELIVERY_DELAY.mondial_relay}</div>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {([
+                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Retrait chez un commerçant", price: DELIVERY_PRICES.mondial_relay.point_relais, badge: "Le moins cher" },
+                        { type: "locker"       as const, icon: "🔒", label: "Locker",           sub: "Consigne automatique 24/7",  price: DELIVERY_PRICES.mondial_relay.locker,       badge: null },
+                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",       price: DELIVERY_PRICES.mondial_relay.home,         badge: null },
+                      ]).map(opt => {
+                        const active = carrier === "mondial_relay" && deliveryType === opt.type;
+                        return (
+                          <button
+                            key={`mr-${opt.type}`}
+                            onClick={() => switchDelivery("mondial_relay", opt.type)}
+                            style={{
+                              display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
+                              padding: "11px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                              border: `2px solid ${active ? "#1a1410" : "rgba(26,20,16,0.1)"}`,
+                              background: active ? "#1a1410" : "#fff", color: active ? "#f2ede6" : "#1a1410",
+                              fontFamily: "inherit", position: "relative",
+                            }}>
+                            <span style={{ fontSize: 20 }}>{opt.icon}</span>
+                            <span>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 14, fontWeight: 800 }}>{opt.label}</span>
+                                {opt.badge && (
+                                  <span style={{ padding: "1px 7px", borderRadius: 99, background: active ? "rgba(196,154,74,0.2)" : "#dcfce7", color: active ? "#c49a4a" : "#166534", fontSize: 10, fontWeight: 800, letterSpacing: 0.5 }}>
+                                    {opt.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
+                            </span>
+                            <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Sélecteur Colissimo Point Relais — UI custom */}
-                  {deliveryType === "point_relais" && !selectedRelay && (
+                  {/* Section Colissimo — 2 options, badge "Le plus rapide" sur les 2 */}
+                  <div style={{ marginBottom: 14 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
+                        🚀 Colissimo / La Poste
+                      </div>
+                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>{DELIVERY_DELAY.colissimo}</div>
+                    </div>
+                    <div style={{ display: "grid", gap: 6 }}>
+                      {([
+                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Bureau de Poste ou commerçant", price: DELIVERY_PRICES.colissimo.point_relais, badge: "Le plus rapide" },
+                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",          price: DELIVERY_PRICES.colissimo.home,         badge: "Le plus rapide" },
+                      ]).map(opt => {
+                        const active = carrier === "colissimo" && deliveryType === opt.type;
+                        return (
+                          <button
+                            key={`col-${opt.type}`}
+                            onClick={() => switchDelivery("colissimo", opt.type)}
+                            style={{
+                              display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
+                              padding: "11px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
+                              border: `2px solid ${active ? "#1a1410" : "rgba(26,20,16,0.1)"}`,
+                              background: active ? "#1a1410" : "#fff", color: active ? "#f2ede6" : "#1a1410",
+                              fontFamily: "inherit",
+                            }}>
+                            <span style={{ fontSize: 20 }}>{opt.icon}</span>
+                            <span>
+                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                                <span style={{ fontSize: 14, fontWeight: 800 }}>{opt.label}</span>
+                                {opt.badge && (
+                                  <span style={{ padding: "1px 7px", borderRadius: 99, background: active ? "rgba(196,154,74,0.2)" : "#dbeafe", color: active ? "#c49a4a" : "#1e40af", fontSize: 10, fontWeight: 800, letterSpacing: 0.5 }}>
+                                    {opt.badge}
+                                  </span>
+                                )}
+                              </div>
+                              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
+                            </span>
+                            <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Sélecteur Point Relais / Locker — UI custom carrier-aware.
+                      Affiché pour Mondial Relay (PR + Locker) ET Colissimo (PR). */}
+                  {(deliveryType === "point_relais" || deliveryType === "locker") && carrier && !selectedRelay && (
                     <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, marginBottom: 10 }}>
                       {/* Recherche par code postal */}
                       <div style={{ display: "flex", gap: 8, marginBottom: 12 }}>
@@ -556,7 +655,7 @@ export default function CartPage() {
 
                       {searching && (
                         <div style={{ padding: "20px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
-                          ⏳ Recherche des Points Relais Colissimo à proximité...
+                          ⏳ Recherche {deliveryType === "locker" ? "des lockers" : "des Points Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} à proximité...
                         </div>
                       )}
 
@@ -592,7 +691,7 @@ export default function CartPage() {
                       {/* Aucun résultat */}
                       {!searching && searchEmpty && searchResults.length === 0 && (
                         <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center" }}>
-                          Aucun Point Relais Colissimo trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
+                          Aucun {deliveryType === "locker" ? "locker" : "Point Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
                         </div>
                       )}
 
@@ -642,18 +741,24 @@ export default function CartPage() {
                     </div>
                   )}
 
-                  {/* Récap relais sélectionné */}
-                  {deliveryType === "point_relais" && selectedRelay && (
+                  {/* Récap relais sélectionné (Point Relais OU Locker) */}
+                  {(deliveryType === "point_relais" || deliveryType === "locker") && selectedRelay && (
                     <div style={{ background: "#dcfce7", borderRadius: 12, padding: 14, marginBottom: 10, border: "1px solid #86efac" }}>
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                         <div style={{ flex: "1 1 200px", minWidth: 0 }}>
-                          <div style={{ fontSize: 13, fontWeight: 900, color: "#166534", marginBottom: 4, wordBreak: "break-word" }}>✓ {selectedRelay.name}</div>
+                          <div style={{ fontSize: 11, fontWeight: 800, color: "#166534", marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>
+                            ✓ {deliveryType === "locker" ? "Locker" : "Point Relais"} sélectionné
+                          </div>
+                          <div style={{ fontSize: 14, fontWeight: 900, color: "#166534", marginBottom: 4, wordBreak: "break-word" }}>{selectedRelay.name}</div>
                           <div style={{ fontSize: 12, color: "#1a1410", wordBreak: "break-word" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
+                          {selectedRelay.opening_hours && (
+                            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", marginTop: 4, fontStyle: "italic" }}>🕐 {selectedRelay.opening_hours}</div>
+                          )}
                         </div>
                         <button
                           onClick={() => setSelectedRelay(null)}
                           style={{ background: "transparent", border: "1px solid #166534", fontSize: 12, fontWeight: 800, color: "#166534", padding: "10px 14px", minHeight: 44, borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
-                          Modifier
+                          Changer
                         </button>
                       </div>
                     </div>

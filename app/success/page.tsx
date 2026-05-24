@@ -9,18 +9,50 @@ function fbqTrack(event: string, data?: Record<string, unknown>) {
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
+import ProductRecommendations from "@/components/product/ProductRecommendations";
 
 export default function SuccessPage() {
-  const { clearCart } = useCart();
+  const { items, clearCart } = useCart();
   const [show, setShow] = useState(false);
   const cleared = useRef(false);
 
+  // Snapshot du panier AVANT clearCart pour récupérer la catégorie du dernier achat
+  // (utilisée par ProductRecommendations pour l'upsell). On lit aussi
+  // milk_last_category en fallback si le panier est déjà vide (refresh).
+  const [recoProductId, setRecoProductId]   = useState<string>("");
+  const [recoCategory,  setRecoCategory]    = useState<string>("");
+
   useEffect(() => {
-    // ✅ clearCart une seule fois — pas au refresh
+    // ── Snapshot panier pour upsell ────────────────────────────────────────
     if (!cleared.current) {
+      // 1) Try cart snapshot
+      const first = items[0];
+      if (first?.id && first?.slug) {
+        setRecoProductId(first.id);
+        // Persist pour les refresh ultérieurs de /success
+        try { localStorage.setItem("milk_last_product_slug", first.slug); } catch {}
+        // Fetch category depuis l'API
+        fetch(`/api/produits?slug=${encodeURIComponent(first.slug)}`)
+          .then(r => r.json())
+          .then((p: any) => {
+            if (p?.category_slug) {
+              setRecoCategory(p.category_slug);
+              try { localStorage.setItem("milk_last_category", p.category_slug); } catch {}
+            }
+          })
+          .catch(() => {});
+      } else {
+        // 2) Fallback : refresh — lire ce qu'on avait sauvegardé au précédent passage
+        try {
+          const cat = localStorage.getItem("milk_last_category") ?? "";
+          if (cat) setRecoCategory(cat);
+        } catch {}
+      }
+
+      // ── clearCart une seule fois ─────────────────────────────────────────
       clearCart();
       cleared.current = true;
-      fbqTrack("Purchase", { currency:"EUR", content_type:"product" });
+      fbqTrack("Purchase", { currency: "EUR", content_type: "product" });
 
       // ✅ Pour les users connectés : marquer le panier abandonné comme converti côté client
       // Pour les guests : le webhook Stripe s'en charge automatiquement
@@ -46,51 +78,64 @@ export default function SuccessPage() {
       localStorage.setItem("milk_intro_done",   "true");
     }
     setTimeout(() => setShow(true), 100);
-  }, [clearCart]);
+  }, [clearCart, items]);
 
   return (
-    <div style={{ background: "#1a1410", minHeight: "100vh", display: "grid", placeItems: "center", padding: "100px 24px 60px" }}>
-      <div style={{ maxWidth: 560, width: "100%", textAlign: "center", opacity: show ? 1 : 0, transition: "opacity 0.3s" }}>
+    <div style={{ background: "#1a1410", minHeight: "100vh", paddingTop: 100, paddingBottom: 0 }}>
+      <div style={{ display: "grid", placeItems: "center", padding: "0 24px 60px" }}>
+        <div style={{ maxWidth: 560, width: "100%", textAlign: "center", opacity: show ? 1 : 0, transition: "opacity 0.3s" }}>
 
-        <div style={{ background: "#221c16", borderRadius: 24, border: "1px solid rgba(196,154,74,0.2)", padding: "52px 44px", marginBottom: 20 }}>
-          <div style={{ width: 84, height: 84, borderRadius: "50%", background: "rgba(34,197,94,0.1)", border: "2px solid rgba(34,197,94,0.3)", display: "grid", placeItems: "center", margin: "0 auto 28px" }}>
-            <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
-              <path d="M5 13l4 4L19 7" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
+          <div style={{ background: "#221c16", borderRadius: 24, border: "1px solid rgba(196,154,74,0.2)", padding: "52px 44px", marginBottom: 20 }}>
+            <div style={{ width: 84, height: 84, borderRadius: "50%", background: "rgba(34,197,94,0.1)", border: "2px solid rgba(34,197,94,0.3)", display: "grid", placeItems: "center", margin: "0 auto 28px" }}>
+              <svg width="38" height="38" viewBox="0 0 24 24" fill="none">
+                <path d="M5 13l4 4L19 7" stroke="#22c55e" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </div>
+
+            <h1 style={{ margin: "0 0 14px", fontSize: "clamp(28px, 5vw, 38px)", fontWeight: 950, letterSpacing: -1.5, color: "#f2ede6" }}>
+              Commande confirmée !
+            </h1>
+
+            <p style={{ margin: "0 0 10px", fontSize: 17, color: "rgba(242,237,230,0.55)", lineHeight: 1.75 }}>
+              Merci pour ta confiance. Bébé va être chouchouté dans du bambou premium certifié OEKO-TEX.
+            </p>
+            <p style={{ margin: "0 0 36px", fontSize: 16, color: "rgba(242,237,230,0.4)", lineHeight: 1.75 }}>
+              Un email de confirmation a été envoyé. On prépare ton colis avec soin.
+            </p>
+
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 36 }}>
+              {[
+                { label: "Préparation", value: "1-2 jours ouvrés" },
+                { label: "Livraison",   value: "2-4 jours ouvrés" },
+              ].map(item => (
+                <div key={item.label} style={{ padding: "18px", borderRadius: 14, background: "rgba(242,237,230,0.04)", border: "1px solid rgba(242,237,230,0.06)" }}>
+                  <div style={{ fontSize: 13, color: "rgba(242,237,230,0.35)", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{item.label}</div>
+                  <div style={{ fontSize: 16, color: "#f2ede6", fontWeight: 800 }}>{item.value}</div>
+                </div>
+              ))}
+            </div>
+
+            {/* ✅ Lien profil simple — pas de commandes séparées */}
+            <Link href="/profil" style={{ display: "block", padding: "17px", borderRadius: 14, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 17, textDecoration: "none", marginBottom: 12 }}>
+              Voir mes commandes →
+            </Link>
+            <Link href="/produits" style={{ display: "block", padding: "15px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.1)", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
+              Continuer mes achats
+            </Link>
           </div>
-
-          <h1 style={{ margin: "0 0 14px", fontSize: "clamp(28px, 5vw, 38px)", fontWeight: 950, letterSpacing: -1.5, color: "#f2ede6" }}>
-            Commande confirmée !
-          </h1>
-
-          <p style={{ margin: "0 0 10px", fontSize: 17, color: "rgba(242,237,230,0.55)", lineHeight: 1.75 }}>
-            Merci pour ta confiance. Bébé va être chouchouté dans du bambou premium certifié OEKO-TEX.
-          </p>
-          <p style={{ margin: "0 0 36px", fontSize: 16, color: "rgba(242,237,230,0.4)", lineHeight: 1.75 }}>
-            Un email de confirmation a été envoyé. On prépare ton colis avec soin.
-          </p>
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 36 }}>
-            {[
-              { label: "Préparation", value: "1-2 jours ouvrés" },
-              { label: "Livraison",   value: "2-4 jours ouvrés" },
-            ].map(item => (
-              <div key={item.label} style={{ padding: "18px", borderRadius: 14, background: "rgba(242,237,230,0.04)", border: "1px solid rgba(242,237,230,0.06)" }}>
-                <div style={{ fontSize: 13, color: "rgba(242,237,230,0.35)", marginBottom: 6, fontWeight: 700, textTransform: "uppercase", letterSpacing: 0.5 }}>{item.label}</div>
-                <div style={{ fontSize: 16, color: "#f2ede6", fontWeight: 800 }}>{item.value}</div>
-              </div>
-            ))}
-          </div>
-
-          {/* ✅ Lien profil simple — pas de commandes séparées */}
-          <Link href="/profil" style={{ display: "block", padding: "17px", borderRadius: 14, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 17, textDecoration: "none", marginBottom: 12 }}>
-            Voir mes commandes →
-          </Link>
-          <Link href="/produits" style={{ display: "block", padding: "15px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.1)", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 15, textDecoration: "none" }}>
-            Continuer mes achats
-          </Link>
         </div>
       </div>
+
+      {/* ── Upsell post-achat ──────────────────────────────────────────────
+          ProductRecommendations gère lui-même les deux cas :
+          - categorySlug défini → 4 produits de la même catégorie
+          - categorySlug vide   → fallback sur tous les produits (4 premiers)
+          productId est un UUID inconnu si snapshot KO, ce qui n'exclut rien.
+          ──────────────────────────────────────────────────────────────── */}
+      <ProductRecommendations
+        productId={recoProductId}
+        categorySlug={recoCategory}
+      />
     </div>
   );
 }

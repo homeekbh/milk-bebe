@@ -196,15 +196,11 @@ export async function POST(req: Request) {
     // de livraison à Stripe en plus, mais celle qu'on a déjà côté UI sert de
     // référence.
     const sessionParams: any = {
-      // Carte uniquement. Apple Pay / Google Pay s'affichent automatiquement
-      // sur les navigateurs compatibles (Safari, Chrome Android) via "card".
-      // Stripe Link désactivé (pas listé → ne s'affiche pas).
-      payment_method_types: ["card"],
-      payment_method_options: {
-        card: {
-          request_three_d_secure: "automatic",
-        },
-      },
+      // automatic_payment_methods active automatiquement les méthodes de paiement
+      // configurées dans le dashboard Stripe + adaptées au pays/device du client :
+      // carte, Apple Pay, Google Pay, Link, etc. Mobile = +20-30 % conversion vs
+      // "card" seul (qui n'affiche pas Apple Pay dans le tunnel redirect).
+      automatic_payment_methods: { enabled: true },
       line_items:           lineItems,
       mode:                 "payment",
       billing_address_collection: "auto",

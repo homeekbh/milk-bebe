@@ -1,11 +1,4 @@
 {
-  "_doc": {
-    "audit": "2026-05-24 — aucun doublon : /api/cron/daily n'appelle PAS /api/emails/relance (vérifié dans le code source).",
-    "crons": {
-      "/api/emails/relance": "Cron 9h — Relance d'abandon panier. Envoie 3 séquences (1h / 24h / 72h après abandon) selon l'ancienneté du panier en table abandoned_carts. Indépendant de /api/cron/daily.",
-      "/api/cron/daily": "Cron 10h — Maître quotidien. Appelle séquentiellement : (1) /api/emails/avis (demande d'avis J+7 post-livraison), (2) /api/emails/taille-suivante (J+45 nouveau-né→0-3 mois, J+75 0-3→3-6 mois), (3) /api/admin/stock-alerts (alertes réassort clients en attente). N'APPELLE PAS /api/emails/relance."
-    }
-  },
   "crons": [
     {
       "path":     "/api/emails/relance",

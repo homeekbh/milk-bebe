@@ -2,10 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   turbopack: {},
+  compress:          true,
+  poweredByHeader:   false,
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
-      { protocol: "https", hostname: "ntkqmnenczltlwplswka.supabase.co" },
-      { protocol: "https", hostname: "moksqyojxtieqqwdjxlq.supabase.co" },
+      { protocol: "https", hostname: "*.supabase.co" },
       { protocol: "https", hostname: "images.unsplash.com" },
     ],
   },

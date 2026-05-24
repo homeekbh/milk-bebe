@@ -816,7 +816,16 @@ export default function ProductPage() {
                         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 28, fontWeight: 950, color: "rgba(26,20,16,0.2)" }}>M!LK</div>
                       ) : (
                         <>
-                          <Image src={img} alt={`${product.name} ${idx+1}`} fill sizes="(max-width:900px) 50vw, 40vw" quality={90} style={{ objectFit: "cover" }}/>
+                          <Image
+                            src={img}
+                            alt={`${product.name} en bambou OEKO-TEX — M!LK — photo ${idx+1}`}
+                            fill
+                            sizes="(max-width:900px) 50vw, 40vw"
+                            quality={90}
+                            priority={ri === 0 && ci === 0}
+                            loading={ri === 0 && ci === 0 ? undefined : "lazy"}
+                            style={{ objectFit: "cover" }}
+                          />
                           {ri === 0 && ci === 0 && lowStock && (
                             <div style={{ position: "absolute", top: 10, left: 10, zIndex: 5 }}>
                               <span style={{ padding: "5px 11px", borderRadius: 99, background: "rgba(180,80,60,0.85)", color: "#fff", fontSize: 11, fontWeight: 800 }}>Plus que {product.stock} !</span>

@@ -659,7 +659,7 @@ export default function ProductPage() {
       contents:     [{ id: product.id, quantity: qty }],
     });
     fbqTrack("AddToCart", { content_ids:[product.id], content_name:product.name, value:product.promo_price||product.price_ttc||0, currency:"EUR", contents:[{id:product.id,quantity:qty}] });
-    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: taille || undefined, couleur: couleur || undefined });
+    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: taille || undefined, couleur: couleur || undefined, category_slug: product.category_slug || undefined });
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }
 

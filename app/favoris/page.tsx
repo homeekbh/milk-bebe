@@ -121,7 +121,7 @@ export default function FavorisPage() {
                     <div style={{ marginTop: "auto", display: "grid", gap: 8 }}>
                       <button
                         disabled={!inStock}
-                        onClick={() => inStock && addToCart({ id: p.id, name: p.name, price: Number(price), image_url: p.image_url, slug: p.slug, quantity: 1 })}
+                        onClick={() => inStock && addToCart({ id: p.id, name: p.name, price: Number(price), image_url: p.image_url, slug: p.slug, quantity: 1, category_slug: p.category_slug || undefined })}
                         style={{ padding: "12px", borderRadius: 10, background: inStock ? DARK : "#e5e7eb", color: inStock ? AMB : "#9ca3af", fontWeight: 900, fontSize: 14, border: "none", cursor: inStock ? "pointer" : "not-allowed" }}>
                         {inStock ? "🛒 Ajouter au panier" : "Épuisé"}
                       </button>

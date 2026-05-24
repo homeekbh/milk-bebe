@@ -36,9 +36,16 @@ const C = {
 export default function ProductRecommendations({
   productId,
   categorySlug,
+  title    = "Dans la même collection",
+  eyebrow  = "Tu aimeras aussi",
+  titleColor,
 }: {
   productId:    string;
   categorySlug: string;
+  title?:       string;
+  eyebrow?:     string;
+  /** Override la couleur du <h2>. Par défaut : crème site (C.warm). */
+  titleColor?:  string;
 }) {
   const [items,   setItems]   = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -92,18 +99,20 @@ export default function ProductRecommendations({
     >
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ marginBottom: 24 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>
-            Tu aimeras aussi
-          </div>
+          {eyebrow && (
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>
+              {eyebrow}
+            </div>
+          )}
           <h2 style={{
             margin:        0,
             fontSize:      "clamp(22px,3vw,32px)",
             fontWeight:    950,
             letterSpacing: -0.8,
             lineHeight:    1.15,
-            color:         C.warm,
+            color:         titleColor ?? C.warm,
           }}>
-            Dans la même collection
+            {title}
           </h2>
         </div>
 

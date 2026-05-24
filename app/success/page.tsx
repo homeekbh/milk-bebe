@@ -11,45 +11,41 @@ import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
 
+const FALLBACK_CATEGORY = "pyjamas";
+
 export default function SuccessPage() {
   const { items, clearCart } = useCart();
   const [show, setShow] = useState(false);
   const cleared = useRef(false);
 
-  // Snapshot du panier AVANT clearCart pour récupérer la catégorie du dernier achat
-  // (utilisée par ProductRecommendations pour l'upsell). On lit aussi
-  // milk_last_category en fallback si le panier est déjà vide (refresh).
-  const [recoProductId, setRecoProductId]   = useState<string>("");
-  const [recoCategory,  setRecoCategory]    = useState<string>("");
+  // Catégorie du dernier achat pour l'upsell. On lit dans cet ordre :
+  //   1. items[0].category_slug (snapshot panier AVANT clearCart)
+  //   2. localStorage.milk_last_category (refresh ou nav directe)
+  //   3. FALLBACK_CATEGORY ('pyjamas')
+  const [recoCategory, setRecoCategory] = useState<string>(FALLBACK_CATEGORY);
+  const [recoProductId, setRecoProductId] = useState<string>("");
 
   useEffect(() => {
-    // ── Snapshot panier pour upsell ────────────────────────────────────────
     if (!cleared.current) {
-      // 1) Try cart snapshot
+      // ── 1. Récupération catégorie ─────────────────────────────────────────
       const first = items[0];
-      if (first?.id && first?.slug) {
-        setRecoProductId(first.id);
-        // Persist pour les refresh ultérieurs de /success
-        try { localStorage.setItem("milk_last_product_slug", first.slug); } catch {}
-        // Fetch category depuis l'API
-        fetch(`/api/produits?slug=${encodeURIComponent(first.slug)}`)
-          .then(r => r.json())
-          .then((p: any) => {
-            if (p?.category_slug) {
-              setRecoCategory(p.category_slug);
-              try { localStorage.setItem("milk_last_category", p.category_slug); } catch {}
-            }
-          })
-          .catch(() => {});
-      } else {
-        // 2) Fallback : refresh — lire ce qu'on avait sauvegardé au précédent passage
-        try {
-          const cat = localStorage.getItem("milk_last_category") ?? "";
-          if (cat) setRecoCategory(cat);
-        } catch {}
+      let category = first?.category_slug ?? "";
+
+      // Fallback 2 : localStorage (cas refresh /success)
+      if (!category) {
+        try { category = localStorage.getItem("milk_last_category") ?? ""; } catch {}
       }
 
-      // ── clearCart une seule fois ─────────────────────────────────────────
+      // Fallback 3 : default
+      if (!category) category = FALLBACK_CATEGORY;
+
+      // Persiste avant clearCart pour les refresh ultérieurs
+      try { localStorage.setItem("milk_last_category", category); } catch {}
+
+      setRecoCategory(category);
+      if (first?.id) setRecoProductId(first.id);
+
+      // ── 2. clearCart une seule fois ───────────────────────────────────────
       clearCart();
       cleared.current = true;
       fbqTrack("Purchase", { currency: "EUR", content_type: "product" });
@@ -115,7 +111,6 @@ export default function SuccessPage() {
               ))}
             </div>
 
-            {/* ✅ Lien profil simple — pas de commandes séparées */}
             <Link href="/profil" style={{ display: "block", padding: "17px", borderRadius: 14, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 17, textDecoration: "none", marginBottom: 12 }}>
               Voir mes commandes →
             </Link>
@@ -127,14 +122,17 @@ export default function SuccessPage() {
       </div>
 
       {/* ── Upsell post-achat ──────────────────────────────────────────────
-          ProductRecommendations gère lui-même les deux cas :
-          - categorySlug défini → 4 produits de la même catégorie
-          - categorySlug vide   → fallback sur tous les produits (4 premiers)
-          productId est un UUID inconnu si snapshot KO, ce qui n'exclut rien.
+          Titre 'Vous aimerez aussi' en ambre #c49a4a.
+          categorySlug = première dispo entre : panier / localStorage / 'pyjamas'.
+          ProductRecommendations affiche 4 produits filtrés sur cette catégorie,
+          avec fallback interne sur tous les produits si moins de 4 disponibles.
           ──────────────────────────────────────────────────────────────── */}
       <ProductRecommendations
         productId={recoProductId}
         categorySlug={recoCategory}
+        title="Vous aimerez aussi"
+        eyebrow=""
+        titleColor="#c49a4a"
       />
     </div>
   );

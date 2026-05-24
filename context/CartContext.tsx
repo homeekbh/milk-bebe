@@ -9,8 +9,9 @@ type CartItem = {
   price: number;
   quantity: number;
   image_url?: string;
-  taille?: string;   // taille sélectionnée
-  couleur?: string;  // couleur/motif sélectionné
+  taille?: string;        // taille sélectionnée
+  couleur?: string;       // couleur/motif sélectionné
+  category_slug?: string; // catégorie (pyjamas, bodies, etc.) — utile pour upsell post-achat
 };
 
 type CartContextType = {

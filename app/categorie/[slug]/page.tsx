@@ -3,6 +3,7 @@ import { notFound }       from "next/navigation";
 import type { Metadata }  from "next";
 import ProduitsGrid       from "@/app/produits/ProduitsGrid";
 import { JsonLd }         from "@/components/seo/JsonLd";
+import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
 
 export const dynamic    = "force-dynamic";
 export const revalidate = 0;
@@ -156,6 +157,7 @@ export default async function CategoriePage({ params }: Props) {
         subtitle={meta.subtitle}
         defaultCategory={slug}
       />
+      <CategorySeoContent slug={slug} />
     </>
   );
 }

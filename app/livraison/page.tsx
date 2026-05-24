@@ -1,4 +1,5 @@
 ﻿import type { Metadata } from "next";
+import { supabaseServer } from "@/lib/server/supabase";
 
 export const metadata: Metadata = {
   title:       "Livraison & Retours — M!LK",
@@ -9,7 +10,22 @@ export const metadata: Metadata = {
   },
 };
 
-﻿export default function LivraisonRetours() {
+async function getFreeShipThreshold(): Promise<number> {
+  try {
+    const { data } = await supabaseServer
+      .from("settings")
+      .select("value")
+      .eq("key", "free_shipping_threshold")
+      .maybeSingle();
+    const n = Number(data?.value);
+    return Number.isFinite(n) && n > 0 ? n : 60;
+  } catch {
+    return 60;
+  }
+}
+
+﻿export default async function LivraisonRetours() {
+  const FREE = await getFreeShipThreshold();
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
@@ -22,14 +38,14 @@ export const metadata: Metadata = {
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 8 }}>Livraison Colissimo / La Poste</h2>
           <p style={{ fontSize: 14, color: "rgba(26,20,16,0.55)", marginBottom: 24, fontWeight: 600 }}>
-            Point Relais : 6,82€ · Domicile : 8,66€ · Offerte dès 60€ d'achat
+            Point Relais : 6,82€ · Domicile : 8,66€ · Offerte dès {FREE}€ d'achat
           </p>
           <div style={{ display: "grid", gap: 16, marginBottom: 28 }}>
             {[
-              { label: "France métropolitaine",    delay: "2-3 jours ouvrés", price: "Offerte dès 60€" },
+              { label: "France métropolitaine",    delay: "2-3 jours ouvrés", price: `Offerte dès ${FREE}€` },
               { label: "Belgique, Luxembourg",      delay: "2-3 jours ouvrés", price: "Offerte dès 80€" },
               { label: "Suisse",                    delay: "2-3 jours ouvrés", price: "Offerte dès 100€" },
-              { label: "Monaco",                    delay: "2-3 jours ouvrés", price: "Offerte dès 60€" },
+              { label: "Monaco",                    delay: "2-3 jours ouvrés", price: `Offerte dès ${FREE}€` },
             ].map(zone => (
               <div key={zone.label} style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.07)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "center" }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410" }}>{zone.label}</div>

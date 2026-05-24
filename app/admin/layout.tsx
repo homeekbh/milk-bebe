@@ -9,15 +9,15 @@ import SearchGlobal from "@/components/admin/SearchGlobal";
 import { MilkLogo } from "@/components/shared/MilkLogo";
 import OrderAlerts from "@/components/admin/OrderAlerts";
 
-const NAV = [
+const NAV: Array<{ href: string; label: string; icon: string; badgeKey?: "reviewsPending" | "commandesPending" }> = [
   { href: "/admin",              label: "Dashboard",    icon: "▦"  },
   { href: "/admin/homepage",     label: "Homepage",     icon: "🏠" },
   { href: "/admin/produits",     label: "Produits",     icon: "🏷" },
   { href: "/admin/categories",   label: "Catégories",   icon: "📂" },
-  { href: "/admin/commandes",    label: "Commandes",    icon: "📦" },
+  { href: "/admin/commandes",    label: "Commandes",    icon: "📦", badgeKey: "commandesPending" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
   { href: "/admin/codes-promos", label: "Codes promos", icon: "🎟" },
-  { href: "/admin/avis",         label: "Avis",         icon: "★"  },
+  { href: "/admin/avis",         label: "Avis",         icon: "★",  badgeKey: "reviewsPending" },
   { href: "/admin/popups",       label: "Pop-ups",      icon: "💬" },
   { href: "/admin/newsletter",   label: "Newsletter",   icon: "📧" },
   { href: "/admin/comptabilite", label: "Comptabilité", icon: "📊" },
@@ -367,6 +367,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [userEmail, setUserEmail] = useState("");
   const [checking,  setChecking]  = useState(true);
   const [showCal,   setShowCal]   = useState(false);
+  const [badges,    setBadges]    = useState<{ reviewsPending: number; commandesPending: number }>({ reviewsPending: 0, commandesPending: 0 });
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 900);
@@ -385,6 +386,31 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       setChecking(false);
     });
   }, [pathname, router]);
+
+  // Charge périodiquement les compteurs "à traiter" pour les badges NAV
+  useEffect(() => {
+    if (checking) return;
+    const loadBadges = async () => {
+      try {
+        const { count: reviewsPending } = await supabase
+          .from("reviews")
+          .select("id", { count: "exact", head: true })
+          .eq("approved", false);
+        const { count: commandesPending } = await supabase
+          .from("orders")
+          .select("id", { count: "exact", head: true })
+          .eq("status", "payee")
+          .in("shipping_status", ["en_preparation", "processing", ""]);
+        setBadges({
+          reviewsPending:   reviewsPending   ?? 0,
+          commandesPending: commandesPending ?? 0,
+        });
+      } catch {}
+    };
+    loadBadges();
+    const t = setInterval(loadBadges, 60_000);
+    return () => clearInterval(t);
+  }, [checking]);
 
   async function handleSignOut() {
     await supabase.auth.signOut();
@@ -413,10 +439,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav style={{ flex: 1, padding: "14px 10px" }}>
           {NAV.map(item => {
             const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+            const count = item.badgeKey ? badges[item.badgeKey] : 0;
             return (
               <Link key={item.href} href={item.href}
                 style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14, transition: "all 0.15s" }}>
-                <span style={{ fontSize: 15 }}>{item.icon}</span>{item.label}
+                <span style={{ fontSize: 15 }}>{item.icon}</span>
+                <span style={{ flex: 1 }}>{item.label}</span>
+                {count > 0 && (
+                  <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, display: "grid", placeItems: "center" }}>
+                    {count > 99 ? "99+" : count}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -450,10 +483,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </div>
             {NAV.map(item => {
               const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
+              const count = item.badgeKey ? badges[item.badgeKey] : 0;
               return (
                 <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14 }}>
-                  <span>{item.icon}</span>{item.label}
+                  <span>{item.icon}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {count > 0 && (
+                    <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, display: "grid", placeItems: "center" }}>
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
                 </Link>
               );
             })}

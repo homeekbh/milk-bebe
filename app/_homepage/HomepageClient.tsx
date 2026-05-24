@@ -116,8 +116,8 @@ function IconPyjama({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg widt
 function IconGigoteuse({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3c-3.5 0-6 2-6 5v8c0 2.5 2.5 5 6 5s6-2.5 6-5V8c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M9 3.5c0-1 1.3-1.5 3-1.5s3 .5 3 1.5" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>; }
 function IconAccessoires({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={c} strokeWidth="1.6"/></svg>; }
 
-function Ticker() {
-  const items = ["✦ Bambou certifié OEKO-TEX","✦ 3× plus doux que le coton","✦ Thermorégulateur naturel","✦ Livraison offerte dès 60€","✦ Retour gratuit 15 jours","✦ Antibactérien naturel","✦ Bodies · Pyjamas · Gigoteuses"];
+function Ticker({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
+  const items = ["✦ Bambou certifié OEKO-TEX","✦ 3× plus doux que le coton","✦ Thermorégulateur naturel",`✦ Livraison offerte dès ${freeShipThreshold}€`,"✦ Retour gratuit 15 jours","✦ Antibactérien naturel","✦ Bodies · Pyjamas · Gigoteuses"];
   const str = items.join("   ");
   return (
     <div style={{ overflow: "hidden", background: C.amber, padding: "11px 0" }}>
@@ -292,6 +292,14 @@ export default function HomePage() {
   const [catVisible, setCatVisible] = useState(false);
   const [products, setProducts]     = useState<any[]>([]);
   const [lbl, setLbl]               = useState("Sélection du moment");
+  const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
+
+  useEffect(() => {
+    fetch("/api/settings/public").then(r=>r.json()).then((s:any)=>{
+      const n = Number(s?.free_shipping_threshold);
+      if (Number.isFinite(n) && n > 0) setFreeShipThreshold(n);
+    }).catch(()=>{});
+  }, []);
 
   useEffect(() => {
     fetch("/api/home/config").then(r=>r.json()).then((data:any)=>{
@@ -416,7 +424,7 @@ export default function HomePage() {
             <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
           </div>
           <div className="stats-row" style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
-            {[{val:"500+",label:"familles satisfaites"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
+            {[{val:`${freeShipThreshold}€`,label:"livraison offerte dès"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
               <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
                 <div style={{ fontSize:"clamp(18px,3vw,40px)", fontWeight:950, letterSpacing:-1.5, color:C.warm, lineHeight:1 }}>{k.val}</div>
                 <div style={{ fontSize:"clamp(10px,0.9vw,12px)", color:C.muted, marginTop:4 }}>{k.label}</div>
@@ -424,7 +432,7 @@ export default function HomePage() {
             ))}
           </div>
           <div style={{ display:"flex", gap:24, flexWrap:"wrap", paddingTop:18, borderTop:"1px solid rgba(242,237,230,0.08)" }}>
-            {[{Icon:IconTruck,label:"Livraison offerte",desc:"dès 60€"},{Icon:IconLeaf,label:"Bambou OEKO-TEX",desc:"certifié"},{Icon:IconLock,label:"Paiement sécurisé",desc:"Stripe"}].map(r=>(
+            {[{Icon:IconTruck,label:"Retour gratuit",desc:"15 jours"},{Icon:IconLeaf,label:"Bambou OEKO-TEX",desc:"certifié"},{Icon:IconLock,label:"Paiement sécurisé",desc:"Stripe"}].map(r=>(
               <div key={r.label} style={{ display:"flex", alignItems:"center", gap:8 }}>
                 <r.Icon s={16} c={C.amber}/>
                 <div><div style={{ fontSize:12, fontWeight:800, color:C.warm, lineHeight:1 }}>{r.label}</div><div style={{ fontSize:11, color:C.muted }}>{r.desc}</div></div>
@@ -440,7 +448,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <Ticker/>
+      <Ticker freeShipThreshold={freeShipThreshold}/>
       <Divider from={C.bg} to={C.light}/>
 
       {/* ── PRODUITS — Carousel hover+swipe ── */}

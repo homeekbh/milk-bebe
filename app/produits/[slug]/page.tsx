@@ -576,6 +576,7 @@ export default function ProductPage() {
   const [added,       setAdded]       = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
   const [reviews,    setReviews]    = useState<any[]>([]);
+  const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
   const [guideOpen,   setGuideOpen]   = useState(false);
   const [openFaqIdx,  setOpenFaqIdx]  = useState<number | null>(null);
   const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
@@ -613,8 +614,19 @@ export default function ProductPage() {
             session_id: sid,
           }),
         }).catch(() => {});
+        fetch(`/api/reviews?product_id=${encodeURIComponent(found.id)}`)
+          .then(r => r.json())
+          .then((arr: any) => { if (Array.isArray(arr)) setReviews(arr); })
+          .catch(() => {});
       }}).catch(() => setLoading(false));
   }, [slug]);
+
+  useEffect(() => {
+    fetch("/api/settings/public").then(r=>r.json()).then((s:any)=>{
+      const n = Number(s?.free_shipping_threshold);
+      if (Number.isFinite(n) && n > 0) setFreeShipThreshold(n);
+    }).catch(()=>{});
+  }, []);
 
   // Synchronise la hauteur du panneau droit avec la colonne gauche
   useEffect(() => {
@@ -1095,7 +1107,7 @@ export default function ProductPage() {
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
             {[
               { Icon: IconLeaf,   label: "100% Bambou OEKO-TEX"     },
-              { Icon: IconTruck,  label: "Livraison offerte dès 60€" },
+              { Icon: IconTruck,  label: `Livraison offerte dès ${freeShipThreshold}€` },
               { Icon: IconReturn, label: "Retour gratuit 15 jours"   },
               { Icon: IconLock,   label: "Paiement sécurisé Stripe"  },
             ].map(r => (

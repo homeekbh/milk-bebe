@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import Link  from "next/link";
@@ -173,6 +173,14 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   const [sortValue,      setSortValue]      = useState("position");
   const [search,         setSearch]         = useState("");
   const [page,           setPage]           = useState(1);
+  const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
+
+  useEffect(() => {
+    fetch("/api/settings/public").then(r=>r.json()).then((s:any)=>{
+      const n = Number(s?.free_shipping_threshold);
+      if (Number.isFinite(n) && n > 0) setFreeShipThreshold(n);
+    }).catch(()=>{});
+  }, []);
 
   const filtered = useMemo(() => {
     let list = products.filter(p => p.published !== false);
@@ -311,7 +319,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(200px,1fr))", gap: 14 }}>
           {[
             { label: "100% Bambou",       desc: "Certifié OEKO-TEX"  },
-            { label: "Livraison offerte",  desc: "Dès 60€ d'achat"    },
+            { label: "Livraison offerte",  desc: `Dès ${freeShipThreshold}€ d'achat`    },
             { label: "Retour gratuit",     desc: "Sous 15 jours"      },
             { label: "Paiement sécurisé", desc: "Via Stripe"          },
           ].map(r => (

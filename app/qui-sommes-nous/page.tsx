@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link  from "next/link";
 import { C, Divider, Reveal, BigTextScroll, Ticker, MILK_STYLES } from "@/components/shared/MilkDesign";
+import { Breadcrumb } from "@/components/seo/Breadcrumb";
 
 const VALEURS = [
   { titre: "Chaque produit répond à un problème réel.", texte: "Pas de design pour le design. Pas de fonctionnalité inutile. On part d'un problème concret — l'habillage qui tourne au combat, la surchauffe, les moufles perdues — et on cherche la solution la plus simple." },
@@ -31,6 +32,13 @@ export default function QuiSommesNousPage() {
           .qsn-grid { grid-template-columns:1fr!important; gap:32px!important; }
         }
       `}</style>
+
+      <div style={{ background: C.bg }}>
+        <Breadcrumb
+          variant="light"
+          items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
+        />
+      </div>
 
       {/* HERO */}
       <section style={{ position: "relative", height: "clamp(52vh,60vh,70vh)", minHeight: 300, overflow: "hidden" }}>

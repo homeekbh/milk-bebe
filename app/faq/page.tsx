@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Breadcrumb } from "@/components/seo/Breadcrumb";
 
 const C = {
   bg:    "#2d1a0e",
@@ -106,7 +107,8 @@ export default function FAQPage() {
       {/* Hero */}
       <div style={{ background: C.dark, padding: "80px 5vw 56px" }}>
         <div style={{ maxWidth: 800, margin: "0 auto" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 12 }}>
+          <Breadcrumb variant="light" items={[{ label: "Accueil", href: "/" }, { label: "FAQ" }]} />
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginTop: 8, marginBottom: 12 }}>
             Aide & réponses
           </div>
           <h1 style={{ margin: "0 0 16px", fontSize: "clamp(32px,5vw,60px)", fontWeight: 950, letterSpacing: -2, lineHeight: 1.05, color: C.warm }}>

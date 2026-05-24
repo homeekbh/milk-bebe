@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link  from "next/link";
 import { C, Divider, Reveal, BigTextScroll, Ticker, MILK_STYLES } from "@/components/shared/MilkDesign";
+import { Breadcrumb } from "@/components/seo/Breadcrumb";
 
 const PROPRIETES = [
   { titre: "Thermorégulation naturelle", texte: "La fibre de bambou absorbe et évacue l'humidité 3× plus vite que le coton. Votre nourrisson reste à la bonne température, été comme hiver. Moins de surchauffe, moins de sueurs, moins de réveils nocturnes.", stat: "3×", statLabel: "plus respirant que le coton", image: "/images/pourquoi-bambou/bambou-thermoregulation.jpg", imageAlt: "Macro tissu bambou M!LK — thermorégulation naturelle certifiée OEKO-TEX" },
@@ -43,6 +44,13 @@ export default function PourquoiBambouPage() {
           .pb-otg  { grid-template-columns:1fr!important; gap:28px!important; }
         }
       `}</style>
+
+      <div style={{ background: C.bg }}>
+        <Breadcrumb
+          variant="light"
+          items={[{ label: "Accueil", href: "/" }, { label: "Pourquoi le bambou" }]}
+        />
+      </div>
 
       {/* HERO */}
       <section style={{ position: "relative", height: "52vh", minHeight: 320, overflow: "hidden" }}>

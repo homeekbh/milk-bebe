@@ -11,6 +11,7 @@ import Image                           from "next/image";
 import Link                            from "next/link";
 import { useCart }                     from "@/context/CartContext";
 import { useWishlist }                 from "@/context/WishlistContext";
+import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -752,6 +753,18 @@ export default function ProductPage() {
         }) }} />
       )}
     <div style={{ background: BG, minHeight: "100vh" }}>
+      <Breadcrumb
+        variant="dark"
+        items={[
+          { label: "Accueil",  href: "/" },
+          { label: "Produits", href: "/produits" },
+          ...(productCat ? [{
+            label: productCat.charAt(0).toUpperCase() + productCat.slice(1),
+            href:  `/categorie/${productCat}`,
+          }] : []),
+          { label: product.name },
+        ]}
+      />
       {lightboxIdx !== null && allImages.length > 0 && (
         <Lightbox images={allImages} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}

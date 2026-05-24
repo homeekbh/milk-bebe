@@ -4,6 +4,7 @@ import type { Metadata }  from "next";
 import ProduitsGrid       from "@/app/produits/ProduitsGrid";
 import { JsonLd }         from "@/components/seo/JsonLd";
 import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
+import { Breadcrumb }          from "@/components/seo/Breadcrumb";
 
 export const dynamic    = "force-dynamic";
 export const revalidate = 0;
@@ -151,6 +152,16 @@ export default async function CategoriePage({ params }: Props) {
   return (
     <>
       <JsonLd data={[collectionLd, breadcrumbLd]} />
+      <div style={{ background: "#ede8df" }}>
+        <Breadcrumb
+          variant="dark"
+          items={[
+            { label: "Accueil",  href: "/" },
+            { label: "Produits", href: "/produits" },
+            { label: meta.title },
+          ]}
+        />
+      </div>
       <ProduitsGrid
         products={products}
         title={meta.title}

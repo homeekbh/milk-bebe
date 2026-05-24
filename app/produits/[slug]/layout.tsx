@@ -10,7 +10,7 @@ export async function generateMetadata(
 
   const { data: product } = await supabaseServer
     .from("products")
-    .select("name, description, seo_title, seo_description, image_url, slug")
+    .select("name, description, seo_title, seo_description, image_url, slug, category_slug")
     .eq("slug", slug)
     .single();
 
@@ -21,9 +21,31 @@ export async function generateMetadata(
     };
   }
 
-  const title       = product.seo_title       ?? `${product.name} | M!LK`;
-  const description = product.seo_description ?? product.description ?? `${product.name} en bambou certifié OEKO-TEX. Cadeau naissance idéal, livraison France. Pour nourrissons 0-6 mois.`;
-  const url         = `${BASE}/produits/${product.slug}`;
+  const title = product.seo_title ?? `${product.name} en bambou OEKO-TEX`;
+
+  // Description = premier paragraphe (jusqu'au premier saut de ligne, max 155 car)
+  // + mention livraison offerte
+  const firstParagraph = (product.description ?? "")
+    .split(/\n\s*\n/)[0]?.trim()
+    .replace(/\s+/g, " ")
+    .slice(0, 130);
+  const description = product.seo_description
+    ?? (firstParagraph
+        ? `${firstParagraph}… Livraison offerte dès 60€.`
+        : `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€.`);
+
+  const url = `${BASE}/produits/${product.slug}`;
+
+  // Mots-clés contextuels : catégorie + nom + qualité matière
+  const cat = product.category_slug ?? "";
+  const keywords = [
+    product.name,
+    `${product.name} bambou`,
+    cat ? `${cat} bambou bébé` : "",
+    cat ? `${cat} OEKO-TEX` : "",
+    "bambou bébé OEKO-TEX",
+    "cadeau naissance",
+  ].filter(Boolean) as string[];
 
   const breadcrumbLd = {
     "@context": "https://schema.org",
@@ -38,12 +60,13 @@ export async function generateMetadata(
   return {
     title,
     description,
+    keywords,
     openGraph: {
       title,
       description,
       url,
       type:   "website",
-      images: product.image_url ? [{ url: product.image_url, width: 1200, height: 1600, alt: product.name }] : [],
+      images: product.image_url ? [{ url: product.image_url, width: 1200, height: 630, alt: product.name }] : [],
     },
     twitter: {
       card:        "summary_large_image",

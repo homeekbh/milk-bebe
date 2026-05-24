@@ -8,36 +8,41 @@ export const revalidate = 0;
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle: string; seoDesc: string }> = {
+const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle: string; seoDesc: string; keywords: string[] }> = {
   bodies: {
     title:    "Bodies nourrisson",
     subtitle: "L'essentiel du quotidien en bambou certifié OEKO-TEX — 0 à 6 mois",
-    seoTitle: "Body Bébé & Body Naissance | M!LK — Bambou OEKO-TEX 0-6 mois",
-    seoDesc:  "Body bébé manches longues, body naissance sans étiquette. Cadeau naissance idéal. Bambou certifié OEKO-TEX, 3× plus doux que le coton. Body 0-3 mois et 3-6 mois livraison France.",
+    seoTitle: "Body bébé bambou OEKO-TEX 0-6 mois",
+    seoDesc:  "Bodies bébé en bambou certifié OEKO-TEX. Doux, respirants, anti-bactériens. Motifs modernes unisexes pour nouveau-né 0-6 mois.",
+    keywords: ["body bébé bambou", "body OEKO-TEX", "body nouveau-né", "body bébé mixte", "body bambou certifié"],
   },
   pyjamas: {
     title:    "Pyjamas nourrisson",
     subtitle: "Pour des nuits sereines — bambou thermorégulateur certifié OEKO-TEX",
-    seoTitle: "Pyjama Bébé & Grenouillère Naissance | M!LK — Bambou OEKO-TEX",
-    seoDesc:  "Pyjama bébé double zip, grenouillère avec moufles intégrées. Cadeau naissance original. Bambou OEKO-TEX ultra-doux. Pyjama naissance, 0-3 mois, 3-6 mois.",
+    seoTitle: "Pyjama bambou bébé 0-6 mois | Grenouillère dors-bien",
+    seoDesc:  "Pyjamas grenouillères en bambou OEKO-TEX pour bébé 0-6 mois. 3× plus doux que le coton, thermorégulants, motifs modernes unisexes.",
+    keywords: ["pyjama bambou bébé", "grenouillère bambou", "dors-bien bébé", "pyjama bébé nouveau-né", "grenouillère OEKO-TEX"],
   },
   gigoteuses: {
     title:    "Gigoteuses nourrisson",
     subtitle: "Sommeil sécurisé toute la nuit — bambou OEKO-TEX",
-    seoTitle: "Gigoteuse Bébé & Turbulette Naissance | M!LK — Bambou OEKO-TEX",
-    seoDesc:  "Gigoteuse bébé bambou OEKO-TEX. Turbulette naissance thermorégulation naturelle. Idée cadeau naissance utile. Gigoteuse 0-6 mois livraison France.",
+    seoTitle: "Gigoteuse bambou bébé 0-6 mois | Douce et thermorégulante",
+    seoDesc:  "Gigoteuses en bambou certifié OEKO-TEX pour bébé 0-6 mois. Ultra-douces, thermorégulantes, motifs unisexes. Livraison offerte dès 60€.",
+    keywords: ["gigoteuse bambou", "gigoteuse bébé", "gigoteuse à nouer", "turbulette bambou", "sac de couchage bébé bambou", "gigoteuse OEKO-TEX"],
   },
   accessoires: {
     title:    "Accessoires bébé",
     subtitle: "Les détails qui changent tout — bambou premium OEKO-TEX",
-    seoTitle: "Accessoires Naissance & Bonnet Bébé | M!LK — Cadeau Naissance Original",
-    seoDesc:  "Bonnet naissance, nœud tête bébé, bandeau bébé bambou OEKO-TEX. Cadeau naissance original et tendance. Idée cadeau jeune maman livraison France.",
+    seoTitle: "Accessoires bébé bambou | Bonnets et nœuds tête",
+    seoDesc:  "Bonnets et accessoires bébé en bambou OEKO-TEX. Doux sur la peau sensible des nouveau-nés. Motifs modernes unisexes.",
+    keywords: ["bonnet bébé bambou", "accessoires bébé bambou", "nœud tête bébé", "bonnet nouveau-né"],
   },
   langes: {
     title:    "Langes & Swaddles",
     subtitle: "L'emmaillotage qui calme bébé en quelques minutes — bambou OEKO-TEX",
-    seoTitle: "Lange Bébé & Emmaillotage | M!LK — Bambou OEKO-TEX",
-    seoDesc:  "Lange emmaillotage bambou OEKO-TEX ultra-doux. Lange bébé multiusage. Cadeau naissance pratique et naturel. Emmaillotage naissance 0-6 mois.",
+    seoTitle: "Lange bébé bambou | Mousseline OEKO-TEX",
+    seoDesc:  "Langes et carrés de mousseline en bambou OEKO-TEX pour bébé. Ultra-absorbants, lavables, multifonctions. Livraison offerte dès 60€.",
+    keywords: ["lange bambou bébé", "carré mousseline bébé", "lange OEKO-TEX", "mousseline bébé bambou"],
   },
 };
 
@@ -51,6 +56,7 @@ function getMeta(slug: string) {
     subtitle: `Collection ${label} en bambou certifié OEKO-TEX — M!LK`,
     seoTitle: `${label} bébé bambou OEKO-TEX | M!LK`,
     seoDesc:  `${label} pour nourrisson en bambou certifié OEKO-TEX. Ultra-doux, thermorégulateur, adapté aux peaux sensibles.`,
+    keywords: [`${label.toLowerCase()} bébé bambou`, `${label.toLowerCase()} OEKO-TEX`],
   };
 }
 
@@ -61,6 +67,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title:       meta.seoTitle,
     description: meta.seoDesc,
+    keywords:    meta.keywords,
     alternates:  { canonical: url },
     openGraph: {
       title:       meta.seoTitle,

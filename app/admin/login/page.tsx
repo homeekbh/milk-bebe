@@ -29,30 +29,42 @@ function AdminLoginContent() {
     // un raccourci. Sinon : un user dont l'email match l'env mais avec
     // is_admin=false provoque une boucle (login redirect → /admin → layout
     // kick out → /admin/login → login redirect → ...).
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { setChecking(false); return; }
+    //
+    // 🛡 Try/catch/finally OBLIGATOIRE : si supabase.from() ou signOut()
+    // throw (réseau, RLS, etc.), une promise rejection non catchée gèlerait
+    // checking=true → spinner "Vérification..." infini. Le finally garantit
+    // que le formulaire finit toujours par s'afficher.
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return; // finally → setChecking(false)
 
-      const adminEmails = getAdminEmails();
-      const emailWhitelistOk = adminEmails.length === 0
-        || adminEmails.includes(session.user.email ?? "");
-      if (!emailWhitelistOk) {
-        await supabase.auth.signOut();
+        const adminEmails = getAdminEmails();
+        const emailWhitelistOk = adminEmails.length === 0
+          || adminEmails.includes(session.user.email ?? "");
+        if (!emailWhitelistOk) {
+          await supabase.auth.signOut().catch(() => {});
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles").select("is_admin").eq("id", session.user.id).single();
+
+        if (profile?.is_admin) {
+          // window.location.href = hard reload, le finally du current scope
+          // sera exécuté avant la nav (peu importe puisqu'on quitte la page).
+          window.location.href = redirect;
+          return;
+        }
+
+        await supabase.auth.signOut().catch(() => {});
+      } catch (e) {
+        // RLS, réseau, etc. — on dégrade en affichant le formulaire
+        if (process.env.NODE_ENV !== "production") console.warn("[admin/login] auth probe error:", e);
+      } finally {
         setChecking(false);
-        return;
       }
-
-      // Toujours vérifier is_admin en BDD — aligne avec app/admin/layout.tsx
-      const { data: profile } = await supabase
-        .from("profiles").select("is_admin").eq("id", session.user.id).single();
-
-      if (profile?.is_admin) {
-        window.location.href = redirect;
-      } else {
-        // is_admin=false → signOut + montrer le formulaire (pas de redirect)
-        await supabase.auth.signOut();
-        setChecking(false);
-      }
-    });
+    })();
   }, [redirect]);
 
   async function handleLogin(e: React.FormEvent) {

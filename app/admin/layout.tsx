@@ -378,25 +378,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     if (pathname === "/admin/login") { setChecking(false); return; }
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) {
-        // Pas de session → redirect vers login. window.location.href force
-        // un reload complet → garantit que le client Supabase repart sans
-        // état mémoire stale (sinon la login page pourrait re-détecter
-        // une session fantôme dans le cache et reboucler).
-        window.location.href = `/admin/login?redirect=${encodeURIComponent(pathname)}`;
-        return;
-      }
-      const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).single();
-      if (!profile?.is_admin) {
-        await supabase.auth.signOut();
-        // Idem : hard reload pour purger le client Supabase
+    // 🛡 Try/catch obligatoire — sans ça, une RLS qui throw ou un signOut qui
+    // échoue laisse checking=true → spinner 'Vérification des droits...' infini.
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) {
+          // Hard reload — purge le client Supabase mémoire pour éviter
+          // que la login page re-détecte une session fantôme et reboucle.
+          window.location.href = `/admin/login?redirect=${encodeURIComponent(pathname)}`;
+          return;
+        }
+        const { data: profile } = await supabase
+          .from("profiles").select("is_admin").eq("id", session.user.id).single();
+        if (!profile?.is_admin) {
+          await supabase.auth.signOut().catch(() => {});
+          window.location.href = "/admin/login";
+          return;
+        }
+        setUserEmail(session.user.email ?? "");
+        setChecking(false);
+      } catch (e) {
+        // En cas d'erreur réseau / RLS : on coupe la session et on bounce
+        // au login (qui dégradera vers le formulaire grâce à son propre try/catch).
+        if (process.env.NODE_ENV !== "production") console.warn("[admin/layout] auth probe error:", e);
+        await supabase.auth.signOut().catch(() => {});
         window.location.href = "/admin/login";
-        return;
       }
-      setUserEmail(session.user.email ?? "");
-      setChecking(false);
-    });
+    })();
   }, [pathname, router]);
 
   // Charge périodiquement les compteurs "à traiter" pour les badges NAV

@@ -1,19 +1,9 @@
 ﻿"use client";
 
+// ── Meta Pixel helper ─────────────────────────────────────────────────────────
 function fbqTrack(event: string, data?: Record<string, unknown>) {
   try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
 }
-
-// ── Meta Pixel helpers ────────────────────────────────────────────────────────
-// ── Meta Pixel helpers ────────────────────────────────────────────────────────
-function fbq(event: string, data?: Record<string, unknown>) {
-  try {
-    if (typeof window !== "undefined" && (window as any).fbq) {
-      (window as any).fbq("track", event, data);
-    }
-  } catch {}
-}
-
 
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";

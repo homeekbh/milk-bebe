@@ -101,6 +101,15 @@ export default function InscriptionPage() {
       newsletter: form.newsletter,
     }]);
 
+    // Email de bienvenue — fire-and-forget. N'attend pas la réponse pour
+    // ne pas bloquer la redirection vers /profil. Si échoue (Resend down,
+    // rate limit), on continue normalement.
+    fetch("/api/emails/welcome", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ email: form.email, prenom: form.prenom }),
+    }).catch(() => {});
+
     return true;
   }
 

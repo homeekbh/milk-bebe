@@ -48,42 +48,97 @@ export default function QuiSommesNousPage() {
       </section>
 
       <Ticker />
-      <Divider from={C.bg} to={C.light} />
+      <Divider from={C.bg} to={C.bg} />
 
-      {/* INTRO */}
-      <div style={{ background: C.light, padding: "56px 5vw" }}>
-        <div className="qsn-grid">
+      {/* INTRO — Mot de la fondatrice + portrait Erika */}
+      <div style={{ background: C.bg, padding: "64px 5vw 72px" }}>
+        <div style={{ maxWidth: 720, margin: "0 auto", textAlign: "center" }}>
           <Reveal>
-            <div style={{ display: "grid", gap: 20 }}>
-              <h2 style={{ margin: 0, fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.15, color: C.dark, fontSize: "clamp(26px,3.5vw,46px)" }}>
-                M!LK n'est pas une marque de vêtements.
-              </h2>
-              <p style={{ margin: 0, color: C.amber, fontWeight: 800, fontSize: "clamp(16px,1.8vw,22px)", lineHeight: 1.4 }}>
-                C'est une réponse aux petites galères répétées.
-              </p>
-              <p style={{ margin: 0, color: "rgba(26,20,16,0.65)", fontSize: "clamp(15px,1.5vw,18px)", lineHeight: 1.8 }}>
-                L'habillage qui tourne au combat. Bébé qui gigote, pleure, se débat. Les boutons-pression à aligner à 3h du matin. La surchauffe. Les irritations sur sa peau toute neuve.
-              </p>
-              <p style={{ margin: 0, color: "rgba(26,20,16,0.65)", fontSize: "clamp(15px,1.5vw,18px)", lineHeight: 1.8 }}>
-                On a cherché des produits qui <strong style={{ color: C.dark }}>règlent vraiment ces problèmes</strong>. Dans la vraie vie. À 3h du matin. Quand t'es épuisé.
-              </p>
-              <p style={{ margin: 0, color: "rgba(26,20,16,0.65)", fontSize: "clamp(15px,1.5vw,18px)", lineHeight: 1.8 }}>
-                On n'a pas trouvé. Alors on a créé <strong style={{ color: C.amber }}>M!LK</strong>.
-              </p>
-              <div style={{ padding: "16px 20px", borderRadius: 14, background: "rgba(196,154,74,0.12)", border: "1px solid rgba(196,154,74,0.25)", boxShadow: "0 4px 16px rgba(0,0,0,0.08)" }}>
-                <div style={{ fontSize: "clamp(14px,1.5vw,18px)", fontWeight: 900, color: C.amber }}>Des essentiels bébé. Sans le superflu.</div>
-              </div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 24 }}>
+              Mot de la fondatrice
             </div>
           </Reveal>
-          <Reveal delay={0.12}>
-            <div style={{ position: "relative", borderRadius: 24, overflow: "hidden", aspectRatio: "4/5", boxShadow: "0 24px 56px rgba(0,0,0,0.2)" }}>
-              <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_editorial_mains_checker.webp" alt="Mains tenant un vêtement M!LK bambou checker" fill sizes="50vw" style={{ objectFit: "cover" }} />
+
+          <Reveal delay={0.05}>
+            <div style={{
+              position:     "relative",
+              width:        "100%",
+              maxWidth:     360,
+              margin:       "0 auto 40px",
+              aspectRatio:  "4/5",
+              borderRadius: 24,
+              overflow:     "hidden",
+              boxShadow:    "0 24px 56px rgba(0,0,0,0.45), 0 4px 12px rgba(0,0,0,0.35)",
+              border:       `1px solid rgba(196,154,74,0.18)`,
+            }}>
+              <Image
+                src="https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg"
+                alt="Erika et ses garçons — fondatrice de M!LK"
+                fill
+                sizes="(max-width: 700px) 80vw, 360px"
+                style={{ objectFit: "cover", objectPosition: "center" }}
+                priority
+              />
+            </div>
+          </Reveal>
+
+          <Reveal delay={0.1}>
+            <h2 style={{
+              margin:        "0 0 24px",
+              fontWeight:    950,
+              letterSpacing: -1.5,
+              lineHeight:    1.15,
+              color:         C.warm,
+              fontSize:      "clamp(28px,4vw,48px)",
+            }}>
+              Qui sommes-nous
+            </h2>
+          </Reveal>
+
+          <Reveal delay={0.15}>
+            <div style={{
+              display:    "grid",
+              gap:        18,
+              textAlign:  "left",
+              maxWidth:   600,
+              margin:     "0 auto",
+              fontSize:   "clamp(15px,1.5vw,17px)",
+              lineHeight: 1.85,
+              color:      C.muted,
+            }}>
+              <p style={{ margin: 0, fontSize: "clamp(18px,2vw,22px)", fontWeight: 900, color: C.warm, lineHeight: 1.4 }}>
+                Je suis maman. Deux fois.
+              </p>
+              <p style={{ margin: 0 }}>
+                Et je me souviens encore de ces matins en pyjama — les deux collés contre moi, chauds, souriants, le monde encore un peu flou. Ces moments où rien d'autre n'existe.
+              </p>
+              <p style={{ margin: 0, fontWeight: 800, color: C.amber }}>
+                C'est là qu'est né M!LK.
+              </p>
+              <p style={{ margin: 0 }}>
+                Dans ce quotidien intense et doux à la fois — où tout va vite, où tout est nouveau, où on cherche juste des choses simples. Une pièce qu'on attrape sans réfléchir, qu'on enfile en deux secondes, et qui est juste... parfaite. Pour eux. Pour nous.
+              </p>
+              <p style={{ margin: 0 }}>
+                Pas de surcharge. Pas de superflu. Des essentiels avec du caractère — modernes, unisexes, différents — pour les tout-petits qui méritent déjà quelque chose d'un peu atypique.
+              </p>
+              <p style={{ margin: 0 }}>
+                Mes garçons ont grandi. Et avec eux, j'ai appris. J'ai appris ce que j'aurais aimé trouver dès le premier jour. M!LK, c'est ça — des années de rêves, de regards, d'envies, mis enfin en pratique.
+              </p>
+              <p style={{ margin: 0 }}>
+                On commence par les 0–6 mois. Mais la vision est bien plus grande.
+              </p>
+              <p style={{ margin: "8px 0 0", fontWeight: 800, color: C.warm, fontSize: "clamp(16px,1.7vw,19px)" }}>
+                Soutenez-nous — les plus beaux projets arrivent.
+              </p>
+              <p style={{ margin: 0, fontWeight: 900, color: C.amber, fontSize: "clamp(17px,1.9vw,21px)", letterSpacing: -0.3 }}>
+                Bienvenue chez M!LK.
+              </p>
             </div>
           </Reveal>
         </div>
       </div>
 
-      <Divider from={C.light} to={C.bg} />
+      <Divider from={C.bg} to={C.bg} />
 
       {/* KPIs */}
       <div style={{ background: C.bg }}>
@@ -154,22 +209,6 @@ export default function QuiSommesNousPage() {
       </div>
 
       <BigTextScroll text="MOINS DE GALÈRES. PLUS DE MOMENTS." speed={30} bg={C.light} />
-
-      {/* LIFESTYLE */}
-      <div style={{ background: C.light, padding: "0 5vw 56px" }}>
-        <Reveal>
-          <div style={{ position: "relative", borderRadius: 24, overflow: "hidden", height: "clamp(300px,40vh,480px)" }}>
-            <Image src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero.jpg" alt="Collection M!LK — bodies et pyjamas bambou" fill sizes="100vw" style={{ objectFit: "cover", filter: "brightness(0.6) saturate(0.7)" }} />
-            <div style={{ position: "absolute", inset: 0, background: "linear-gradient(to right, rgba(45,26,14,0.92) 0%, rgba(45,26,14,0.15) 70%)", display: "flex", alignItems: "center" }}>
-              <div style={{ padding: "0 6vw", maxWidth: 520 }}>
-                <h2 style={{ margin: "0 0 14px", fontSize: "clamp(22px,3vw,38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: C.warm }}>Des essentiels bébé.<br />Sans le superflu.</h2>
-                <p style={{ margin: "0 0 22px", fontSize: "clamp(14px,1.4vw,16px)", lineHeight: 1.7, color: C.muted }}>Nous ne multiplions pas les collections. Nous perfectionnons les pièces qui comptent vraiment.</p>
-                <Link href="/produits" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 12, background: C.amber, color: C.dark, fontWeight: 900, fontSize: 14, textDecoration: "none" }}>Voir la collection →</Link>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
 
       <Divider from={C.light} to={C.bg} />
 

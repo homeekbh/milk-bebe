@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
@@ -36,6 +37,39 @@ export const metadata: Metadata = {
   },
 };
 
+const personLd = {
+  "@context":   "https://schema.org",
+  "@type":      "Person",
+  name:         "Erika",
+  jobTitle:     "Fondatrice",
+  worksFor:     { "@type": "Organization", name: "M!LK", url: BASE },
+  description:  "Maman de deux garçons, fondatrice de M!LK — marque française d'essentiels bébé en bambou certifié OEKO-TEX.",
+  image:        `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
+};
+
+const aboutPageLd = {
+  "@context":   "https://schema.org",
+  "@type":      "AboutPage",
+  name:         "Qui sommes-nous — M!LK",
+  url:          `${BASE}/qui-sommes-nous`,
+  mainEntity:   { "@id": `${BASE}/#organization` },
+  about:        { "@type": "Organization", name: "M!LK", url: BASE },
+};
+
+const breadcrumbLd = {
+  "@context": "https://schema.org",
+  "@type":    "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Accueil",          item: BASE },
+    { "@type": "ListItem", position: 2, name: "Qui sommes-nous",  item: `${BASE}/qui-sommes-nous` },
+  ],
+};
+
 export default function QuiSommesNousLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+  return (
+    <>
+      <JsonLd data={[personLd, aboutPageLd, breadcrumbLd]} />
+      {children}
+    </>
+  );
 }

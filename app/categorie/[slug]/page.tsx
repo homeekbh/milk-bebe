@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { notFound }       from "next/navigation";
 import type { Metadata }  from "next";
 import ProduitsGrid       from "@/app/produits/ProduitsGrid";
+import { JsonLd }         from "@/components/seo/JsonLd";
 
 export const dynamic    = "force-dynamic";
 export const revalidate = 0;
@@ -112,12 +113,49 @@ export default async function CategoriePage({ params }: Props) {
   if (!hasCategory) notFound();
 
   const meta = getMeta(slug);
+  const url  = `${BASE}/categorie/${slug}`;
+
+  // Produits de cette catégorie pour ItemList
+  const inCat = products.filter(p => p.category_slug === slug);
+
+  const collectionLd = {
+    "@context":   "https://schema.org",
+    "@type":      "CollectionPage",
+    name:         meta.seoTitle,
+    description:  meta.seoDesc,
+    url,
+    isPartOf:     { "@type": "WebSite", name: "M!LK", url: BASE },
+    mainEntity: {
+      "@type":           "ItemList",
+      numberOfItems:     inCat.length,
+      itemListElement:   inCat.slice(0, 30).map((p, i) => ({
+        "@type":   "ListItem",
+        position:  i + 1,
+        url:       `${BASE}/produits/${p.slug}`,
+        name:      p.name,
+      })),
+    },
+  };
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type":    "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil",   item: BASE },
+      { "@type": "ListItem", position: 2, name: "Produits",  item: `${BASE}/produits` },
+      { "@type": "ListItem", position: 3, name: meta.title,  item: url },
+    ],
+  };
+
   return (
-    <ProduitsGrid
-      products={products}
-      title={meta.title}
-      subtitle={meta.subtitle}
-      defaultCategory={slug}
-    />
+    <>
+      <JsonLd data={[collectionLd, breadcrumbLd]} />
+      <ProduitsGrid
+        products={products}
+        title={meta.title}
+        subtitle={meta.subtitle}
+        defaultCategory={slug}
+      />
+    </>
   );
 }

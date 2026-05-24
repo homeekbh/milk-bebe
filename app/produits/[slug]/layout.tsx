@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/server/supabase";
+import { JsonLd } from "@/components/seo/JsonLd";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
@@ -81,6 +82,108 @@ export async function generateMetadata(
   };
 }
 
-export default function ProductSlugLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+// ── JSON-LD Product schema ─────────────────────────────────────────────────
+async function getProductJsonLd(slug: string) {
+  const { data: product } = await supabaseServer
+    .from("products")
+    .select("id, name, slug, description, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, images")
+    .eq("slug", slug)
+    .single();
+  if (!product) return null;
+
+  // Extraction des champs (TS ne propage pas le narrowing dans les closures)
+  const stock        = Number(product.stock ?? 0);
+  const priceTtc     = Number(product.price_ttc);
+  const promoPrice   = product.promo_price != null ? Number(product.promo_price) : null;
+  const promoStart   = product.promo_start ? String(product.promo_start).slice(0, 10) : null;
+  const promoEnd     = product.promo_end   ? String(product.promo_end).slice(0, 10)   : null;
+  const inStock      = stock > 0;
+
+  // Prix actif (promo si fenêtre valide, sinon prix normal)
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const promoActive =
+    promoPrice != null
+    && (!promoStart || todayStr >= promoStart)
+    && (!promoEnd   || todayStr <= promoEnd);
+  const price = promoActive ? (promoPrice as number) : priceTtc;
+
+  // Avis approuvés pour aggregateRating
+  const { data: reviews } = await supabaseServer
+    .from("reviews")
+    .select("rating")
+    .eq("product_id", product.id)
+    .eq("approved", true);
+
+  const aggregateRating = (reviews && reviews.length > 0) ? {
+    "@type":      "AggregateRating",
+    ratingValue:  (reviews.reduce((s, r) => s + Number(r.rating ?? 0), 0) / reviews.length).toFixed(1),
+    reviewCount:  reviews.length,
+    bestRating:   5,
+    worstRating:  1,
+  } : null;
+
+  const url = `${BASE}/produits/${product.slug}`;
+
+  // Images : tableau s'il existe, sinon fallback image_url
+  const imageList = Array.isArray(product.images) && product.images.length > 0
+    ? product.images
+    : (product.image_url ? [product.image_url] : []);
+
+  return {
+    "@context":    "https://schema.org",
+    "@type":       "Product",
+    name:          product.name,
+    description:   product.description ?? `${product.name} en bambou certifié OEKO-TEX. Cadeau naissance idéal, livraison France.`,
+    image:         imageList,
+    brand:         { "@type": "Brand", name: "M!LK" },
+    material:      "Bambou certifié OEKO-TEX",
+    sku:           product.slug,
+    category:      product.category_slug ?? undefined,
+    ...(aggregateRating ? { aggregateRating } : {}),
+    offers: {
+      "@type":         "Offer",
+      price:           Number.isFinite(price) ? price.toFixed(2) : "0.00",
+      priceCurrency:   "EUR",
+      availability:    inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      url,
+      seller:          { "@type": "Organization", name: "M!LK" },
+      priceValidUntil: "2027-12-31",
+      itemCondition:   "https://schema.org/NewCondition",
+      hasMerchantReturnPolicy: {
+        "@type":               "MerchantReturnPolicy",
+        applicableCountry:     "FR",
+        returnPolicyCategory:  "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays:    15,
+        returnMethod:          "https://schema.org/ReturnByMail",
+        returnFees:            "https://schema.org/FreeReturn",
+      },
+      shippingDetails: {
+        "@type":               "OfferShippingDetails",
+        shippingRate:          { "@type": "MonetaryAmount", value: "3.50", currency: "EUR" },
+        shippingDestination:   { "@type": "DefinedRegion", addressCountry: "FR" },
+        deliveryTime: {
+          "@type":      "ShippingDeliveryTime",
+          handlingTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 2, unitCode: "DAY" },
+          transitTime:  { "@type": "QuantitativeValue", minValue: 2, maxValue: 4, unitCode: "DAY" },
+        },
+      },
+    },
+  };
+}
+
+export default async function ProductSlugLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params:   Promise<{ slug: string }>;
+}) {
+  const { slug } = await params;
+  const productLd = await getProductJsonLd(slug);
+  return (
+    <>
+      {productLd && <JsonLd data={productLd} />}
+      {children}
+    </>
+  );
 }

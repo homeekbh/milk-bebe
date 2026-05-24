@@ -10,30 +10,19 @@ import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
+import {
+  DELIVERY_PRICES,
+  DELIVERY_DELAY,
+  getDeliveryPrice,
+  type Carrier,
+  type DeliveryType,
+} from "@/lib/delivery-config";
 
 // Seuil par défaut si /api/settings/public échoue (chargement réseau)
 const DEFAULT_FREE_SHIPPING_THRESHOLD = 60;
 
-// Matrice prix livraison — miroir EXACT de DELIVERY_PRICES dans
-// /api/checkout/create-session/route.ts. Si tu modifies un tarif, mets à
-// jour les DEUX endroits (côté checkout fait foi serveur, mais le panier
-// doit afficher la même chose au client).
-const DELIVERY_PRICES = {
-  mondial_relay: { point_relais: 3.50, locker: 3.50, home: 5.20 },
-  colissimo:     { point_relais: 5.90, locker: 0,    home: 7.70 }, // locker indisponible côté Colissimo (0 = bloqué)
-} as const;
-
-// Délais affichés par carrier (literal pour le sélecteur)
-const DELIVERY_DELAY: Record<string, string> = {
-  mondial_relay: "3-4 jours ouvrés",
-  colissimo:     "2-3 jours ouvrés",
-};
-
 // Distance max (km) d'un point relais affiché dans le sélecteur.
 const MAX_RELAY_DISTANCE_KM = 10;
-
-type Carrier      = "mondial_relay" | "colissimo";
-type DeliveryType = "point_relais" | "locker" | "home";
 
 type ServicePoint = {
   id: string;
@@ -602,9 +591,9 @@ export default function CartPage() {
                     </div>
                     <div style={{ display: "grid", gap: 6 }}>
                       {([
-                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Retrait chez un commerçant", price: DELIVERY_PRICES.mondial_relay.point_relais, badge: "Le moins cher" },
-                        { type: "locker"       as const, icon: "🔒", label: "Locker",           sub: "Consigne automatique 24/7",  price: DELIVERY_PRICES.mondial_relay.locker,       badge: null },
-                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",       price: DELIVERY_PRICES.mondial_relay.home,         badge: null },
+                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Retrait chez un commerçant", price: getDeliveryPrice("mondial_relay", "point_relais"), badge: "Le moins cher" },
+                        { type: "locker"       as const, icon: "🔒", label: "Locker",           sub: "Consigne automatique 24/7",  price: getDeliveryPrice("mondial_relay", "locker"), badge: null },
+                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",       price: getDeliveryPrice("mondial_relay", "home"),   badge: null },
                       ]).map(opt => {
                         const active = carrier === "mondial_relay" && deliveryType === opt.type;
                         return (
@@ -647,8 +636,8 @@ export default function CartPage() {
                     </div>
                     <div style={{ display: "grid", gap: 6 }}>
                       {([
-                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Bureau de Poste ou commerçant", price: DELIVERY_PRICES.colissimo.point_relais, badge: "Le plus rapide" },
-                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",          price: DELIVERY_PRICES.colissimo.home,         badge: "Le plus rapide" },
+                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Bureau de Poste ou commerçant", price: getDeliveryPrice("colissimo", "point_relais"), badge: "Le plus rapide" },
+                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",          price: getDeliveryPrice("colissimo", "home"),         badge: "Le plus rapide" },
                       ]).map(opt => {
                         const active = carrier === "colissimo" && deliveryType === opt.type;
                         return (

@@ -1,5 +1,12 @@
 ﻿import Stripe from "stripe";
 import { supabaseServer } from "@/lib/server/supabase";
+import {
+  ALLOWED_CARRIERS,
+  ALLOWED_DELIVERY_TYPES,
+  isDeliveryCombinationAllowed,
+  getDeliveryPrice,
+  deliveryLabel,
+} from "@/lib/delivery-config";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -21,41 +28,6 @@ function extractTailleFromName(name: string): string | null {
   ];
   if (taillePatterns.some(p => p.test(last))) return last;
   return null;
-}
-
-// ── Matrice prix livraison — source unique de vérité ────────────────────────
-// Aligné avec le sélecteur côté panier. Si tu ajoutes/modifies un tarif ici,
-// le panier le reflètera automatiquement (il lit ces mêmes valeurs via
-// /api/settings/public + son propre miroir constants).
-const DELIVERY_PRICES: Record<string, Record<string, number>> = {
-  mondial_relay: {
-    point_relais: 3.50,
-    locker:       3.50,
-    home:         5.20,
-  },
-  colissimo: {
-    point_relais: 5.90,
-    home:         7.70,
-  },
-};
-
-const ALLOWED_CARRIER  = Object.keys(DELIVERY_PRICES);
-const ALLOWED_DELIVERY = ["home", "point_relais", "locker"];
-
-// Labels Stripe par combinaison carrier × type
-function deliveryLabel(carrier: string, deliveryType: string): string {
-  const map: Record<string, Record<string, string>> = {
-    mondial_relay: {
-      point_relais: "Mondial Relay Point Relais",
-      locker:       "Mondial Relay Locker",
-      home:         "Mondial Relay Domicile",
-    },
-    colissimo: {
-      point_relais: "Colissimo Point Relais",
-      home:         "Colissimo Domicile",
-    },
-  };
-  return map[carrier]?.[deliveryType] ?? `${carrier} ${deliveryType}`;
 }
 
 // Lit le seuil livraison offerte depuis la table settings (default 60€).
@@ -82,14 +54,14 @@ export async function POST(req: Request) {
     }
 
     // ── Validation transporteur + mode de livraison ──────────────────────────
-    if (!carrier || !ALLOWED_CARRIER.includes(carrier)) {
-      return Response.json({ error: `Transporteur invalide (autorisés: ${ALLOWED_CARRIER.join(", ")})` }, { status: 400 });
+    if (!carrier || !ALLOWED_CARRIERS.includes(carrier)) {
+      return Response.json({ error: `Transporteur invalide (autorisés: ${ALLOWED_CARRIERS.join(", ")})` }, { status: 400 });
     }
-    if (!delivery_type || !ALLOWED_DELIVERY.includes(delivery_type)) {
-      return Response.json({ error: `Mode de livraison invalide (autorisés: ${ALLOWED_DELIVERY.join(", ")})` }, { status: 400 });
+    if (!delivery_type || !ALLOWED_DELIVERY_TYPES.includes(delivery_type)) {
+      return Response.json({ error: `Mode de livraison invalide (autorisés: ${ALLOWED_DELIVERY_TYPES.join(", ")})` }, { status: 400 });
     }
     // Combinaison carrier × type doit exister dans la matrice
-    if (DELIVERY_PRICES[carrier]?.[delivery_type] === undefined) {
+    if (!isDeliveryCombinationAllowed(carrier, delivery_type)) {
       return Response.json({ error: `Combinaison ${carrier}/${delivery_type} non disponible` }, { status: 400 });
     }
     // Point relais / locker → relay.id obligatoire
@@ -177,7 +149,7 @@ export async function POST(req: Request) {
     const subtotal           = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
     const freeShipThreshold  = await getFreeShippingThreshold();
     const hasFreeShipping    = free_shipping || subtotal >= freeShipThreshold;
-    const baseDelivery       = DELIVERY_PRICES[carrier][delivery_type];
+    const baseDelivery       = getDeliveryPrice(carrier, delivery_type);
     const deliveryCost       = hasFreeShipping ? 0 : baseDelivery;
 
     if (deliveryCost > 0) {

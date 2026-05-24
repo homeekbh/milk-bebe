@@ -470,13 +470,46 @@ export async function POST(req: NextRequest) {
       }, { status: 500 });
     }
 
-    let trackingNumber: string = shipment?.tracking_number ?? "";
+    // Extraction tracking + label depuis la réponse Sendcloud v3.
+    // Format v3 typique :
+    //   data: {
+    //     id: "<shipment uuid>",
+    //     parcels: [{
+    //       id: "<parcel uuid>",
+    //       tracking_number: "...",
+    //       documents: [{ type: "label", format: "pdf", link: "https://..." }]
+    //     }]
+    //   }
+    // Cascade pour gérer aussi les anciens formats v2 (label.normal_printer).
+    const firstParcel = Array.isArray(shipment?.parcels) ? shipment.parcels[0] : null;
+
+    let trackingNumber: string =
+      shipment?.tracking_number
+      ?? firstParcel?.tracking_number
+      ?? "";
+
+    const findLabelLink = (docs: any): string | null => {
+      if (!Array.isArray(docs)) return null;
+      const labelDoc = docs.find((d: any) => d?.type === "label") ?? docs[0];
+      return labelDoc?.link ?? labelDoc?.url ?? null;
+    };
+
     let labelUrl: string =
-      shipment?.label?.normal_printer?.[0] ??
-      shipment?.label?.label_printer?.[0]  ??
-      (Array.isArray(shipment?.documents) ? shipment.documents.find((d: any) => d?.type === "label")?.link : null) ??
-      "";
-    const parcelId = shipment?.id ?? shipment?.parcels?.[0]?.id ?? null;
+      // v3 — documents sont sur le parcel imbriqué
+      findLabelLink(firstParcel?.documents)
+      // v3 — documents directement sur le shipment (variations)
+      ?? findLabelLink(shipment?.documents)
+      // v2 legacy — label.normal_printer ou label_printer
+      ?? shipment?.label?.normal_printer?.[0]
+      ?? shipment?.label?.label_printer?.[0]
+      ?? firstParcel?.label?.normal_printer?.[0]
+      ?? firstParcel?.label?.label_printer?.[0]
+      ?? "";
+
+    // parcel_id : on stocke l'ID du shipment v3 (UUID) qui sert à interroger
+    // /api/v3/shipments/{id} pour récupérer l'étiquette plus tard.
+    // Si la réponse est plate (parcel direct), on prend son id.
+    const parcelId = shipment?.id ?? firstParcel?.id ?? null;
 
     console.log(`[sendcloud:v3:response] SUCCESS tracking=${trackingNumber || "(pending)"} label=${labelUrl ? "OK" : "MISSING"} parcel_id=${parcelId}`);
     console.error(`[sendcloud:v3:response] SUCCESS tracking=${trackingNumber || "(pending)"} label=${labelUrl ? "OK" : "MISSING"} parcel_id=${parcelId}`);

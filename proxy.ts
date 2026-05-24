@@ -18,29 +18,26 @@ export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
 
   // ── 1. Protection admin server-side ──────────────────────────────────────
-  // Première ligne de défense : vérifie qu'un cookie de session Supabase
-  // existe avant de laisser passer sur /admin/*. Bloque les visiteurs
-  // anonymes qui accèderaient directement à /admin/commandes sans passer
-  // par /admin/login. Le check is_admin=true reste fait dans
-  // app/admin/layout.tsx côté client (le proxy Edge ne fait pas de DB query
-  // pour rester rapide).
+  // ⚠️ DÉSACTIVÉE (commit 2026-05-24) — voir TODO ci-dessous.
   //
-  // Exclusion : pathname.startsWith("/admin/login") couvre /admin/login,
-  // /admin/login/ et toute future sous-route. Note : pathname n'inclut JAMAIS
-  // la query string (req.nextUrl.search est séparé), donc ?redirect=... ne
-  // perturbe pas le match — mais startsWith est plus robuste qu'un strict !==.
-  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
-    const cookies = req.cookies.getAll();
-    const hasSession = cookies.some(c =>
-      /^sb-[^-]+-auth-token(\.\d+)?$/.test(c.name) && c.value && c.value !== "null"
-    );
-
-    if (!hasSession) {
-      const loginUrl = new URL("/admin/login", req.url);
-      loginUrl.searchParams.set("redirect", pathname + (search ?? ""));
-      return NextResponse.redirect(loginUrl);
-    }
-  }
+  // Cause : lib/supabase-client.ts utilise @supabase/supabase-js avec config
+  // par défaut → session stockée dans localStorage, AUCUN cookie sb-*-auth-token
+  // n'est créé. Le proxy Edge ne voyait donc jamais la session, redirigeait
+  // tout user authentifié vers /admin/login → boucle infinie post-login.
+  //
+  // La protection reste assurée par app/admin/layout.tsx côté client
+  // (getSession + profiles.is_admin BDD). Acceptable temporairement : un
+  // visiteur anonyme arrivant sur /admin/commandes verra la page admin se
+  // monter (HTML), MAIS le layout déclenche immédiatement un redirect vers
+  // /admin/login avant tout rendu de contenu sensible.
+  //
+  // TODO[server-side-auth] : migrer vers @supabase/ssr (createBrowserClient
+  // + createServerClient) pour stocker la session en cookies sécurisés.
+  // Réactiver alors ce bloc avec confiance.
+  //
+  // Pour l'instant : proxy laisse passer tout /admin/*, le matcher est
+  // gardé pour de futures protections (rate-limit, geo-block, etc.).
+  void search; // silence unused — sera réutilisé quand le bloc revient
 
   return NextResponse.next();
 }

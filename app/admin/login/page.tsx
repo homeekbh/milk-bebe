@@ -72,26 +72,38 @@ function AdminLoginContent() {
     setLoading(true);
     setError("");
 
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
+    try {
+      const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password });
 
-    if (authError || !data.user) {
-      setError("Email ou mot de passe incorrect.");
-      setLoading(false);
-      return;
-    }
+      if (authError || !data.user) {
+        setError("Email ou mot de passe incorrect.");
+        setLoading(false);
+        return;
+      }
 
-    // Vérifier is_admin en BDD (source de vérité)
-    const { data: profile } = await supabase
-      .from("profiles").select("is_admin").eq("id", data.user.id).single();
+      // Vérifier is_admin en BDD (source de vérité)
+      const { data: profile } = await supabase
+        .from("profiles").select("is_admin").eq("id", data.user.id).single();
 
-    if (profile?.is_admin) {
+      if (!profile?.is_admin) {
+        await supabase.auth.signOut().catch(() => {});
+        setError("Accès non autorisé.");
+        setLoading(false);
+        return;
+      }
+
+      // Petit délai (500ms) AVANT le hard reload pour laisser le SDK
+      // Supabase finir d'écrire la session dans localStorage et émettre
+      // ses events. Sans ce délai, certaines races (notamment le 1er
+      // login après expiration) peuvent envoyer la prochaine page avec
+      // un state SDK pas encore stabilisé.
+      await new Promise(r => setTimeout(r, 500));
       window.location.href = redirect;
-      return;
+    } catch (e) {
+      if (process.env.NODE_ENV !== "production") console.warn("[admin/login] handleLogin error:", e);
+      setError("Erreur de connexion. Réessaie dans un instant.");
+      setLoading(false);
     }
-
-    await supabase.auth.signOut();
-    setError("Accès non autorisé.");
-    setLoading(false);
   }
 
   if (checking) {

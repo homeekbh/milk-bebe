@@ -730,11 +730,69 @@ export default function AdminCommandes() {
   // avec preview + champ message + 2 boutons (envoyer / sans email).
 
   async function updateStatus(id: string, shipping_status: string) {
+    // 1. Update statut Supabase
     await adminFetch("/api/admin/commandes-data", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id, shipping_status }),
     });
+
+    // 2. Si nouveau statut = "expediee" → envoyer l'email shipped au client
+    //    (sauf si déjà envoyé, vérifié via email_sent_at en DB pour idempotence).
+    //    Le passage par cette dropdown shortcut est un chemin alternatif au
+    //    modal "🚚 Marquer comme expédiée…" qui envoyait déjà l'email — ici on
+    //    le déclenche aussi pour rester cohérent.
+    if (shipping_status === "expediee") {
+      const order = orders.find(o => o.id === id);
+      if (!order) { await load(); return; }
+
+      if ((order as any).email_sent_at) {
+        await load();
+        return; // déjà envoyé, on skip silencieusement
+      }
+      if (!order.customer_email) {
+        await load();
+        alert("ℹ Statut mis à jour. Aucun email — adresse client manquante.");
+        return;
+      }
+
+      const carrierStr =
+        (order as any).carrier === "mondial_relay" ? "Mondial Relay" :
+        (order as any).carrier === "colissimo"     ? "Colissimo / La Poste" :
+        "Colissimo / La Poste";
+
+      try {
+        const emailRes = await adminFetch("/api/emails/shipped", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({
+            email:        order.customer_email,
+            prenom:       order.customer_name?.split(" ")[0] ?? "",
+            tracking:     order.tracking_number ?? "",
+            transporteur: carrierStr,
+            items:        order.items,
+            ...getDeliveryPayload(order),
+          }),
+        });
+        if (!emailRes.ok) {
+          const errBody = await emailRes.text().catch(() => "");
+          console.error("[updateStatus] shipped email failed:", emailRes.status, errBody);
+          alert("⚠ Statut mis à jour, mais l'email client n'a pas pu être envoyé.");
+        } else {
+          // Marquer email_sent_at pour empêcher tout double envoi
+          await adminFetch("/api/admin/commandes-data", {
+            method:  "PUT",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ id, email_sent_at: new Date().toISOString() }),
+          });
+          await logActivity("order_shipped", `Email d'expédition envoyé via dropdown statut (${carrierStr})`, { entity_id: id });
+        }
+      } catch (e: any) {
+        console.error("[updateStatus] shipped email network error:", e);
+        alert("⚠ Statut mis à jour, mais erreur réseau pour l'email client.");
+      }
+    }
+
     await load();
   }
 

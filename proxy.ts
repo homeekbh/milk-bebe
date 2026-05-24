@@ -24,7 +24,12 @@ export async function proxy(req: NextRequest) {
   // par /admin/login. Le check is_admin=true reste fait dans
   // app/admin/layout.tsx côté client (le proxy Edge ne fait pas de DB query
   // pour rester rapide).
-  if (pathname.startsWith("/admin") && pathname !== "/admin/login" && !pathname.startsWith("/admin/login/")) {
+  //
+  // Exclusion : pathname.startsWith("/admin/login") couvre /admin/login,
+  // /admin/login/ et toute future sous-route. Note : pathname n'inclut JAMAIS
+  // la query string (req.nextUrl.search est séparé), donc ?redirect=... ne
+  // perturbe pas le match — mais startsWith est plus robuste qu'un strict !==.
+  if (pathname.startsWith("/admin") && !pathname.startsWith("/admin/login")) {
     const cookies = req.cookies.getAll();
     const hasSession = cookies.some(c =>
       /^sb-[^-]+-auth-token(\.\d+)?$/.test(c.name) && c.value && c.value !== "null"

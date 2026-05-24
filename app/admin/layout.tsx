@@ -379,9 +379,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   useEffect(() => {
     if (pathname === "/admin/login") { setChecking(false); return; }
     supabase.auth.getSession().then(async ({ data: { session } }) => {
-      if (!session?.user) { router.replace(`/admin/login?redirect=${pathname}`); return; }
+      if (!session?.user) {
+        // Pas de session → redirect vers login. window.location.href force
+        // un reload complet → garantit que le client Supabase repart sans
+        // état mémoire stale (sinon la login page pourrait re-détecter
+        // une session fantôme dans le cache et reboucler).
+        window.location.href = `/admin/login?redirect=${encodeURIComponent(pathname)}`;
+        return;
+      }
       const { data: profile } = await supabase.from("profiles").select("is_admin").eq("id", session.user.id).single();
-      if (!profile?.is_admin) { await supabase.auth.signOut(); router.replace("/admin/login"); return; }
+      if (!profile?.is_admin) {
+        await supabase.auth.signOut();
+        // Idem : hard reload pour purger le client Supabase
+        window.location.href = "/admin/login";
+        return;
+      }
       setUserEmail(session.user.email ?? "");
       setChecking(false);
     });

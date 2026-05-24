@@ -24,20 +24,32 @@ function AdminLoginContent() {
   const [error,    setError]    = useState("");
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    // ⚠️ Source de vérité = profiles.is_admin en BDD.
+    // L'env NEXT_PUBLIC_ADMIN_EMAIL_* est une whitelist additionnelle, JAMAIS
+    // un raccourci. Sinon : un user dont l'email match l'env mais avec
+    // is_admin=false provoque une boucle (login redirect → /admin → layout
+    // kick out → /admin/login → login redirect → ...).
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
+      if (!session?.user) { setChecking(false); return; }
+
       const adminEmails = getAdminEmails();
-      if (session?.user && (adminEmails.length === 0 || adminEmails.includes(session.user.email ?? ""))) {
-        // Fallback : si pas d'emails configurés, vérifier is_admin en BDD
-        if (adminEmails.length === 0) {
-          supabase.from("profiles").select("is_admin").eq("id", session.user.id).single()
-            .then(({ data }) => {
-              if (data?.is_admin) window.location.href = redirect;
-              else setChecking(false);
-            });
-        } else {
-          window.location.href = redirect;
-        }
+      const emailWhitelistOk = adminEmails.length === 0
+        || adminEmails.includes(session.user.email ?? "");
+      if (!emailWhitelistOk) {
+        await supabase.auth.signOut();
+        setChecking(false);
+        return;
+      }
+
+      // Toujours vérifier is_admin en BDD — aligne avec app/admin/layout.tsx
+      const { data: profile } = await supabase
+        .from("profiles").select("is_admin").eq("id", session.user.id).single();
+
+      if (profile?.is_admin) {
+        window.location.href = redirect;
       } else {
+        // is_admin=false → signOut + montrer le formulaire (pas de redirect)
+        await supabase.auth.signOut();
         setChecking(false);
       }
     });

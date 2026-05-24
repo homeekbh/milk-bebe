@@ -16,6 +16,7 @@ export default function robots(): MetadataRoute.Robots {
           "/success",
           "/panier",
           "/profil",
+          "/favoris",
           "/connexion",
           "/inscription",
           "/coming-soon",

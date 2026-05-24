@@ -15,6 +15,68 @@ const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_3,
 ].filter(Boolean) as string[];
 
+const SENDCLOUD_V3 = "https://panel.sendcloud.sc/api/v3";
+
+function getBasicAuthSendcloud() {
+  const pub = process.env.SENDCLOUD_PUBLIC_KEY ?? "";
+  const sec = process.env.SENDCLOUD_SECRET_KEY ?? "";
+  return "Basic " + Buffer.from(`${pub}:${sec}`).toString("base64");
+}
+
+/**
+ * Annule un shipment Sendcloud (best-effort).
+ * Appelé après un remboursement Stripe pour libérer l'étiquette côté
+ * transporteur — Sendcloud n'envoie plus la collecte au carrier.
+ *
+ * Best-effort : si Sendcloud renvoie 4xx/5xx ou si fetch fail, on log
+ * un warning mais on NE bloque PAS l'admin (le refund Stripe est déjà
+ * effectué — pas question de cracher dessus pour une cancel Sendcloud).
+ *
+ * Reset sendcloud_parcel_id et label_url en base après tentative (qu'elle
+ * réussisse ou non) pour que l'UI reflète l'état "plus d'étiquette".
+ */
+async function cancelSendcloudShipment(orderId: string, parcelId: string | null): Promise<{ ok: boolean; error: string | null }> {
+  if (!parcelId) return { ok: true, error: null }; // rien à annuler
+
+  let resultOk = false;
+  let lastError: string | null = null;
+  try {
+    const res = await fetch(`${SENDCLOUD_V3}/shipments/${encodeURIComponent(parcelId)}`, {
+      method:  "DELETE",
+      headers: {
+        Authorization: getBasicAuthSendcloud(),
+        Accept:        "application/json",
+      },
+    });
+    const text = await res.text().catch(() => "");
+    console.log(`[sendcloud:cancel-after-refund] DELETE shipments/${parcelId} HTTP ${res.status} body=${text.slice(0, 400)}`);
+    if (res.ok || res.status === 404) {
+      // 404 = déjà annulé/inexistant → considéré OK pour notre logique
+      resultOk = true;
+    } else {
+      lastError = `HTTP ${res.status} — ${text.slice(0, 300)}`;
+    }
+  } catch (e: any) {
+    lastError = e?.message ?? "exception inconnue";
+    console.warn(`[sendcloud:cancel-after-refund] exception sur DELETE shipments/${parcelId}:`, lastError);
+  }
+
+  // Reset DB systématique — même si l'API Sendcloud a échoué, on retire
+  // les références côté nous pour que l'UI bascule en "annulé".
+  const { error: dbErr } = await supabaseServer
+    .from("orders")
+    .update({
+      sendcloud_parcel_id: null,
+      label_url:           null,
+    })
+    .eq("id", orderId);
+  if (dbErr) {
+    console.warn(`[sendcloud:cancel-after-refund] Supabase reset error: ${dbErr.message}`);
+  }
+
+  return { ok: resultOk, error: lastError };
+}
+
 /**
  * Envoi de l'email annulation avec retry et notification admin en cas d'échec.
  * Retourne true si l'email a été envoyé au client, false sinon.
@@ -271,6 +333,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     // 3. Réintégrer le stock
     const stockResult = await restoreStock(order.items ?? []);
 
+    // 3b. Annuler le shipment Sendcloud (best-effort, ne bloque pas)
+    const sendcloudCancel = await cancelSendcloudShipment(orderId, order.sendcloud_parcel_id ?? null);
+
     // 4. Update Supabase — EN 2 ÉTAPES pour ne pas tout perdre si certaines
     // colonnes optionnelles n'existent pas en base (refund_id, refunded_at, etc.).
     //
@@ -325,6 +390,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         email_sent:       emailResult.ok,
         email_attempts:   emailResult.attempts,
         email_last_error: emailResult.last_error,
+        sendcloud_cancel_ok:    sendcloudCancel.ok,
+        sendcloud_cancel_error: sendcloudCancel.error,
       },
     });
 
@@ -414,6 +481,17 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       console.warn("[commandes/refund_partial] Colonnes optionnelles non disponibles. ALTER TABLE à exécuter:", updateErr2.message);
     }
 
+    // Si le cumul atteint le total → annulation totale via remboursements
+    // partiels successifs. On annule aussi le shipment Sendcloud et on
+    // bascule shipping_status à "annulee" pour cohérence UI.
+    let sendcloudCancel: { ok: boolean; error: string | null } = { ok: true, error: null };
+    if (newStatus === "remboursee") {
+      sendcloudCancel = await cancelSendcloudShipment(orderId, order.sendcloud_parcel_id ?? null);
+      await supabaseServer.from("orders")
+        .update({ shipping_status: "annulee" })
+        .eq("id", orderId);
+    }
+
     // Envoyer email client (best-effort, sans retry — le contexte est moins
     // critique que cancel_refund car la commande reste valide)
     let emailSent = false;
@@ -436,6 +514,8 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         reason:      body?.reason ?? null,
         email_sent:  emailSent,
         client_email: order.customer_email,
+        sendcloud_cancel_ok:    sendcloudCancel.ok,
+        sendcloud_cancel_error: sendcloudCancel.error,
       },
     });
 

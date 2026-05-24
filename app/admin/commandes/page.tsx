@@ -967,6 +967,15 @@ export default function AdminCommandes() {
                 {/* ── Panneau détail ── */}
                 {isOpen && selectedOrder && (
                   <div style={{ padding: "0 24px 28px", borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                    {/* Bandeau "Commande annulée" affiché en haut du panel détail
+                        quand la commande est annulée — informe immédiatement
+                        l'admin que tout ce qui suit (transporteur, étiquette,
+                        suivi) est masqué/désactivé. */}
+                    {order.shipping_status === "annulee" && (
+                      <div style={{ marginTop: 16, padding: "14px 18px", borderRadius: 12, background: "#fee2e2", border: "1px solid #fca5a5", color: "#7f1d1d", fontSize: 14, fontWeight: 800, display: "flex", alignItems: "center", gap: 10 }}>
+                        🚫 Cette commande a été annulée. L'étiquette Sendcloud a été annulée et le client remboursé. Numéro de suivi et transporteur masqués.
+                      </div>
+                    )}
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 20 }}>
 
                       {/* Colonne gauche — infos + articles */}
@@ -997,7 +1006,8 @@ export default function AdminCommandes() {
                           </div>
                         </div>
 
-                        {/* Mode de livraison Colissimo */}
+                        {/* Mode de livraison Colissimo — masqué si annulée */}
+                        {order.shipping_status !== "annulee" && (
                         <div style={{ background: "#ede8df", borderRadius: 12, padding: "16px 18px" }}>
                           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>
                             Mode de livraison
@@ -1050,8 +1060,10 @@ export default function AdminCommandes() {
                             </div>
                           )}
                         </div>
+                        )}
 
-                        {/* Boutons étiquettes */}
+                        {/* Boutons étiquettes — masqués si annulée */}
+                        {order.shipping_status !== "annulee" && (
                         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
                           {(order as any).label_url ? (
                             <button
@@ -1083,15 +1095,23 @@ export default function AdminCommandes() {
                             ✉️ Envoyer instructions retour au client
                           </button>
                         </div>
+                        )}
                       </div>
 
-                      {/* Colonne droite — expédition */}
+                      {/* Colonne droite — expédition (masquée si annulée) */}
                       <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
 
-                        <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", textTransform: "uppercase", letterSpacing: 1 }}>
-                          Gestion expédition
-                        </div>
+                        {order.shipping_status !== "annulee" && (
+                          <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", textTransform: "uppercase", letterSpacing: 1 }}>
+                            Gestion expédition
+                          </div>
+                        )}
 
+                        {/* Mode de livraison + tracking + notes + génération étiquette
+                            — TOUT masqué si annulée. Seuls les boutons de refund
+                            + Informer client + Changer statut restent en bas. */}
+                        {order.shipping_status !== "annulee" && (
+                        <>
                         {/* Mode de livraison — info READ-ONLY (auto depuis order.delivery_type) */}
                         {order.delivery_type ? (
                           (() => {
@@ -1310,6 +1330,8 @@ export default function AdminCommandes() {
                           <div style={{ padding: "10px 14px", borderRadius: 10, background: "#dcfce7", fontSize: 13, fontWeight: 700, color: "#166534", textAlign: "center" }}>
                             ✅ Statut mis à jour
                           </div>
+                        )}
+                        </>
                         )}
 
                         {/* === ANNULER ÉTIQUETTE SENDCLOUD === Visible si tracking

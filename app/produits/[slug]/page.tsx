@@ -754,25 +754,13 @@ export default function ProductPage() {
         }) }} />
       )}
     <div style={{ background: BG, minHeight: "100vh" }}>
-      <Breadcrumb
-        variant="dark"
-        items={[
-          { label: "Accueil",  href: "/" },
-          { label: "Produits", href: "/produits" },
-          ...(productCat ? [{
-            label: productCat.charAt(0).toUpperCase() + productCat.slice(1),
-            href:  `/categorie/${productCat}`,
-          }] : []),
-          { label: product.name },
-        ]}
-      />
       {lightboxIdx !== null && allImages.length > 0 && (
         <Lightbox images={allImages} startIndex={lightboxIdx} onClose={() => setLightboxIdx(null)} />
       )}
 
       <style>{`
         * { box-sizing:border-box; }
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:flex-start; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { display:flex; flex-direction:column; background:#ede8df; }
         .pl-right-inner { position:sticky; top:84px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; scrollbar-width:none; }
@@ -797,19 +785,21 @@ export default function ProductPage() {
         }
       `}</style>
 
-      {/* Breadcrumb */}
+      {/* Breadcrumb — même position que l'ancien natif (sous navbar, au-dessus des photos) */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "84px 4vw 0" }}>
-        <div style={{ display: "flex", gap: 8, fontSize: 13, color: "rgba(26,20,16,0.4)", flexWrap: "wrap", paddingBottom: 8 }}>
-          <Link href="/"         style={{ textDecoration: "none", color: "inherit" }}>Accueil</Link>
-          <span>/</span>
-          <Link href="/produits" style={{ textDecoration: "none", color: "inherit" }}>Produits</Link>
-          <span>/</span>
-          <Link href={`/categorie/${productCat}`} style={{ textDecoration: "none", color: "inherit" }}>
-            {({ bodies: "Bodies", pyjamas: "Pyjamas", gigoteuses: "Gigoteuses", accessoires: "Accessoires", bonnets: "Bonnets", langes: "Langes" } as Record<string,string>)[productCat] || productCat}
-          </Link>
-          <span>/</span>
-          <span style={{ color: DARK, fontWeight: 600 }}>{product.name}</span>
-        </div>
+        <Breadcrumb
+          variant="dark"
+          padding="0 0 8px 0"
+          items={[
+            { label: "Accueil",  href: "/" },
+            { label: "Produits", href: "/produits" },
+            ...(productCat ? [{
+              label: ({ bodies: "Bodies", pyjamas: "Pyjamas", gigoteuses: "Gigoteuses", accessoires: "Accessoires", bonnets: "Bonnets", langes: "Langes" } as Record<string,string>)[productCat] || productCat,
+              href:  `/categorie/${productCat}`,
+            }] : []),
+            { label: product.name },
+          ]}
+        />
       </div>
 
       <div className="pl-outer">

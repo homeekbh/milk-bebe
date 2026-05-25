@@ -118,7 +118,8 @@ export default function ProductRecommendations({
 
         <div style={{
           display:             "grid",
-          gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
+          // Strict 2 colonnes (grid-cols-2 gap-4) — couvre desktop + mobile
+          gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
           gap:                 16,
         }}>
           {loading
@@ -140,6 +141,7 @@ export default function ProductRecommendations({
                     price_ttc:   p.price_ttc,
                     promo_price: p.promo_price ?? undefined,
                     stock:       p.stock,
+                    image_url:   p.image_url ?? null,
                   }}
                 />
               ))

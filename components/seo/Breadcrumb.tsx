@@ -24,14 +24,21 @@ const C = {
 export function Breadcrumb({
   items,
   variant = "light",
+  padding,
 }: {
   items: Crumb[];
   variant?: "light" | "dark";
+  /** Override le padding par défaut. Utile quand le breadcrumb est dans un
+   *  container avec sa propre marge. */
+  padding?: string;
 }) {
   const onDark   = variant === "light";
-  const textCol  = onDark ? C.muted : "rgba(26,20,16,0.55)";
-  const lastCol  = onDark ? C.warm  : C.dark;
-  const sepCol   = C.amber;
+  // Couleurs alignées sur l'ancien fil d'Ariane natif fiche produit :
+  // gris doux pour items, foncé pour la page courante, séparateur "/"
+  // de la même teinte que les items (pas d'ambre vif).
+  const textCol  = onDark ? "rgba(242,237,230,0.45)" : "rgba(26,20,16,0.4)";
+  const lastCol  = onDark ? C.warm                    : C.dark;
+  const sepCol   = textCol;
 
   // Toujours commencer par Accueil sauf si déjà présent
   const trail: Crumb[] = items[0]?.href === "/" || items[0]?.label === "Accueil"
@@ -42,7 +49,7 @@ export function Breadcrumb({
     <nav
       aria-label="Breadcrumb"
       style={{
-        padding:    "14px clamp(12px,4vw,5vw)",
+        padding:    padding ?? "14px clamp(12px,4vw,5vw)",
         fontSize:   13,
         background: "transparent",
       }}
@@ -65,7 +72,7 @@ export function Breadcrumb({
                   href={c.href}
                   style={{
                     color:          textCol,
-                    fontWeight:     700,
+                    fontWeight:     500,
                     textDecoration: "none",
                     transition:     "color 0.15s",
                   }}
@@ -77,15 +84,15 @@ export function Breadcrumb({
                   aria-current="page"
                   style={{
                     color:      lastCol,
-                    fontWeight: 800,
+                    fontWeight: 600,
                   }}
                 >
                   {c.label}
                 </span>
               )}
               {!isLast && (
-                <span aria-hidden="true" style={{ color: sepCol, fontWeight: 900 }}>
-                  ›
+                <span aria-hidden="true" style={{ color: sepCol, fontWeight: 500 }}>
+                  /
                 </span>
               )}
             </li>

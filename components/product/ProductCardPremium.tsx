@@ -1,8 +1,7 @@
-﻿/* placeholder */
-
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useState } from "react";
 
 type Product = {
@@ -12,6 +11,7 @@ type Product = {
   price_ttc: number;
   promo_price?: number;
   stock?: number;
+  image_url?: string | null;
 };
 
 function slugify(input: any) {
@@ -19,7 +19,7 @@ function slugify(input: any) {
     .trim()
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .replace(/-+/g, "-");
@@ -35,6 +35,7 @@ export default function ProductCardPremium({ product }: { product: Product }) {
 
   const out = Number(product.stock ?? 0) <= 0;
   const promo = product.promo_price && product.promo_price < product.price_ttc;
+  const img = product.image_url || null;
 
   return (
     <Link
@@ -55,21 +56,62 @@ export default function ProductCardPremium({ product }: { product: Product }) {
           transform: hover ? "translateY(-6px)" : "translateY(0px)",
         }}
       >
-        {/* IMAGE PLACEHOLDER PREMIUM */}
+        {/* IMAGE : vraie photo produit si présente, sinon placeholder M!LK */}
         <div
           style={{
-            height: 240,
-            background:
-              "linear-gradient(145deg, #e8e2d9, #f6f1ea)",
-            display: "grid",
-            placeItems: "center",
-            fontWeight: 900,
-            letterSpacing: -1,
-            color: "#b9b2a7",
-            fontSize: 28,
+            position: "relative",
+            width: "100%",
+            aspectRatio: "3/4",
+            background: "linear-gradient(145deg, #e8e2d9, #f6f1ea)",
+            overflow: "hidden",
           }}
         >
-          M!LK
+          {img ? (
+            <Image
+              src={img}
+              alt={`${product.name} en bambou OEKO-TEX — M!LK`}
+              fill
+              sizes="(max-width: 700px) 50vw, 25vw"
+              style={{
+                objectFit: "cover",
+                transition: "transform 0.5s cubic-bezier(.22,.61,.36,1)",
+                transform: hover ? "scale(1.04)" : "scale(1)",
+              }}
+              loading="lazy"
+            />
+          ) : (
+            <div
+              style={{
+                position: "absolute",
+                inset: 0,
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 900,
+                letterSpacing: -1,
+                color: "#b9b2a7",
+                fontSize: 28,
+              }}
+            >
+              M!LK
+            </div>
+          )}
+          {promo && (
+            <div style={{
+              position: "absolute",
+              top: 10,
+              left: 10,
+              padding: "4px 10px",
+              borderRadius: 99,
+              background: "#dc2626",
+              color: "#fff",
+              fontSize: 10,
+              fontWeight: 900,
+              letterSpacing: 1,
+              zIndex: 2,
+            }}>
+              PROMO
+            </div>
+          )}
         </div>
 
         <div style={{ padding: 22 }}>
@@ -112,8 +154,8 @@ export default function ProductCardPremium({ product }: { product: Product }) {
               border: "none",
               fontWeight: 900,
               cursor: out ? "not-allowed" : "pointer",
-              background: hover ? "#e5b700" : "#000",
-              color: hover ? "#000" : "#fff",
+              background: hover ? "#c49a4a" : "#1a1410",
+              color: hover ? "#1a1410" : "#c49a4a",
               transition: "all 0.25s ease",
             }}
           >

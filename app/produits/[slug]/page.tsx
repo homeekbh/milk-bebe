@@ -581,8 +581,7 @@ export default function ProductPage() {
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
   const [guideOpen,   setGuideOpen]   = useState(false);
   const [openFaqIdx,  setOpenFaqIdx]  = useState<number | null>(null);
-  const [rightMaxH,   setRightMaxH]   = useState<string>("calc(100vh - 84px)");
-  const leftColRef  = useRef<HTMLDivElement>(null);
+  const leftColRef    = useRef<HTMLDivElement>(null);
   const rightInnerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -630,19 +629,11 @@ export default function ProductPage() {
     }).catch(()=>{});
   }, []);
 
-  // Synchronise la hauteur du panneau droit avec la colonne gauche
-  useEffect(() => {
-    if (!leftColRef.current) return;
-    if (window.innerWidth <= 900) return; // pas de sync sur mobile
-    const sync = () => {
-      const leftH = leftColRef.current?.offsetHeight ?? 0;
-      setRightMaxH(`${leftH}px`);
-    };
-    sync();
-    const ro = new ResizeObserver(sync);
-    ro.observe(leftColRef.current);
-    return () => ro.disconnect();
-  }, [product]);
+  // ⚠️ SUPPRIMÉ : useEffect qui synchronisait la hauteur du panneau droit
+  // avec la colonne gauche (maxHeight forcé créait un vide visuel énorme
+  // quand le contenu droit était plus court que la galerie photos gauche).
+  // La colonne droite prend désormais sa hauteur naturelle, le grid
+  // align-items: flex-start évite tout stretching forcé.
 
   function handleAddToCart() {
     if (!product) return;
@@ -763,8 +754,9 @@ export default function ProductPage() {
         .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:flex-start; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { display:flex; flex-direction:column; background:#ede8df; }
-        .pl-right-inner { position:sticky; top:84px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; scrollbar-width:none; }
-        .pl-right-inner::-webkit-scrollbar { display:none; }
+        /* Plus de position:sticky — la cell grid ne stretch plus avec
+           align-items:flex-start, donc sticky n'avait plus de support. */
+        .pl-right-inner { padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
@@ -773,7 +765,7 @@ export default function ProductPage() {
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
           .pl-right  { display:contents!important; }
-          .pl-right-inner { position:static!important; align-self:auto!important; padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; max-height:none!important; overflow:visible!important; }
+          .pl-right-inner { padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
           .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
           .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
@@ -848,8 +840,8 @@ export default function ProductPage() {
 
         </div>
 
-        {/* ─── DROITE : panneau achat ─── */}
-        <div className="pl-right"><div className="pl-right-inner" ref={rightInnerRef} style={{ maxHeight: rightMaxH, overflowY: "auto" }}>
+        {/* ─── DROITE : panneau achat — hauteur naturelle (pas de maxHeight forcé) ─── */}
+        <div className="pl-right"><div className="pl-right-inner" ref={rightInnerRef}>
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
             {productCat || "M!LK"} · Bambou OEKO-TEX

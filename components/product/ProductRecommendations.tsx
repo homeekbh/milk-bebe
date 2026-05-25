@@ -118,15 +118,15 @@ export default function ProductRecommendations({
 
         <div style={{
           display:             "grid",
-          // Strict 2 colonnes (grid-cols-2 gap-4) — couvre desktop + mobile
+          // Strict 2 colonnes, gap 12px (gap-3)
           gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-          gap:                 16,
+          gap:                 12,
         }}>
           {loading
             ? Array.from({ length: 4 }, (_, i) => (
                 <div key={i} style={{
-                  aspectRatio:  "3/4",
-                  borderRadius: 22,
+                  height:       240,
+                  borderRadius: 14,
                   background:   "rgba(242,237,230,0.06)",
                   animation:    "milk-rec-pulse 1.4s ease-in-out infinite",
                 }} />

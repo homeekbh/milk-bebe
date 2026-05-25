@@ -25,6 +25,15 @@ function slugify(input: any) {
     .replace(/-+/g, "-");
 }
 
+/**
+ * Card compacte pour la section "suggestions / recommandations".
+ * Style intentionnellement minimal :
+ *   - Image hauteur max 160px (pas un grand visuel)
+ *   - Pas de prix (l'objectif est la découverte, pas la conversion directe)
+ *   - Nom 14px, max 2 lignes
+ *   - Bouton "Voir le produit" compact 13px
+ *   - Card padding 12px
+ */
 export default function ProductCardPremium({ product }: { product: Product }) {
   const [hover, setHover] = useState(false);
 
@@ -46,22 +55,22 @@ export default function ProductCardPremium({ product }: { product: Product }) {
         onMouseEnter={() => setHover(true)}
         onMouseLeave={() => setHover(false)}
         style={{
-          borderRadius: 22,
+          borderRadius: 14,
           overflow: "hidden",
           background: "#f5f1ea",
-          transition: "all 0.35s cubic-bezier(.22,.61,.36,1)",
+          transition: "all 0.3s cubic-bezier(.22,.61,.36,1)",
           boxShadow: hover
-            ? "0 35px 70px rgba(0,0,0,0.35)"
-            : "0 12px 30px rgba(0,0,0,0.12)",
-          transform: hover ? "translateY(-6px)" : "translateY(0px)",
+            ? "0 16px 32px rgba(0,0,0,0.25)"
+            : "0 6px 16px rgba(0,0,0,0.10)",
+          transform: hover ? "translateY(-3px)" : "translateY(0px)",
         }}
       >
-        {/* IMAGE : vraie photo produit si présente, sinon placeholder M!LK */}
+        {/* IMAGE : hauteur max 160px, fallback placeholder M!LK si null */}
         <div
           style={{
             position: "relative",
             width: "100%",
-            aspectRatio: "3/4",
+            height: 160,
             background: "linear-gradient(145deg, #e8e2d9, #f6f1ea)",
             overflow: "hidden",
           }}
@@ -71,11 +80,11 @@ export default function ProductCardPremium({ product }: { product: Product }) {
               src={img}
               alt={`${product.name} en bambou OEKO-TEX — M!LK`}
               fill
-              sizes="(max-width: 700px) 50vw, 25vw"
+              sizes="(max-width: 700px) 50vw, 280px"
               style={{
                 objectFit: "cover",
-                transition: "transform 0.5s cubic-bezier(.22,.61,.36,1)",
-                transform: hover ? "scale(1.04)" : "scale(1)",
+                transition: "transform 0.4s cubic-bezier(.22,.61,.36,1)",
+                transform: hover ? "scale(1.05)" : "scale(1)",
               }}
               loading="lazy"
             />
@@ -89,7 +98,7 @@ export default function ProductCardPremium({ product }: { product: Product }) {
                 fontWeight: 900,
                 letterSpacing: -1,
                 color: "#b9b2a7",
-                fontSize: 28,
+                fontSize: 22,
               }}
             >
               M!LK
@@ -98,13 +107,13 @@ export default function ProductCardPremium({ product }: { product: Product }) {
           {promo && (
             <div style={{
               position: "absolute",
-              top: 10,
-              left: 10,
-              padding: "4px 10px",
+              top: 8,
+              left: 8,
+              padding: "3px 8px",
               borderRadius: 99,
               background: "#dc2626",
               color: "#fff",
-              fontSize: 10,
+              fontSize: 9,
               fontWeight: 900,
               letterSpacing: 1,
               zIndex: 2,
@@ -114,49 +123,40 @@ export default function ProductCardPremium({ product }: { product: Product }) {
           )}
         </div>
 
-        <div style={{ padding: 22 }}>
+        {/* CONTENU : padding 12px, pas de prix, nom + bouton uniquement */}
+        <div style={{ padding: 12 }}>
           <div
             style={{
-              fontWeight: 900,
-              fontSize: 18,
-              marginBottom: 8,
-              color: "#111",
+              fontWeight: 800,
+              fontSize: 14,
+              lineHeight: 1.3,
+              marginBottom: 10,
+              color: "#1a1410",
+              // Clamp 2 lignes pour garder une hauteur stable même
+              // avec des noms produit longs
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical" as const,
+              overflow: "hidden",
+              minHeight: 36,
             }}
           >
             {product.name}
-          </div>
-
-          <div style={{ fontWeight: 900, marginBottom: 12 }}>
-            {promo ? (
-              <>
-                <span
-                  style={{
-                    textDecoration: "line-through",
-                    opacity: 0.5,
-                    marginRight: 8,
-                  }}
-                >
-                  {product.price_ttc} €
-                </span>
-                <span>{product.promo_price} €</span>
-              </>
-            ) : (
-              <span>{product.price_ttc} €</span>
-            )}
           </div>
 
           <button
             disabled={out}
             style={{
               width: "100%",
-              padding: "12px 16px",
-              borderRadius: 14,
+              padding: "8px 12px",
+              borderRadius: 10,
               border: "none",
-              fontWeight: 900,
+              fontWeight: 800,
+              fontSize: 13,
               cursor: out ? "not-allowed" : "pointer",
               background: hover ? "#c49a4a" : "#1a1410",
               color: hover ? "#1a1410" : "#c49a4a",
-              transition: "all 0.25s ease",
+              transition: "all 0.2s ease",
             }}
           >
             {out ? "Épuisé" : "Voir le produit"}

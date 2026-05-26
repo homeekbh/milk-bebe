@@ -157,6 +157,10 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
   const rafRef     = useRef<number|null>(null);
   const speedRef   = useRef(0); // vitesse courante px/frame
 
+  // Index courant pour le compteur "1 / 14" — beaucoup plus lisible que
+  // 14 dots sur mobile. Mis à jour en continu via scroll listener.
+  const [currentIndex, setCurrentIndex] = useState(0);
+
   // Démarre le scroll dans une direction
   const startScroll = (dir: "left"|"right") => {
     speedRef.current = dir === "right" ? 6 : -6;
@@ -186,6 +190,20 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
   };
 
   const CARD_W = 260;
+  const GAP    = 16;
+
+  // Sync currentIndex avec scrollLeft pour le compteur
+  useEffect(() => {
+    const el = trackRef.current;
+    if (!el || products.length === 0) return;
+    const step = CARD_W + GAP;
+    const onScroll = () => {
+      const idx = Math.max(0, Math.min(products.length - 1, Math.round(el.scrollLeft / step)));
+      setCurrentIndex(idx);
+    };
+    el.addEventListener("scroll", onScroll, { passive: true });
+    return () => el.removeEventListener("scroll", onScroll);
+  }, [products.length]);
 
   return (
     <div style={{ background:C.light, padding:"32px 0 40px" }}>
@@ -273,12 +291,26 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
           })}
         </div>
 
-        {/* Dots mobile */}
+        {/* Compteur de position — remplace 14 dots illisibles par un texte lisible */}
         {products.length > 1 && (
-          <div style={{ display:"flex", justifyContent:"center", gap:6, marginTop:8 }}>
-            {products.map((_:any,i:number)=>(
-              <div key={i} style={{ width:6, height:6, borderRadius:99, background:i===0?C.amber:"rgba(26,20,16,0.15)" }}/>
-            ))}
+          <div
+            aria-live="polite"
+            aria-atomic="true"
+            style={{
+              display:        "flex",
+              justifyContent: "center",
+              alignItems:     "baseline",
+              gap:            6,
+              marginTop:      14,
+              fontFamily:     "ui-monospace, SFMono-Regular, Menlo, monospace",
+            }}>
+            <span style={{ fontSize:14, fontWeight:900, color:C.amber, letterSpacing:0.5, minWidth:18, textAlign:"right" }}>
+              {String(currentIndex + 1).padStart(2, "0")}
+            </span>
+            <span style={{ fontSize:13, fontWeight:600, color:"rgba(26,20,16,0.3)" }}>/</span>
+            <span style={{ fontSize:13, fontWeight:600, color:"rgba(26,20,16,0.45)", letterSpacing:0.5 }}>
+              {String(products.length).padStart(2, "0")}
+            </span>
           </div>
         )}
       </div>
@@ -424,10 +456,10 @@ export default function HomePage() {
             <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
           </div>
           <div className="stats-row" style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
-            {[{val:`${freeShipThreshold}€`,label:"livraison offerte dès"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
+            {[{val:`Dès ${freeShipThreshold}€`,label:"livraison offerte"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
               <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
-                <div style={{ fontSize:"clamp(18px,3vw,40px)", fontWeight:950, letterSpacing:-1.5, color:C.warm, lineHeight:1 }}>{k.val}</div>
-                <div style={{ fontSize:"clamp(10px,0.9vw,12px)", color:C.muted, marginTop:4 }}>{k.label}</div>
+                <div style={{ fontSize:"clamp(16px,2.5vw,32px)", fontWeight:950, letterSpacing:-1.2, color:C.warm, lineHeight:1, whiteSpace:"nowrap" }}>{k.val}</div>
+                <div style={{ fontSize:"clamp(10px,0.9vw,12px)", color:C.muted, marginTop:4, whiteSpace:"nowrap" }}>{k.label}</div>
               </div>
             ))}
           </div>

@@ -12,20 +12,49 @@
 //   5. Compare amount_total + line_items + discounts
 //   6. Vérifie qu'aucune commande n'a été créée en DB
 //
-// Usage : node --env-file=.env.local scripts/test-forge-checkout.mjs
+// ⚠️ PRÉREQUIS — Stripe mode TEST/LIVE doit matcher entre serveur et test :
+//   - Si BASE=https://www.milkbebe.fr (prod LIVE) → STRIPE_SECRET_KEY DOIT être LIVE
+//   - Si BASE=http://localhost:3000  (dev local)  → STRIPE_SECRET_KEY DOIT être TEST
+//   Sinon : "No such checkout.session" car la clé TEST ne voit pas les sessions LIVE.
+//
+// Usage :
+//   - PROD (LIVE)   : ajouter STRIPE_SECRET_KEY=sk_live_... à .env.local temporairement
+//                     node --env-file=.env.local scripts/test-forge-checkout.mjs
+//   - LOCAL (TEST)  : npm run dev ; puis dans un autre terminal :
+//                     BASE=http://localhost:3000 node --env-file=.env.local scripts/test-forge-checkout.mjs
 
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 
 const URL  = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+const BASE = process.env.BASE ?? process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 const SKEY = process.env.STRIPE_SECRET_KEY;
 
 if (!URL || !KEY || !SKEY) {
   console.error("❌ Manque NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY / STRIPE_SECRET_KEY");
   process.exit(1);
 }
+
+// Détection mismatch mode TEST/LIVE — fail-fast plutôt que retrieve qui 404
+const isLiveKey  = SKEY.startsWith("sk_live_");
+const isProdBase = BASE.includes("milkbebe.fr") || BASE.startsWith("https://");
+if (isProdBase && !isLiveKey) {
+  console.error("❌ MISMATCH : BASE pointe en PROD (LIVE) mais STRIPE_SECRET_KEY est en TEST.");
+  console.error("   Prod crée des sessions cs_live_*, ta clé TEST ne peut pas les retrieve.");
+  console.error("   Options :");
+  console.error("     1. Mets STRIPE_SECRET_KEY=sk_live_... dans .env.local TEMPORAIREMENT");
+  console.error("        (récupère-la depuis Vercel env vars, puis revert)");
+  console.error("     2. Teste contre local : `npm run dev` puis :");
+  console.error("        BASE=http://localhost:3000 node --env-file=.env.local scripts/test-forge-checkout.mjs");
+  process.exit(1);
+}
+if (!isProdBase && isLiveKey) {
+  console.error("❌ MISMATCH : BASE pointe en LOCAL mais STRIPE_SECRET_KEY est en LIVE.");
+  console.error("   Trop risqué — refuse d'exécuter (un test sur LIVE peut créer une vraie facture).");
+  process.exit(1);
+}
+console.log(`🔧 Mode : ${isLiveKey ? "LIVE" : "TEST"}  ·  BASE : ${BASE}\n`);
 
 const supa   = createClient(URL, KEY, { auth: { persistSession: false } });
 const stripe = new Stripe(SKEY);

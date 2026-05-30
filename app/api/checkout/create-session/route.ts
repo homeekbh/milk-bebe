@@ -205,7 +205,12 @@ export async function POST(req: Request) {
     }
 
     const sessionParams: any = {
-      automatic_payment_methods: { enabled: true },
+      // payment_method_types: ['card'] suffit pour Stripe Checkout — Apple Pay
+      // et Google Pay sont automatiquement présentés sur Safari iOS / Chrome
+      // Android par Stripe quand 'card' est activé. Tentative précédente avec
+      // automatic_payment_methods rejetée par l'API ("unknown parameter") même
+      // avec apiVersion pin → revert au mode 'card' qui marche.
+      payment_method_types: ["card"],
       line_items:           lineItems,
       mode:                 "payment",
       billing_address_collection: "auto",

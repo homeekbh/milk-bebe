@@ -4,7 +4,9 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
 import { logActivity } from "@/lib/server/audit";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2026-01-28.clover",
+});
 const resend  = new Resend(process.env.RESEND_API_KEY);
 const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 

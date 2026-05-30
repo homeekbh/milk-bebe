@@ -10,7 +10,14 @@ import {
 } from "@/lib/delivery-config";
 import { validatePromoCode } from "@/lib/promo-validate";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
+// Pin l'API version au plus récent supporté par le SDK installé (cf.
+// node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
+// Évite "Received unknown parameter: automatic_payment_methods" quand la
+// version par défaut du COMPTE Stripe est antérieure à l'ajout de ce champ
+// pour les Checkout Sessions (cf. Stripe changelog 2022-11+).
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  apiVersion: "2026-01-28.clover",
+});
 
 // ── Extrait la taille depuis le nom de l'article (même logique que le webhook)
 // Ex: "Body éclairs — 0-3 mois" → "0-3 mois"

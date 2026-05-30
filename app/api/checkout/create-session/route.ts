@@ -1,4 +1,4 @@
-﻿import Stripe from "stripe";
+import Stripe from "stripe";
 import { supabaseServer } from "@/lib/server/supabase";
 import {
   ALLOWED_CARRIERS,
@@ -6,7 +6,9 @@ import {
   isDeliveryCombinationAllowed,
   getDeliveryPrice,
   deliveryLabel,
+  computeShipping,
 } from "@/lib/delivery-config";
+import { validatePromoCode } from "@/lib/promo-validate";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
 
@@ -47,7 +49,22 @@ async function getFreeShippingThreshold(): Promise<number> {
 
 export async function POST(req: Request) {
   try {
-    const { items, promo_code, discount, free_shipping, customer_email, customer_phone, delivery_type, carrier, relay, home_address } = await req.json();
+    const {
+      items,
+      promo_code,
+      customer_email,
+      customer_phone,
+      delivery_type,
+      carrier,
+      relay,
+      home_address,
+    } = await req.json();
+
+    // ⚠️ SÉCURITÉ : les champs `discount` et `free_shipping` envoyés par le
+    // client sont VOLONTAIREMENT IGNORÉS. La remise et le statut "port offert"
+    // sont recalculés côté serveur via validatePromoCode + computeShipping.
+    // Un client malveillant ne peut donc PAS forger une remise inexistante
+    // ni s'offrir le port en passant free_shipping=true dans le body.
 
     if (!items || items.length === 0) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
@@ -60,15 +77,12 @@ export async function POST(req: Request) {
     if (!delivery_type || !ALLOWED_DELIVERY_TYPES.includes(delivery_type)) {
       return Response.json({ error: `Mode de livraison invalide (autorisés: ${ALLOWED_DELIVERY_TYPES.join(", ")})` }, { status: 400 });
     }
-    // Combinaison carrier × type doit exister dans la matrice
     if (!isDeliveryCombinationAllowed(carrier, delivery_type)) {
       return Response.json({ error: `Combinaison ${carrier}/${delivery_type} non disponible` }, { status: 400 });
     }
-    // Point relais / locker → relay.id obligatoire
     if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
       return Response.json({ error: "Point relais manquant" }, { status: 400 });
     }
-    // Domicile → adresse complète
     if (delivery_type === "home") {
       if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
         return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
@@ -87,19 +101,14 @@ export async function POST(req: Request) {
       }
 
       const qty = item.quantity ?? 1;
-
-      // ✅ Validation qty — évite les valeurs négatives, nulles ou excessives
       if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
         return Response.json({ error: `Quantité invalide pour ${product.name}` }, { status: 400 });
       }
 
-      // ── Vérification montant minimum Stripe (0.50€)
-      // ── Vérification stock global
       if ((product.stock ?? 0) < qty) {
         return Response.json({ error: `Stock insuffisant pour ${product.name}` }, { status: 400 });
       }
 
-      // ── Vérification stock par taille si applicable
       const taille = extractTailleFromName(item.name ?? "");
       if (taille) {
         const sizesStock: Record<string, number> = product.sizes_stock ?? {};
@@ -111,13 +120,11 @@ export async function POST(req: Request) {
         }
       }
 
-      // ── Prix : promo active ?
-      const now           = new Date();
+      const now = new Date();
       const isPromoActive = product.promo_price && product.promo_start && product.promo_end &&
         new Date(product.promo_start) <= now && new Date(product.promo_end) >= now;
-      const finalPrice    = isPromoActive ? product.promo_price : product.price_ttc;
+      const finalPrice = isPromoActive ? product.promo_price : product.price_ttc;
 
-      // ── Nom affiché dans Stripe : inclure la taille pour la préparation commande
       const displayName = item.name ?? product.name;
 
       lineItems.push({
@@ -134,23 +141,50 @@ export async function POST(req: Request) {
 
       validatedItems.push({
         id:            product.id,
-        name:          displayName,   // ← inclut la taille, ex: "Body éclairs — 0-3 mois"
+        name:          displayName,
         slug:          product.slug,
         price:         finalPrice,
         quantity:      qty,
         category_slug: product.category_slug ?? "",
-        taille:        taille ?? null,  // champ structuré pour Sendcloud + admin
+        taille:        taille ?? null,
       });
     }
 
-    // ── Livraison : prix depuis la matrice DELIVERY_PRICES ──────────────────
-    // Le seuil "livraison offerte dès X€" est lu depuis la table settings.
-    // free_shipping=true côté code promo court-circuite la livraison aussi.
-    const subtotal           = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
-    const freeShipThreshold  = await getFreeShippingThreshold();
-    const hasFreeShipping    = free_shipping || subtotal >= freeShipThreshold;
-    const baseDelivery       = getDeliveryPrice(carrier, delivery_type);
-    const deliveryCost       = hasFreeShipping ? 0 : baseDelivery;
+    // ── Subtotal serveur (jamais celui du client) ────────────────────────────
+    const subtotal = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
+
+    // ── RE-VALIDATION du code promo côté serveur ─────────────────────────────
+    // Si promo_code est fourni : on rejoue la validation. Si elle échoue
+    // (expiré, max_uses atteint, etc.) → on continue SANS promo (silencieux,
+    // ne casse pas le checkout). Le panier client aura déjà affiché l'erreur.
+    let serverDiscount      = 0;
+    let serverPromoCode     = "";
+    let serverPromoForCS: { free_shipping: boolean; cumulable_avec_livraison: boolean } | null = null;
+
+    if (promo_code && String(promo_code).trim()) {
+      const v = await validatePromoCode(String(promo_code), subtotal);
+      if (v.valid) {
+        serverDiscount  = v.discount;
+        serverPromoCode = v.code;
+        serverPromoForCS = {
+          free_shipping:            v.free_shipping,
+          cumulable_avec_livraison: v.cumulable_avec_livraison,
+        };
+      }
+      // Sinon : promo silencieusement ignorée. Pas d'erreur — l'UX serait
+      // catastrophique de rejeter au checkout après un code accepté au panier.
+    }
+
+    // ── Calcul port via computeShipping (Option A : seuil sur subtotal BRUT) ─
+    const freeShipThreshold = await getFreeShippingThreshold();
+    const basePrice         = getDeliveryPrice(carrier, delivery_type);
+    const shippingDecision  = computeShipping({
+      subtotal,
+      freeShippingThreshold: freeShipThreshold,
+      basePrice,
+      promo: serverPromoForCS,
+    });
+    const deliveryCost = shippingDecision.shipping;
 
     if (deliveryCost > 0) {
       lineItems.push({
@@ -163,15 +197,7 @@ export async function POST(req: Request) {
       });
     }
 
-    // Pour point_relais : pas besoin de demander l'adresse à Stripe (le client
-    // va retirer au point relais sélectionné). Pour home : on demande l'adresse
-    // de livraison à Stripe en plus, mais celle qu'on a déjà côté UI sert de
-    // référence.
     const sessionParams: any = {
-      // automatic_payment_methods active automatiquement les méthodes de paiement
-      // configurées dans le dashboard Stripe + adaptées au pays/device du client :
-      // carte, Apple Pay, Google Pay, Link, etc. Mobile = +20-30 % conversion vs
-      // "card" seul (qui n'affiche pas Apple Pay dans le tunnel redirect).
       automatic_payment_methods: { enabled: true },
       line_items:           lineItems,
       mode:                 "payment",
@@ -183,9 +209,12 @@ export async function POST(req: Request) {
       ...(customer_email ? { customer_email } : {}),
       metadata: {
         items:             JSON.stringify(validatedItems),
-        promo_code:        promo_code    ?? "",
-        discount:          String(discount   ?? 0),
-        free_shipping:     String(free_shipping ?? false),
+        // ⚠️ Metadata = vérité serveur (utilisée par le webhook pour
+        // persister la commande). Aucune confiance dans le client.
+        promo_code:        serverPromoCode,
+        discount:          String(serverDiscount),
+        free_shipping:     String(shippingDecision.shippingFree),
+        shipping_reason:   shippingDecision.reason,
         carrier,
         delivery_type,
         delivery_price:    String(deliveryCost),
@@ -200,28 +229,25 @@ export async function POST(req: Request) {
       },
     };
 
-    // Pour home : on demande à Stripe de collecter l'adresse de livraison
-    // (sert de confirmation + adresse de facturation par défaut)
     if (delivery_type === "home") {
       sessionParams.shipping_address_collection = {
         allowed_countries: ["FR", "BE", "CH", "LU", "MC"],
       };
     }
 
-    if (discount && discount > 0) {
-      const idempotencyKey = `coupon-${promo_code ?? "anon"}-${Math.round(Number(discount) * 100)}-${customer_email ?? "guest"}-${Date.now() >> 16}`;
+    if (serverDiscount > 0) {
+      const idempotencyKey = `coupon-${serverPromoCode || "anon"}-${Math.round(serverDiscount * 100)}-${customer_email ?? "guest"}-${Date.now() >> 16}`;
       const coupon = await stripe.coupons.create({
-        amount_off: Math.round(Number(discount) * 100),
+        amount_off: Math.round(serverDiscount * 100),
         currency:   "eur",
         duration:   "once",
-        name:       `Code ${promo_code}`,
+        name:       `Code ${serverPromoCode}`,
       }, { idempotencyKey });
       sessionParams.discounts = [{ coupon: coupon.id }];
     }
 
     // ✅ Vérification montant minimum Stripe (0.50€)
-    const totalAfterDiscount = subtotal - discount;
-    const finalTotal = Math.max(0, totalAfterDiscount) + deliveryCost;
+    const finalTotal = Math.max(0, subtotal - serverDiscount) + deliveryCost;
     if (finalTotal < 0.50) {
       return Response.json({ error: "Le montant total est trop faible pour être traité (minimum 0.50€)" }, { status: 400 });
     }

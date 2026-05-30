@@ -11,9 +11,10 @@ import { useState, useEffect, useCallback } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  DELIVERY_PRICES,
   DELIVERY_DELAY,
   getDeliveryPrice,
+  isDeliveryCombinationAllowed,
+  computeShipping,
   type Carrier,
   type DeliveryType,
 } from "@/lib/delivery-config";
@@ -98,10 +99,10 @@ export default function CartPage() {
       const raw = localStorage.getItem("milk_delivery_choice");
       if (!raw) return;
       const d = JSON.parse(raw);
-      // Valider que la combinaison carrier/deliveryType existe dans DELIVERY_PRICES
+      // Valider que la combinaison carrier/deliveryType existe dans la matrice
       const c = d.carrier as Carrier | undefined;
       const t = d.deliveryType as DeliveryType | undefined;
-      if (c && t && (DELIVERY_PRICES as any)[c]?.[t] > 0) {
+      if (c && t && isDeliveryCombinationAllowed(c, t)) {
         setCarrier(c);
         setDeliveryType(t);
       }
@@ -266,15 +267,33 @@ export default function CartPage() {
     }
   }, [subtotal]); // ✅ Se déclenche à chaque changement de sous-total
 
-  const discount     = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
-  const freeShip     = promoData?.free_shipping ?? false;
+  const discount  = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
   // Prix livraison depuis la matrice. 0 si carrier/type pas encore choisis.
-  const basePrice    = (carrier && deliveryType) ? ((DELIVERY_PRICES as any)[carrier][deliveryType] ?? 0) : 0;
-  const shippingFree = (subtotal - discount >= freeShippingThreshold) || freeShip;
-  const shipping     = shippingFree ? 0 : basePrice;
+  const basePrice = (carrier && deliveryType) ? getDeliveryPrice(carrier, deliveryType) : 0;
+
+  // ⚠️ Calcul du port DÉLÉGUÉ à computeShipping() — source unique partagée
+  // avec /api/checkout/create-session. Plus AUCUN recalcul local du seuil/
+  // cumul ici (le panier était désaligné du serveur avant : il appliquait
+  // le seuil sans tenir compte de cumulable_avec_livraison).
+  const shippingDecision = computeShipping({
+    subtotal,
+    freeShippingThreshold,
+    basePrice,
+    promo: promoData ? {
+      free_shipping:            !!promoData.free_shipping,
+      cumulable_avec_livraison: promoData.cumulable_avec_livraison !== false,
+    } : null,
+  });
+  const shippingFree = shippingDecision.shippingFree;
+  const shipping     = shippingDecision.shipping;
   const total        = Math.max(0, subtotal - discount) + shipping;
-  const remaining    = Math.max(0, freeShippingThreshold - (subtotal - discount));
-  const pct          = Math.min(100, ((subtotal - discount) / freeShippingThreshold) * 100);
+
+  // Barre de progression "il te reste X€" : Option A → calcul sur subtotal BRUT.
+  // Si une promo non-cumulable est active, le seuil ne s'appliquera PAS même
+  // une fois atteint → on cache la barre (logique = pas de promesse fausse).
+  const promoBlocksThreshold = promoData?.cumulable_avec_livraison === false && !promoData?.free_shipping;
+  const remaining = promoBlocksThreshold ? 0 : Math.max(0, freeShippingThreshold - subtotal);
+  const pct       = promoBlocksThreshold ? 0 : Math.min(100, (subtotal / freeShippingThreshold) * 100);
 
   // Livraison complétée ?
   const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
@@ -357,14 +376,14 @@ export default function CartPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           items,
+          // ⚠️ promo_code uniquement — discount/free_shipping sont RECALCULÉS
+          // côté serveur via validatePromoCode + computeShipping. Empêche
+          // tout client malveillant de forger une remise.
           promo_code:     promoData?.code    ?? null,
-          discount:       promoData?.discount ?? 0,
-          free_shipping:  promoData?.free_shipping ?? false,
           customer_email: user?.email ?? guestEmail.trim(),
           customer_phone: customerPhone.trim(),
           carrier,
           delivery_type:  deliveryType,
-          delivery_price: shipping,
           relay:          isRelayType && selectedRelay ? {
             id:          selectedRelay.id,
             name:        selectedRelay.name,
@@ -421,12 +440,17 @@ export default function CartPage() {
             {/* ── Articles ── */}
             <div style={{ display: "grid", gap: 12 }}>
 
-              {/* Barre livraison gratuite */}
+              {/* Barre livraison gratuite — 3 états :
+                  - promo code-driven      : "Livraison offerte avec ton code promo"
+                  - seuil atteint sur BRUT : "Livraison offerte"
+                  - sinon                  : barre de progression vers le seuil */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                {freeShip ? (
+                {promoData?.free_shipping ? (
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
                     ✓ Livraison offerte avec ton code promo !
                   </div>
+                ) : shippingFree ? (
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>✓ Livraison offerte !</div>
                 ) : remaining > 0 ? (
                   <>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
@@ -437,7 +461,9 @@ export default function CartPage() {
                     </div>
                   </>
                 ) : (
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>✓ Livraison offerte !</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: "rgba(26,20,16,0.55)" }}>
+                    Livraison : <strong style={{ color: "#1a1410" }}>{shipping.toFixed(2)} €</strong>
+                  </div>
                 )}
               </div>
 

@@ -95,6 +95,23 @@ const CASES: Case[] = [
     },
     expected: { shipping: 0, shippingFree: true, reason: "threshold-reached" },
   },
+  // ── Tests d'acceptation user F-I ──────────────────────────────────────────
+  {
+    name: "G. Borne exacte 60.00€, code % cumulable → port offert (Option A, ≥ inclusif)",
+    input: {
+      subtotal: 60.00, freeShippingThreshold: THRESHOLD, basePrice: BASE,
+      promo: { free_shipping: false, cumulable_avec_livraison: true },
+    },
+    expected: { shipping: 0, shippingFree: true, reason: "threshold-reached" },
+  },
+  {
+    name: "G.2 Borne 59.99€, code % cumulable → port payant (juste sous le seuil)",
+    input: {
+      subtotal: 59.99, freeShippingThreshold: THRESHOLD, basePrice: BASE,
+      promo: { free_shipping: false, cumulable_avec_livraison: true },
+    },
+    expected: { shipping: BASE, shippingFree: false, reason: "below-threshold" },
+  },
 ];
 
 let pass = 0, fail = 0;

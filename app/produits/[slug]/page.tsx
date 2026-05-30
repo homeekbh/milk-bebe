@@ -700,39 +700,16 @@ export default function ProductPage() {
   else { for (let i = 0; i < allImages.length; i += 2) photoRows.push(allImages.slice(i, i + 2)); }
 
 
-  const avgRating = reviews.length > 0
-    ? (reviews.reduce((s: number, r: any) => s + (r.rating ?? 0), 0) / reviews.length).toFixed(1)
-    : null;
-
-  const jsonLdProduct = {
-    "@context": "https://schema.org",
-    "@type":    "Product",
-    name:        product.name,
-    description: product.description ?? product.seo_description ?? "",
-    image:       [product.image_url, product.image_url_2, product.image_url_3].filter(Boolean),
-    brand:       { "@type": "Brand", name: "M!LK" },
-    ...(avgRating && reviews.length >= 1 ? {
-      aggregateRating: {
-        "@type":       "AggregateRating",
-        ratingValue:   avgRating,
-        reviewCount:   String(reviews.length),
-        bestRating:    "5",
-        worstRating:   "1",
-      },
-    } : {}),
-    offers: {
-      "@type":        "Offer",
-      priceCurrency:  "EUR",
-      price:          String(product.promo_price || product.price_ttc || "0"),
-      availability:   (product.stock ?? 0) > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
-      url:            `${process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr"}/produits/${product.slug}`,
-      seller:         { "@type": "Organization", name: "M!LK" },
-    },
-  };
+  // ⚠️ Product JSON-LD legacy SUPPRIMÉ d'ici.
+  // Le Product schema complet (avec hasMerchantReturnPolicy + shippingDetails
+  // + aggregateRating + material + sku + priceValidUntil + itemCondition) est
+  // émis en SSR depuis app/produits/[slug]/layout.tsx via getProductJsonLd().
+  // Cause GSC : ce schéma client-side était incomplet (manquait return policy
+  // + shipping), Google le voyait en parallèle de celui du layout → "champs
+  // manquants" alors qu'ils existaient ailleurs.
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdProduct) }} />
       {FAQ.length > 0 && (
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify({
           "@context": "https://schema.org",

@@ -22,12 +22,22 @@ export async function GET(req: Request) {
   // d'utiliser le produit, donc son avis sera plus pertinent. On filtre sur
   // delivered_at entre J-8 et J-7. Les commandes sans delivered_at (anciennes
   // ou non livrées) ne reçoivent pas d'email avis.
+  //
+  // ⚠️ EXCLUSION OFFERT100 : les commandes "produit offert — campagne test"
+  // ont déjà un avis seedé en DB (cf. scripts/seed-juliette-review.mjs).
+  // Ne pas spammer ces destinataires avec une demande d'avis. Le cron
+  // taille-suivante (J+45/J+75) reste actif pour ces commandes — elles
+  // représentent une vraie opportunité de vente.
   const { data: orders } = await supabaseServer
     .from("orders")
     .select("id, customer_email, customer_name, items, delivered_at")
     .eq("shipping_status", "livree")
     .is("review_email_sent_at", null)
     .not("delivered_at", "is", null)
+    // SQL 3-valued logic : `.neq("promo_code", "OFFERT100")` exclurait aussi
+    // les NULL (la grande majorité des commandes). On utilise .or() pour
+    // garder explicitement les NULL + exclure uniquement la valeur exacte.
+    .or("promo_code.is.null,promo_code.neq.OFFERT100")
     .gte("delivered_at", j7min.toISOString())
     .lte("delivered_at", j7max.toISOString());
 

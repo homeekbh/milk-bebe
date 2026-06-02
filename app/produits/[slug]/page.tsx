@@ -13,6 +13,7 @@ import { useCart }                     from "@/context/CartContext";
 import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
+import ReassuranceBlock                 from "@/components/product/ReassuranceBlock";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -737,7 +738,29 @@ export default function ProductPage() {
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
-        .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
+        /* ── BAS DE FICHE — grid-template-areas pour layout déterministe ──
+           Desktop ≥ 901px : 2 col (avis 2fr large gauche, recos 1fr sticky droite).
+           4 cellules → 3 rows : avis col1 row1, philo col1 rows2-3, recos col2
+           rows1-2 (sticky), reassurance col2 row3.
+           Si reviews.length === 0 → la cellule "avis" est absente du DOM,
+           grid auto-redistribue (la row 1 disparaît, philo prend rows1-2).
+           align-items:start = chaque cellule prend sa hauteur naturelle. */
+        .bottom-grid {
+          display: grid;
+          grid-template-columns: 2fr 1fr;
+          grid-template-areas:
+            "avis  recos"
+            "philo recos"
+            "philo reassurance";
+          gap: 24px;
+          align-items: start;
+          margin-bottom: 24px;
+        }
+        .bottom-grid > .bg-avis        { grid-area: avis; }
+        .bottom-grid > .bg-recos       { grid-area: recos; position: sticky; top: 96px; align-self: start; }
+        .bottom-grid > .bg-philo       { grid-area: philo; }
+        .bottom-grid > .bg-reassurance { grid-area: reassurance; align-self: start; }
+
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
@@ -745,7 +768,18 @@ export default function ProductPage() {
           .pl-right-inner { padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
           .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
-          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
+
+          /* Mobile : 1 colonne, sticky désactivé, ordre Avis → Recos → Réassurance → Philo */
+          .bottom-grid {
+            grid-template-columns: 1fr !important;
+            grid-template-areas:
+              "avis"
+              "recos"
+              "reassurance"
+              "philo" !important;
+            gap: 16px !important;
+          }
+          .bottom-grid > .bg-recos { position: static !important; }
         }
         @media(max-width:600px){
           .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; row-gap:12px!important; }
@@ -1137,12 +1171,13 @@ export default function ProductPage() {
 
       </div>
 
-      {/* ─── BAS DE PAGE ─── */}
+      {/* ─── BAS DE PAGE — grid-template-areas (desktop) + empilement mobile ─── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
-        <div className="bottom-grid" style={{ marginBottom: 24 }}>
-          {/* ── AVIS CLIENTS ── */}
+        <div className="bottom-grid">
+
+          {/* ── AVIS CLIENTS — colonne gauche row 1 ── */}
           {reviews.length > 0 && (
-            <div style={{ marginTop: 48 }}>
+            <section className="bg-avis" style={{ marginTop: 48 }}>
               <h2 style={{ fontSize: "clamp(20px,2vw,26px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 6 }}>
                 Avis clients
               </h2>
@@ -1164,10 +1199,12 @@ export default function ProductPage() {
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900, color: "#1a1410", flexShrink: 0 }}>
-                          {(rev.author_name ?? "?").slice(0, 1).toUpperCase()}
+                          {/* Fix : l'API /api/reviews retourne customer_name (pas author_name).
+                              Pour Juliette N. → avatar "J" */}
+                          {(rev.customer_name ?? "?").slice(0, 1).toUpperCase()}
                         </div>
                         <div>
-                          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{rev.author_name ?? "Client M!LK"}</div>
+                          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{rev.customer_name ?? "Client M!LK"}</div>
                           <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
                             {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
                           </div>
@@ -1179,21 +1216,33 @@ export default function ProductPage() {
                         ))}
                       </div>
                     </div>
-                    {rev.title && <div style={{ fontWeight: 700, fontSize: 14, color: "#1a1410", marginBottom: 6 }}>{rev.title}</div>}
-                    <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? rev.content ?? ""}</p>
+                    {/* rev.content était un fallback mort (l'API ne renvoie pas ce champ) */}
+                    <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? ""}</p>
                   </div>
                 ))}
               </div>
+            </section>
+          )}
+
+          {/* ── Recos — colonne droite, sticky desktop ── */}
+          <div className="bg-recos">
+            <ProductRecommendations
+              productId={product.id}
+              categorySlug={productCat ?? ""}
+            />
+          </div>
+
+          {/* ── Philosophie — colonne gauche row 2-3 ── */}
+          {philosophy && (
+            <div className="bg-philo">
+              <PhilosophyCard text={philosophy} />
             </div>
           )}
 
-          {/* ── Les clients ont aussi acheté → ProductRecommendations ── */}
-          <ProductRecommendations
-            productId={product.id}
-            categorySlug={productCat ?? ""}
-          />
-
-          {philosophy && <PhilosophyCard text={philosophy} />}
+          {/* ── Réassurance — colonne droite row 3, hauteur naturelle ── */}
+          <div className="bg-reassurance">
+            <ReassuranceBlock />
+          </div>
         </div>
 
         {/* FAQ */}

@@ -730,27 +730,43 @@ export default function ProductPage() {
       <style>{`
         * { box-sizing:border-box; }
         /* ── Grille principale fiche produit ──
-           align-items:stretch : la cellule droite prend la HAUTEUR de la gauche
-           (galerie photos = grande). Pas de maxHeight forcé (cause de vide interne
-           historique) — le panneau droit garde sa hauteur naturelle MAIS il sticke
-           en haut grâce à position:sticky + align-self:start. Résultat : scroll
-           indépendant — photos défilent, panneau achat reste collé en haut.
-           Le fond #ede8df de .pl-right reste continu sous le panneau sticky → pas
-           de trou visuel. */
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
-        .pl-left  { padding:16px 24px 80px 4vw; }
+           - align-items:stretch → cellules à la même hauteur (max des 2 contenus)
+           - overflow-x:clip (pas overflow:hidden) → empêche le scroll horizontal
+             sans cliper le vertical (sinon le sticky droite voit son guide des
+             tailles coupé quand il déborde de la cellule).
+           - .pl-left flex column + dernier enfant margin-top:auto → recos
+             poussées au BAS de la cellule pour s'aligner avec la fin de la philo
+             droite. Plus de "trou crème" en bas à gauche perceptible.
+           - .pl-right-inner sticky + max-height calc(100vh-96px) + overflow-y:auto
+             → scroll RÉELLEMENT INDÉPENDANT. La colonne droite a sa propre
+             scrollbar quand son contenu déborde du viewport. */
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow-x:clip; background:#ede8df; }
+        .pl-left  { padding:16px 24px 80px 4vw; display:flex; flex-direction:column; }
+        .pl-left > .pl-left-fill { margin-top:auto; padding-top:32px; } /* pousse recos en bas, aligne avec fin de philo */
         .pl-right { display:flex; flex-direction:column; background:#ede8df; }
-        .pl-right-inner { position:sticky; top:96px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
+        .pl-right-inner {
+          position:sticky; top:96px; align-self:start;
+          max-height:calc(100vh - 96px); overflow-y:auto;
+          padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px;
+          width:100%; box-sizing:border-box;
+          /* Scrollbar discrète */
+          scrollbar-width:thin; scrollbar-color:rgba(26,20,16,0.2) transparent;
+        }
+        .pl-right-inner::-webkit-scrollbar { width:6px; }
+        .pl-right-inner::-webkit-scrollbar-thumb { background:rgba(26,20,16,0.2); border-radius:99px; }
+        .pl-right-inner::-webkit-scrollbar-thumb:hover { background:rgba(26,20,16,0.35); }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
-          .pl-left   { padding:12px 16px 0!important; }
+          .pl-left   { padding:12px 16px 0!important; display:block!important; }
+          /* Mobile : .pl-left-fill margin-top:auto retiré → empilement normal */
+          .pl-left > .pl-left-fill { margin-top:32px!important; padding-top:0!important; }
           .pl-right  { display:contents!important; }
-          /* Mobile : sticky désactivé (1 colonne, pas de scroll indépendant
-             possible quand tout est empilé). */
-          .pl-right-inner { position:static!important; top:auto!important; padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
+          /* Mobile : sticky désactivé + max-height retirée (1 colonne, scroll
+             page normal, le contenu droite s'empile naturellement). */
+          .pl-right-inner { position:static!important; top:auto!important; max-height:none!important; overflow-y:visible!important; padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
           .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
         }
@@ -868,10 +884,12 @@ export default function ProductPage() {
           )}
 
           {/* ── DANS LA MÊME COLLECTION — sous les avis ──
-                theme="light" : fond crème transparent (pas d'îlot sombre
-                isolé dans la fiche). Le vide en bas si la colonne gauche
-                est plus courte que la droite reste invisible (fond uniforme). */}
-          <div style={{ marginTop: 32 }}>
+                theme="light" : fond transparent, pas d'îlot sombre.
+                .pl-left-fill + margin-top:auto (CSS) : POUSSE ce bloc au bas
+                de la cellule gauche → alignement exact avec la fin de la
+                philosophie à droite. Plus de "décalage" visuel entre les 2
+                colonnes. Mobile : margin-top:auto neutralisé via @media. */}
+          <div className="pl-left-fill">
             <ProductRecommendations
               productId={product.id}
               categorySlug={productCat ?? ""}

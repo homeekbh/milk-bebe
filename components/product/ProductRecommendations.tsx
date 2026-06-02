@@ -39,6 +39,7 @@ export default function ProductRecommendations({
   title    = "Dans la même collection",
   eyebrow  = "Tu aimeras aussi",
   titleColor,
+  theme    = "dark",
 }: {
   productId:    string;
   categorySlug: string;
@@ -46,6 +47,11 @@ export default function ProductRecommendations({
   eyebrow?:     string;
   /** Override la couleur du <h2>. Par défaut : crème site (C.warm). */
   titleColor?:  string;
+  /** "dark" (default) : fond sombre #1a1410, texte crème — usage standalone
+   *  (page /success, carrousel hero). "light" : fond crème transparent,
+   *  texte sombre — usage intégré dans une fiche produit pour ne pas créer
+   *  d'îlot sombre isolé. */
+  theme?:       "dark" | "light";
 }) {
   const [items,   setItems]   = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
@@ -88,19 +94,28 @@ export default function ProductRecommendations({
 
   if (!loading && items.length === 0) return null;
 
+  const isLight = theme === "light";
+  // En mode light : pas de fond sombre, padding réduit (le composant est
+  // déjà dans une cellule pl-left qui a son propre padding 4vw).
+  const sectionBg     = isLight ? "transparent" : C.bg;
+  const sectionColor  = isLight ? "#1a1410"     : C.warm;
+  const sectionPad    = isLight ? "8px 0 24px"  : "56px 5vw 72px";
+  const eyebrowColor  = C.amber;
+  const defaultH2Col  = isLight ? "#1a1410"     : C.warm;
+
   return (
     <section
       aria-label="Recommandations produits"
       style={{
-        background: C.bg,
-        color:      C.warm,
-        padding:    "56px 5vw 72px",
+        background: sectionBg,
+        color:      sectionColor,
+        padding:    sectionPad,
       }}
     >
       <div style={{ maxWidth: 1200, margin: "0 auto" }}>
         <div style={{ marginBottom: 24 }}>
           {eyebrow && (
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: eyebrowColor, marginBottom: 10 }}>
               {eyebrow}
             </div>
           )}
@@ -110,7 +125,7 @@ export default function ProductRecommendations({
             fontWeight:    950,
             letterSpacing: -0.8,
             lineHeight:    1.15,
-            color:         titleColor ?? C.warm,
+            color:         titleColor ?? defaultH2Col,
           }}>
             {title}
           </h2>

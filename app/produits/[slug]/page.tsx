@@ -867,11 +867,15 @@ export default function ProductPage() {
             </section>
           )}
 
-          {/* ── DANS LA MÊME COLLECTION — sous les avis ── */}
+          {/* ── DANS LA MÊME COLLECTION — sous les avis ──
+                theme="light" : fond crème transparent (pas d'îlot sombre
+                isolé dans la fiche). Le vide en bas si la colonne gauche
+                est plus courte que la droite reste invisible (fond uniforme). */}
           <div style={{ marginTop: 32 }}>
             <ProductRecommendations
               productId={product.id}
               categorySlug={productCat ?? ""}
+              theme="light"
             />
           </div>
 

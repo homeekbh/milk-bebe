@@ -15,9 +15,13 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const product_id = searchParams.get("product_id");
 
+  // 🔒 Sélection EXPLICITE — pas de customer_email exposé publiquement.
+  // products(name, slug) : embed Supabase pour récupérer le produit lié sans
+  // round-trip supplémentaire. Utile pour /produits qui affiche tous les avis
+  // avec le nom et le lien du produit.
   let query = supabaseServer
     .from("reviews")
-    .select("id, customer_name, rating, comment, reply, created_at")
+    .select("id, customer_name, rating, comment, reply, created_at, product_id, products(name, slug)")
     .eq("approved", true)
     .order("created_at", { ascending: false });
 

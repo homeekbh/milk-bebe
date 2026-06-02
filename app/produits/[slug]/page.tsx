@@ -13,7 +13,6 @@ import { useCart }                     from "@/context/CartContext";
 import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
-import ReassuranceBlock                 from "@/components/product/ReassuranceBlock";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -578,7 +577,7 @@ export default function ProductPage() {
   const [qty,         setQty]         = useState(1);
   const [added,       setAdded]       = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
-  const [reviews,    setReviews]    = useState<any[]>([]);
+  // (state 'reviews' retiré — les avis sont désormais affichés sur /produits, plus dans la fiche)
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
   const [guideOpen,   setGuideOpen]   = useState(false);
   const [openFaqIdx,  setOpenFaqIdx]  = useState<number | null>(null);
@@ -616,10 +615,6 @@ export default function ProductPage() {
             session_id: sid,
           }),
         }).catch(() => {});
-        fetch(`/api/reviews?product_id=${encodeURIComponent(found.id)}`)
-          .then(r => r.json())
-          .then((arr: any) => { if (Array.isArray(arr)) setReviews(arr); })
-          .catch(() => {});
       }}).catch(() => setLoading(false));
   }, [slug]);
 
@@ -729,46 +724,29 @@ export default function ProductPage() {
 
       <style>{`
         * { box-sizing:border-box; }
-        /* ── Grille principale fiche produit ──
-           - align-items:stretch → cellules à la même hauteur (max des 2 contenus)
-           - overflow-x:clip (pas overflow:hidden) → empêche le scroll horizontal
-             sans cliper le vertical (sinon le sticky droite voit son guide des
-             tailles coupé quand il déborde de la cellule).
-           - .pl-left flex column + dernier enfant margin-top:auto → recos
-             poussées au BAS de la cellule pour s'aligner avec la fin de la philo
-             droite. Plus de "trou crème" en bas à gauche perceptible.
-           - .pl-right-inner sticky + max-height calc(100vh-96px) + overflow-y:auto
-             → scroll RÉELLEMENT INDÉPENDANT. La colonne droite a sa propre
-             scrollbar quand son contenu déborde du viewport. */
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow-x:clip; background:#ede8df; }
-        .pl-left  { padding:16px 24px 80px 4vw; display:flex; flex-direction:column; }
-        .pl-left > .pl-left-fill { margin-top:auto; padding-top:32px; } /* pousse recos en bas, aligne avec fin de philo */
+        /* ── Grille principale fiche produit (état pré-avis) ──
+           align-items:flex-start → chaque cellule hauteur naturelle.
+           overflow:hidden → empêche scroll horizontal accidentel.
+           Pas de sticky/max-height : layout simple, scroll page commun.
+           Les avis sont DÉPLACÉS sur /produits (page liste), plus sur fiche. */
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:flex-start; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
+        .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { display:flex; flex-direction:column; background:#ede8df; }
-        .pl-right-inner {
-          position:sticky; top:96px; align-self:start;
-          max-height:calc(100vh - 96px); overflow-y:auto;
-          padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px;
-          width:100%; box-sizing:border-box;
-          /* Scrollbar discrète */
-          scrollbar-width:thin; scrollbar-color:rgba(26,20,16,0.2) transparent;
-        }
-        .pl-right-inner::-webkit-scrollbar { width:6px; }
-        .pl-right-inner::-webkit-scrollbar-thumb { background:rgba(26,20,16,0.2); border-radius:99px; }
-        .pl-right-inner::-webkit-scrollbar-thumb:hover { background:rgba(26,20,16,0.35); }
+        .pl-right-inner { padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
+        /* Bottom-grid : recos + philosophie côte à côte sous la fiche.
+           2 enfants pour 2 colonnes = remplissage propre (pas de zigzag). */
+        .bottom-grid { display:grid; grid-template-columns:1fr 1fr; gap:24px; align-items:stretch; }
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
-          .pl-left   { padding:12px 16px 0!important; display:block!important; }
-          /* Mobile : .pl-left-fill margin-top:auto retiré → empilement normal */
-          .pl-left > .pl-left-fill { margin-top:32px!important; padding-top:0!important; }
+          .pl-left   { padding:12px 16px 0!important; }
           .pl-right  { display:contents!important; }
-          /* Mobile : sticky désactivé + max-height retirée (1 colonne, scroll
-             page normal, le contenu droite s'empile naturellement). */
-          .pl-right-inner { position:static!important; top:auto!important; max-height:none!important; overflow-y:visible!important; padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
+          .pl-right-inner { padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
           .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
+          .bottom-grid { grid-template-columns:1fr!important; gap:16px!important; }
         }
         @media(max-width:600px){
           .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; row-gap:12px!important; }
@@ -836,66 +814,6 @@ export default function ProductPage() {
             ))}
           </div>
           <IconBandeau />
-
-          {/* ── AVIS CLIENTS — sous les symboles, dans la colonne gauche ── */}
-          {reviews.length > 0 && (
-            <section style={{ marginTop: 40 }}>
-              <h2 style={{ fontSize: "clamp(20px,2vw,26px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 6 }}>
-                Avis clients
-              </h2>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-                <div style={{ display: "flex", gap: 3 }}>
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const avg = reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length;
-                    return <span key={i} style={{ fontSize: 20, color: i < Math.round(avg) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>;
-                  })}
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1410" }}>
-                  {(reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length).toFixed(1)}/5
-                </span>
-                <span style={{ fontSize: 14, color: "rgba(26,20,16,0.45)" }}>({reviews.length} avis)</span>
-              </div>
-              <div style={{ display: "grid", gap: 16 }}>
-                {reviews.slice(0, 6).map((rev: any) => (
-                  <div key={rev.id} style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.08)" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900, color: "#1a1410", flexShrink: 0 }}>
-                          {(rev.customer_name ?? "?").slice(0, 1).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{rev.customer_name ?? "Client M!LK"}</div>
-                          <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
-                            {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 2 }}>
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <span key={i} style={{ fontSize: 14, color: i < (rev.rating ?? 5) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>
-                        ))}
-                      </div>
-                    </div>
-                    <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? ""}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ── DANS LA MÊME COLLECTION — sous les avis ──
-                theme="light" : fond transparent, pas d'îlot sombre.
-                .pl-left-fill + margin-top:auto (CSS) : POUSSE ce bloc au bas
-                de la cellule gauche → alignement exact avec la fin de la
-                philosophie à droite. Plus de "décalage" visuel entre les 2
-                colonnes. Mobile : margin-top:auto neutralisé via @media. */}
-          <div className="pl-left-fill">
-            <ProductRecommendations
-              productId={product.id}
-              categorySlug={productCat ?? ""}
-              theme="light"
-            />
-          </div>
 
         </div>
 
@@ -1214,21 +1132,23 @@ export default function ProductPage() {
             </div>
           </div>
 
-          {/* ── RÉASSURANCE — engagements M!LK ── */}
-          <ReassuranceBlock />
-
-          {/* ── PHILOSOPHIE — citation philosophique du produit ── */}
-          {philosophy && <PhilosophyCard text={philosophy} />}
-
           </div>{/* /pl-right-inner */}
         </div>
 
       </div>
 
-      {/* ─── BAS DE PAGE — uniquement FAQ pleine largeur. Avis + Recos sont
-            désormais dans .pl-left (sous les symboles), Réassurance + Philosophie
-            dans .pl-right-inner (sous "Conseils d'entretien") ─── */}
+      {/* ─── BAS DE PAGE ───
+            Avis DÉPLACÉS sur /produits (page liste) — plus dans la fiche.
+            Ici : recos (theme dark) + philosophie en 2 colonnes, puis FAQ. */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
+        <div className="bottom-grid" style={{ marginBottom: 24 }}>
+          <ProductRecommendations
+            productId={product.id}
+            categorySlug={productCat ?? ""}
+          />
+          {philosophy && <PhilosophyCard text={philosophy} />}
+        </div>
+
         {/* FAQ */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: TAUPE, border: `1px solid rgba(26,20,16,0.1)` }}>
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>

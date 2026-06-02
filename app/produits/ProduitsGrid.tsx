@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link  from "next/link";
 import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign";
 import { useWishlist } from "@/context/WishlistContext";
+import ReviewsBlock from "@/components/product/ReviewsBlock";
 
 const PROMO_STYLES = `
   @keyframes milk-promo-shake {
@@ -290,6 +291,11 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           </div>
         )}
       </div>
+
+      {/* ── AVIS CLIENTS — sous la grille produits, avant Essentiels ──
+            Affiche tous les avis approuvés (fetch /api/reviews sans
+            product_id). Si pas d'avis → rien rendu. */}
+      <ReviewsBlock />
 
       {/* Section essentiels — pleine largeur avec Divider */}
       <div style={{ marginTop: 64 }}>

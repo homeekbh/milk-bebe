@@ -729,57 +729,30 @@ export default function ProductPage() {
 
       <style>{`
         * { box-sizing:border-box; }
-        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:flex-start; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
+        /* ── Grille principale fiche produit ──
+           align-items:stretch : la cellule droite prend la HAUTEUR de la gauche
+           (galerie photos = grande). Pas de maxHeight forcé (cause de vide interne
+           historique) — le panneau droit garde sa hauteur naturelle MAIS il sticke
+           en haut grâce à position:sticky + align-self:start. Résultat : scroll
+           indépendant — photos défilent, panneau achat reste collé en haut.
+           Le fond #ede8df de .pl-right reste continu sous le panneau sticky → pas
+           de trou visuel. */
+        .pl-outer { display:grid; grid-template-columns:1fr 1fr; gap:0; align-items:stretch; max-width:1800px; margin:0 auto; overflow:hidden; background:#ede8df; }
         .pl-left  { padding:16px 24px 80px 4vw; }
         .pl-right { display:flex; flex-direction:column; background:#ede8df; }
-        /* Plus de position:sticky — la cell grid ne stretch plus avec
-           align-items:flex-start, donc sticky n'avait plus de support. */
-        .pl-right-inner { padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
+        .pl-right-inner { position:sticky; top:96px; align-self:start; padding:16px 4vw 80px 24px; display:flex; flex-direction:column; gap:18px; width:100%; box-sizing:border-box; }
         .photo-row  { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
         .photo-item { position:relative; aspect-ratio:3/4; border-radius:14px; overflow:hidden; background:${TAUPE}; cursor:zoom-in; }
         .photo-item.single { grid-column:1/-1; aspect-ratio:4/5; }
-        /* ── BAS DE FICHE — grid-template-areas pour layout déterministe ──
-           Desktop ≥ 901px : 2 col (avis 2fr large gauche, recos 1fr sticky droite).
-           4 cellules → 3 rows : avis col1 row1, philo col1 rows2-3, recos col2
-           rows1-2 (sticky), reassurance col2 row3.
-           Si reviews.length === 0 → la cellule "avis" est absente du DOM,
-           grid auto-redistribue (la row 1 disparaît, philo prend rows1-2).
-           align-items:start = chaque cellule prend sa hauteur naturelle. */
-        .bottom-grid {
-          display: grid;
-          grid-template-columns: 2fr 1fr;
-          grid-template-areas:
-            "avis  recos"
-            "philo recos"
-            "philo reassurance";
-          gap: 24px;
-          align-items: start;
-          margin-bottom: 24px;
-        }
-        .bottom-grid > .bg-avis        { grid-area: avis; }
-        .bottom-grid > .bg-recos       { grid-area: recos; position: sticky; top: 96px; align-self: start; }
-        .bottom-grid > .bg-philo       { grid-area: philo; }
-        .bottom-grid > .bg-reassurance { grid-area: reassurance; align-self: start; }
-
         @media(max-width:900px){
           .pl-outer  { grid-template-columns:1fr!important; }
           .pl-left   { padding:12px 16px 0!important; }
           .pl-right  { display:contents!important; }
-          .pl-right-inner { padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
+          /* Mobile : sticky désactivé (1 colonne, pas de scroll indépendant
+             possible quand tout est empilé). */
+          .pl-right-inner { position:static!important; top:auto!important; padding:16px 16px 80px!important; width:100%!important; background:#ede8df!important; }
           .bandeau-inner { min-width:0!important; grid-template-columns:repeat(4,1fr)!important; overflow:hidden!important; row-gap:10px!important; }
           .photo-row { gap:8px!important; }
-
-          /* Mobile : 1 colonne, sticky désactivé, ordre Avis → Recos → Réassurance → Philo */
-          .bottom-grid {
-            grid-template-columns: 1fr !important;
-            grid-template-areas:
-              "avis"
-              "recos"
-              "reassurance"
-              "philo" !important;
-            gap: 16px !important;
-          }
-          .bottom-grid > .bg-recos { position: static !important; }
         }
         @media(max-width:600px){
           .icon-bandeau-grid { grid-template-columns:repeat(4, 1fr)!important; row-gap:12px!important; }
@@ -848,10 +821,63 @@ export default function ProductPage() {
           </div>
           <IconBandeau />
 
+          {/* ── AVIS CLIENTS — sous les symboles, dans la colonne gauche ── */}
+          {reviews.length > 0 && (
+            <section style={{ marginTop: 40 }}>
+              <h2 style={{ fontSize: "clamp(20px,2vw,26px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 6 }}>
+                Avis clients
+              </h2>
+              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
+                <div style={{ display: "flex", gap: 3 }}>
+                  {Array.from({ length: 5 }, (_, i) => {
+                    const avg = reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length;
+                    return <span key={i} style={{ fontSize: 20, color: i < Math.round(avg) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>;
+                  })}
+                </div>
+                <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1410" }}>
+                  {(reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length).toFixed(1)}/5
+                </span>
+                <span style={{ fontSize: 14, color: "rgba(26,20,16,0.45)" }}>({reviews.length} avis)</span>
+              </div>
+              <div style={{ display: "grid", gap: 16 }}>
+                {reviews.slice(0, 6).map((rev: any) => (
+                  <div key={rev.id} style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.08)" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900, color: "#1a1410", flexShrink: 0 }}>
+                          {(rev.customer_name ?? "?").slice(0, 1).toUpperCase()}
+                        </div>
+                        <div>
+                          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{rev.customer_name ?? "Client M!LK"}</div>
+                          <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
+                            {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ display: "flex", gap: 2 }}>
+                        {Array.from({ length: 5 }, (_, i) => (
+                          <span key={i} style={{ fontSize: 14, color: i < (rev.rating ?? 5) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>
+                        ))}
+                      </div>
+                    </div>
+                    <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? ""}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* ── DANS LA MÊME COLLECTION — sous les avis ── */}
+          <div style={{ marginTop: 32 }}>
+            <ProductRecommendations
+              productId={product.id}
+              categorySlug={productCat ?? ""}
+            />
+          </div>
 
         </div>
 
-        {/* ─── DROITE : panneau achat — hauteur naturelle (pas de maxHeight forcé) ─── */}
+        {/* ─── DROITE : panneau achat — sticky, scroll indépendant ─── */}
         <div className="pl-right"><div className="pl-right-inner" ref={rightInnerRef}>
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
@@ -1166,85 +1192,21 @@ export default function ProductPage() {
             </div>
           </div>
 
+          {/* ── RÉASSURANCE — engagements M!LK ── */}
+          <ReassuranceBlock />
+
+          {/* ── PHILOSOPHIE — citation philosophique du produit ── */}
+          {philosophy && <PhilosophyCard text={philosophy} />}
+
           </div>{/* /pl-right-inner */}
         </div>
 
       </div>
 
-      {/* ─── BAS DE PAGE — grid-template-areas (desktop) + empilement mobile ─── */}
+      {/* ─── BAS DE PAGE — uniquement FAQ pleine largeur. Avis + Recos sont
+            désormais dans .pl-left (sous les symboles), Réassurance + Philosophie
+            dans .pl-right-inner (sous "Conseils d'entretien") ─── */}
       <div style={{ maxWidth: 1800, margin: "0 auto", padding: "0 4vw 80px" }}>
-        <div className="bottom-grid">
-
-          {/* ── AVIS CLIENTS — colonne gauche row 1 ── */}
-          {reviews.length > 0 && (
-            <section className="bg-avis" style={{ marginTop: 48 }}>
-              <h2 style={{ fontSize: "clamp(20px,2vw,26px)", fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 6 }}>
-                Avis clients
-              </h2>
-              <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 24 }}>
-                <div style={{ display: "flex", gap: 3 }}>
-                  {Array.from({ length: 5 }, (_, i) => {
-                    const avg = reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length;
-                    return <span key={i} style={{ fontSize: 20, color: i < Math.round(avg) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>;
-                  })}
-                </div>
-                <span style={{ fontSize: 15, fontWeight: 700, color: "#1a1410" }}>
-                  {(reviews.reduce((a, r) => a + (r.rating ?? 5), 0) / reviews.length).toFixed(1)}/5
-                </span>
-                <span style={{ fontSize: 14, color: "rgba(26,20,16,0.45)" }}>({reviews.length} avis)</span>
-              </div>
-              <div style={{ display: "grid", gap: 16 }}>
-                {reviews.slice(0, 6).map((rev: any) => (
-                  <div key={rev.id} style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.08)" }}>
-                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8, flexWrap: "wrap", gap: 8 }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <div style={{ width: 36, height: 36, borderRadius: "50%", background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 900, color: "#1a1410", flexShrink: 0 }}>
-                          {/* Fix : l'API /api/reviews retourne customer_name (pas author_name).
-                              Pour Juliette N. → avatar "J" */}
-                          {(rev.customer_name ?? "?").slice(0, 1).toUpperCase()}
-                        </div>
-                        <div>
-                          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{rev.customer_name ?? "Client M!LK"}</div>
-                          <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)" }}>
-                            {rev.created_at ? new Date(rev.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "long", year: "numeric" }) : ""}
-                          </div>
-                        </div>
-                      </div>
-                      <div style={{ display: "flex", gap: 2 }}>
-                        {Array.from({ length: 5 }, (_, i) => (
-                          <span key={i} style={{ fontSize: 14, color: i < (rev.rating ?? 5) ? "#c49a4a" : "rgba(26,20,16,0.15)" }}>★</span>
-                        ))}
-                      </div>
-                    </div>
-                    {/* rev.content était un fallback mort (l'API ne renvoie pas ce champ) */}
-                    <p style={{ margin: 0, fontSize: 14, color: "rgba(26,20,16,0.7)", lineHeight: 1.7 }}>{rev.comment ?? ""}</p>
-                  </div>
-                ))}
-              </div>
-            </section>
-          )}
-
-          {/* ── Recos — colonne droite, sticky desktop ── */}
-          <div className="bg-recos">
-            <ProductRecommendations
-              productId={product.id}
-              categorySlug={productCat ?? ""}
-            />
-          </div>
-
-          {/* ── Philosophie — colonne gauche row 2-3 ── */}
-          {philosophy && (
-            <div className="bg-philo">
-              <PhilosophyCard text={philosophy} />
-            </div>
-          )}
-
-          {/* ── Réassurance — colonne droite row 3, hauteur naturelle ── */}
-          <div className="bg-reassurance">
-            <ReassuranceBlock />
-          </div>
-        </div>
-
         {/* FAQ */}
         <div style={{ padding: "24px 28px", borderRadius: 20, background: TAUPE, border: `1px solid rgba(26,20,16,0.1)` }}>
           <h3 style={{ margin: "0 0 8px", fontSize: "clamp(16px,1.8vw,20px)", fontWeight: 950, color: DARK }}>Questions fréquentes</h3>

@@ -158,7 +158,7 @@ export default function Header() {
       `}</style>
 
       <header ref={el => { headerRef.current = el; }}
-        style={{ position: "fixed", top: 0, left: 0, width: "100%", zIndex: 9999, overflowX: "hidden", background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s" }}>
+        style={{ position: "fixed", top: "var(--milk-topbar-h, 0px)", left: 0, width: "100%", zIndex: 9999, overflowX: "hidden", background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s, top 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
         <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 clamp(8px,3vw,20px)", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
           {/* ✅ Logo — clic scroll to top */}

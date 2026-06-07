@@ -9,7 +9,9 @@ const DARK     = "#1a1410";
 
 export default function IntroScreen() {
   const pathname            = usePathname();
-  const [show,    setShow]    = useState(false);
+  // Initial show=true sur "/" pour couvrir le hero dès le premier paint
+  // (évite le flicker hero → intro qu'on voyait avant)
+  const [show,    setShow]    = useState(pathname === "/");
   const [ready,   setReady]   = useState(false);
   const [phase,   setPhase]   = useState(0);
   const [exiting, setExiting] = useState(false);

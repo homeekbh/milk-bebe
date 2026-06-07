@@ -1,288 +1,800 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type RefObject,
+} from "react";
 import Image from "next/image";
 import Link  from "next/link";
 
-const C = {
-  bg:    "#2d1a0e",
-  amber: "#c49a4a",
-  taupe: "#c4ae94",
-  light: "#ede8df",
-  warm:  "#f2ede6",
-  muted: "rgba(242,237,230,0.55)",
-  faint: "rgba(242,237,230,0.08)",
-  dark:  "#1a1410",
+/* ──────────────────────────────────────────────────────────────────────────
+   Palette beige texturée (plus de fond marron foncé en bloc).
+   Marron/noir réservé à : bandeau, badges promo, badge OEKO, accents.
+   ────────────────────────────────────────────────────────────────────────── */
+const P = {
+  cream:    "#f2ede6",
+  light:    "#ede8df",
+  warm:     "#e6ddcf",
+  taupe:    "#e9e1d4",
+  taupeAlt: "#c4ae94",
+  dark:     "#1a1410",
+  amber:    "#c49a4a",
+  muted:    "rgba(26,20,16,0.6)",
+  mutedSoft:"rgba(26,20,16,0.45)",
+  mutedFaint:"rgba(26,20,16,0.3)",
+  faintLine:"rgba(26,20,16,0.08)",
 };
 
-function Divider({ from, to }: { from: string; to: string }) {
-  return <div style={{ height: 16, background: `linear-gradient(to bottom, ${from}, ${to})`, flexShrink: 0 }} />;
-}
+/* SSR-safe layoutEffect */
+const useIsoLayoutEffect: typeof useLayoutEffect =
+  typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
-function useBiReveal(threshold = 0.15) {
-  const ref    = useRef<HTMLDivElement>(null);
-  const prevY  = useRef(0);
-  const [state, setState] = useState<{ visible: boolean; dir: "up"|"down" }>({ visible: false, dir: "down" });
+const TOPBAR_H = 40; // hauteur bandeau (px) — utilisé pour --milk-topbar-h + hystérésis
+const HYST_HIDE = 48;
+const HYST_SHOW = 8;
+
+/* Pattern grain SVG inline (réutilisable en arrière-plan) */
+const NOISE_BG =
+  "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 0.045 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")";
+
+/* ──────────────────────────────────────────────────────────────────────────
+   useScrollProgress — retourne une valeur 0→1 pendant que l'élément traverse
+   le viewport (0 quand top du viewport touche l'élément, 1 quand bottom
+   passe). Throttlé en rAF. Sert aux effets de construction au scroll.
+   ────────────────────────────────────────────────────────────────────────── */
+function useScrollProgress<T extends HTMLElement = HTMLDivElement>(): {
+  ref: RefObject<T | null>;
+  progress: number;
+} {
+  const ref = useRef<T>(null);
+  const [progress, setProgress] = useState(0);
+  const ticking = useRef(false);
+
   useEffect(() => {
-    const el = ref.current; if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      const curY = e.boundingClientRect.top;
-      const dir  = curY < prevY.current ? "up" : "down";
-      prevY.current = curY;
-      if (e.isIntersecting) setState({ visible: true, dir });
-      else setState({ visible: false, dir });
-    }, { threshold });
-    obs.observe(el); return () => obs.disconnect();
-  }, [threshold]);
-  return { ref, ...state };
+    if (typeof window === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setProgress(1);
+      return;
+    }
+
+    const update = () => {
+      const el = ref.current;
+      if (!el) { ticking.current = false; return; }
+      const rect = el.getBoundingClientRect();
+      const viewH = window.innerHeight;
+      // 0 quand le top entre dans le viewport (rect.top = viewH)
+      // 1 quand le bottom sort (rect.bottom = 0)
+      const total = rect.height + viewH;
+      const passed = viewH - rect.top;
+      const p = Math.max(0, Math.min(1, passed / total));
+      setProgress(p);
+      ticking.current = false;
+    };
+
+    const onScroll = () => {
+      if (ticking.current) return;
+      ticking.current = true;
+      requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+    };
+  }, []);
+
+  return { ref, progress };
 }
 
-function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const { ref, visible, dir } = useBiReveal();
-  const offY = dir === "up" ? "-32px" : "32px";
-  return (
-    <div ref={ref} style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : `translateY(${offY})`, transition: `opacity 0.65s ease ${delay}s, transform 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}s` }}>
-      {children}
-    </div>
-  );
-}
-
-function useInView(threshold = 0.1) {
-  const ref = useRef<HTMLDivElement>(null);
+/* ──────────────────────────────────────────────────────────────────────────
+   useReveal — IntersectionObserver, observer retiré au premier déclenchement.
+   Respecte prefers-reduced-motion (renvoie visible:true immédiatement).
+   ────────────────────────────────────────────────────────────────────────── */
+function useReveal<T extends HTMLElement = HTMLDivElement>(
+  threshold = 0.15,
+): { ref: RefObject<T | null>; visible: boolean } {
+  const ref = useRef<T>(null);
   const [visible, setVisible] = useState(false);
+
   useEffect(() => {
-    const el = ref.current; if (!el) return;
-    const obs = new IntersectionObserver(([e]) => setVisible(e.isIntersecting), { threshold });
-    obs.observe(el); return () => obs.disconnect();
+    if (typeof window === "undefined") return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
+      setVisible(true);
+      return;
+    }
+    const el = ref.current;
+    if (!el) return;
+
+    // Check immédiat : si l'élément est déjà dans le viewport au mount, on révèle direct.
+    const r = el.getBoundingClientRect();
+    if (r.top < window.innerHeight && r.bottom > 0) {
+      setVisible(true);
+      return;
+    }
+
+    const obs = new IntersectionObserver(
+      ([e]) => {
+        if (e.isIntersecting) {
+          setVisible(true);
+          obs.disconnect();
+        }
+      },
+      { threshold, rootMargin: "0px 0px -10% 0px" },
+    );
+    obs.observe(el);
+
+    // Safety-net : si l'IO ne tire jamais (cas exotique), on force après 1.2s.
+    const safety = window.setTimeout(() => setVisible(true), 1200);
+
+    return () => { obs.disconnect(); window.clearTimeout(safety); };
   }, [threshold]);
+
   return { ref, visible };
 }
 
-function CatCardAnimated({ cat, index, visible }: { cat: { label: string; desc: string; href: string; Icon: any }; index: number; visible: boolean }) {
-  const [hov, setHov] = useState(false);
-  const fromRight = index % 2 === 1;
+/* ──────────────────────────────────────────────────────────────────────────
+   ICÔNES (réutilisées du code existant — non modifiées)
+   ────────────────────────────────────────────────────────────────────────── */
+function IconLeaf({ s = 22, c = P.amber }: { s?: number; c?: string }) {
   return (
-    <div style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : `translateX(${fromRight ? "80px" : "-80px"})`, transition: `opacity 0.7s ease ${index*0.1}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index*0.1}s` }}>
-      <Link href={cat.href} style={{ textDecoration: "none", display: "block" }}
-        onMouseEnter={() => setHov(true)} onMouseLeave={() => setHov(false)}>
-        <div style={{
-          padding: "14px 16px", borderRadius: 16,
-          background: hov ? C.amber : "#3a2210",
-          border: hov ? `2px solid ${C.amber}` : "2px solid rgba(196,154,74,0.18)",
-          transition: "all 0.35s cubic-bezier(0.34,1.56,0.64,1)",
-          transform: hov ? "translateY(-6px) scale(1.03)" : "translateY(-3px)",
-          boxShadow: hov ? "0 24px 48px rgba(0,0,0,0.5)" : "0 8px 28px rgba(0,0,0,0.5), 0 2px 6px rgba(0,0,0,0.3)",
-          display: "flex", flexDirection: "row" as const, alignItems: "center", gap: 14, boxSizing: "border-box" as const,
-          minHeight: 90,
-        }}>
-          <div style={{ flexShrink: 0, transition: "transform 0.3s", transform: hov ? "scale(1.15)" : "none" }}>
-            <cat.Icon s={24} c={hov ? C.dark : C.amber} />
-          </div>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div className="cat-label" style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,16px)", color: hov ? C.dark : C.warm, transition: "color 0.25s" }}>{cat.label}</div>
-            <div style={{ fontSize: "clamp(10px,0.9vw,12px)", color: hov ? "rgba(26,20,16,0.7)" : C.muted, lineHeight: 1.4 }}>{cat.desc}</div>
-          </div>
-          <div style={{ fontSize: 13, fontWeight: 900, color: hov ? C.dark : C.amber, transition: "all 0.25s", transform: hov ? "translateX(4px)" : "none", flexShrink: 0 }}>→</div>
-        </div>
-      </Link>
-    </div>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 22V9" stroke={c} strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
   );
 }
-
-function HoverAccordion({ title, tag, children }: { title: string; tag: string; children: React.ReactNode }) {
-  const [open, setOpen] = useState(false);
+function IconTruck({ s = 22, c = P.amber }: { s?: number; c?: string }) {
   return (
-    <div onMouseEnter={() => setOpen(true)} onMouseLeave={() => setOpen(false)}
-      style={{ borderRadius: 20, background: "#3a2210", border: open ? `1.5px solid ${C.amber}` : "1.5px solid rgba(196,154,74,0.15)", overflow: "hidden", transition: "box-shadow 0.3s, border-color 0.3s", boxShadow: open ? "0 24px 56px rgba(0,0,0,0.4), 0 4px 12px rgba(0,0,0,0.25)" : "0 6px 24px rgba(0,0,0,0.3)", transform: "translateY(-2px)", cursor: "default" }}>
-      <div style={{ padding: "20px 26px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 5 }}>{tag}</div>
-          <div style={{ fontSize: "clamp(15px,1.5vw,18px)", fontWeight: 900, color: C.warm }}>{title}</div>
-        </div>
-        <div style={{ fontSize: 22, color: C.amber, transition: "transform 0.3s", transform: open ? "rotate(45deg)" : "none", flexShrink: 0, marginLeft: 16 }}>+</div>
-      </div>
-      <div style={{ maxHeight: open ? "1200px" : 0, overflow: "hidden", transition: "max-height 0.5s cubic-bezier(0.4,0,0.2,1)" }}>
-        <div style={{ padding: "0 26px 26px" }}>{children}</div>
-      </div>
-    </div>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path d="M1 3h13v13H1z" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M14 8h4l3 3v5h-7V8z" stroke={c} strokeWidth="1.8" strokeLinejoin="round" />
+      <circle cx="5.5" cy="18.5" r="2.5" stroke={c} strokeWidth="1.8" />
+      <circle cx="18.5" cy="18.5" r="2.5" stroke={c} strokeWidth="1.8" />
+    </svg>
   );
 }
-
-function IconLeaf({ s=26,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M12 22V9" stroke={c} strokeWidth="1.8" strokeLinecap="round"/></svg>; }
-function IconTruck({ s=26,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M1 3h13v13H1z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><path d="M14 8h4l3 3v5h-7V8z" stroke={c} strokeWidth="1.8" strokeLinejoin="round"/><circle cx="5.5" cy="18.5" r="2.5" stroke={c} strokeWidth="1.8"/><circle cx="18.5" cy="18.5" r="2.5" stroke={c} strokeWidth="1.8"/></svg>; }
-function IconLock({ s=26,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" stroke={c} strokeWidth="1.8"/><path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={c} strokeWidth="1.8"/></svg>; }
-function IconBodies({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3c-1.5 0-2.5.8-2.5 2v1H7L5 8v4h2v8h10v-8h2V8l-2-2h-2.5V5c0-1.2-1-2-2.5-2Z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>; }
-function IconPyjama({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M8 3h8M8 3C6 3 5 4.5 5 6v16h14V6c0-1.5-1-3-3-3" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><path d="M9 3v4l3 2 3-2V3" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>; }
-function IconGigoteuse({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 3c-3.5 0-6 2-6 5v8c0 2.5 2.5 5 6 5s6-2.5 6-5V8c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M9 3.5c0-1 1.3-1.5 3-1.5s3 .5 3 1.5" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>; }
-function IconAccessoires({ s=32,c=C.amber }:{s?:number;c?:string}) { return <svg width={s} height={s} viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={c} strokeWidth="1.6"/></svg>; }
-
-function Ticker({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
-  const items = ["✦ Bambou certifié OEKO-TEX","✦ 3× plus doux que le coton","✦ Thermorégulateur naturel",`✦ Livraison offerte dès ${freeShipThreshold}€`,"✦ Retour gratuit 15 jours","✦ Antibactérien naturel","✦ Bodies · Pyjamas · Gigoteuses"];
-  const str = items.join("   ");
+function IconLock({ s = 22, c = P.amber }: { s?: number; c?: string }) {
   return (
-    <div style={{ overflow: "hidden", background: C.amber, padding: "11px 0" }}>
-      <div className="tk">{[...Array(2)].map((_,i) => <span key={i} style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1.5, color: C.dark, paddingRight: 60 }}>{str}</span>)}</div>
-    </div>
+    <svg width={s} height={s} viewBox="0 0 24 24" fill="none" aria-hidden>
+      <rect x="3" y="11" width="18" height="11" rx="2" stroke={c} strokeWidth="1.8" />
+      <path d="M7 11V7a5 5 0 0 1 10 0v4" stroke={c} strokeWidth="1.8" />
+    </svg>
   );
 }
+/* ──────────────────────────────────────────────────────────────────────────
+   TOPBAR — bandeau défilant au-dessus du header.
+   Pose --milk-topbar-h:40px au montage (useIsoLayoutEffect pour pas de flash).
+   Hystérésis : >48 cache (translate -100%), <8 montre. rAF throttlé.
+   ────────────────────────────────────────────────────────────────────────── */
+function Topbar({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
+  const [hidden, setHidden] = useState(false);
+  const rafRef               = useRef<number | null>(null);
+  const ticking              = useRef(false);
 
-
-const CATS = [
-  { label:"Bodies",      desc:"L'essentiel du quotidien",      href:"/categorie/bodies",      Icon:IconBodies      },
-  { label:"Pyjamas",     desc:"Pour des nuits sereines",       href:"/categorie/pyjamas",     Icon:IconPyjama      },
-  { label:"Gigoteuses",  desc:"Sommeil sécurisé",              href:"/categorie/gigoteuses",  Icon:IconGigoteuse   },
-  { label:"Accessoires", desc:"Les détails qui changent tout", href:"/categorie/accessoires", Icon:IconAccessoires },
-];
-
-const acard = (content: React.ReactNode, key?: string) => (
-  <div key={key} style={{ borderRadius:14, background:C.bg, border:"1px solid rgba(196,154,74,0.12)", overflow:"hidden", boxShadow:"0 6px 20px rgba(0,0,0,0.35)", transform:"translateY(-2px)" }}>
-    {content}
-  </div>
-);
-
-// ── Galerie de photos lifestyle ──
-const PHOTOS = [
-  { src: "/images/home/milk_baby_shower_etagere_nursery.webp",  alt: "M!LK — étagère nursery baby shower",   label: "Pensé pour la nursery" },
-  { src: "/images/home/milk_baby_shower_plateau_rotin.webp",    alt: "M!LK — coffret cadeau naissance rotin",     label: "Le cadeau idéal" },
-  { src: "/images/home/milk_col_body_boule_tag.webp",           alt: "M!LK — bonnet damier tag bois",           label: "Chaque détail compte" },
-  { src: "/images/home/milk_rouleaux_tissu_mur_jouets.webp",    alt: "M!LK — rouleaux tissu bambou motifs",     label: "Le bambou, notre matière" },
-];
-
-
-/* ─────────────────────────────────────────────────────────────────────────────
-   Carousel produits homepage — hover scroll (desktop) + swipe (mobile)
-───────────────────────────────────────────────────────────────────────────── */
-function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:string; isPromo:(p:any)=>boolean }) {
-  const trackRef   = useRef<HTMLDivElement>(null);
-  const rafRef     = useRef<number|null>(null);
-  const speedRef   = useRef(0); // vitesse courante px/frame
-
-  // Index courant pour le compteur "1 / 14" — beaucoup plus lisible que
-  // 14 dots sur mobile. Mis à jour en continu via scroll listener.
-  const [currentIndex, setCurrentIndex] = useState(0);
-
-  // Démarre le scroll dans une direction
-  const startScroll = (dir: "left"|"right") => {
-    speedRef.current = dir === "right" ? 6 : -6;
-    const tick = () => {
-      const el = trackRef.current;
-      if (!el || speedRef.current === 0) return;
-      el.scrollLeft += speedRef.current;
-      rafRef.current = requestAnimationFrame(tick);
+  // Pose la variable CSS dès le layout effect pour éviter le flash.
+  useIsoLayoutEffect(() => {
+    document.documentElement.style.setProperty("--milk-topbar-h", `${TOPBAR_H}px`);
+    return () => {
+      document.documentElement.style.setProperty("--milk-topbar-h", "0px");
     };
-    if (rafRef.current) cancelAnimationFrame(rafRef.current);
-    rafRef.current = requestAnimationFrame(tick);
-  };
+  }, []);
 
-  const stopScroll = () => {
-    speedRef.current = 0;
-    if (rafRef.current) { cancelAnimationFrame(rafRef.current); rafRef.current = null; }
-  };
-
-  // Swipe tactile mobile
-  const touchStartX = useRef(0);
-  const onTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX; };
-  const onTouchMove  = (e: React.TouchEvent) => {
-    const el = trackRef.current; if (!el) return;
-    const dx = touchStartX.current - e.touches[0].clientX;
-    el.scrollLeft += dx;
-    touchStartX.current = e.touches[0].clientX;
-  };
-
-  const CARD_W = 260;
-  const GAP    = 16;
-
-  // Sync currentIndex avec scrollLeft pour le compteur
+  // Quand on cache le bandeau, on remet --milk-topbar-h à 0 → header colle en haut.
   useEffect(() => {
-    const el = trackRef.current;
-    if (!el || products.length === 0) return;
-    const step = CARD_W + GAP;
+    document.documentElement.style.setProperty(
+      "--milk-topbar-h",
+      hidden ? "0px" : `${TOPBAR_H}px`,
+    );
+  }, [hidden]);
+
+  useEffect(() => {
     const onScroll = () => {
-      const idx = Math.max(0, Math.min(products.length - 1, Math.round(el.scrollLeft / step)));
-      setCurrentIndex(idx);
+      if (ticking.current) return;
+      ticking.current = true;
+      rafRef.current = requestAnimationFrame(() => {
+        const y = window.scrollY;
+        setHidden(prev => {
+          if (!prev && y > HYST_HIDE) return true;
+          if ( prev && y < HYST_SHOW) return false;
+          return prev;
+        });
+        ticking.current = false;
+      });
     };
-    el.addEventListener("scroll", onScroll, { passive: true });
-    return () => el.removeEventListener("scroll", onScroll);
-  }, [products.length]);
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    };
+  }, []);
+
+  const items = useMemo(
+    () => [
+      "✦ Bambou certifié OEKO-TEX",
+      "✦ 3× plus doux que le coton",
+      "✦ Thermorégulateur naturel",
+      `✦ Livraison offerte dès ${freeShipThreshold}€`,
+      "✦ Retour gratuit 15 jours",
+      "✦ Antibactérien naturel",
+      "✦ Bodies · Pyjamas · Gigoteuses",
+    ],
+    [freeShipThreshold],
+  );
+  const str = items.join("   ");
 
   return (
-    <div style={{ background:C.light, padding:"32px 0 40px" }}>
-      <style>{`
-        .pct { overflow-x:auto; overflow-y:visible; -webkit-overflow-scrolling:touch; }
-        .pct::-webkit-scrollbar { display:none; }
-        .pzone { position:absolute; top:0; bottom:0; width:110px; z-index:20; cursor:pointer; display:flex; align-items:center; }
-        .pzone-l { left:0; background:linear-gradient(90deg,rgba(237,232,223,1) 40%,rgba(237,232,223,0)); justify-content:flex-start; padding-left:14px; }
-        .pzone-r { right:0; background:linear-gradient(270deg,rgba(237,232,223,1) 40%,rgba(237,232,223,0)); justify-content:flex-end; padding-right:14px; }
-        .parr { width:40px; height:40px; border-radius:50%; background:rgba(26,20,16,0.85); display:flex; align-items:center; justify-content:center; opacity:0; transition:opacity 0.18s; box-shadow:0 2px 8px rgba(0,0,0,0.3); }
-        .pzone:hover .parr { opacity:1; }
-        @media(hover:none){ .pzone{display:none!important;} }
-      `}</style>
-
-      {/* Header */}
-      <div style={{ padding:"0 5vw", display:"flex", justifyContent:"space-between", alignItems:"flex-end", marginBottom:24, flexWrap:"wrap", gap:12 }}>
-        <Reveal>
-          <div>
-            <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:8 }}>Sélection</div>
-            <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1 }}>{lbl}</h2>
-          </div>
-        </Reveal>
-        <Link href="/produits" style={{ fontSize:15, fontWeight:800, color:C.amber, textDecoration:"none", paddingRight:"5vw" }}>Voir tout →</Link>
+    <div
+      aria-hidden={hidden}
+      style={{
+        position:   "fixed",
+        top:        0,
+        left:       0,
+        width:      "100%",
+        height:     TOPBAR_H,
+        zIndex:     10000,
+        background: "linear-gradient(90deg,#15110c,#3a2210 50%,#15110c)",
+        color:      P.cream,
+        overflow:   "hidden",
+        transform:  hidden ? "translateY(-100%)" : "translateY(0)",
+        transition: "transform 0.35s cubic-bezier(0.4,0,0.2,1)",
+        boxShadow:  hidden ? "none" : "0 2px 12px rgba(0,0,0,0.18)",
+        willChange: "transform",
+      }}
+    >
+      <div className="milk-tk" style={{ display: "flex", whiteSpace: "nowrap", width: "max-content", height: "100%" }}>
+        {[0, 1].map(i => (
+          <span
+            key={i}
+            style={{
+              display:       "inline-flex",
+              alignItems:    "center",
+              height:        "100%",
+              paddingRight:  60,
+              fontSize:      13,
+              fontWeight:    800,
+              letterSpacing: 1.4,
+              color:         P.cream,
+            }}
+          >
+            {str}
+          </span>
+        ))}
       </div>
+    </div>
+  );
+}
 
-      {/* Carousel */}
-      <div style={{ position:"relative" }}>
+/* ──────────────────────────────────────────────────────────────────────────
+   HERO — 100vh, parallax photo au scroll, logo lettres en cascade.
+   Stats + réassurances déplacées dans <HeroBand /> en dessous pour laisser
+   le hero respirer.
+   ────────────────────────────────────────────────────────────────────────── */
+function Hero() {
+  const [mounted, setMounted] = useState(false);
+  const [scrollY, setScrollY] = useState(0);
+  const ticking = useRef(false);
 
-        {/* Zone gauche */}
-        <div className="pzone pzone-l"
-          onMouseEnter={()=>startScroll("left")}
-          onMouseLeave={stopScroll}>
-          <div className="parr">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M15 18l-6-6 6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </div>
-        </div>
+  useEffect(() => { setMounted(true); }, []);
 
-        {/* Zone droite */}
-        <div className="pzone pzone-r"
-          onMouseEnter={()=>startScroll("right")}
-          onMouseLeave={stopScroll}>
-          <div className="parr">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="#f2ede6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-          </div>
-        </div>
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduced) return;
+    const onScroll = () => {
+      if (ticking.current) return;
+      ticking.current = true;
+      requestAnimationFrame(() => {
+        setScrollY(window.scrollY);
+        ticking.current = false;
+      });
+    };
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
-        {/* Track — PAS de scroll-behavior:smooth, sinon RAF bloqué */}
+  // Parallax : photo descend plus lentement que le scroll (effet de profondeur)
+  const photoY  = Math.min(scrollY * 0.35, 300);
+  const logoY   = Math.min(scrollY * 0.18, 200);
+  const contY   = Math.min(scrollY * 0.55, 400);
+  const contOp  = Math.max(0, 1 - scrollY / 600);
+
+  const LETTERS = ["M", "!", "L", "K"];
+
+  return (
+    <section
+      aria-label="Hero M!LK"
+      style={{
+        position:  "relative",
+        height:    "100vh",
+        minHeight: 560,
+        overflow:  "hidden",
+        background: P.cream,
+      }}
+      className="milk-hero-root"
+    >
+      <div
+        className="milk-hero-sticky"
+        style={{
+          position: "absolute",
+          inset:    0,
+          overflow: "hidden",
+        }}
+      >
+        {/* Photo plein écran : parallax + zoom doux au mount */}
         <div
-          ref={trackRef}
-          className="pct"
-          onTouchStart={onTouchStart}
-          onTouchMove={onTouchMove}
-          style={{ display:"flex", gap:16, padding:"8px 5vw 16px" }}
+          style={{
+            position: "absolute",
+            inset:    "-10% 0 -10% 0",
+            transform: `translateY(${photoY}px) scale(${mounted ? 1.04 : 1.12})`,
+            transformOrigin: "center",
+            willChange: "transform",
+            transition: "transform 1.8s cubic-bezier(0.22,1,0.36,1)",
+          }}
         >
-          {products.map((p:any) => {
-            const promo = isPromo(p);
-            const price = promo ? p.promo_price : p.price_ttc;
-            const badge = p.label==="bestseller"?"Best seller":p.label==="nouveau"?"Nouveau":null;
+          <Image
+            src="/images/home/milk_pieds_chaussettes_logo_sol.webp"
+            alt="M!LK — essentiels bébé bambou OEKO-TEX"
+            fill
+            priority
+            sizes="100vw"
+            style={{ objectFit: "cover", objectPosition: "center" }}
+          />
+          <div
+            style={{
+              position:   "absolute",
+              inset:      0,
+              background: `linear-gradient(135deg,rgba(13,11,9,0.62) 0%,rgba(13,11,9,0.22) 45%,rgba(13,11,9,0.68) 100%)`,
+              pointerEvents: "none",
+            }}
+          />
+        </div>
+
+        {/* Logo M!LK — bas-gauche, watermark, lettres en cascade + float */}
+        <div
+          aria-hidden
+          className="milk-hero-logo-wrap"
+          style={{
+            position:        "absolute",
+            bottom:          "5vh",
+            left:            "2vw",
+            pointerEvents:   "none",
+            zIndex:          1,
+            transform:       `translateY(${-logoY}px)`,
+            willChange:      "transform",
+          }}
+        >
+          <div
+            className="milk-logo-text milk-hero-logo milk-logo-float"
+            style={{
+              fontFamily: '"BoldinBold", system-ui, sans-serif',
+              color:      P.cream,
+              fontSize:   "clamp(50px, 10vw, 160px)",
+              lineHeight: 0.85,
+              letterSpacing: "0.02em",
+              display:    "inline-flex",
+              alignItems: "baseline",
+              gap:        "0.04em",
+              filter:     "drop-shadow(0 6px 22px rgba(13,11,9,0.55))",
+              opacity:    0.92,
+            }}
+          >
+            {LETTERS.map((ch, i) => (
+              <span
+                key={i}
+                style={{
+                  display:    "inline-block",
+                  opacity:    mounted ? 1 : 0,
+                  transform:  mounted ? "translateY(0) scale(1)" : "translateY(50px) scale(0.86)",
+                  transition: `transform 0.95s cubic-bezier(0.16,1.18,0.4,1) ${0.25 + i * 0.11}s, opacity 0.7s ease ${0.25 + i * 0.11}s`,
+                  color:      P.cream,
+                }}
+              >
+                {ch}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        {/* Badge OEKO rotation — posé sur la photo, à droite */}
+        <div
+          aria-hidden
+          className="milk-hero-badge"
+          style={{
+            position:  "absolute",
+            top:       "50%",
+            right:     "4vw",
+            transform: `translateY(calc(-50% + ${-logoY * 0.5}px))`,
+            zIndex:    2,
+            pointerEvents: "none",
+            opacity:   mounted ? 0.95 : 0,
+            transition: "opacity 1.2s ease 0.6s",
+          }}
+        >
+          <svg width="140" height="140" viewBox="0 0 140 140" style={{ animation: "milk-spin 16s linear infinite", filter: "drop-shadow(0 4px 18px rgba(13,11,9,0.5))" }}>
+            <path id="milk-bc" d="M 70,70 m -52,0 a 52,52 0 1,1 104,0 a 52,52 0 1,1 -104,0" fill="none" />
+            <text fontSize="11" fontWeight="700" letterSpacing="5.5" fill={P.amber}>
+              <textPath href="#milk-bc" startOffset="0%"> —  OEKO-TEX  —  BAMBOU PREMIUM  </textPath>
+            </text>
+          </svg>
+        </div>
+
+        {/* Bloc contenu : H1 + tags + sous-titre + CTAs (stats déplacées dans HeroBand) */}
+        <div
+          className="milk-hero-content"
+          style={{
+            position:   "absolute",
+            inset:      "0 0 0 0",
+            display:    "flex",
+            alignItems: "center",
+            justifyContent: "flex-start",
+            padding:    "clamp(80px, 14vh, 160px) 5vw clamp(160px, 22vh, 240px)",
+            opacity:    contOp,
+            transform:  `translateY(${-contY * 0.3}px)`,
+            willChange: "transform, opacity",
+            zIndex:     3,
+          }}
+        >
+          <div style={{ maxWidth: 720 }}>
+            {/* Tags */}
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
+              {["Nouveau-né", "0-3 mois", "3-6 mois"].map(tag => (
+                <span
+                  key={tag}
+                  style={{
+                    padding:      "6px 14px",
+                    borderRadius: 99,
+                    border:       `1px solid ${P.amber}`,
+                    color:        P.amber,
+                    fontSize:     12,
+                    fontWeight:   800,
+                    background:   "rgba(13,11,9,0.35)",
+                  }}
+                >
+                  {tag}
+                </span>
+              ))}
+            </div>
+
+            {/* H1 */}
+            <h1
+              style={{
+                margin:        "0 0 18px",
+                fontSize:      "clamp(34px, 6.5vw, 84px)",
+                fontWeight:    950,
+                letterSpacing: -3,
+                lineHeight:    0.95,
+                color:         P.cream,
+                textShadow:    "0 2px 18px rgba(13,11,9,0.45)",
+              }}
+            >
+              L'essentiel.
+              <br />
+              <span style={{ color: P.cream }}>Sans compromis.</span>
+            </h1>
+
+            {/* Sous-titre */}
+            <p
+              style={{
+                margin:    "0 0 28px",
+                fontSize:  "clamp(14px, 1.7vw, 18px)",
+                color:     "rgba(242,237,230,0.85)",
+                maxWidth:  520,
+                lineHeight: 1.7,
+                textShadow:"0 1px 8px rgba(13,11,9,0.55)",
+              }}
+            >
+              Des essentiels bébé en bambou certifié OEKO-TEX. Pensés pour réduire les galères du quotidien — pas pour faire joli en photo.
+            </p>
+
+            {/* Boutons */}
+            <div className="milk-hero-btns" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+              <Link
+                href="/produits"
+                className="milk-hero-cta-primary"
+                style={{
+                  padding:      "16px 32px",
+                  borderRadius: 14,
+                  background:   P.cream,
+                  color:        P.dark,
+                  fontWeight:   900,
+                  fontSize:     "clamp(14px, 1.5vw, 16px)",
+                  textDecoration:"none",
+                  display:      "inline-block",
+                  boxShadow:    "0 8px 28px rgba(13,11,9,0.4)",
+                  transition:   "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s",
+                }}
+              >
+                Découvrir la collection →
+              </Link>
+              <Link
+                href="/pourquoi-bambou"
+                className="milk-hero-cta-secondary"
+                style={{
+                  padding:      "16px 32px",
+                  borderRadius: 14,
+                  border:       "1px solid rgba(242,237,230,0.4)",
+                  color:        P.cream,
+                  fontWeight:   700,
+                  fontSize:     "clamp(14px, 1.5vw, 16px)",
+                  textDecoration:"none",
+                  display:      "inline-block",
+                  background:   "rgba(13,11,9,0.3)",
+                  backdropFilter: "blur(6px)",
+                  transition:   "background 0.3s, border-color 0.3s",
+                }}
+              >
+                Pourquoi le bambou ?
+              </Link>
+            </div>
+          </div>
+        </div>
+
+        {/* Indicateur Découvrir */}
+        <div
+          aria-hidden
+          style={{
+            position:  "absolute",
+            bottom:    20,
+            left:      "50%",
+            transform: "translateX(-50%)",
+            display:   "flex",
+            flexDirection: "column",
+            alignItems:"center",
+            gap:       6,
+            opacity:   mounted ? 0.6 : 0,
+            pointerEvents: "none",
+            transition:"opacity 0.6s ease 1s",
+            zIndex:    3,
+          }}
+        >
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: P.cream }}>Découvrir</div>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: "milk-bounce 2s ease infinite" }}>
+            <path d="M12 5v14M5 12l7 7 7-7" stroke={P.cream} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HeroBand — bande compacte stats + réassurances + badge OEKO, juste après
+   le hero. Sépare visuellement le logo du contenu chiffré.
+   ────────────────────────────────────────────────────────────────────────── */
+function HeroBand({ freeShipThreshold }: { freeShipThreshold: number }) {
+  const { ref, visible } = useReveal<HTMLDivElement>(0.1);
+
+  const STATS = [
+    { val: `Dès ${freeShipThreshold}€`, label: "livraison offerte" },
+    { val: "100%", label: "Bambou OEKO-TEX" },
+    { val: "15j",  label: "retour gratuit" },
+    { val: "0",    label: "substance nocive" },
+    { val: "3×",   label: "plus doux que le coton" },
+  ];
+
+  const REASS = [
+    { Icon: IconTruck, label: "Retour gratuit",    desc: "15 jours" },
+    { Icon: IconLeaf,  label: "Bambou OEKO-TEX",   desc: "certifié" },
+    { Icon: IconLock,  label: "Paiement sécurisé", desc: "Stripe" },
+  ];
+
+  return (
+    <section
+      ref={ref}
+      aria-label="Engagements M!LK"
+      style={{
+        position:   "relative",
+        background: P.dark,
+        color:      P.cream,
+        padding:    "clamp(28px, 4vw, 44px) 5vw",
+        overflow:   "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "overlay", opacity: 0.35,
+        }}
+      />
+
+      <div
+        style={{
+          position:  "relative",
+          maxWidth:  1280,
+          margin:    "0 auto",
+          display:   "grid",
+          gridTemplateColumns: "1fr",
+          gap:       24,
+        }}
+      >
+        {/* Stats */}
+        <div className="milk-band-stats" style={{ display: "flex", flexWrap: "wrap", gap: 0, alignItems: "flex-end" }}>
+          {STATS.map((k, i) => (
+            <div
+              key={k.label}
+              style={{
+                paddingRight:  24,
+                marginRight:   24,
+                borderRight:   i < STATS.length - 1 ? "1px solid rgba(242,237,230,0.18)" : "none",
+                opacity:       visible ? 1 : 0,
+                transform:     visible ? "translateY(0)" : "translateY(16px)",
+                transition:    `opacity 0.6s ease ${i * 0.08}s, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${i * 0.08}s`,
+              }}
+            >
+              <div style={{ fontSize: "clamp(18px, 2.2vw, 30px)", fontWeight: 950, letterSpacing: -1.2, color: P.cream, lineHeight: 1, whiteSpace: "nowrap" }}>{k.val}</div>
+              <div style={{ fontSize: "clamp(10px, 0.9vw, 12px)", color: "rgba(242,237,230,0.7)", marginTop: 4, whiteSpace: "nowrap" }}>{k.label}</div>
+            </div>
+          ))}
+        </div>
+
+        {/* Réassurances */}
+        <div className="milk-band-reass" style={{ display: "flex", flexWrap: "wrap", gap: 22, paddingTop: 12, borderTop: "1px solid rgba(242,237,230,0.12)" }}>
+          {REASS.map((r, i) => (
+            <div
+              key={r.label}
+              style={{
+                display:    "flex",
+                alignItems: "center",
+                gap:        10,
+                opacity:    visible ? 1 : 0,
+                transform:  visible ? "translateY(0)" : "translateY(14px)",
+                transition: `opacity 0.6s ease ${0.25 + i * 0.08}s, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${0.25 + i * 0.08}s`,
+              }}
+            >
+              <r.Icon s={18} c={P.amber} />
+              <div>
+                <div style={{ fontSize: 13, fontWeight: 800, color: P.cream, lineHeight: 1.1 }}>{r.label}</div>
+                <div style={{ fontSize: 11, color: "rgba(242,237,230,0.65)" }}>{r.desc}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   CategoryCards — 4 cards par besoin, animation cascade alternée G/D.
+   ────────────────────────────────────────────────────────────────────────── */
+const CATS = [
+  { label: "Bodies",      desc: "L'essentiel du quotidien",      href: "/categorie/bodies"      },
+  { label: "Pyjamas",     desc: "Pour des nuits sereines",       href: "/categorie/pyjamas"     },
+  { label: "Gigoteuses",  desc: "Sommeil sécurisé",              href: "/categorie/gigoteuses"  },
+  { label: "Accessoires", desc: "Les détails qui changent tout", href: "/categorie/accessoires" },
+];
+
+function CategoriesSection() {
+  const reveal = useReveal<HTMLDivElement>(0.15);
+  const scroll = useScrollProgress<HTMLDivElement>();
+  const setRefs = (el: HTMLDivElement | null) => {
+    (reveal.ref as { current: HTMLDivElement | null }).current = el;
+    (scroll.ref as { current: HTMLDivElement | null }).current = el;
+  };
+
+  // Effet "construction" : les cartes arrivent en 3D au scroll, en cascade.
+  const p = scroll.progress;
+
+  return (
+    <section
+      ref={setRefs}
+      style={{
+        position:  "relative",
+        background: P.light,
+        padding:   "clamp(40px, 6vw, 72px) 5vw",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.5,
+        }}
+      />
+      <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto" }}>
+        <div style={{ marginBottom: 24, opacity: reveal.visible ? 1 : 0, transform: reveal.visible ? "none" : "translateY(20px)", transition: "opacity 0.7s ease, transform 0.7s cubic-bezier(0.22,1,0.36,1)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 8 }}>Par besoin</div>
+          <h2 style={{ margin: 0, fontSize: "clamp(24px, 3.4vw, 40px)", fontWeight: 950, letterSpacing: -1.2, color: P.dark, lineHeight: 1.05 }}>
+            Trouvez l'essentiel qui vous correspond
+          </h2>
+        </div>
+
+        <div
+          className="milk-catgrid"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(4,1fr)",
+            gap: 16,
+            perspective: 1600,
+            perspectiveOrigin: "50% 110%",
+          }}
+        >
+          {CATS.map((cat, i) => {
+            // Chaque carte a son délai propre — effet construction en cascade
+            // Effet "construction" : chaque carte arrive d'une direction différente,
+            // pilotée par le scroll. Cascade : carte 0 termine quand p≈0.35, carte 3 à p≈0.65.
+            const delay = i * 0.08;
+            const cardP = Math.max(0, Math.min(1, (p - 0.05 - delay) * 3.2));
+            const cardTiltX = (1 - cardP) * 40;
+            const cardLiftY = (1 - cardP) * 90;
+            const cardSlideX = (1 - cardP) * (i % 2 === 0 ? -80 : 80);
+            const cardScale = 0.82 + cardP * 0.18;
             return (
-              <Link key={p.id} href={`/produits/${p.slug}`}
-                style={{ textDecoration:"none", flexShrink:0, width:CARD_W }}>
-                <div className={`pcard${promo?" pcard-promo-home":""}`} style={{ borderRadius:16, overflow:"visible", background:C.taupe, border:promo?"2px solid rgba(220,38,38,0.25)":`1.5px solid rgba(26,20,16,0.12)`, position:"relative", transition:"all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor:"pointer", boxShadow:promo?"0 4px 20px rgba(220,38,38,0.15)":"0 4px 16px rgba(0,0,0,0.12)" }}>
-                  {badge&&(<div style={{ position:"absolute", top:0, right:0, width:90, height:90, overflow:"hidden", zIndex:10, borderRadius:"0 16px 0 0", pointerEvents:"none" }}><div style={{ position:"absolute", top:18, right:-26, background:C.amber, color:C.dark, fontSize:9, fontWeight:900, padding:"6px 36px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap" }}>{badge}</div></div>)}
-                  <div style={{ borderRadius:"14px 14px 0 0", overflow:"hidden", position:"relative", aspectRatio:"1/1", background:C.light }}>
-                    {p.image_url
-                      ? <Image src={p.image_url} alt={p.name} fill sizes="260px" className="pcard-img" style={{ objectFit:"cover", transition:"transform 0.4s ease" }}/>
-                      : <div style={{ position:"absolute", inset:0, display:"grid", placeItems:"center", fontSize:20, fontWeight:950, color:"rgba(26,20,16,0.2)" }}>M!LK</div>
-                    }
-                    {promo&&(
-                    <div style={{ position:"absolute", top:0, right:0, width:100, height:100, overflow:"hidden", zIndex:10, pointerEvents:"none" }}>
-                      <div style={{ position:"absolute", top:20, right:-28, background:"#dc2626", color:"#fff", fontSize:10, fontWeight:900, padding:"7px 40px", transform:"rotate(45deg)", textTransform:"uppercase", whiteSpace:"nowrap", boxShadow:"0 2px 6px rgba(220,38,38,0.4)" }}>PROMO</div>
-                    </div>
-                  )}
+              <Link
+                key={cat.href}
+                href={cat.href}
+                style={{
+                  textDecoration: "none",
+                  display:        "block",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                <div
+                  className="milk-catcard"
+                  style={{
+                    position:     "relative",
+                    padding:      "20px 22px 22px",
+                    borderRadius: 18,
+                    background:   P.cream,
+                    border:       `1px solid ${P.faintLine}`,
+                    boxShadow:    "0 8px 28px rgba(26,20,16,0.10)",
+                    transition:   "box-shadow 0.45s, border-color 0.3s, background 0.5s",
+                    display:      "flex",
+                    flexDirection:"column",
+                    justifyContent: "space-between",
+                    gap:          12,
+                    minHeight:    140,
+                    overflow:     "hidden",
+                    cursor:       "pointer",
+                    transformStyle: "preserve-3d",
+                    transform:    `perspective(1400px) rotateX(${cardTiltX}deg) translate3d(${cardSlideX}px, ${cardLiftY}px, 0) scale(${cardScale})`,
+                    opacity:      reveal.visible ? 1 : 0,
+                    willChange:   "transform, opacity",
+                  }}
+                >
+                  {/* Gros numéro filigrane (effet waw) */}
+                  <span
+                    aria-hidden
+                    className="milk-catcard-num"
+                    style={{
+                      position:    "absolute",
+                      top:         -22,
+                      right:       -8,
+                      fontFamily:  '"BoldinBold", system-ui, sans-serif',
+                      fontSize:    "clamp(90px, 9vw, 140px)",
+                      lineHeight:  1,
+                      color:       "rgba(196,154,74,0.10)",
+                      fontWeight:  950,
+                      pointerEvents: "none",
+                      transition:  "color 0.4s, transform 0.5s cubic-bezier(0.34,1.56,0.64,1)",
+                    }}
+                  >
+                    0{i + 1}
+                  </span>
+
+                  {/* Header : eyebrow + flèche */}
+                  <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: P.amber }}>
+                      Catégorie
+                    </span>
+                    <span className="milk-catcard-arrow" style={{ fontSize: 22, fontWeight: 900, color: P.amber, transition: "transform 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>→</span>
                   </div>
-                  <div style={{ padding:"12px 14px 16px" }}>
-                    <div style={{ fontWeight:900, fontSize:15, color:C.dark, marginBottom:4, lineHeight:1.3 }}>{p.name}</div>
-                    <div style={{ display:"flex", alignItems:"baseline", gap:8 }}>
-                      <span style={{ fontWeight:950, fontSize:18, color:promo?"#dc2626":C.dark }}>{Number(price).toFixed(2)} €</span>
-                      {promo&&<span style={{ fontSize:12, textDecoration:"line-through", color:"rgba(26,20,16,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
+
+                  {/* Label + desc */}
+                  <div style={{ position: "relative" }}>
+                    <div className="milk-cat-label" style={{ fontWeight: 950, fontSize: "clamp(22px, 2.4vw, 30px)", color: P.dark, marginBottom: 6, letterSpacing: -0.6, lineHeight: 1 }}>
+                      {cat.label}
+                    </div>
+                    <div style={{ fontSize: "clamp(12px, 1vw, 13px)", color: P.muted, lineHeight: 1.5 }}>
+                      {cat.desc}
                     </div>
                   </div>
                 </div>
@@ -290,491 +802,1153 @@ function ProductsCarousel({ products, lbl, isPromo }: { products:any[]; lbl:stri
             );
           })}
         </div>
+      </div>
+    </section>
+  );
+}
 
-        {/* Compteur de position — remplace 14 dots illisibles par un texte lisible */}
-        {products.length > 1 && (
-          <div
-            aria-live="polite"
-            aria-atomic="true"
-            style={{
-              display:        "flex",
-              justifyContent: "center",
-              alignItems:     "baseline",
-              gap:            6,
-              marginTop:      14,
-              fontFamily:     "ui-monospace, SFMono-Regular, Menlo, monospace",
-            }}>
-            <span style={{ fontSize:14, fontWeight:900, color:C.amber, letterSpacing:0.5, minWidth:18, textAlign:"right" }}>
-              {String(currentIndex + 1).padStart(2, "0")}
-            </span>
-            <span style={{ fontSize:13, fontWeight:600, color:"rgba(26,20,16,0.3)" }}>/</span>
-            <span style={{ fontSize:13, fontWeight:600, color:"rgba(26,20,16,0.45)", letterSpacing:0.5 }}>
-              {String(products.length).padStart(2, "0")}
-            </span>
+/* ──────────────────────────────────────────────────────────────────────────
+   ProductsGrid — 2 lignes × 4 cols, cards 3D tilt + entrée alternée.
+   ────────────────────────────────────────────────────────────────────────── */
+function isPromo(p: any) {
+  if (!p.promo_price) return false;
+  if (!p.promo_start && !p.promo_end) return true;
+  const d = new Date();
+  const today = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const start = p.promo_start ? String(p.promo_start).slice(0, 10) : null;
+  const end   = p.promo_end   ? String(p.promo_end).slice(0, 10)   : null;
+  if (start && today < start) return false;
+  if (end   && today > end)   return false;
+  return true;
+}
+
+function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: boolean }) {
+  const cardRef = useRef<HTMLDivElement>(null);
+  const promo = isPromo(p);
+  const price = promo ? p.promo_price : p.price_ttc;
+  const badge = p.label === "bestseller" ? "Best seller" : p.label === "nouveau" ? "Nouveau" : null;
+
+  // Tilt désactivé en tactile (CSS @media hover:none ne suffit pas pour listener)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const supportsHover = window.matchMedia?.("(hover: hover) and (pointer: fine)").matches;
+    if (!supportsHover) return;
+
+    const el = cardRef.current;
+    if (!el) return;
+
+    const onMove = (e: MouseEvent) => {
+      const rect = el.getBoundingClientRect();
+      const x = (e.clientX - rect.left) / rect.width;  // 0..1
+      const y = (e.clientY - rect.top)  / rect.height; // 0..1
+      const rotY = (x - 0.5) * 12;   // ±6°
+      const rotX = (0.5 - y) * 10;   // ±5°
+      el.style.setProperty("--rx", `${rotX}deg`);
+      el.style.setProperty("--ry", `${rotY}deg`);
+      el.style.setProperty("--sx", `${x * 100}%`);
+      el.style.setProperty("--sy", `${y * 100}%`);
+    };
+    const onLeave = () => {
+      el.style.setProperty("--rx", "0deg");
+      el.style.setProperty("--ry", "0deg");
+    };
+    el.addEventListener("mousemove", onMove);
+    el.addEventListener("mouseleave", onLeave);
+    return () => {
+      el.removeEventListener("mousemove", onMove);
+      el.removeEventListener("mouseleave", onLeave);
+    };
+  }, []);
+
+  const fromRight = (index % 4) >= 2 || index >= 4 ? true : false;
+  // Cascade — alternance G/D par colonne, stagger 80ms
+  const dx = visible ? "0px" : `${fromRight ? "60px" : "-60px"}`;
+  const ry = visible ? "0deg" : `${fromRight ? "-8deg" : "8deg"}`;
+
+  return (
+    <Link
+      href={`/produits/${p.slug}`}
+      style={{
+        textDecoration: "none",
+        display:        "block",
+        perspective:    "1200px",
+        opacity:        visible ? 1 : 0,
+        transform:      `translateX(${dx}) rotateY(${ry}) scale(${visible ? 1 : 0.96})`,
+        transition:     `opacity 0.65s ease ${index * 0.08}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${index * 0.08}s`,
+      }}
+    >
+      <div
+        ref={cardRef}
+        className={`milk-pcard ${promo ? "milk-pcard-promo" : ""}`}
+        style={{
+          position:        "relative",
+          borderRadius:    18,
+          overflow:        "hidden",
+          background:      P.cream,
+          border:          `1px solid ${P.faintLine}`,
+          boxShadow:       "0 6px 22px rgba(26,20,16,0.08)",
+          transformStyle:  "preserve-3d",
+          transition:      "transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s, border-color 0.3s",
+        }}
+      >
+        {/* Coin badge */}
+        {badge && (
+          <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, overflow: "hidden", zIndex: 4, pointerEvents: "none" }}>
+            <div style={{ position: "absolute", top: 20, right: -30, background: P.amber, color: P.dark, fontSize: 10, fontWeight: 900, padding: "6px 38px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
+              {badge}
+            </div>
           </div>
         )}
+
+        {/* Coin PROMO rouge */}
+        {promo && (
+          <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 4, pointerEvents: "none" }}>
+            <div style={{ position: "absolute", top: 22, right: -32, background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 900, padding: "7px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 2px 6px rgba(220,38,38,0.45)" }}>
+              PROMO
+            </div>
+          </div>
+        )}
+
+        {/* Image */}
+        <div className="milk-pcard-img-wrap" style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: P.warm }}>
+          {p.image_url ? (
+            <Image
+              src={p.image_url}
+              alt={p.name}
+              fill
+              sizes="(max-width: 700px) 50vw, 25vw"
+              className="milk-pcard-img"
+              style={{ objectFit: "cover" }}
+            />
+          ) : (
+            <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 22, fontWeight: 950, color: "rgba(26,20,16,0.18)" }}>M!LK</div>
+          )}
+          {/* Shine — balayage lumineux au hover */}
+          <div className="milk-pcard-shine" />
+        </div>
+
+        {/* Texte */}
+        <div style={{ padding: "16px 18px 20px" }}>
+          <div style={{ fontWeight: 900, fontSize: 15, color: P.dark, marginBottom: 6, lineHeight: 1.3, minHeight: 38 }}>{p.name}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+            <span style={{ fontWeight: 950, fontSize: 18, color: promo ? "#dc2626" : P.dark }}>{Number(price).toFixed(2)} €</span>
+            {promo && (
+              <span style={{ fontSize: 12, textDecoration: "line-through", color: P.mutedFaint }}>
+                {Number(p.price_ttc).toFixed(2)} €
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function ProductsSection({ products, lbl }: { products: any[]; lbl: string }) {
+  const reveal = useReveal<HTMLDivElement>(0.1);
+  const scroll = useScrollProgress<HTMLDivElement>();
+  const setRefs = (el: HTMLDivElement | null) => {
+    (reveal.ref as { current: HTMLDivElement | null }).current = el;
+    (scroll.ref as { current: HTMLDivElement | null }).current = el;
+  };
+  const visible = reveal.visible;
+  const p = scroll.progress;
+
+  return (
+    <section
+      ref={setRefs}
+      style={{
+        position:  "relative",
+        background: `linear-gradient(180deg, ${P.light} 0%, ${P.warm} 100%)`,
+        padding:   "clamp(56px, 8vw, 96px) 5vw",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.45,
+        }}
+      />
+      <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto" }}>
+        <div
+          style={{
+            display:         "flex",
+            justifyContent:  "space-between",
+            alignItems:      "flex-end",
+            marginBottom:    28,
+            flexWrap:        "wrap",
+            gap:             12,
+            opacity:         visible ? 1 : 0,
+            transform:       visible ? "none" : "translateY(20px)",
+            transition:      "opacity 0.7s ease, transform 0.7s cubic-bezier(0.22,1,0.36,1)",
+          }}
+        >
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 8 }}>Sélection</div>
+            <h2 style={{ margin: 0, fontSize: "clamp(24px, 3.4vw, 40px)", fontWeight: 950, letterSpacing: -1.2, color: P.dark, lineHeight: 1.05 }}>{lbl}</h2>
+          </div>
+          <Link href="/produits" style={{ fontSize: 15, fontWeight: 800, color: P.amber, textDecoration: "none" }}>
+            Voir tout →
+          </Link>
+        </div>
+
+        <div
+          className="milk-pgrid"
+          style={{
+            display:             "grid",
+            gridTemplateColumns: "repeat(4, 1fr)",
+            gap:                 18,
+            perspective:         1800,
+            perspectiveOrigin:   "50% 50%",
+          }}
+        >
+          {products.slice(0, 8).map((prod, i) => {
+            // Direction d'arrivée alternée : ↙, ↘, ↙, ↘, ↖, ↗, ↖, ↗
+            const fromLeft = i % 2 === 0;
+            const fromTop  = i >= 4;
+            const delay    = (i % 4) * 0.06;
+            const cardP    = Math.max(0, Math.min(1, (p - 0.05 - delay) * 3));
+            const tx       = (1 - cardP) * (fromLeft ? -120 : 120);
+            const ty       = (1 - cardP) * (fromTop ? -60 : 60);
+            const rot      = (1 - cardP) * (fromLeft ? -8 : 8);
+            const scl      = 0.85 + cardP * 0.15;
+            return (
+              <div
+                key={prod.id}
+                style={{
+                  transform:    `perspective(1800px) translate3d(${tx}px, ${ty}px, 0) rotate(${rot}deg) scale(${scl})`,
+                  opacity:      visible ? 1 : 0,
+                  transition:   visible ? undefined : "opacity 0.5s ease",
+                  willChange:   "transform, opacity",
+                  transformStyle: "preserve-3d",
+                }}
+              >
+                <ProductCard3D p={prod} index={i} visible={visible} />
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   EditoSplit — bloc texte/photo G/D ou D/G avec reveal côté image (clip-path).
+   ────────────────────────────────────────────────────────────────────────── */
+function EditoSplit({
+  align,
+  eyebrow,
+  text,
+  body,
+  cta,
+  imgSrc,
+  imgAlt,
+  bg = P.light,
+  imgSquare = false,
+}: {
+  align: "text-left" | "image-left";
+  eyebrow?: string;
+  text: React.ReactNode;
+  body?: React.ReactNode;
+  cta?: { label: string; href: string };
+  imgSrc: string;
+  imgAlt: string;
+  bg?: string;
+  imgSquare?: boolean;
+}) {
+  const reveal = useReveal<HTMLDivElement>(0.15);
+  const scroll = useScrollProgress<HTMLDivElement>();
+  const setRefs = (el: HTMLDivElement | null) => {
+    (reveal.ref as { current: HTMLDivElement | null }).current = el;
+    (scroll.ref as { current: HTMLDivElement | null }).current = el;
+  };
+  const visible = reveal.visible;
+  const p = scroll.progress;
+  const imageFirst = align === "image-left";
+  // Scroll-driven : image et texte arrivent en glissant des côtés opposés
+  const imgP = Math.max(0, Math.min(1, (p - 0.05) * 2.6));
+  const txtP = Math.max(0, Math.min(1, (p - 0.12) * 2.6));
+  const imgX = (1 - imgP) * (imageFirst ? -100 : 100);
+  const txtX = (1 - txtP) * (imageFirst ? 100 : -100);
+  const imgScale = 0.92 + imgP * 0.08;
+
+  return (
+    <section
+      ref={setRefs}
+      style={{
+        background: bg,
+        position:   "relative",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.35,
+        }}
+      />
+      <div
+        className="milk-split"
+        style={{
+          position: "relative",
+          display:  "grid",
+          gridTemplateColumns: "1fr 1fr",
+          alignItems: "stretch",
+          minHeight: "clamp(360px, 50vh, 520px)",
+        }}
+      >
+        {/* Image (scroll-driven slide-in + scale) */}
+        <div
+          style={{
+            order:      imageFirst ? 0 : 1,
+            position:   "relative",
+            overflow:   "hidden",
+            minHeight:  300,
+            display:    imgSquare ? "flex" : undefined,
+            alignItems: imgSquare ? "center" : undefined,
+            justifyContent: imgSquare ? "center" : undefined,
+            padding:    imgSquare ? "clamp(24px, 4vw, 56px)" : 0,
+            background: imgSquare ? bg : undefined,
+            opacity:    visible ? 1 : 0.001,
+            transform:  `translate3d(${imgX}px, 0, 0) scale(${imgScale})`,
+            willChange: "transform, opacity",
+          }}
+        >
+          {imgSquare ? (
+            <div
+              style={{
+                position:    "relative",
+                width:       "100%",
+                maxWidth:    480,
+                aspectRatio: "1 / 1",
+                borderRadius: 16,
+                overflow:    "hidden",
+                boxShadow:   "0 20px 50px rgba(26,20,16,0.14), 0 6px 16px rgba(26,20,16,0.08)",
+                transform:   visible ? "scale(1)" : "scale(0.96)",
+                transition:  "transform 1s cubic-bezier(0.22,1,0.36,1)",
+              }}
+            >
+              <Image
+                src={imgSrc}
+                alt={imgAlt}
+                fill
+                sizes="(max-width: 700px) 90vw, 480px"
+                style={{ objectFit: "cover", objectPosition: "center" }}
+              />
+            </div>
+          ) : (
+            <Image
+              src={imgSrc}
+              alt={imgAlt}
+              fill
+              sizes="50vw"
+              style={{
+                objectFit:      "cover",
+                objectPosition: "center",
+                transform:      visible ? "scale(1)" : "scale(1.04)",
+                transition:     "transform 1.2s cubic-bezier(0.22,1,0.36,1)",
+              }}
+            />
+          )}
+        </div>
+
+        {/* Texte (scroll-driven slide-in côté opposé) */}
+        <div
+          style={{
+            order:    imageFirst ? 1 : 0,
+            padding:  "clamp(40px, 6vw, 80px) clamp(24px, 5vw, 80px)",
+            display:  "flex",
+            flexDirection: "column",
+            justifyContent: "center",
+            opacity:    visible ? 1 : 0,
+            transform:  `translate3d(${txtX}px, 0, 0)`,
+            willChange: "transform, opacity",
+          }}
+        >
+          {eyebrow && (
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 14 }}>
+              {eyebrow}
+            </div>
+          )}
+          <div style={{ fontSize: "clamp(22px, 3.2vw, 44px)", fontWeight: 950, letterSpacing: -1.2, lineHeight: 1.08, color: P.dark, marginBottom: 18 }}>
+            {text}
+          </div>
+          {body && (
+            <p style={{ margin: 0, fontSize: "clamp(13px, 1.3vw, 16px)", color: P.muted, lineHeight: 1.75, maxWidth: 540 }}>
+              {body}
+            </p>
+          )}
+          {cta && (
+            <div style={{ marginTop: 28 }}>
+              <Link
+                href={cta.href}
+                style={{
+                  display:      "inline-flex",
+                  alignItems:   "center",
+                  gap:          8,
+                  padding:      "14px 26px",
+                  borderRadius: 12,
+                  background:   P.dark,
+                  color:        P.cream,
+                  fontWeight:   900,
+                  fontSize:     14,
+                  textDecoration:"none",
+                }}
+              >
+                {cta.label}
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   FloatingCard — bande "carte image inclinée + texte" — Bande flottante.
+   ────────────────────────────────────────────────────────────────────────── */
+function FloatingCard() {
+  const reveal = useReveal<HTMLDivElement>(0.15);
+  const scroll = useScrollProgress<HTMLDivElement>();
+  const setRefs = (el: HTMLDivElement | null) => {
+    (reveal.ref as { current: HTMLDivElement | null }).current = el;
+    (scroll.ref as { current: HTMLDivElement | null }).current = el;
+  };
+  const visible = reveal.visible;
+  const p = scroll.progress;
+  const imgP = Math.max(0, Math.min(1, (p - 0.05) * 2.5));
+  const txtP = Math.max(0, Math.min(1, (p - 0.15) * 2.5));
+  const imgRot = -3 + (1 - imgP) * -10;
+  const imgY   = (1 - imgP) * 80;
+  const txtX   = (1 - txtP) * 100;
+
+  return (
+    <section
+      ref={setRefs}
+      style={{
+        background: P.warm,
+        padding:    "clamp(56px, 8vw, 96px) 5vw",
+        position:   "relative",
+        overflow:   "hidden",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.4,
+        }}
+      />
+      <div
+        className="milk-floating"
+        style={{
+          position: "relative",
+          maxWidth: 1200,
+          margin:   "0 auto",
+          display:  "grid",
+          gridTemplateColumns: "1.05fr 1fr",
+          gap:      "clamp(30px, 5vw, 80px)",
+          alignItems: "center",
+        }}
+      >
+        {/* Carte image inclinée scroll-driven */}
+        <div
+          style={{
+            position:   "relative",
+            aspectRatio:"4/5",
+            borderRadius: 22,
+            overflow:   "hidden",
+            transform:  `rotate(${imgRot}deg) translate3d(0, ${imgY}px, 0)`,
+            opacity:    visible ? 1 : 0,
+            willChange: "transform, opacity",
+            boxShadow:  "0 30px 60px rgba(26,20,16,0.18), 0 8px 16px rgba(26,20,16,0.1)",
+          }}
+        >
+          <Image
+            src="/images/home/milk_baby_shower_plateau_rotin.webp"
+            alt="M!LK — coffret cadeau naissance plateau rotin"
+            fill
+            sizes="(max-width: 900px) 90vw, 45vw"
+            style={{ objectFit: "cover" }}
+          />
+          {/* Badge "Le cadeau idéal" */}
+          <div
+            style={{
+              position:     "absolute",
+              top:          18,
+              left:         18,
+              padding:      "8px 14px",
+              borderRadius: 99,
+              background:   "rgba(26,20,16,0.85)",
+              color:        P.amber,
+              fontSize:     10,
+              fontWeight:   900,
+              letterSpacing:2,
+              textTransform:"uppercase",
+            }}
+          >
+            Le cadeau idéal
+          </div>
+        </div>
+
+        {/* Texte droite */}
+        <div
+          style={{
+            opacity:    visible ? 1 : 0,
+            transform:  `translate3d(${txtX}px, 0, 0)`,
+            willChange: "transform, opacity",
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 14 }}>
+            Chaque détail compte
+          </div>
+          <h2 style={{ margin: "0 0 18px", fontSize: "clamp(22px, 3vw, 38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: P.dark }}>
+            Le bambou, notre matière.
+          </h2>
+          <p style={{ margin: "0 0 24px", fontSize: "clamp(13px, 1.3vw, 16px)", color: P.muted, lineHeight: 1.75 }}>
+            Pensé pour la nursery, idéal en cadeau de naissance. Bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.
+          </p>
+          <Link
+            href="/produits"
+            style={{
+              display:      "inline-flex",
+              alignItems:   "center",
+              gap:          8,
+              padding:      "14px 26px",
+              borderRadius: 12,
+              background:   P.amber,
+              color:        P.dark,
+              fontWeight:   900,
+              fontSize:     14,
+              textDecoration:"none",
+            }}
+          >
+            Voir la collection →
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   CADEAU — section INTACTE (textes, ordre, liens, photo) — fond + animation.
+   ────────────────────────────────────────────────────────────────────────── */
+function CadeauSection() {
+  const reveal = useReveal<HTMLDivElement>(0.1);
+  const scroll = useScrollProgress<HTMLDivElement>();
+  const setRefs = (el: HTMLDivElement | null) => {
+    (reveal.ref as { current: HTMLDivElement | null }).current = el;
+    (scroll.ref as { current: HTMLDivElement | null }).current = el;
+  };
+  const visible = reveal.visible;
+  const p = scroll.progress;
+  const txtP = Math.max(0, Math.min(1, (p - 0.05) * 2.5));
+  const imgP = Math.max(0, Math.min(1, (p - 0.12) * 2.5));
+  const txtX = (1 - txtP) * -120;
+  const imgX = (1 - imgP) * 120;
+
+  return (
+    <section
+      ref={setRefs}
+      style={{
+        background: P.taupeAlt,
+        padding:    "clamp(56px, 8vw, 96px) 5vw",
+        position:   "relative",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.35,
+        }}
+      />
+      <div
+        className="milk-cadeau"
+        style={{
+          position: "relative",
+          display:  "grid",
+          gridTemplateColumns: "1fr 1fr",
+          gap:      48,
+          alignItems: "center",
+          maxWidth:  1280,
+          margin:    "0 auto",
+        }}
+      >
+        <div
+          style={{
+            opacity:    visible ? 1 : 0,
+            transform:  `translate3d(${txtX}px, 0, 0)`,
+            willChange: "transform, opacity",
+          }}
+        >
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>Idée cadeau</div>
+          <h2 style={{ margin: "0 0 16px", fontSize: "clamp(24px,3.5vw,42px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>
+            Le cadeau de naissance qui change vraiment la vie.
+          </h2>
+          <p style={{ margin: "0 0 16px", fontSize: "clamp(14px,1.4vw,17px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.75 }}>
+            Pas un énième doudou. Pas un vêtement trop petit en trois semaines. M!LK, c'est le cadeau qu'on n'ose pas s'offrir soi-même — mais qu'on utilise toutes les nuits.
+          </p>
+          <p style={{ margin: "0 0 24px", fontSize: "clamp(13px,1.3vw,15px)", color: "rgba(26,20,16,0.5)", lineHeight: 1.75 }}>
+            Parfait pour les listes de naissance, les baby showers, les coffrets nouveau-né. En bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.
+          </p>
+          <div className="milk-gift-btns" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+            <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, background: P.dark, color: P.cream, fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
+              Voir les essentiels →
+            </Link>
+            <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, border: `2px solid ${P.dark}`, color: P.dark, fontWeight: 700, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
+              Liste de naissance
+            </Link>
+          </div>
+        </div>
+
+        <div
+          style={{
+            opacity:    visible ? 1 : 0,
+            transform:  `translate3d(${imgX}px, 0, 0)`,
+            willChange: "transform, opacity",
+          }}
+        >
+          <div style={{ position: "relative", width: "100%", aspectRatio: "4/3", borderRadius: 22, overflow: "hidden", marginBottom: 16, boxShadow: "0 20px 50px rgba(0,0,0,0.18)" }}>
+            <Image
+              src="/images/home/milk_baby_shower_ventre_bodysuit.webp"
+              alt="M!LK — cadeau de naissance"
+              fill
+              sizes="(max-width: 900px) 90vw, 45vw"
+              style={{ objectFit: "cover", objectPosition: "center" }}
+            />
+          </div>
+          <div className="milk-gift-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            {[
+              { titre: "Liste de naissance", desc: "Ajoutez M!LK à votre liste. Les futurs parents vous remercieront." },
+              { titre: "Baby shower",        desc: "Un coffret 2-3 pièces bambou. Pratique, beau, zéro déchet de style." },
+              { titre: "Cadeau de naissance",desc: "Livraison rapide. Le bon cadeau pour les premières semaines." },
+              { titre: "Coffret nouveau-né", desc: "Body + gigoteuse + lange. L'essentiel réuni dans un coffret simplifié." },
+            ].map((item, i) => (
+              <div
+                key={item.titre}
+                style={{
+                  padding:      "18px 16px",
+                  borderRadius: 14,
+                  background:   P.cream,
+                  border:       `1px solid ${P.faintLine}`,
+                  boxShadow:    "0 4px 14px rgba(0,0,0,0.08)",
+                  opacity:      visible ? 1 : 0,
+                  transform:    visible ? "translateY(0)" : "translateY(20px)",
+                  transition:   `opacity 0.6s ease ${0.3 + i * 0.08}s, transform 0.6s cubic-bezier(0.22,1,0.36,1) ${0.3 + i * 0.08}s`,
+                }}
+              >
+                <div style={{ fontWeight: 900, fontSize: 13, color: P.dark, marginBottom: 6 }}>{item.titre}</div>
+                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>{item.desc}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HoverAccordion — repris du code original, restylé en beige.
+   ────────────────────────────────────────────────────────────────────────── */
+function HoverAccordion({ title, tag, children }: { title: string; tag: string; children: React.ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setOpen(true)}
+      onMouseLeave={() => setOpen(false)}
+      style={{
+        borderRadius: 20,
+        background:   P.cream,
+        border:       open ? `1.5px solid ${P.amber}` : `1.5px solid ${P.faintLine}`,
+        overflow:     "hidden",
+        transition:   "box-shadow 0.3s, border-color 0.3s",
+        boxShadow:    open ? "0 22px 50px rgba(26,20,16,0.18), 0 4px 12px rgba(26,20,16,0.1)" : "0 6px 22px rgba(26,20,16,0.08)",
+      }}
+    >
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        style={{
+          all: "unset",
+          cursor: "pointer",
+          width: "100%",
+          padding: "20px 26px",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          boxSizing: "border-box",
+        }}
+      >
+        <div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 5 }}>{tag}</div>
+          <div style={{ fontSize: "clamp(15px,1.5vw,18px)", fontWeight: 900, color: P.dark }}>{title}</div>
+        </div>
+        <div style={{ fontSize: 22, color: P.amber, transition: "transform 0.3s", transform: open ? "rotate(45deg)" : "none", flexShrink: 0, marginLeft: 16 }}>+</div>
+      </button>
+      <div style={{ maxHeight: open ? 1400 : 0, overflow: "hidden", transition: "max-height 0.5s cubic-bezier(0.4,0,0.2,1)" }}>
+        <div style={{ padding: "0 26px 26px" }}>{children}</div>
       </div>
     </div>
   );
 }
 
+function acard(content: React.ReactNode, key?: string) {
+  return (
+    <div
+      key={key}
+      style={{
+        borderRadius: 14,
+        background:   P.warm,
+        border:       `1px solid ${P.faintLine}`,
+        overflow:     "hidden",
+        boxShadow:    "0 4px 14px rgba(26,20,16,0.06)",
+      }}
+    >
+      {content}
+    </div>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   AccordionsSection — 4 accordéons conservés (textes inchangés).
+   ────────────────────────────────────────────────────────────────────────── */
+function AccordionsSection() {
+  const { ref, visible } = useReveal<HTMLDivElement>(0.1);
+
+  return (
+    <section
+      ref={ref}
+      style={{
+        background: P.light,
+        padding:    "clamp(48px, 7vw, 80px) 5vw",
+        position:   "relative",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.4,
+        }}
+      />
+      <div
+        style={{
+          position: "relative",
+          display:  "grid",
+          gap:      14,
+          maxWidth: 1100,
+          margin:   "0 auto",
+        }}
+      >
+        {[
+          {
+            title: "La vérité des parents", tag: "Nuits · Habillage · Sommeil",
+            render: (
+              <div className="milk-tgrid" style={{ display: "grid", gap: 14 }}>
+                {[
+                  { label: "Nuits pourries",   tension: "Se lever 5 fois, changer une couche dans le noir, rendormir un bébé hurlant.",                                benefice: "Des vêtements pensés pour changer vite sans tout défaire." },
+                  { label: "Habillage combat", tension: "Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",                                  benefice: "Des ouvertures intelligentes, 3 gestes max, c'est fait." },
+                  { label: "Sommeil fragile",  tension: "Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait au premier mouvement.",                     benefice: "Un lange qui tient et calme le réflexe de Moro." },
+                ].map(card =>
+                  acard(
+                    <>
+                      <div style={{ padding: "16px 18px 12px" }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.mutedFaint, marginBottom: 6 }}>La tension</div>
+                        <div style={{ fontSize: "clamp(15px,1.6vw,18px)", fontWeight: 950, color: P.dark, letterSpacing: -0.5, marginBottom: 8, lineHeight: 1.1 }}>{card.label}</div>
+                        <p style={{ margin: 0, fontSize: "clamp(12px,1.1vw,13px)", color: P.muted, lineHeight: 1.7 }}>{card.tension}</p>
+                      </div>
+                      <div style={{ padding: "10px 18px 16px", background: "rgba(196,154,74,0.13)", borderTop: `1px solid ${P.faintLine}` }}>
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 6 }}>Le bénéfice M!LK</div>
+                        <p style={{ margin: 0, fontSize: "clamp(12px,1.2vw,14px)", color: P.dark, lineHeight: 1.6, fontWeight: 800 }}>{card.benefice}</p>
+                      </div>
+                    </>,
+                    card.label,
+                  ),
+                )}
+              </div>
+            ),
+          },
+          {
+            title: "Comment on conçoit nos essentiels", tag: "Notre approche",
+            render: (
+              <div className="milk-pillars" style={{ display: "grid", gap: 12 }}>
+                {["Chaque seconde compte à 3h du mat'", "Zéro compromis sur la sécurité", "Matières douces et certifiées", "Testés par de vrais parents fatigués"].map((pillar, i) =>
+                  acard(
+                    <div style={{ padding: "16px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
+                      <div style={{ width: 28, height: 28, borderRadius: "50%", background: P.amber, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+                        <span style={{ color: P.dark, fontWeight: 900, fontSize: 12 }}>{i + 1}</span>
+                      </div>
+                      <div style={{ fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", color: P.dark, lineHeight: 1.45 }}>{pillar}</div>
+                    </div>,
+                    pillar,
+                  ),
+                )}
+              </div>
+            ),
+          },
+          {
+            title: "La différence M!LK", tag: "Classique vs M!LK",
+            render: (
+              <div>
+                <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${P.faintLine}`, marginBottom: 20, boxShadow: "0 6px 20px rgba(26,20,16,0.08)" }}>
+                  <div className="milk-comptable" style={{ display: "grid", background: P.warm, gridTemplateColumns: "1.4fr 1fr 1fr" }}>
+                    {["Situation", "Classique", "M!LK"].map((h, i) => (
+                      <div key={h} style={{ padding: "12px 16px", fontSize: 11, fontWeight: i === 2 ? 900 : 700, color: i === 2 ? P.amber : P.mutedFaint, textTransform: "uppercase", letterSpacing: 1, borderLeft: i > 0 ? `1px solid ${P.faintLine}` : "none" }}>{h}</div>
+                    ))}
+                  </div>
+                  {[
+                    { s: "Change de nuit",     c: "Défaire tout le pyjama",     m: "Zip inversé, 30 sec"      },
+                    { s: "Boutons-pression",   c: "8 à 12 à aligner",           m: "3 max, bien placés"       },
+                    { s: "Emmaillotage",       c: "Se défait, bébé sursaute",   m: "Tient toute la nuit"      },
+                    { s: "Habillage",          c: "Combat quotidien",           m: "2-3 gestes, c'est fait"   },
+                    { s: "Conception",         c: "Pour faire joli",            m: "Pour simplifier"          },
+                  ].map((row, i) => (
+                    <div key={row.s} className="milk-comptable" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", borderTop: `1px solid ${P.faintLine}`, background: i % 2 === 0 ? P.cream : P.taupe }}>
+                      <div style={{ padding: "10px 16px", fontWeight: 700, color: P.dark, fontSize: "clamp(11px,1.1vw,13px)" }}>{row.s}</div>
+                      <div style={{ padding: "10px 16px", color: P.mutedFaint, fontSize: "clamp(10px,1vw,12px)", borderLeft: `1px solid ${P.faintLine}`, textDecoration: "line-through" }}>{row.c}</div>
+                      <div style={{ padding: "10px 16px", color: P.amber, fontWeight: 800, fontSize: "clamp(10px,1vw,12px)", borderLeft: `1px solid ${P.faintLine}` }}>{row.m}</div>
+                    </div>
+                  ))}
+                </div>
+                {acard(
+                  <div style={{ padding: "20px 24px" }}>
+                    <div style={{ fontSize: 36, color: P.amber, lineHeight: 0.8, marginBottom: 10, fontFamily: "Georgia,serif", fontWeight: 900 }}>"</div>
+                    <p style={{ margin: "0 0 8px", fontSize: "clamp(14px,1.8vw,20px)", color: P.dark, fontWeight: 800, fontStyle: "italic", lineHeight: 1.45 }}>
+                      Premier pyjama où je n'ai pas eu envie de pleurer à 4h du mat'.
+                    </p>
+                    <div style={{ fontSize: 13, color: P.muted, fontWeight: 600 }}>— Marie, maman de Léo</div>
+                  </div>,
+                )}
+              </div>
+            ),
+          },
+          {
+            title: "Des parents, pas des acteurs", tag: "Ce qu'on entend",
+            render: (
+              <div className="milk-rgrid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+                {[
+                  { name: "Thomas R.", role: "Papa de Luna",                        text: "La gigoteuse à nouer a sauvé nos premières semaines. Pas d'exagération." },
+                  { name: "Sarah K.",  role: "Maman de Noah",                       text: "Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée." },
+                  { name: "Amina B.",  role: "Maman de Samy, 3 mois",               text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins." },
+                  { name: "Julie D.",  role: "Maman d'Emma, née en juin",           text: "Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis." },
+                ].map(r =>
+                  acard(
+                    <div style={{ padding: "16px 18px" }}>
+                      <div style={{ display: "flex", marginBottom: 8 }}>
+                        {[...Array(5)].map((_, j) => (
+                          <span key={j} style={{ color: P.amber, fontSize: 13 }}>★</span>
+                        ))}
+                      </div>
+                      <p style={{ margin: "0 0 10px", fontSize: "clamp(12px,1.2vw,14px)", color: P.muted, lineHeight: 1.7, fontStyle: "italic" }}>&ldquo;{r.text}&rdquo;</p>
+                      <div style={{ fontWeight: 800, fontSize: 13, color: P.dark }}>{r.name}</div>
+                      <div style={{ fontSize: 11, color: P.mutedFaint, marginTop: 2 }}>{r.role}</div>
+                    </div>,
+                    r.name,
+                  ),
+                )}
+              </div>
+            ),
+          },
+        ].map((item, i) => (
+          <div
+            key={item.title}
+            style={{
+              opacity:    visible ? 1 : 0,
+              transform:  visible ? "none" : "translateY(24px)",
+              transition: `opacity 0.7s ease ${0.05 + i * 0.08}s, transform 0.7s cubic-bezier(0.22,1,0.36,1) ${0.05 + i * 0.08}s`,
+            }}
+          >
+            <HoverAccordion title={item.title} tag={item.tag}>
+              {item.render}
+            </HoverAccordion>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   FinalCTA — fond beige, accents ambre. Liens intacts.
+   ────────────────────────────────────────────────────────────────────────── */
+function FinalCTA() {
+  const { ref, visible } = useReveal<HTMLDivElement>(0.15);
+  return (
+    <section
+      ref={ref}
+      style={{
+        padding:    "clamp(48px, 7vw, 96px) 5vw",
+        textAlign:  "center",
+        background: `linear-gradient(180deg, ${P.light} 0%, ${P.cream} 100%)`,
+        position:   "relative",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: "absolute", inset: 0, pointerEvents: "none",
+          backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.35,
+        }}
+      />
+      <div
+        style={{
+          position:   "relative",
+          maxWidth:   900,
+          margin:     "0 auto",
+          opacity:    visible ? 1 : 0,
+          transform:  visible ? "none" : "translateY(30px)",
+          transition: "opacity 0.8s ease, transform 0.8s cubic-bezier(0.22,1,0.36,1)",
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>
+          Prêts pour moins de galères au quotidien ?
+        </div>
+        <h2 style={{ margin: "0 0 14px", fontSize: "clamp(22px,3.8vw,46px)", fontWeight: 950, letterSpacing: -2, color: P.dark, lineHeight: 1.05 }}>
+          Des essentiels conçus pour les vraies nuits, <span style={{ color: P.amber }}>les vrais matins, la vraie vie de parent.</span>
+        </h2>
+        <p style={{ margin: "0 0 24px", fontSize: "clamp(13px,1.4vw,16px)", color: P.muted, lineHeight: 1.6 }}>
+          Des essentiels bébé. Sans le superflu.
+        </p>
+        <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
+          <Link href="/produits" style={{ padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none", display: "inline-block", boxShadow: "0 8px 24px rgba(26,20,16,0.25)" }}>
+            Shopper les essentiels →
+          </Link>
+          <Link href="/qui-sommes-nous" style={{ padding: "16px 32px", borderRadius: 14, border: `1px solid ${P.faintLine}`, color: P.dark, fontWeight: 700, fontSize: "clamp(13px,1.4vw,16px)", textDecoration: "none", display: "inline-block", background: P.cream }}>
+            Notre histoire
+          </Link>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   HOMEPAGE — entry point.
+   ────────────────────────────────────────────────────────────────────────── */
 export default function HomePage() {
-  const heroRef  = useRef<HTMLDivElement>(null);
-  const catSec   = useInView(0.1);
-  const [catVisible, setCatVisible] = useState(false);
-  const [products, setProducts]     = useState<any[]>([]);
-  const [lbl, setLbl]               = useState("Sélection du moment");
+  const [products, setProducts]                   = useState<any[]>([]);
+  const [lbl, setLbl]                             = useState("Sélection du moment");
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
 
   useEffect(() => {
-    fetch("/api/settings/public").then(r=>r.json()).then((s:any)=>{
-      const n = Number(s?.free_shipping_threshold);
-      if (Number.isFinite(n) && n > 0) setFreeShipThreshold(n);
-    }).catch(()=>{});
+    fetch("/api/settings/public")
+      .then(r => r.json())
+      .then((s: any) => {
+        const n = Number(s?.free_shipping_threshold);
+        if (Number.isFinite(n) && n > 0) setFreeShipThreshold(n);
+      })
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
-    fetch("/api/home/config").then(r=>r.json()).then((data:any)=>{
-      if(data?.products&&Array.isArray(data.products)&&data.products.length>0){
-        setProducts(data.products);
-        setLbl(data.section_title??"Sélection du moment");
-      } else {
-        fetch("/api/produits").then(r=>r.json()).then((all:any[])=>{
-          if(!Array.isArray(all))return;
-          setProducts(all.filter((p:any)=>p.stock>0).slice(0,8));
-        }).catch(()=>{});
-      }
-    }).catch(()=>{});
-  },[]);
-
-  useEffect(()=>{
-    const el=heroRef.current;if(!el)return;
-    const h=()=>{el.style.transform=`translateY(${window.scrollY*0.3}px)`;};
-    window.addEventListener("scroll",h,{passive:true});return()=>window.removeEventListener("scroll",h);
-  },[]);
-
-  useEffect(()=>{
-    const el=catSec.ref.current;if(!el)return;
-    const obs=new IntersectionObserver(([e])=>{if(e.isIntersecting)setCatVisible(true);else setCatVisible(false);},{threshold:0.1});
-    obs.observe(el);return()=>obs.disconnect();
-  },[]);
-
-  function isPromo(p:any){
-    if(!p.promo_price) return false;
-    if(!p.promo_start && !p.promo_end) return true;
-    const d=new Date();
-    const today=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-    const start=p.promo_start?String(p.promo_start).slice(0,10):null;
-    const end=p.promo_end?String(p.promo_end).slice(0,10):null;
-    if(start&&today<start)return false;
-    if(end&&today>end)return false;
-    return true;
-  }
+    fetch("/api/home/config")
+      .then(r => r.json())
+      .then((data: any) => {
+        if (data?.products && Array.isArray(data.products) && data.products.length > 0) {
+          setProducts(data.products);
+          setLbl(data.section_title ?? "Sélection du moment");
+        } else {
+          fetch("/api/produits")
+            .then(r => r.json())
+            .then((all: any[]) => {
+              if (!Array.isArray(all)) return;
+              setProducts(all.filter((p: any) => p.stock > 0).slice(0, 8));
+            })
+            .catch(() => {});
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   return (
-    <div style={{ background:C.bg, color:C.warm, overflowX:"hidden" }}>
+    <div style={{ background: P.light, color: P.dark, overflowX: "hidden" }}>
       <style>{`
-        @keyframes hero-in    { from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:none} }
-        @keyframes badge-spin { from{transform:rotate(0deg)}to{transform:rotate(360deg)} }
-        @keyframes bounce-arr { 0%,100%{transform:translateX(-50%) translateY(0)}50%{transform:translateX(-50%) translateY(6px)} }
-        @keyframes ticker     { from{transform:translateX(0)} to{transform:translateX(-50%)} }
-        @keyframes slideUp    { from{opacity:0;transform:translateY(40px)} to{opacity:1;transform:none} }
-        .hero-content { animation: hero-in 1s cubic-bezier(.22,.61,.36,1) 0.3s both; }
-        .pgrid { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,280px)); gap:16px; justify-content:center; }
-        @keyframes milk-promo-shake{0%,100%{transform:translateY(0)}15%{transform:translateY(0) rotate(-0.4deg) scale(1.008)}35%{transform:translateY(0) rotate(0.4deg) scale(1.012)}55%{transform:translateY(0) rotate(-0.3deg) scale(1.008)}75%{transform:translateY(0) rotate(0.2deg)}}
-        .pcard-promo-home{animation:milk-promo-shake 2.2s ease-in-out infinite}
-        .pcard-promo-home:hover{animation:none!important}
-        .pcard:hover  { transform:translateY(-5px) !important; box-shadow:0 24px 48px rgba(0,0,0,0.2) !important; border-color:${C.amber} !important; }
-        .pcard:hover .pcard-img { transform:scale(1.05) !important; }
-        .tk  { display:flex; animation:ticker 16s linear infinite; white-space:nowrap; width:max-content; }
-        .catgrid   { grid-template-columns:repeat(4,1fr); width:100%; box-sizing:border-box; }
-        .tgrid     { grid-template-columns:repeat(3,1fr); }
-        .pillars   { grid-template-columns:repeat(4,1fr); }
-        .comptable { grid-template-columns:1.4fr 1fr 1fr; }
-        .rgrid     { grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); }
-        .photo-hover:hover { transform:scale(1.03) !important; }
-        .photo-hover:hover .photo-label { opacity:1 !important; transform:translateY(0) !important; }
-        @media(max-width:700px){ .rgrid { grid-template-columns:repeat(2,1fr)!important; } }
-        @media(max-width:360px){ .rgrid { grid-template-columns:1fr!important; } }
-        @media(max-width:1024px){ .catgrid{grid-template-columns:repeat(2,1fr)!important} .pillars{grid-template-columns:repeat(2,1fr)!important} }
-        @media(max-width:900px){
-          .catgrid { grid-template-columns:repeat(2,1fr)!important; width:100%!important; box-sizing:border-box!important; overflow:hidden!important; }
-          .catgrid > div { width:100%!important; min-width:0!important; overflow:hidden!important; }
-          .catgrid > div > a > div { min-height:80px!important; }
-          .cat-label { overflow:hidden!important; text-overflow:ellipsis!important; white-space:nowrap!important; }
-          .tgrid   { grid-template-columns:repeat(2,1fr)!important; }
-          .pgrid { grid-template-columns:repeat(2,1fr)!important; gap:10px!important; justify-content:unset!important; }
-          .pillars { grid-template-columns:1fr 1fr!important; }
-          .comptable { grid-template-columns:1fr 1fr 1fr!important; }
-          .hero-btns { flex-direction:column!important; }
-          .hero-btns a { text-align:center!important; width:100%; box-sizing:border-box; }
-          .hero-parallax { inset:0!important; }
-          .badge-svg { display:none!important; }
-          .stats-row { display:grid!important; grid-template-columns:1fr 1fr 1fr!important; gap:0!important; }
-          .cadeau-grid { grid-template-columns:1fr!important; gap:24px!important; }
-          .gift-grid   { grid-template-columns:1fr!important; }
-          .gift-btns   { flex-direction:column!important; }
-          .gift-btns a { width:100%!important; text-align:center!important; box-sizing:border-box!important; }
-          .split-section { grid-template-columns:1fr!important; }
-          .photos-masonry { grid-template-columns:1fr 1fr!important; }
-          .tk  { animation-duration:8s!important; }
+        @keyframes milk-spin     { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+        @keyframes milk-bounce   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
+        @keyframes milk-ticker   { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+        @keyframes milk-float    { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+        @keyframes milk-pulse    { 0%,100%{opacity:0.92} 50%{opacity:1} }
+        .milk-tk { animation: milk-ticker 22s linear infinite; }
+
+        /* Hero — police BoldinBold (déjà déclarée dans globals.css) */
+        .milk-logo-text { font-family: "BoldinBold", system-ui, sans-serif; }
+
+        /* Logo M!LK : float doux infini */
+        .milk-logo-float { animation: milk-float 6s ease-in-out infinite, milk-pulse 4s ease-in-out infinite; }
+
+        /* CTA hero — hover : lift + glow */
+        .milk-hero-cta-primary:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 14px 40px rgba(13,11,9,0.55) !important;
+        }
+        .milk-hero-cta-secondary:hover {
+          background: rgba(13,11,9,0.55) !important;
+          border-color: ${P.amber} !important;
+        }
+
+        /* Cards "Par besoin" — effet waw : lift + numéro grandit + flèche bounce + fond amber */
+        .milk-catcard {
+          will-change: transform, background, box-shadow;
+        }
+        .milk-catcard::after {
+          content: "";
+          position: absolute;
+          left: 0; right: 0; bottom: 0;
+          height: 3px;
+          background: ${P.amber};
+          transform: scaleX(0);
+          transform-origin: left center;
+          transition: transform 0.55s cubic-bezier(0.22,1,0.36,1);
+        }
+        .milk-catcard:hover {
+          transform: translateY(-8px);
+          box-shadow: 0 26px 50px rgba(26,20,16,0.18), 0 8px 20px rgba(26,20,16,0.08) !important;
+          border-color: ${P.amber} !important;
+          background: ${P.warm} !important;
+        }
+        .milk-catcard:hover::after { transform: scaleX(1); }
+        .milk-catcard:hover .milk-catcard-num {
+          color: rgba(196,154,74,0.32) !important;
+          transform: translateY(4px) scale(1.06);
+        }
+        .milk-catcard:hover .milk-catcard-arrow { transform: translateX(8px); }
+        @media (hover: none) {
+          .milk-catcard:hover { transform: none; }
+        }
+
+        /* Cards produit — shine au hover */
+        .milk-pcard {
+          transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg));
+        }
+        .milk-pcard:hover {
+          transform: rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)) translateY(-6px);
+          box-shadow: 0 28px 60px rgba(26,20,16,0.18), 0 8px 16px rgba(26,20,16,0.1) !important;
+          border-color: ${P.amber} !important;
+        }
+        .milk-pcard:hover .milk-pcard-img { transform: scale(1.06); }
+        .milk-pcard-img { transition: transform 0.5s cubic-bezier(0.22,1,0.36,1); }
+        .milk-pcard-shine {
+          position: absolute; inset: 0; pointer-events: none; opacity: 0;
+          background: radial-gradient(circle at var(--sx,50%) var(--sy,50%), rgba(255,255,255,0.55) 0%, transparent 28%);
+          mix-blend-mode: overlay; transition: opacity 0.25s ease;
+        }
+        .milk-pcard:hover .milk-pcard-shine { opacity: 1; }
+        @media (hover: none) {
+          .milk-pcard:hover { transform: none; }
+          .milk-pcard-shine { display: none; }
+        }
+
+        /* Grilles */
+        .milk-catgrid { grid-template-columns: repeat(4, 1fr); }
+        .milk-pgrid   { grid-template-columns: repeat(4, 1fr); }
+        .milk-tgrid   { grid-template-columns: repeat(3, 1fr); }
+        .milk-pillars { grid-template-columns: repeat(4, 1fr); }
+        .milk-rgrid   { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+
+        @media (max-width: 1024px) {
+          .milk-catgrid { grid-template-columns: repeat(2, 1fr) !important; }
+          .milk-pgrid   { grid-template-columns: repeat(2, 1fr) !important; }
+          .milk-pillars { grid-template-columns: repeat(2, 1fr) !important; }
+          .milk-tgrid   { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+        @media (max-width: 700px) {
+          .milk-rgrid     { grid-template-columns: repeat(2, 1fr) !important; }
+          .milk-pillars   { grid-template-columns: 1fr 1fr !important; }
+          .milk-comptable { grid-template-columns: 1fr 1fr 1fr !important; }
+          .milk-floating  { grid-template-columns: 1fr !important; }
+          .milk-cadeau    { grid-template-columns: 1fr !important; gap: 32px !important; }
+          .milk-gift-grid { grid-template-columns: 1fr !important; }
+          .milk-gift-btns { flex-direction: column !important; }
+          .milk-gift-btns a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
+          .milk-split     { grid-template-columns: 1fr !important; }
+          .milk-tgrid     { grid-template-columns: 1fr !important; }
+          .milk-hero-btns { flex-direction: column !important; }
+          .milk-hero-btns a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
+          .milk-band-stats { gap: 14px 0 !important; }
+          .milk-band-stats > div { padding-right: 14px !important; margin-right: 14px !important; }
+          .milk-heroband-badge { display: none !important; }
+          .milk-hero-root { height: 100svh !important; }
+        }
+        @media (max-width: 360px) {
+          .milk-rgrid { grid-template-columns: 1fr !important; }
+        }
+        @media (max-width: 900px) {
+          .milk-tk { animation-duration: 14s; }
+        }
+
+        /* prefers-reduced-motion : on coupe les anims décoratives */
+        @media (prefers-reduced-motion: reduce) {
+          .milk-tk            { animation: none !important; }
+          .milk-logo-float    { animation: none !important; }
+          .milk-pcard, .milk-pcard-img, .milk-pcard-shine { transition: none !important; }
+          [style*="badge-spin"], [style*="bounce-arr"] { animation: none !important; }
         }
       `}</style>
 
-      {/* ── HERO ── */}
-      <section style={{ position:"relative", minHeight:"clamp(60vh,80vh,100vh)", display:"flex", alignItems:"center", overflow:"hidden" }}>
-        <div ref={heroRef} className="hero-parallax" style={{ position:"absolute", inset:"-20% 0 -20% 0", willChange:"transform" }}>
-          <Image src="/images/home/milk_banner_artisan.jpg" alt="M!LK" fill priority sizes="100vw" style={{ objectFit:"cover", objectPosition:"center 45%" }}/>
-        </div>
-        <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg,rgba(13,11,9,0.82) 0%,rgba(13,11,9,0.45) 50%,rgba(13,11,9,0.70) 100%)" }}/>
-        <div className="hero-content" style={{ position:"relative", zIndex:2, padding:"clamp(110px,15vh,180px) 5vw 80px", width:"100%", boxSizing:"border-box" }}>
-          <div style={{ display:"flex", gap:8, flexWrap:"wrap", marginBottom:24 }}>
-            {["Nouveau-né","0-3 mois","3-6 mois"].map(tag=>(
-              <span key={tag} style={{ padding:"6px 14px", borderRadius:99, border:`1px solid ${C.amber}`, color:C.amber, fontSize:12, fontWeight:800 }}>{tag}</span>
-            ))}
-          </div>
+      <Topbar freeShipThreshold={freeShipThreshold} />
+      <Hero />
+      <HeroBand freeShipThreshold={freeShipThreshold} />
+      <ProductsSection products={products} lbl={lbl} />
+      <CategoriesSection />
 
-          {/* CORRECTION 1 : "Sans compromis." en BLANC */}
-          <h1 style={{ margin:"0 0 22px", fontSize:"clamp(38px,7.5vw,96px)", fontWeight:950, letterSpacing:-3, lineHeight:0.95, color:C.warm }}>
-            L'essentiel.<br/><span style={{ color:C.warm }}>Sans compromis.</span>
-          </h1>
+      {/* Édito 1 — texte gauche / photo droite */}
+      <EditoSplit
+        align="text-left"
+        eyebrow="Notre raison d'être"
+        text={
+          <>
+            Parce que les parents n'ont pas besoin de plus de "mignon",
+            <br />
+            mais de moins de charge mentale.
+          </>
+        }
+        body="M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles."
+        imgSrc="/images/home/milk_col_body_boule_tag.webp"
+        imgAlt="M!LK — bébé bonnet camel + body smiley + maman, douceur bambou"
+        bg={P.light}
+      />
 
-          <div className="badge-svg" style={{ position:"absolute", top:"50%", right:"6%", transform:"translateY(-50%)", zIndex:3 }}>
-            <svg width="130" height="130" viewBox="0 0 140 140" style={{ animation:"badge-spin 14s linear infinite" }}>
-              <path id="bc" d="M 70,70 m -52,0 a 52,52 0 1,1 104,0 a 52,52 0 1,1 -104,0" fill="none"/>
-              <text fontSize="11" fontWeight="700" letterSpacing="5.5" fill={C.amber}>
-                <textPath href="#bc" startOffset="0%"> —  OEKO-TEX  —  BAMBOU PREMIUM  </textPath>
-              </text>
-            </svg>
-          </div>
+      <FloatingCard />
 
-          <p style={{ margin:"0 0 32px", fontSize:"clamp(14px,1.8vw,19px)", color:C.muted, maxWidth:520, lineHeight:1.75 }}>
-            Des essentiels bébé en bambou certifié OEKO-TEX. Pensés pour réduire les galères du quotidien — pas pour faire joli en photo.
-          </p>
-          <div className="hero-btns" style={{ display:"flex", gap:12, flexWrap:"wrap", marginBottom:40 }}>
-            <Link href="/produits" style={{ padding:"16px 30px", borderRadius:14, background:C.warm, color:C.dark, fontWeight:900, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Découvrir la collection →</Link>
-            <Link href="/pourquoi-bambou" style={{ padding:"16px 30px", borderRadius:14, border:"1px solid rgba(242,237,230,0.2)", color:C.warm, fontWeight:700, fontSize:"clamp(14px,1.6vw,17px)", textDecoration:"none", display:"inline-block" }}>Pourquoi le bambou ?</Link>
-          </div>
-          <div className="stats-row" style={{ display:"flex", flexWrap:"wrap", gap:0, marginBottom:28 }}>
-            {[{val:`Dès ${freeShipThreshold}€`,label:"livraison offerte"},{val:"100%",label:"Bambou OEKO-TEX"},{val:"15j",label:"retour gratuit"},{val:"0",label:"substance nocive"},{val:"3×",label:"plus doux que le coton"}].map((k,i)=>(
-              <div key={k.label} style={{ paddingRight:28, marginRight:28, borderRight:i<4?"1px solid rgba(242,237,230,0.12)":"none", paddingBottom:8 }}>
-                <div style={{ fontSize:"clamp(16px,2.5vw,32px)", fontWeight:950, letterSpacing:-1.2, color:C.warm, lineHeight:1, whiteSpace:"nowrap" }}>{k.val}</div>
-                <div style={{ fontSize:"clamp(10px,0.9vw,12px)", color:C.muted, marginTop:4, whiteSpace:"nowrap" }}>{k.label}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ display:"flex", gap:24, flexWrap:"wrap", paddingTop:18, borderTop:"1px solid rgba(242,237,230,0.08)" }}>
-            {[{Icon:IconTruck,label:"Retour gratuit",desc:"15 jours"},{Icon:IconLeaf,label:"Bambou OEKO-TEX",desc:"certifié"},{Icon:IconLock,label:"Paiement sécurisé",desc:"Stripe"}].map(r=>(
-              <div key={r.label} style={{ display:"flex", alignItems:"center", gap:8 }}>
-                <r.Icon s={16} c={C.amber}/>
-                <div><div style={{ fontSize:12, fontWeight:800, color:C.warm, lineHeight:1 }}>{r.label}</div><div style={{ fontSize:11, color:C.muted }}>{r.desc}</div></div>
-              </div>
-            ))}
-          </div>
-        </div>
-        <div style={{ position:"absolute", bottom:24, left:"50%", transform:"translateX(-50%)", display:"flex", flexDirection:"column", alignItems:"center", gap:6, opacity:0.35, zIndex:3 }}>
-          <div style={{ fontSize:10, fontWeight:800, letterSpacing:2, textTransform:"uppercase", color:C.warm }}>Découvrir</div>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation:"bounce-arr 2s ease infinite" }}>
-            <path d="M12 5v14M5 12l7 7 7-7" stroke={C.warm} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-        </div>
-      </section>
+      {/* Édito 2 — photo gauche / texte droite */}
+      <EditoSplit
+        align="image-left"
+        eyebrow="Notre conviction"
+        text={
+          <>
+            M!LK n'est pas une marque de vêtements.
+            <br />
+            C'est une réponse aux petites galères répétées.
+          </>
+        }
+        body="Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé."
+        cta={{ label: "Voir la collection →", href: "/produits" }}
+        imgSrc="/images/home/milk_rouleaux_tissu_mur_jouets.webp"
+        imgAlt="M!LK — rouleaux de tissu bambou OEKO-TEX"
+        bg={P.taupe}
+      />
 
-      <Ticker freeShipThreshold={freeShipThreshold}/>
-      <Divider from={C.bg} to={C.light}/>
+      {/* Édito détail — texte gauche / photo carrée droite (étagère nursery) */}
+      <EditoSplit
+        align="text-left"
+        eyebrow="Chaque détail compte"
+        text="Les finitions soignées, les matières choisies, les coutures plates."
+        body="Les détails qu'on remarque à 3h du matin. Bonnet damier, tag bois, étiquettes qui ne grattent pas. Le confort vient des petits choix."
+        imgSrc="/images/home/milk_baby_shower_etagere_nursery.webp"
+        imgAlt="M!LK — étagère nursery, pièces coordonnées, finitions soignées"
+        bg={P.warm}
+        imgSquare
+      />
 
-      {/* ── PRODUITS — Carousel hover+swipe ── */}
-      <ProductsCarousel products={products} lbl={lbl} isPromo={isPromo} />
-
-      <Divider from={C.light} to={C.bg}/>
-
-      {/* ── CATÉGORIES ── */}
-      <div ref={catSec.ref} style={{ background:C.bg, padding:"40px 5vw 48px" }}>
-        <div style={{ opacity:catVisible?1:0, transform:catVisible?"none":"translateY(24px)", transition:"opacity 0.6s ease, transform 0.6s ease", marginBottom:24 }}>
-          <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(242,237,230,0.3)", marginBottom:8 }}>Par besoin</div>
-          <h2 style={{ margin:0, fontSize:"clamp(22px,3vw,36px)", fontWeight:950, letterSpacing:-1, color:C.warm, lineHeight:1 }}>Trouvez l'essentiel qui vous correspond</h2>
-        </div>
-        <div className="catgrid" style={{ display:"grid", gap:14 }}>
-          {CATS.map((cat,i)=><CatCardAnimated key={cat.label} cat={cat} index={i} visible={catVisible}/>)}
-        </div>
-      </div>
-
-      <Divider from={C.bg} to={C.light}/>
-
-      {/* ══════════════════════════════════════════════════════════════════════
-          ── SECTION 1 : ÉDITO GAUCHE + PHOTO DROITE ──
-          "Parce que les parents n'ont pas besoin de plus de mignon"
-      ══════════════════════════════════════════════════════════════════════ */}
-      <div style={{ background:C.light }}>
-        <div className="split-section" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", minHeight:480, alignItems:"stretch" }}>
-
-          {/* Texte gauche */}
-          <div style={{ padding:"clamp(40px,6vw,80px) 5vw clamp(40px,6vw,80px) 5vw", display:"flex", flexDirection:"column", justifyContent:"center" }}>
-            <Reveal>
-              {/* CORRECTION 2a : texte amber → blanc */}
-              <p style={{ margin:"0 0 6px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>Parce que les parents n'ont pas besoin de plus de "mignon",</p>
-              <p style={{ margin:"0 0 20px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>mais de moins de charge mentale.</p>
-              <p style={{ margin:0, fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles.</p>
-            </Reveal>
-          </div>
-
-          {/* Photo droite — pieds bébé */}
-          <Reveal delay={0.1}>
-            <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
-              <Image
-                src="/images/home/milk_pieds_chaussettes_logo_sol.webp"
-                alt="M!LK — pieds bébé"
-                fill
-                sizes="50vw"
-                style={{ objectFit:"cover", objectPosition:"center" }}
-              />
-              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to right, rgba(216,200,176,0.3) 0%, transparent 40%)" }}/>
-            </div>
-          </Reveal>
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            ── GALERIE MASONRY 4 photos ──
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="photos-masonry" style={{ display:"grid", gridTemplateColumns:"repeat(4,1fr)", gap:3, padding:"3px" }}>
-          {PHOTOS.map((photo, i) => (
-            <Reveal key={i} delay={i * 0.08}>
-              <div
-                className="photo-hover"
-                style={{
-                  position:"relative",
-                  aspectRatio: "1/1",
-                  overflow:"hidden",
-                  borderRadius:4,
-                  cursor:"pointer",
-                  transition:"transform 0.4s cubic-bezier(0.34,1.56,0.64,1)",
-                }}
-              >
-                <Image
-                  src={photo.src}
-                  alt={photo.alt}
-                  fill
-                  sizes="25vw"
-                  style={{ objectFit:"cover", transition:"transform 0.6s ease" }}
-                />
-                <div style={{ position:"absolute", inset:0, background:"linear-gradient(to top, rgba(26,20,16,0.65) 0%, transparent 50%)" }}/>
-                <div
-                  className="photo-label"
-                  style={{
-                    position:"absolute", bottom:0, left:0, right:0,
-                    padding:"12px 14px",
-                    fontSize:12, fontWeight:800, color:C.warm,
-                    letterSpacing:0.5,
-                    opacity:0,
-                    transform:"translateY(8px)",
-                    transition:"opacity 0.3s ease, transform 0.3s ease",
-                  }}
-                >
-                  {photo.label}
-                </div>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        {/* ══════════════════════════════════════════════════════════════════
-            ── SECTION 2 : PHOTO GAUCHE + ÉDITO DROITE ──
-            "M!LK n'est pas une marque de vêtements."
-        ══════════════════════════════════════════════════════════════════ */}
-        <div className="split-section" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", minHeight:480, alignItems:"stretch" }}>
-
-          {/* Photo gauche — étagère nursery */}
-          <Reveal>
-            <div style={{ position:"relative", height:"100%", minHeight:400, overflow:"hidden" }}>
-              <Image
-                src="/images/home/milk_pyjamas_flatlay_blanc.webp"
-                alt="M!LK — pyjamas flatlay"
-                fill
-                sizes="50vw"
-                style={{ objectFit:"cover", objectPosition:"center" }}
-              />
-              <div style={{ position:"absolute", inset:0, background:"linear-gradient(to left, rgba(216,200,176,0.3) 0%, transparent 40%)" }}/>
-            </div>
-          </Reveal>
-
-          {/* Texte droite */}
-          <div style={{ padding:"clamp(40px,6vw,80px) 5vw", display:"flex", flexDirection:"column", justifyContent:"center" }}>
-            <Reveal delay={0.1}>
-              {/* CORRECTION 2b : texte amber → blanc */}
-              <p style={{ margin:"0 0 6px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>M!LK n'est pas une marque de vêtements.</p>
-              <p style={{ margin:"0 0 20px", fontSize:"clamp(20px,3.2vw,48px)", fontWeight:950, lineHeight:1.1, color:C.dark, letterSpacing:-1 }}>C'est une réponse aux petites galères répétées.</p>
-              <p style={{ margin:"0 0 28px", fontSize:"clamp(13px,1.4vw,17px)", color:"rgba(26,20,16,0.5)", lineHeight:1.7 }}>Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.</p>
-              <Link href="/produits" style={{ display:"inline-flex", alignItems:"center", gap:8, padding:"14px 24px", borderRadius:12, background:C.dark, color:C.warm, fontWeight:900, fontSize:14, textDecoration:"none", width:"fit-content" }}>
-                Voir la collection →
-              </Link>
-            </Reveal>
-          </div>
-        </div>
-
-        {/* ── BANNER ARTISAN ── */}
-        <Reveal>
-          <div style={{ position:"relative", height:"clamp(200px,25vw,380px)", overflow:"hidden", margin:"3px 0" }}>
-            <Image
-              src="/images/home/milk_col_pyjama_table_ciseaux.webp"
-              alt="M!LK — atelier bambou"
-              fill
-              sizes="100vw"
-              style={{ objectFit:"cover", objectPosition:"center 40%" }}
-            />
-            <div style={{ position:"absolute", inset:0, background:"linear-gradient(135deg, rgba(26,20,16,0.7) 0%, rgba(26,20,16,0.3) 60%, transparent 100%)" }}/>
-            <div style={{ position:"absolute", inset:0, display:"flex", alignItems:"center", padding:"0 6vw" }}>
-              <div>
-                <div style={{ fontSize:10, fontWeight:800, letterSpacing:4, textTransform:"uppercase", color:C.amber, marginBottom:10 }}>Notre matière signature</div>
-                <p style={{ margin:"0 0 16px", fontSize:"clamp(22px,3.5vw,52px)", fontWeight:950, color:C.warm, letterSpacing:-1, lineHeight:1, maxWidth:600 }}>Le bambou,<br/>certifié OEKO-TEX.</p>
-                <Link href="/pourquoi-bambou" style={{ fontSize:14, fontWeight:800, color:C.amber, textDecoration:"none" }}>Découvrir pourquoi →</Link>
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-
-      <Divider from={C.light} to={C.taupe}/>
-
-      {/* ── CADEAU ── */}
-      <div style={{ background:C.taupe, padding:"56px 5vw" }}>
-        <Reveal>
-          <div className="cadeau-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:48, alignItems:"center" }}>
-            <div>
-              <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:12 }}>Idée cadeau</div>
-              <h2 style={{ margin:"0 0 16px", fontSize:"clamp(24px,3.5vw,42px)", fontWeight:950, letterSpacing:-1.5, color:C.dark, lineHeight:1.05 }}>Le cadeau de naissance qui change vraiment la vie.</h2>
-              <p style={{ margin:"0 0 16px", fontSize:"clamp(14px,1.4vw,17px)", color:"rgba(26,20,16,0.65)", lineHeight:1.75 }}>Pas un énième doudou. Pas un vêtement trop petit en trois semaines. M!LK, c'est le cadeau qu'on n'ose pas s'offrir soi-même — mais qu'on utilise toutes les nuits.</p>
-              <p style={{ margin:"0 0 24px", fontSize:"clamp(13px,1.3vw,15px)", color:"rgba(26,20,16,0.5)", lineHeight:1.75 }}>Parfait pour les listes de naissance, les baby showers, les coffrets nouveau-né. En bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.</p>
-              <div style={{ display:"flex", gap:12, flexWrap:"wrap" }} className="gift-btns">
-                <Link href="/produits" style={{ padding:"14px 24px", borderRadius:12, background:C.dark, color:C.warm, fontWeight:900, fontSize:15, textDecoration:"none", display:"inline-block" }}>Voir les essentiels →</Link>
-                <Link href="/produits" style={{ padding:"14px 24px", borderRadius:12, border:`2px solid ${C.dark}`, color:C.dark, fontWeight:700, fontSize:15, textDecoration:"none", display:"inline-block" }}>Liste de naissance</Link>
-              </div>
-            </div>
-
-            {/* Photo ventre + cards */}
-            <div>
-              <Reveal delay={0.1}>
-                <div style={{ position:"relative", width:"100%", aspectRatio:"4/3", borderRadius:20, overflow:"hidden", marginBottom:16 }}>
-                  <Image
-                    src="/images/home/milk_baby_shower_ventre_bodysuit.webp"
-                    alt="M!LK — cadeau de naissance"
-                    fill
-                    sizes="45vw"
-                    style={{ objectFit:"cover", objectPosition:"center" }}
-                  />
-                </div>
-              </Reveal>
-              <div className="gift-grid" style={{ display:"grid", gridTemplateColumns:"1fr 1fr", gap:12 }}>
-                {[{titre:"Liste de naissance",desc:"Ajoutez M!LK à votre liste. Les futurs parents vous remercieront."},{titre:"Baby shower",desc:"Un coffret 2-3 pièces bambou. Pratique, beau, zéro déchet de style."},{titre:"Cadeau de naissance",desc:"Livraison rapide. Le bon cadeau pour les premières semaines."},{titre:"Coffret nouveau-né",desc:"Body + gigoteuse + lange. L'essentiel réuni dans un coffret simplifié."}].map(item=>(
-                  <Reveal key={item.titre}>
-                    <div style={{ padding:"18px 16px", borderRadius:14, background:C.light, border:"1px solid rgba(26,20,16,0.1)", boxShadow:"0 4px 14px rgba(0,0,0,0.1)", transform:"translateY(-2px)" }}>
-                      <div style={{ fontWeight:900, fontSize:13, color:C.dark, marginBottom:6 }}>{item.titre}</div>
-                      <div style={{ fontSize:12, color:"rgba(26,20,16,0.55)", lineHeight:1.6 }}>{item.desc}</div>
-                    </div>
-                  </Reveal>
-                ))}
-              </div>
-            </div>
-          </div>
-        </Reveal>
-      </div>
-
-      <Divider from={C.taupe} to={C.light}/>
-
-      {/* ── ACCORDÉONS ── */}
-      <div style={{ background:C.light, padding:"48px 5vw", display:"grid", gap:14 }}>
-
-        <Reveal>
-          <HoverAccordion title="La vérité des parents" tag="Nuits · Habillage · Sommeil">
-            <div className="tgrid" style={{ display:"grid", gap:14 }}>
-              {[{label:"Nuits pourries",tension:"Se lever 5 fois, changer une couche dans le noir, rendormir un bébé hurlant.",benefice:"Des vêtements pensés pour changer vite sans tout défaire."},{label:"Habillage combat",tension:"Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",benefice:"Des ouvertures intelligentes, 3 gestes max, c'est fait."},{label:"Sommeil fragile",tension:"Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait au premier mouvement.",benefice:"Un lange qui tient et calme le réflexe de Moro."}].map(card=>
-                acard(<>
-                  <div style={{ padding:"16px 18px 12px" }}>
-                    <div style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:"rgba(242,237,230,0.2)", marginBottom:6 }}>La tension</div>
-                    <div style={{ fontSize:"clamp(15px,1.6vw,18px)", fontWeight:950, color:C.warm, letterSpacing:-0.5, marginBottom:8, lineHeight:1.1 }}>{card.label}</div>
-                    <p style={{ margin:0, fontSize:"clamp(12px,1.1vw,13px)", color:C.muted, lineHeight:1.7 }}>{card.tension}</p>
-                  </div>
-                  <div style={{ padding:"10px 18px 16px", background:"rgba(196,154,74,0.07)", borderTop:`1px solid ${C.faint}` }}>
-                    <div style={{ fontSize:9, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:6 }}>Le bénéfice M!LK</div>
-                    <p style={{ margin:0, fontSize:"clamp(12px,1.2vw,14px)", color:C.warm, lineHeight:1.6, fontWeight:800 }}>{card.benefice}</p>
-                  </div>
-                </>, card.label)
-              )}
-            </div>
-          </HoverAccordion>
-        </Reveal>
-
-        <Reveal delay={0.05}>
-          <HoverAccordion title="Comment on conçoit nos essentiels" tag="Notre approche">
-            <div className="pillars" style={{ display:"grid", gap:12 }}>
-              {["Chaque seconde compte à 3h du mat'","Zéro compromis sur la sécurité","Matières douces et certifiées","Testés par de vrais parents fatigués"].map((pillar,i)=>
-                acard(<div style={{ padding:"16px 18px", display:"flex", gap:12, alignItems:"flex-start" }}>
-                  <div style={{ width:28, height:28, borderRadius:"50%", background:C.amber, display:"flex", alignItems:"center", justifyContent:"center", flexShrink:0 }}><span style={{ color:C.dark, fontWeight:900, fontSize:12 }}>{i+1}</span></div>
-                  <div style={{ fontWeight:800, fontSize:"clamp(12px,1.2vw,14px)", color:C.warm, lineHeight:1.45 }}>{pillar}</div>
-                </div>, pillar)
-              )}
-            </div>
-          </HoverAccordion>
-        </Reveal>
-
-        <Reveal delay={0.1}>
-          <HoverAccordion title="La différence M!LK" tag="Classique vs M!LK">
-            <div>
-              <div style={{ borderRadius:14, overflow:"hidden", border:"1px solid rgba(196,154,74,0.12)", marginBottom:20, boxShadow:"0 6px 20px rgba(0,0,0,0.3)", transform:"translateY(-2px)" }}>
-                <div className="comptable" style={{ display:"grid", background:C.bg }}>
-                  {["Situation","Classique","M!LK"].map((h,i)=><div key={h} style={{ padding:"12px 16px", fontSize:11, fontWeight:i===2?900:700, color:i===2?C.amber:"rgba(242,237,230,0.3)", textTransform:"uppercase", letterSpacing:1, borderLeft:i>0?`1px solid ${C.faint}`:"none" }}>{h}</div>)}
-                </div>
-                {[{s:"Change de nuit",c:"Défaire tout le pyjama",m:"Zip inversé, 30 sec"},{s:"Boutons-pression",c:"8 à 12 à aligner",m:"3 max, bien placés"},{s:"Emmaillotage",c:"Se défait, bébé sursaute",m:"Tient toute la nuit"},{s:"Habillage",c:"Combat quotidien",m:"2-3 gestes, c'est fait"},{s:"Conception",c:"Pour faire joli",m:"Pour simplifier"}].map((row,i)=>(
-                  <div key={row.s} className="comptable" style={{ display:"grid", borderTop:`1px solid ${C.faint}`, background:i%2===0?"#3a2210":C.bg }}>
-                    <div style={{ padding:"10px 16px", fontWeight:700, color:C.warm, fontSize:"clamp(11px,1.1vw,13px)" }}>{row.s}</div>
-                    <div style={{ padding:"10px 16px", color:"rgba(242,237,230,0.25)", fontSize:"clamp(10px,1vw,12px)", borderLeft:`1px solid ${C.faint}`, textDecoration:"line-through" }}>{row.c}</div>
-                    <div style={{ padding:"10px 16px", color:C.amber, fontWeight:800, fontSize:"clamp(10px,1vw,12px)", borderLeft:`1px solid ${C.faint}` }}>{row.m}</div>
-                  </div>
-                ))}
-              </div>
-              {acard(<div style={{ padding:"20px 24px" }}>
-                <div style={{ fontSize:36, color:C.amber, lineHeight:0.8, marginBottom:10, fontFamily:"Georgia,serif", fontWeight:900 }}>"</div>
-                <p style={{ margin:"0 0 8px", fontSize:"clamp(14px,1.8vw,20px)", color:C.warm, fontWeight:800, fontStyle:"italic", lineHeight:1.45 }}>Premier pyjama où je n'ai pas eu envie de pleurer à 4h du mat'.</p>
-                <div style={{ fontSize:13, color:C.muted, fontWeight:600 }}>— Marie, maman de Léo</div>
-              </div>)}
-            </div>
-          </HoverAccordion>
-        </Reveal>
-
-        <Reveal delay={0.15}>
-          <HoverAccordion title="Des parents, pas des acteurs" tag="Ce qu'on entend">
-            <div className="rgrid" style={{ display:"grid", gap:14 }}>
-              {[{name:"Thomas R.",role:"Papa de Luna",text:"La gigoteuse à nouer a sauvé nos premières semaines. Pas d'exagération."},{name:"Sarah K.",role:"Maman de Noah",text:"Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée."},{name:"Amina B.",role:"Maman de Samy, 3 mois",text:"Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins."},{name:"Julie D.",role:"Maman d'Emma, née en juin",text:"Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis."}].map(r=>
-                acard(<div style={{ padding:"16px 18px" }}>
-                  <div style={{ display:"flex", marginBottom:8 }}>{[...Array(5)].map((_,j)=><span key={j} style={{ color:C.amber, fontSize:13 }}>★</span>)}</div>
-                  <p style={{ margin:"0 0 10px", fontSize:"clamp(12px,1.2vw,14px)", color:C.muted, lineHeight:1.7, fontStyle:"italic" }}>&ldquo;{r.text}&rdquo;</p>
-                  <div style={{ fontWeight:800, fontSize:13, color:C.warm }}>{r.name}</div>
-                  <div style={{ fontSize:11, color:"rgba(242,237,230,0.3)", marginTop:2 }}>{r.role}</div>
-                </div>, r.name)
-              )}
-            </div>
-          </HoverAccordion>
-        </Reveal>
-
-      </div>
-
-      <Divider from={C.light} to={C.bg}/>
-
-      {/* ── CTA FINAL ── */}
-      <section style={{ padding:"40px 5vw", textAlign:"center", background:C.bg }}>
-        <Reveal>
-          <div style={{ maxWidth:900, margin:"0 auto" }}>
-            <div style={{ fontSize:11, fontWeight:800, letterSpacing:3, textTransform:"uppercase", color:C.amber, marginBottom:12 }}>Prêts pour moins de galères au quotidien ?</div>
-            <h2 style={{ margin:"0 0 12px", fontSize:"clamp(22px,3.8vw,48px)", fontWeight:950, letterSpacing:-2, color:C.warm, lineHeight:1.05 }}>
-              Des essentiels conçus pour les vraies nuits, <span style={{ color:C.amber }}>les vrais matins, la vraie vie de parent.</span>
-            </h2>
-            <p style={{ margin:"0 0 20px", fontSize:"clamp(13px,1.4vw,16px)", color:C.muted, lineHeight:1.6 }}>Des essentiels bébé. Sans le superflu.</p>
-            <div style={{ display:"flex", gap:12, justifyContent:"center", flexWrap:"wrap" }}>
-              <Link href="/produits" style={{ padding:"15px 32px", borderRadius:14, background:C.warm, color:C.dark, fontWeight:900, fontSize:"clamp(14px,1.5vw,17px)", textDecoration:"none", display:"inline-block" }}>Shopper les essentiels →</Link>
-              <Link href="/qui-sommes-nous" style={{ padding:"15px 32px", borderRadius:14, border:`1px solid ${C.faint}`, color:C.muted, fontWeight:700, fontSize:"clamp(13px,1.4vw,16px)", textDecoration:"none", display:"inline-block" }}>Notre histoire</Link>
-            </div>
-          </div>
-        </Reveal>
-      </section>
+      <CadeauSection />
+      <AccordionsSection />
+      <FinalCTA />
     </div>
   );
 }

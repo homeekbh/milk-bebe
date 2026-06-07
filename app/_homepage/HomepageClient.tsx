@@ -280,20 +280,11 @@ function Hero() {
   const [scrollY, setScrollY] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const ticking = useRef(false);
-  // Hauteur enveloppe figée au mount — ne se recalcule pas sur resize-height
-  // (sinon la barre d'adresse iOS qui se rétracte casse l'anim).
-  const heroH = useRef(800);
 
   useEffect(() => {
     setMounted(true);
     if (typeof window === "undefined") return;
-    heroH.current = window.innerHeight;
-    const mobile = window.matchMedia("(max-width: 700px)").matches;
-    setIsMobile(mobile);
-    if (mobile) {
-      // Enveloppe scroll = 2 × innerHeight, exposée via CSS variable
-      document.documentElement.style.setProperty("--milk-hero-wrap-h", `${window.innerHeight * 2}px`);
-    }
+    setIsMobile(window.matchMedia("(max-width: 700px)").matches);
     // Resize : on n'écoute QUE le changement de largeur (orientation/window),
     // pas la hauteur (qui bouge avec la barre d'adresse iOS).
     let lastW = window.innerWidth;
@@ -301,14 +292,7 @@ function Hero() {
       const w = window.innerWidth;
       if (w === lastW) return;
       lastW = w;
-      const m = window.matchMedia("(max-width: 700px)").matches;
-      setIsMobile(m);
-      if (m) {
-        heroH.current = window.innerHeight;
-        document.documentElement.style.setProperty("--milk-hero-wrap-h", `${window.innerHeight * 2}px`);
-      } else {
-        document.documentElement.style.removeProperty("--milk-hero-wrap-h");
-      }
+      setIsMobile(window.matchMedia("(max-width: 700px)").matches);
     };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
@@ -331,39 +315,25 @@ function Hero() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Desktop : parallax doux, contenu visible dès le départ (logo bas-gauche).
+  // Desktop : parallax doux + contenu qui fade au scroll (effet WAW conservé).
   const photoY        = Math.min(scrollY * 0.35, 300);
   const logoY         = Math.min(scrollY * 0.18, 200);
   const desktopContY  = Math.min(scrollY * 0.55, 400);
   const desktopContOp = Math.max(0, 1 - scrollY / 600);
 
-  // Mobile : enveloppe 2×svh + sticky 100svh + phases logo↔contenu mutuellement
-  // exclusives. sp = 0 au top, 1 quand on a scrollé 1×svh (= moitié du hero).
-  const mH            = heroH.current || 800;
-  const sp            = mH > 0 ? scrollY / mH : 0;
-  const mobileLogoOp  = Math.max(0, 1 - sp * 2.4);                    // fade-out sur 0..0.42
-  const mobileLogoTY  = sp * 70;                                       // léger translateY
-  const mobileContOp  = Math.max(0, Math.min(1, (sp - 0.45) * 3));     // fade-in après 0.45
-  const mobileContTY  = (1 - mobileContOp) * 24;
-  const mobilePhotoSc = 1.0 + Math.min(sp * 0.05, 0.10);               // zoom 1.0 → 1.10
-
-  // Sélection finale selon plateforme
-  const logoOp      = isMobile ? mobileLogoOp : 1;
-  const logoTrans   = isMobile
-    ? `translate(-50%, calc(-50% + ${mobileLogoTY}px))`
-    : `translateY(${-logoY}px)`;
-  const contOp      = isMobile ? mobileContOp : desktopContOp;
-  const contTrans   = isMobile
-    ? `translateY(${mobileContTY}px)`
-    : `translateY(${-desktopContY * 0.3}px)`;
-  const photoScale  = isMobile ? mobilePhotoSc : (mounted ? 1.04 : 1.12);
+  // Mobile : hero simple 85svh, tout visible dès le premier paint.
+  // Logo discret bottom-left (watermark), contenu lisible directement,
+  // pas de scroll-driven complexe qui ferait apparaître du vide.
+  const logoOp      = isMobile ? 0.78 : 1;
+  const logoTrans   = isMobile ? "none" : `translateY(${-logoY}px)`;
+  const contOp      = isMobile ? 1 : desktopContOp;
+  const contTrans   = isMobile ? "none" : `translateY(${-desktopContY * 0.3}px)`;
+  const photoScale  = isMobile ? (mounted ? 1.02 : 1.06) : (mounted ? 1.04 : 1.12);
   const photoTrans  = isMobile
     ? `translateY(0) scale(${photoScale})`
     : `translateY(${photoY}px) scale(${photoScale})`;
   const badgeOp     = isMobile ? 0 : (mounted ? 0.95 : 0); // mobile : badge masqué
-  const hintOp      = isMobile
-    ? Math.max(0, mobileLogoOp - 0.3) * 0.7
-    : (mounted ? 0.6 : 0);
+  const hintOp      = isMobile ? 0 : (mounted ? 0.6 : 0);   // mobile : hint masqué (cohabite mal avec chat)
 
   const LETTERS = ["M", "!", "L", "K"];
 
@@ -1940,58 +1910,57 @@ export default function HomePage() {
           .milk-band-stats > div { padding-right: 14px !important; margin-right: 14px !important; }
           .milk-heroband-badge { display: none !important; }
 
-          /* ───── HERO MOBILE ───── */
-          /* Enveloppe scroll = 2× innerHeight (figée par JS au mount via var CSS) */
+          /* ───── HERO MOBILE — section simple 85svh, contenu visible direct ───── */
           .milk-hero-root {
-            height: var(--milk-hero-wrap-h, 200svh) !important;
-            min-height: 0 !important;
-            overflow: visible !important;
+            height: 85svh !important;
+            min-height: 560px !important;
+            max-height: 820px !important;
+            overflow: hidden !important;
+            background: #f2ede6 !important; /* cream fallback explicite — jamais gris */
           }
-          /* Étage sticky 100svh : la photo + logo + contenu restent collés en haut */
-          .milk-hero-sticky {
-            position: sticky !important;
-            inset: auto !important;
-            top: 0 !important;
-            height: 100svh !important;
-            min-height: -webkit-fill-available;
-          }
-          /* Logo centré dans le viewport (override bottom-left desktop) */
+          /* Inner reste absolute inset 0 (default desktop), pas de sticky ici */
+          .milk-hero-sticky { background: #f2ede6 !important; }
+          /* Logo discret bottom-left (watermark) */
           .milk-hero-logo-wrap {
-            bottom: auto !important;
-            left: 50% !important;
-            top: 50% !important;
+            bottom: 3.5vh !important;
+            left: 4vw !important;
+            top: auto !important;
           }
           .milk-hero-logo {
-            font-size: clamp(72px, 26vw, 140px) !important;
-            letter-spacing: 0.01em !important;
+            font-size: clamp(48px, 16vw, 96px) !important;
+            letter-spacing: 0.02em !important;
           }
-          /* Pas de float animation en mobile (jank potentiel) */
           .milk-logo-float { animation: none !important; }
-          /* Badge OEKO masqué */
+          /* Badge OEKO + hint Découvrir masqués (cohabitation chat impossible) */
           .milk-hero-badge { display: none !important; }
-          /* H1 : letter-spacing détendu — "Sans compromis" ne se colle plus */
+          .milk-hero-hint  { display: none !important; }
+          /* Contenu : padding adapté à un hero 85svh, lisible sans scroll */
+          .milk-hero-content {
+            padding: clamp(56px, 10vh, 100px) 5vw clamp(70px, 12vh, 120px) !important;
+          }
+          /* H1 mobile : letter-spacing détendu, "Sans compromis" ne se colle plus */
           .milk-hero-h1 {
             letter-spacing: -0.5px !important;
             word-spacing: normal !important;
-            font-size: clamp(34px, 9vw, 56px) !important;
-            line-height: 1.02 !important;
+            font-size: clamp(32px, 8.5vw, 50px) !important;
+            line-height: 1.05 !important;
           }
-          /* Voile : bottom-only chaud, plus de gris diagonal qui délave tout */
+          /* Voile bottom-only chaud (plus de gris diagonal qui délave tout) */
           .milk-hero-veil {
             background: linear-gradient(to top,
-              rgba(13,11,9,0.85) 0%,
-              rgba(60,38,22,0.55) 25%,
-              rgba(13,11,9,0.18) 55%,
+              rgba(13,11,9,0.78) 0%,
+              rgba(60,38,22,0.45) 25%,
+              rgba(13,11,9,0.15) 55%,
               transparent 78%
             ) !important;
           }
-          /* CTA secondaire : bordure et fond plus contrastés pour qu'il soit visible */
+          /* CTA "Pourquoi le bambou ?" : contraste renforcé */
           .milk-hero-cta-secondary {
             background: rgba(13,11,9,0.65) !important;
             border: 1.5px solid rgba(242,237,230,0.85) !important;
             backdrop-filter: blur(10px) !important;
           }
-          /* Ticker bandeau : police réduite, padding compact, pas de débordement */
+          /* Ticker bandeau : police réduite, pas de débordement */
           .milk-tk { font-size: 11px !important; }
           .milk-tk > span {
             font-size: 11px !important;

@@ -278,9 +278,41 @@ function Topbar({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
 function Hero() {
   const [mounted, setMounted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const ticking = useRef(false);
+  // Hauteur enveloppe figée au mount — ne se recalcule pas sur resize-height
+  // (sinon la barre d'adresse iOS qui se rétracte casse l'anim).
+  const heroH = useRef(800);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+    if (typeof window === "undefined") return;
+    heroH.current = window.innerHeight;
+    const mobile = window.matchMedia("(max-width: 700px)").matches;
+    setIsMobile(mobile);
+    if (mobile) {
+      // Enveloppe scroll = 2 × innerHeight, exposée via CSS variable
+      document.documentElement.style.setProperty("--milk-hero-wrap-h", `${window.innerHeight * 2}px`);
+    }
+    // Resize : on n'écoute QUE le changement de largeur (orientation/window),
+    // pas la hauteur (qui bouge avec la barre d'adresse iOS).
+    let lastW = window.innerWidth;
+    const onResize = () => {
+      const w = window.innerWidth;
+      if (w === lastW) return;
+      lastW = w;
+      const m = window.matchMedia("(max-width: 700px)").matches;
+      setIsMobile(m);
+      if (m) {
+        heroH.current = window.innerHeight;
+        document.documentElement.style.setProperty("--milk-hero-wrap-h", `${window.innerHeight * 2}px`);
+      } else {
+        document.documentElement.style.removeProperty("--milk-hero-wrap-h");
+      }
+    };
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -299,11 +331,39 @@ function Hero() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // Parallax : photo descend plus lentement que le scroll (effet de profondeur)
-  const photoY  = Math.min(scrollY * 0.35, 300);
-  const logoY   = Math.min(scrollY * 0.18, 200);
-  const contY   = Math.min(scrollY * 0.55, 400);
-  const contOp  = Math.max(0, 1 - scrollY / 600);
+  // Desktop : parallax doux, contenu visible dès le départ (logo bas-gauche).
+  const photoY        = Math.min(scrollY * 0.35, 300);
+  const logoY         = Math.min(scrollY * 0.18, 200);
+  const desktopContY  = Math.min(scrollY * 0.55, 400);
+  const desktopContOp = Math.max(0, 1 - scrollY / 600);
+
+  // Mobile : enveloppe 2×svh + sticky 100svh + phases logo↔contenu mutuellement
+  // exclusives. sp = 0 au top, 1 quand on a scrollé 1×svh (= moitié du hero).
+  const mH            = heroH.current || 800;
+  const sp            = mH > 0 ? scrollY / mH : 0;
+  const mobileLogoOp  = Math.max(0, 1 - sp * 2.4);                    // fade-out sur 0..0.42
+  const mobileLogoTY  = sp * 70;                                       // léger translateY
+  const mobileContOp  = Math.max(0, Math.min(1, (sp - 0.45) * 3));     // fade-in après 0.45
+  const mobileContTY  = (1 - mobileContOp) * 24;
+  const mobilePhotoSc = 1.0 + Math.min(sp * 0.05, 0.10);               // zoom 1.0 → 1.10
+
+  // Sélection finale selon plateforme
+  const logoOp      = isMobile ? mobileLogoOp : 1;
+  const logoTrans   = isMobile
+    ? `translate(-50%, calc(-50% + ${mobileLogoTY}px))`
+    : `translateY(${-logoY}px)`;
+  const contOp      = isMobile ? mobileContOp : desktopContOp;
+  const contTrans   = isMobile
+    ? `translateY(${mobileContTY}px)`
+    : `translateY(${-desktopContY * 0.3}px)`;
+  const photoScale  = isMobile ? mobilePhotoSc : (mounted ? 1.04 : 1.12);
+  const photoTrans  = isMobile
+    ? `translateY(0) scale(${photoScale})`
+    : `translateY(${photoY}px) scale(${photoScale})`;
+  const badgeOp     = isMobile ? 0 : (mounted ? 0.95 : 0); // mobile : badge masqué
+  const hintOp      = isMobile
+    ? Math.max(0, mobileLogoOp - 0.3) * 0.7
+    : (mounted ? 0.6 : 0);
 
   const LETTERS = ["M", "!", "L", "K"];
 
@@ -332,10 +392,10 @@ function Hero() {
           style={{
             position: "absolute",
             inset:    "-10% 0 -10% 0",
-            transform: `translateY(${photoY}px) scale(${mounted ? 1.04 : 1.12})`,
+            transform: photoTrans,
             transformOrigin: "center",
             willChange: "transform",
-            transition: "transform 1.8s cubic-bezier(0.22,1,0.36,1)",
+            transition: mounted ? "none" : "transform 1.8s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
           <Image
@@ -346,7 +406,9 @@ function Hero() {
             sizes="100vw"
             style={{ objectFit: "cover", objectPosition: "center" }}
           />
+          {/* Voile : confiné au hero. Sur desktop = diagonal, sur mobile = bottom-only chaud. */}
           <div
+            className="milk-hero-veil"
             style={{
               position:   "absolute",
               inset:      0,
@@ -356,7 +418,7 @@ function Hero() {
           />
         </div>
 
-        {/* Logo M!LK — bas-gauche, watermark, lettres en cascade + float */}
+        {/* Logo M!LK — bas-gauche (desktop) / centré (mobile), lettres en cascade */}
         <div
           aria-hidden
           className="milk-hero-logo-wrap"
@@ -366,8 +428,9 @@ function Hero() {
             left:            "2vw",
             pointerEvents:   "none",
             zIndex:          1,
-            transform:       `translateY(${-logoY}px)`,
-            willChange:      "transform",
+            transform:       logoTrans,
+            opacity:         logoOp,
+            willChange:      "transform, opacity",
           }}
         >
           <div
@@ -402,7 +465,7 @@ function Hero() {
           </div>
         </div>
 
-        {/* Badge OEKO rotation — posé sur la photo, à droite */}
+        {/* Badge OEKO rotation — desktop seulement (display:none en mobile) */}
         <div
           aria-hidden
           className="milk-hero-badge"
@@ -413,7 +476,7 @@ function Hero() {
             transform: `translateY(calc(-50% + ${-logoY * 0.5}px))`,
             zIndex:    2,
             pointerEvents: "none",
-            opacity:   mounted ? 0.95 : 0,
+            opacity:   badgeOp,
             transition: "opacity 1.2s ease 0.6s",
           }}
         >
@@ -425,7 +488,7 @@ function Hero() {
           </svg>
         </div>
 
-        {/* Bloc contenu : H1 + tags + sous-titre + CTAs (stats déplacées dans HeroBand) */}
+        {/* Bloc contenu : H1 + tags + sous-titre + CTAs */}
         <div
           className="milk-hero-content"
           style={{
@@ -436,9 +499,10 @@ function Hero() {
             justifyContent: "flex-start",
             padding:    "clamp(80px, 14vh, 160px) 5vw clamp(160px, 22vh, 240px)",
             opacity:    contOp,
-            transform:  `translateY(${-contY * 0.3}px)`,
+            transform:  contTrans,
             willChange: "transform, opacity",
             zIndex:     3,
+            pointerEvents: contOp < 0.05 ? "none" : "auto",
           }}
         >
           <div style={{ maxWidth: 720 }}>
@@ -464,6 +528,7 @@ function Hero() {
 
             {/* H1 */}
             <h1
+              className="milk-hero-h1"
               style={{
                 margin:        "0 0 18px",
                 fontSize:      "clamp(34px, 6.5vw, 84px)",
@@ -536,9 +601,10 @@ function Hero() {
           </div>
         </div>
 
-        {/* Indicateur Découvrir */}
+        {/* Indicateur Découvrir — disparaît en même temps que le logo en mobile */}
         <div
           aria-hidden
+          className="milk-hero-hint"
           style={{
             position:  "absolute",
             bottom:    20,
@@ -548,9 +614,9 @@ function Hero() {
             flexDirection: "column",
             alignItems:"center",
             gap:       6,
-            opacity:   mounted ? 0.6 : 0,
+            opacity:   hintOp,
             pointerEvents: "none",
-            transition:"opacity 0.6s ease 1s",
+            transition: isMobile ? "none" : "opacity 0.6s ease 1s",
             zIndex:    3,
           }}
         >
@@ -1873,7 +1939,65 @@ export default function HomePage() {
           .milk-band-stats { gap: 14px 0 !important; }
           .milk-band-stats > div { padding-right: 14px !important; margin-right: 14px !important; }
           .milk-heroband-badge { display: none !important; }
-          .milk-hero-root { height: 100svh !important; }
+
+          /* ───── HERO MOBILE ───── */
+          /* Enveloppe scroll = 2× innerHeight (figée par JS au mount via var CSS) */
+          .milk-hero-root {
+            height: var(--milk-hero-wrap-h, 200svh) !important;
+            min-height: 0 !important;
+            overflow: visible !important;
+          }
+          /* Étage sticky 100svh : la photo + logo + contenu restent collés en haut */
+          .milk-hero-sticky {
+            position: sticky !important;
+            inset: auto !important;
+            top: 0 !important;
+            height: 100svh !important;
+            min-height: -webkit-fill-available;
+          }
+          /* Logo centré dans le viewport (override bottom-left desktop) */
+          .milk-hero-logo-wrap {
+            bottom: auto !important;
+            left: 50% !important;
+            top: 50% !important;
+          }
+          .milk-hero-logo {
+            font-size: clamp(72px, 26vw, 140px) !important;
+            letter-spacing: 0.01em !important;
+          }
+          /* Pas de float animation en mobile (jank potentiel) */
+          .milk-logo-float { animation: none !important; }
+          /* Badge OEKO masqué */
+          .milk-hero-badge { display: none !important; }
+          /* H1 : letter-spacing détendu — "Sans compromis" ne se colle plus */
+          .milk-hero-h1 {
+            letter-spacing: -0.5px !important;
+            word-spacing: normal !important;
+            font-size: clamp(34px, 9vw, 56px) !important;
+            line-height: 1.02 !important;
+          }
+          /* Voile : bottom-only chaud, plus de gris diagonal qui délave tout */
+          .milk-hero-veil {
+            background: linear-gradient(to top,
+              rgba(13,11,9,0.85) 0%,
+              rgba(60,38,22,0.55) 25%,
+              rgba(13,11,9,0.18) 55%,
+              transparent 78%
+            ) !important;
+          }
+          /* CTA secondaire : bordure et fond plus contrastés pour qu'il soit visible */
+          .milk-hero-cta-secondary {
+            background: rgba(13,11,9,0.65) !important;
+            border: 1.5px solid rgba(242,237,230,0.85) !important;
+            backdrop-filter: blur(10px) !important;
+          }
+          /* Ticker bandeau : police réduite, padding compact, pas de débordement */
+          .milk-tk { font-size: 11px !important; }
+          .milk-tk > span {
+            font-size: 11px !important;
+            letter-spacing: 1.1px !important;
+            padding-right: 38px !important;
+          }
         }
         @media (max-width: 360px) {
           .milk-rgrid { grid-template-columns: 1fr !important; }

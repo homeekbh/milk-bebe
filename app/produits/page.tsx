@@ -2,9 +2,10 @@
 import type { Metadata } from "next";
 import ProduitsGrid from "@/app/produits/ProduitsGrid";
 
-// ✅ CRITIQUE — force le rechargement à chaque visite, pas de cache
-export const dynamic    = "force-dynamic";
-export const revalidate = 0;
+// ISR : page catalogue SEO (landing organique) servie depuis le cache CDN et
+// régénérée toutes les 2 min. Le stock est de toute façon revalidé serveur au
+// checkout, donc 120s de fraîcheur sur la liste est sans risque.
+export const revalidate = 120;
 
 export const metadata: Metadata = {
   title: "Tous les produits — Bodies, Pyjamas, Gigoteuses | M!LK",

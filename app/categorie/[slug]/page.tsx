@@ -6,8 +6,8 @@ import { JsonLd }         from "@/components/seo/JsonLd";
 import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
 import { Breadcrumb }          from "@/components/seo/Breadcrumb";
 
-export const dynamic    = "force-dynamic";
-export const revalidate = 0;
+// ISR : page catégorie SEO (landing organique). Cache CDN + régénération 2 min.
+export const revalidate = 120;
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 

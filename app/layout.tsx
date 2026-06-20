@@ -161,15 +161,12 @@ export const metadata: Metadata = {
     },
   },
 
-  // ── Canoniques et hreflang ──────────────────────────────────────────────────
+  // ── Canonique ───────────────────────────────────────────────────────────────
+  // Pas de `languages` (hreflang) : les routes /en /it /hu n'existent pas et
+  // l'i18n (LangContext) ne change que le localStorage, pas l'URL. Déclarer un
+  // hreflang vers des 404 génère des erreurs Search Console.
   alternates: {
     canonical: `${BASE_URL}/`,
-    languages: {
-      "fr-FR": `${BASE_URL}/`,
-      "en":    `${BASE_URL}/en`,
-      "it":    `${BASE_URL}/it`,
-      "hu":    `${BASE_URL}/hu`,
-    },
   },
 
   // ── App / PWA ────────────────────────────────────────────────────────────────

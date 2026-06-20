@@ -1,4 +1,5 @@
 import Stripe from "stripe";
+import crypto from "node:crypto";
 import { supabaseServer } from "@/lib/server/supabase";
 import {
   ALLOWED_CARRIERS,
@@ -258,7 +259,13 @@ export async function POST(req: Request) {
     }
 
     if (serverDiscount > 0) {
-      const idempotencyKey = `coupon-${serverPromoCode || "anon"}-${Math.round(serverDiscount * 100)}-${customer_email ?? "guest"}-${Date.now() >> 16}`;
+      // Clé STABLE dérivée du panier+promo+email (hash), SANS fenêtre temporelle.
+      // Avant: `Date.now() >> 16` changeait toutes les ~65s → coupons orphelins +
+      // collisions. Ici, un retry/double-clic du MÊME panier réutilise le même
+      // coupon (vraie idempotency Stripe) ; deux paniers différents → clés distinctes.
+      const cartSig = validatedItems.map(i => `${i.id}:${i.quantity}`).join(",");
+      const cartHash = crypto.createHash("sha1").update(cartSig).digest("hex").slice(0, 12);
+      const idempotencyKey = `coupon-${serverPromoCode || "anon"}-${Math.round(serverDiscount * 100)}-${customer_email ?? "guest"}-${cartHash}`;
       const coupon = await stripe.coupons.create({
         amount_off: Math.round(serverDiscount * 100),
         currency:   "eur",

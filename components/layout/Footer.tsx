@@ -2,6 +2,7 @@
 
 import Link  from "next/link";
 import { useState } from "react";
+import PaymentMethods from "./PaymentMethods";
 
 export default function Footer() {
   const year = new Date().getFullYear();
@@ -121,6 +122,9 @@ export default function Footer() {
           )}
         </div>
       </div>
+
+      {/* Paiements sécurisés */}
+      <PaymentMethods />
 
       {/* Bas */}
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: "20px 5vw", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>

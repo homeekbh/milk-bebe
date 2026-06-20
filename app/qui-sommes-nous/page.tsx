@@ -165,17 +165,26 @@ function HeroQSN() {
         {/* Voile clair (au lieu du marron) */}
         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, rgba(242,237,230,0.35) 0%, rgba(242,237,230,0.15) 50%, rgba(26,20,16,0.55) 100%)` }} />
       </div>
-      {/* Scrim haut — garantit la lisibilité du header (texte crème) dès le chargement,
-          le voile clair du hero rendant sinon le logo/nav invisibles en haut de page. */}
+      {/* Scrim haut — garantit la lisibilité du header + fil d'ariane (texte crème)
+          dès le chargement : le hero étant clair, sans ce voile sombre le logo/nav
+          et le breadcrumb seraient invisibles en haut de page. */}
       <div
         aria-hidden
         style={{
           position: "absolute",
-          top: 0, left: 0, right: 0, height: 160,
-          background: "linear-gradient(to bottom, rgba(13,11,9,0.55) 0%, rgba(13,11,9,0) 100%)",
+          top: 0, left: 0, right: 0, height: 200,
+          background: "linear-gradient(to bottom, rgba(13,11,9,0.62) 0%, rgba(13,11,9,0) 100%)",
           pointerEvents: "none",
         }}
       />
+      {/* Fil d'ariane EN OVERLAY sur le hero (juste sous le header), au lieu d'un
+          bandeau crème séparé au-dessus qui masquait le header crème au chargement. */}
+      <div style={{ position: "absolute", top: "calc(var(--milk-topbar-h, 0px) + 66px)", left: 0, right: 0, zIndex: 3 }}>
+        <Breadcrumb
+          variant="light"
+          items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
+        />
+      </div>
       <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 56px" }}>
         <div style={{ padding: "0 clamp(16px,5vw,5vw)", width: "100%", boxSizing: "border-box" }}>
           <div
@@ -615,13 +624,6 @@ export default function QuiSommesNousPage() {
           color: ${P.cream} !important;
         }
       `}</style>
-
-      <div style={{ background: P.cream }}>
-        <Breadcrumb
-          variant="light"
-          items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
-        />
-      </div>
 
       <HeroQSN />
       <Ticker />

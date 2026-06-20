@@ -1428,7 +1428,7 @@ export default function AdminProductForm() {
 
       {/* ═══ ONGLET 1 : INFOS GÉNÉRALES ═══ */}
       {activeTab === "general" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 24, alignItems: "start" }}>
 
           {/* Colonne gauche */}
           <div style={{ display: "grid", gap: 20 }}>
@@ -1458,7 +1458,7 @@ export default function AdminProductForm() {
 
             <div style={SECTION}>
               <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410" }}>Logistique</div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 200px), 1fr))", gap: 16 }}>
                 <Field label="Position" fieldKey="position" type="number" placeholder="0" value={form.position} onChange={set} hint="0 = premier" />
                 <Field label="Poids (g)" fieldKey="weight_g" type="number" placeholder="120" value={form.weight_g} onChange={set} />
               </div>
@@ -1696,7 +1696,7 @@ export default function AdminProductForm() {
 
       {/* ═══ ONGLET 4 : TARIF & PROMOS ═══ */}
       {activeTab === "promo" && (
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, alignItems: "start", maxWidth: 900, overflow: "visible" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 360px), 1fr))", gap: 24, alignItems: "start", maxWidth: 900, overflow: "visible" }}>
 
           {/* Colonne gauche : Prix de vente */}
           <div style={{ display: "grid", gap: 20 }}>
@@ -1837,7 +1837,7 @@ export default function AdminProductForm() {
 
           {/* Cards en 2 colonnes */}
           {ficheCards.length > 0 && (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(480px, 1fr))", gap: 16, width: "100%" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))", gap: 16, width: "100%" }}>
               {ficheCards.map((card, idx) => (
                 <FicheCardEditor key={card.id} card={card} onUpdate={updateCard} onRemove={removeCard}
                   onMoveUp={(id) => moveCard(id, "up")} onMoveDown={(id) => moveCard(id, "down")}
@@ -1850,7 +1850,7 @@ export default function AdminProductForm() {
           {/* Ajout de blocs */}
           <div style={{ background: "#fff", borderRadius: 16, padding: 24, border: "1px solid rgba(0,0,0,0.08)" }}>
             <div style={{ fontWeight: 900, fontSize: 16, color: "#1a1410", marginBottom: 14 }}>Ajouter un bloc</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 200px), 1fr))", gap: 10 }}>
               {CARD_TYPES.map(t => (
                 <button key={t.value} type="button" onClick={() => addCard(t.value)}
                   style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderRadius: 12, border: "1.5px dashed rgba(196,154,74,0.4)", background: "rgba(196,154,74,0.04)", cursor: "pointer", textAlign: "left" }}>

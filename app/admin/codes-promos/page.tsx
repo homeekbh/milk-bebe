@@ -1,4 +1,5 @@
 "use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -207,6 +208,7 @@ function DateRangePicker({
 
 // ── Page principale ───────────────────────────────────────────────────────────
 export default function AdminCodes() {
+  const narrow = useIsNarrow();
   const [codes,   setCodes]   = useState<(PromoCode & { free_shipping?: boolean; cumulable_avec_livraison?: boolean })[]>([]);
   const [loading, setLoading] = useState(true);
   const [form,    setForm]    = useState({
@@ -385,7 +387,7 @@ export default function AdminCodes() {
       </div>
 
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 16, marginBottom: 32 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3,1fr)", gap: 16, marginBottom: 32 }}>
         {[
           { label: "Codes actifs",  value: activeCodes,              color: "#16a34a" },
           { label: "Utilisations",  value: totalUses,                color: "#1a1410" },
@@ -403,7 +405,7 @@ export default function AdminCodes() {
         <div style={{ fontWeight: 900, fontSize: 18, color: "#1a1410", marginBottom: 20 }}>Créer un nouveau code</div>
 
         {/* Ligne 1 : code + type + valeur */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div style={{ display: "grid", gap: 6 }}>
             <label style={LS}>Code promo *</label>
             <input type="text" value={form.code}
@@ -432,7 +434,7 @@ export default function AdminCodes() {
         </div>
 
         {/* Ligne 2 : min commande + max utilisations */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
           <div style={{ display: "grid", gap: 6 }}>
             <label style={LS}>Commande minimum (€)</label>
             <input type="number" value={form.min_order}

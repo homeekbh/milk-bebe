@@ -1,4 +1,5 @@
 "use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 // Helper inline — lit le token Supabase depuis localStorage
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -41,6 +42,7 @@ function DatePicker({ label, value, onChange }: { label: string; value: string; 
 }
 
 export default function AdminPopups() {
+  const narrow = useIsNarrow();
   const [popups,   setPopups]   = useState<any[]>([]);
   const [form,     setForm]     = useState<any>(EMPTY);
   const [editId,   setEditId]   = useState<string | null>(null);
@@ -157,7 +159,7 @@ export default function AdminPopups() {
             <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>Le code sera envoyé par email à l'inscription. Crée-le d'abord dans "Codes promos".</div>
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16 }}>
             <DatePicker label="Date de début" value={form.starts_at} onChange={v => set("starts_at", v)} />
             <DatePicker label="Date de fin"   value={form.ends_at}   onChange={v => set("ends_at", v)} />
           </div>

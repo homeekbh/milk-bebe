@@ -1,4 +1,5 @@
 "use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 
 // Helper inline — lit le token Supabase depuis localStorage
 function adminFetch(url: string, options: RequestInit = {}) {
@@ -192,6 +193,7 @@ function DonutChart({ data }: { data: { label: string; value: number; color: str
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function AdminStats() {
+  const narrow = useIsNarrow();
   const [orders,         setOrders]         = useState<Order[]>([]);
   const [products,       setProducts]       = useState<any[]>([]);
   const [newsletter,     setNewsletter]     = useState<any[]>([]);
@@ -636,7 +638,7 @@ export default function AdminStats() {
       </div>
 
       {/* ── TOP PRODUITS + CATÉGORIES ── */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
           <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🏆 Top produits vendus</div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Classement par chiffre d'affaires généré</div>
@@ -693,7 +695,7 @@ export default function AdminStats() {
 
       {/* ══ SECTION 2 : TEMPORALITÉ ══ */}
       <SectionTitle>Comportement & Temporalité</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
           <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>
             🕐 Heure de pointe {peakHour ? `— ${peakHour[0]}h` : ""}
@@ -726,7 +728,7 @@ export default function AdminStats() {
       </div>
 
       {/* Graphique vues par jour + top produits vus */}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
           <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📊 Vues par jour (30j)</div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Trafic sur les fiches produit</div>
@@ -777,7 +779,7 @@ export default function AdminStats() {
         <KpiCard label="Avis clients"    value={String(reviews.length)}     sub={avgRating ? `Note moy. ${avgRating}/5` : "Aucun avis"} color={C.green} />
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
 
         {/* Newsletter par mois */}
         <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
@@ -973,7 +975,7 @@ export default function AdminStats() {
       <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
         <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📧 Pipeline de relance email</div>
         <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>Relance 1 (1h–24h), Relance 2 (24h–72h + promo), Relance 3 (&gt; 72h)</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap: 12 }}>
           {[
             { step: "Relance #1", value: cartsStats.relance1, color: C.amber },
             { step: "Relance #2", value: cartsStats.relance2, color: C.blue },
@@ -1029,7 +1031,7 @@ export default function AdminStats() {
 
       {/* ══ SECTION 10 : PERFORMANCE PROMO ══ */}
       <SectionTitle>Performance des codes promo</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
           <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🎟️ Avec promo</div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>{promoPerf.nbWith} commande{promoPerf.nbWith > 1 ? "s" : ""}</div>
@@ -1096,7 +1098,7 @@ export default function AdminStats() {
 
       {/* ══ SECTION 13 : NEWSLETTER AVANCÉE ══ */}
       <SectionTitle>Newsletter — détails</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 20 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 20 }}>
         <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
           <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>📊 Sources d'inscription</div>
           <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>D'où viennent vos abonnés</div>

@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 
 const DARK  = "#1a1410";
 const AMBER = "#c49a4a";
@@ -35,6 +36,7 @@ type Category = {
 };
 
 export default function AdminCategoriesPage() {
+  const narrow = useIsNarrow();
   const [categories,  setCategories]  = useState<Category[]>([]);
   const [loading,     setLoading]     = useState(true);
   const [newSlug,     setNewSlug]     = useState("");
@@ -165,7 +167,7 @@ export default function AdminCategoriesPage() {
         <div style={{ fontWeight: 800, fontSize: 15, color: DARK, marginBottom: 14 }}>
           + Nouvelle catégorie
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 12, marginBottom: 12 }}>
           <div>
             <label style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.5)", display: "block", marginBottom: 4 }}>
               NOM AFFICHÉ

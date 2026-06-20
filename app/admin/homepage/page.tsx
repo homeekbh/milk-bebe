@@ -1,4 +1,5 @@
 "use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -63,6 +64,7 @@ function Toast({ msg, ok }: { msg: string; ok: boolean }) {
 }
 
 export default function AdminHomePage() {
+  const narrow = useIsNarrow();
   const [loading,      setLoading]      = useState(true);
   const [saving,       setSaving]       = useState(false);
   const [toast,        setToast]        = useState<{ msg: string; ok: boolean } | null>(null);
@@ -183,7 +185,7 @@ export default function AdminHomePage() {
       {/* ── 1. TITRE ── */}
       <div style={S.card}>
         <h2 style={S.cardH}>🏷️ Titre de la section</h2>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16 }}>
           <div>
             <label style={S.label}>Choisir un titre</label>
             <select
@@ -267,7 +269,7 @@ export default function AdminHomePage() {
           </span>
         </h2>
 
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, marginBottom: 16 }}>
+        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 2fr", gap: 12, marginBottom: 16 }}>
           <div>
             <label style={S.label}>Catégorie</label>
             <select value={filterCat} onChange={e => setFilterCat(e.target.value)} style={S.select}>

@@ -1,4 +1,5 @@
 ﻿"use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 async function logActivity(type: string, message: string, opts?: { entity_name?: string; entity_id?: string }) {
   try {
     let token = "";
@@ -269,6 +270,7 @@ function printLabel(order: Order, type: "expedition" | "retour") {
 }
 
 export default function AdminCommandes() {
+  const narrow = useIsNarrow();
   const [orders,     setOrders]     = useState<Order[]>([]);
   const [loading,    setLoading]    = useState(true);
   const [selected,   setSelected]   = useState<string | null>(null);
@@ -976,7 +978,7 @@ export default function AdminCommandes() {
                         🚫 Cette commande a été annulée. L'étiquette Sendcloud a été annulée et le client remboursé. Numéro de suivi et transporteur masqués.
                       </div>
                     )}
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24, marginTop: 20 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 24, marginTop: 20 }}>
 
                       {/* Colonne gauche — infos + articles */}
                       <div style={{ display: "grid", gap: 16 }}>
@@ -1064,7 +1066,7 @@ export default function AdminCommandes() {
 
                         {/* Boutons étiquettes — masqués si annulée */}
                         {order.shipping_status !== "annulee" && (
-                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 10 }}>
                           {(order as any).label_url ? (
                             <button
                               onClick={() => openLabelPdf(order.id)}
@@ -1393,7 +1395,7 @@ export default function AdminCommandes() {
                           <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)" }}>
                             Changer le statut
                           </label>
-                          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 8 }}>
                             {Object.entries(STATUTS).map(([key, val]) => (
                               <button
                                 key={key}
@@ -1434,7 +1436,7 @@ export default function AdminCommandes() {
               <button onClick={() => !shipModal.sending && setShipModal(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20, marginBottom: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 20, marginBottom: 20 }}>
               {/* Colonne preview email */}
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
@@ -1516,7 +1518,7 @@ export default function AdminCommandes() {
               <br />
               Pour annuler ET rembourser, utilise le bouton "🔴 Annuler + Rembourser Stripe".
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 12 }}>
               <button
                 onClick={() => setCancelModal(null)}
                 disabled={cancelModal.cancelling}
@@ -1591,7 +1593,7 @@ export default function AdminCommandes() {
               </div>
             )}
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 10 }}>
               <button
                 onClick={() => setRefundModal(null)}
                 disabled={refundModal.sending}
@@ -1627,7 +1629,7 @@ export default function AdminCommandes() {
               <button onClick={() => !cancelEmailModal.sending && setCancelEmailModal(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
                 <iframe
@@ -1690,7 +1692,7 @@ export default function AdminCommandes() {
               <button onClick={() => !returnEmailModal.sending && setReturnEmailModal(null)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 20 }}>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 20 }}>
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
                 <iframe

@@ -1,4 +1,5 @@
 "use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 
 import { useEffect, useState } from "react";
 
@@ -35,6 +36,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
 }
 
 export default function NewsletterAdminPage() {
+  const narrow = useIsNarrow();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,7 @@ export default function NewsletterAdminPage() {
       </div>
 
       {/* Stats — 3 cards */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 24 }}>
         {[
           { label: "TOTAL ABONNÉS", value: total,      color: "#1a1410" },
           { label: "ACTIFS",        value: actifs,     color: "#16a34a" },

@@ -1,4 +1,5 @@
 ﻿"use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/lib/supabase-client";
@@ -33,6 +34,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
 }
 
 export default function AdminAlerts() {
+  const narrow = useIsNarrow();
   const [products, setProducts] = useState<Product[]>([]);
   const [alerts,   setAlerts]   = useState<AlertConfig[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -118,7 +120,7 @@ export default function AdminAlerts() {
       </div>
 
       {/* Stats rapides */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap: 16, marginBottom: 28 }}>
         <div style={{ background: "#fff", borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(0,0,0,0.07)" }}>
           <div style={{ fontSize: 12, fontWeight: 800, color: "rgba(26,20,16,0.4)", letterSpacing: 1, textTransform: "uppercase", marginBottom: 6 }}>Produits surveillés</div>
           <div style={{ fontSize: 32, fontWeight: 950, color: "#1a1410" }}>{alerts.filter(a => a.active).length}</div>

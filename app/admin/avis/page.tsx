@@ -1,4 +1,5 @@
 "use client";
+import { useIsNarrow } from "@/lib/useIsNarrow";
 // Helper inline — lit le token Supabase depuis localStorage
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -37,6 +38,7 @@ interface Review {
 }
 
 export default function AdminAvis() {
+  const narrow = useIsNarrow();
   const [reviews,   setReviews]   = useState<Review[]>([]);
   const [loading,   setLoading]   = useState(true);
   const [filter,    setFilter]    = useState<"all" | "pending" | "approved">("all");
@@ -121,7 +123,7 @@ export default function AdminAvis() {
       </div>
 
       {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "repeat(3, 1fr)", gap: 14, marginBottom: 28 }}>
         {[
           { label: "Total",      value: reviews.length, color: "#1a1410" },
           { label: "En attente", value: pending,         color: "#92400e" },

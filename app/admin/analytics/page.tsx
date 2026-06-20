@@ -20,7 +20,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
   });
 }
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { isValidOrder, getNetAmount } from "@/lib/orders";
 
 type Order  = { id: string; created_at: string; amount_total: number; customer_email: string; customer_name: string; status: string; shipping_status: string; items: any[]; promo_code?: string | null; discount?: number; shipping_address?: any; refund_amount?: number | null; };
@@ -86,8 +86,8 @@ function LexiqueTag({ terme }: { terme: string }) {
   );
 }
 
-function KpiCard({ label, value, sub, color = C.warm, delta }: {
-  label: string; value: string; sub?: string; color?: string; delta?: number;
+function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc." }: {
+  label: string; value: string; sub?: string; color?: string; delta?: number; deltaLabel?: string;
 }) {
   return (
     <div style={{ background: C.card, borderRadius: 16, padding: "22px 20px", border: `1px solid ${C.faint}` }}>
@@ -96,7 +96,7 @@ function KpiCard({ label, value, sub, color = C.warm, delta }: {
       {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{sub}</div>}
       {delta !== undefined && (
         <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: delta >= 0 ? C.green : C.red }}>
-          {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% vs période préc.
+          {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% {deltaLabel}
         </div>
       )}
       <LexiqueTag terme={label} />
@@ -205,19 +205,23 @@ export default function AdminStats() {
   const [abandonedCarts, setAbandonedCarts] = useState<any[]>([]);
   const [loading,        setLoading]        = useState(true);
   const [period,         setPeriod]         = useState<Period>("30j");
+  const [lastUpdated,    setLastUpdated]    = useState<Date | null>(null);
+  const [refreshing,     setRefreshing]     = useState(false);
 
-  useEffect(() => {
-    Promise.all([
-      adminFetch("/api/admin/products").then(r => r.json()).catch(() => []),
-      adminFetch("/api/admin/commandes-data").then(r => r.json()).catch(() => []),
-      adminFetch("/api/admin/newsletter").then(r => r.json()).catch(() => []),
-      adminFetch("/api/admin/stock-alerts").then(r => r.json()).catch(() => []),
-      adminFetch("/api/admin/promos").then(r => r.json()).catch(() => []),
-      adminFetch("/api/admin/reviews").then(r => r.json()).catch(() => []),
-      adminFetch("/api/admin/clients-count").then(r => r.json()).catch(() => ({ count: 0 })),
-      adminFetch("/api/admin/page-views?days=30").then(r => r.json()).catch(() => null),
-      adminFetch("/api/admin/abandoned-carts").then(r => r.json()).catch(() => ({ carts: [] })),
-    ]).then(([prods, ords, news, alerts, prms, revs, clients, pv, abc]) => {
+  const load = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const [prods, ords, news, alerts, prms, revs, clients, pv, abc] = await Promise.all([
+        adminFetch("/api/admin/products").then(r => r.json()).catch(() => []),
+        adminFetch("/api/admin/commandes-data").then(r => r.json()).catch(() => []),
+        adminFetch("/api/admin/newsletter").then(r => r.json()).catch(() => []),
+        adminFetch("/api/admin/stock-alerts").then(r => r.json()).catch(() => []),
+        adminFetch("/api/admin/promos").then(r => r.json()).catch(() => []),
+        adminFetch("/api/admin/reviews").then(r => r.json()).catch(() => []),
+        adminFetch("/api/admin/clients-count").then(r => r.json()).catch(() => ({ count: 0 })),
+        adminFetch("/api/admin/page-views?days=30").then(r => r.json()).catch(() => null),
+        adminFetch("/api/admin/abandoned-carts").then(r => r.json()).catch(() => ({ carts: [] })),
+      ]);
       if (Array.isArray(prods))   setProducts(prods);
       if (Array.isArray(ords))    setOrders(ords);
       if (news?.subscribers && Array.isArray(news.subscribers)) setNewsletter(news.subscribers);
@@ -229,9 +233,19 @@ export default function AdminStats() {
       setProfiles(clients?.count ?? 0);
       if (pv && !pv.error) setPageViews(pv);
       if (abc?.carts && Array.isArray(abc.carts)) setAbandonedCarts(abc.carts);
+      setLastUpdated(new Date());
+    } finally {
       setLoading(false);
-    });
+      setRefreshing(false);
+    }
   }, []);
+
+  // Chargement initial + rafraîchissement automatique toutes les 5 min (live).
+  useEffect(() => {
+    load();
+    const t = setInterval(load, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [load]);
 
   // Filtre période
   const filtered = useMemo(() => {
@@ -265,6 +279,28 @@ export default function AdminStats() {
   const clients    = new Set(validFiltered.map(o => o.customer_email).filter(Boolean)).size;
 
   const delta = (cur: number, prev: number) => prev > 0 ? ((cur - prev) / prev) * 100 : undefined;
+
+  // ── KPIs AUJOURD'HUI vs HIER (temps réel) ─────────────────────────────────
+  // Visiteurs = sessions uniques (page_views, via l'API). Commandes/Revenue =
+  // commandes valides du jour. Conversion = commandes / visiteurs.
+  const todayYesterday = useMemo(() => {
+    const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+    const startYest  = new Date(startToday); startYest.setDate(startYest.getDate() - 1);
+    const valid = orders.filter(isValidOrder);
+    const ordToday = valid.filter(o => new Date(o.created_at) >= startToday);
+    const ordYest  = valid.filter(o => { const d = new Date(o.created_at); return d >= startYest && d < startToday; });
+    const revToday = ordToday.reduce((s, o) => s + getNetAmount(o), 0);
+    const revYest  = ordYest.reduce((s, o) => s + getNetAmount(o), 0);
+    const visToday = pageViews?.visitors_today     ?? 0;
+    const visYest  = pageViews?.visitors_yesterday ?? 0;
+    const convToday = visToday > 0 ? (ordToday.length / visToday) * 100 : 0;
+    const convYest  = visYest  > 0 ? (ordYest.length  / visYest)  * 100 : 0;
+    return {
+      visToday, visYest,
+      ordToday: ordToday.length, ordYest: ordYest.length,
+      revToday, revYest, convToday, convYest,
+    };
+  }, [orders, pageViews]);
 
   // Clients fidèles (commandé 2+ fois VALIDES — annulées/remboursées exclues)
   const emailCount: Record<string, number> = {};
@@ -602,13 +638,24 @@ export default function AdminStats() {
             Tableau de bord complet M!LK · {isEmpty ? "En attente des premières données" : `${orders.length} commande(s) au total`}
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${C.faint}` }}>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          {lastUpdated && (
+            <span style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap" }}>
+              Maj {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+            </span>
+          )}
+          <button onClick={load} disabled={refreshing} title="Rafraîchir maintenant"
+            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.faint}`, background: C.card, color: C.warm, fontWeight: 800, fontSize: 13, cursor: refreshing ? "wait" : "pointer", opacity: refreshing ? 0.6 : 1, whiteSpace: "nowrap" }}>
+            {refreshing ? "⟳ …" : "⟳ Rafraîchir"}
+          </button>
+          <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${C.faint}` }}>
           {(["7j", "30j", "90j", "tout"] as Period[]).map(p => (
             <button key={p} onClick={() => setPeriod(p)}
               style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", background: period === p ? C.warm : "transparent", color: period === p ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
               {p === "tout" ? "Tout" : p}
             </button>
           ))}
+          </div>
         </div>
       </div>
 
@@ -617,6 +664,15 @@ export default function AdminStats() {
           💡 Les graphiques se rempliront automatiquement dès les premières commandes. Les stats newsletter, alertes et avis sont déjà actives.
         </div>
       )}
+
+      {/* ══ SECTION TEMPS RÉEL : AUJOURD'HUI vs HIER ══ */}
+      <SectionTitle>⚡ Aujourd'hui vs hier</SectionTitle>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 28 }}>
+        <KpiCard label="Visiteurs"  value={String(todayYesterday.visToday)}            sub={`Hier : ${todayYesterday.visYest}`}                    color={C.purple} delta={delta(todayYesterday.visToday, todayYesterday.visYest)} deltaLabel="vs hier" />
+        <KpiCard label="Commandes"  value={String(todayYesterday.ordToday)}            sub={`Hier : ${todayYesterday.ordYest}`}                                     delta={delta(todayYesterday.ordToday, todayYesterday.ordYest)} deltaLabel="vs hier" />
+        <KpiCard label="Revenue"    value={`${todayYesterday.revToday.toFixed(2)} €`}  sub={`Hier : ${todayYesterday.revYest.toFixed(2)} €`}        color={C.amber}  delta={delta(todayYesterday.revToday, todayYesterday.revYest)} deltaLabel="vs hier" />
+        <KpiCard label="Conversion" value={`${todayYesterday.convToday.toFixed(1)}%`}  sub={`Hier : ${todayYesterday.convYest.toFixed(1)}%`}        color={C.green}  delta={delta(todayYesterday.convToday, todayYesterday.convYest)} deltaLabel="vs hier" />
+      </div>
 
       {/* ══ SECTION 1 : KPIs VENTES ══ */}
       <SectionTitle>Ventes & Commandes</SectionTitle>
@@ -725,6 +781,25 @@ export default function AdminStats() {
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 20 }}>
         <KpiCard label="Vues de fiches"   value={pageViews ? String(pageViews.total_views) : "—"}     sub="Fiches produit ouvertes (30j)"   color={C.blue} />
         <KpiCard label="Sessions uniques" value={pageViews ? String(pageViews.unique_sessions) : "—"} sub="Visiteurs distincts (30j)"        color={C.purple} />
+      </div>
+
+      {/* ── ATTRIBUTION PAR CANAL (1st-party) ── */}
+      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, marginBottom: 20 }}>
+        <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>🌐 Trafic par canal (30j)</div>
+        <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>D'où viennent tes visiteurs — attribution interne (UTM + referrer), sans GA4 ni Meta API</div>
+        {pageViews?.has_source && Array.isArray(pageViews?.by_source) && pageViews.by_source.length > 0 ? (
+          <DonutChart data={pageViews.by_source.slice(0, 6).map((s: any, i: number) => ({
+            label: `${s.source} — ${s.sessions} visiteur${s.sessions > 1 ? "s" : ""}`,
+            value: s.sessions,
+            color: ["#c49a4a", "#5b8def", "#a78bfa", "#34d399", "#f87171", "#9ca3af"][i % 6],
+          }))} />
+        ) : (
+          <div style={{ color: C.muted, fontSize: 13, padding: "8px 0", lineHeight: 1.7 }}>
+            {pageViews && pageViews.has_source === false
+              ? "⏳ Lance la migration 007_page_views_attribution.sql dans le SQL Editor Supabase pour activer l'attribution par canal. Les données apparaîtront ensuite au fil des visites."
+              : "Aucune donnée d'attribution pour l'instant — les visiteurs seront classés par canal dès les prochaines visites."}
+          </div>
+        )}
       </div>
 
       {/* Graphique vues par jour + top produits vus */}

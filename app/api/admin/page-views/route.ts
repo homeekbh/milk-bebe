@@ -16,14 +16,56 @@ export async function GET(req: NextRequest) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - days);
 
-  // Total vues sur la période
-  const { data: views } = await supabaseServer
-    .from("page_views")
-    .select("slug, name, category, viewed_at, session_id")
-    .gte("viewed_at", cutoff.toISOString())
-    .order("viewed_at", { ascending: false });
+  // Total vues sur la période. On tente AVEC utm_source/device (migration 007).
+  // Si ces colonnes n'existent pas encore → fallback sans, attribution = vide.
+  let views: any[] | null = null;
+  let hasSource = true;
+  {
+    const withSrc = await supabaseServer
+      .from("page_views")
+      .select("slug, name, category, viewed_at, session_id, utm_source, device")
+      .gte("viewed_at", cutoff.toISOString())
+      .order("viewed_at", { ascending: false });
+    if (withSrc.error) {
+      hasSource = false;
+      const noSrc = await supabaseServer
+        .from("page_views")
+        .select("slug, name, category, viewed_at, session_id")
+        .gte("viewed_at", cutoff.toISOString())
+        .order("viewed_at", { ascending: false });
+      views = noSrc.data;
+    } else {
+      views = withSrc.data;
+    }
+  }
 
   if (!views) return Response.json([]);
+
+  // ── Visiteurs (sessions uniques) aujourd'hui vs hier ──────────────────────
+  const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+  const startYest  = new Date(startToday); startYest.setDate(startYest.getDate() - 1);
+  const sessToday = new Set<string>();
+  const sessYest  = new Set<string>();
+  let viewsToday = 0, viewsYest = 0;
+  views.forEach(v => {
+    const t = new Date(v.viewed_at);
+    if (t >= startToday)                    { viewsToday++; if (v.session_id) sessToday.add(v.session_id); }
+    else if (t >= startYest && t < startToday) { viewsYest++;  if (v.session_id) sessYest.add(v.session_id); }
+  });
+
+  // ── Attribution par canal (utm_source) sur la période ─────────────────────
+  const sourceMap: Record<string, { source: string; views: number; sessions: Set<string> }> = {};
+  if (hasSource) {
+    views.forEach(v => {
+      const src = (v.utm_source && String(v.utm_source).trim()) ? String(v.utm_source) : "direct";
+      if (!sourceMap[src]) sourceMap[src] = { source: src, views: 0, sessions: new Set() };
+      sourceMap[src].views++;
+      if (v.session_id) sourceMap[src].sessions.add(v.session_id);
+    });
+  }
+  const bySource = Object.values(sourceMap)
+    .map(s => ({ source: s.source, views: s.views, sessions: s.sessions.size }))
+    .sort((a, b) => b.sessions - a.sessions);
 
   // Grouper par slug
   const map: Record<string, { slug: string; name: string; category: string; views: number; sessions: Set<string> }> = {};
@@ -55,5 +97,13 @@ export async function GET(req: NextRequest) {
     total_views:  views.length,
     unique_sessions: new Set(views.map(v => v.session_id).filter(Boolean)).size,
     by_day: Object.entries(byDay).map(([label, value]) => ({ label, value })),
+    // ── Aujourd'hui vs hier (visiteurs = sessions uniques) ──
+    visitors_today:     sessToday.size,
+    visitors_yesterday: sessYest.size,
+    views_today:        viewsToday,
+    views_yesterday:    viewsYest,
+    // ── Attribution par canal (vide tant que la migration 007 n'est pas lancée) ──
+    has_source: hasSource,
+    by_source:  bySource,
   });
 }

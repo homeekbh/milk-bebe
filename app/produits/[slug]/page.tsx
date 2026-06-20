@@ -13,6 +13,7 @@ import { useCart }                     from "@/context/CartContext";
 import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
+import { getAttribution }              from "@/lib/attribution";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -613,6 +614,7 @@ export default function ProductPage() {
             name:       found.name,
             category:   found.category_slug,
             session_id: sid,
+            ...getAttribution(),
           }),
         }).catch(() => {});
       }}).catch(() => setLoading(false));

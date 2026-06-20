@@ -8,7 +8,8 @@ import type { NextRequest } from "next/server";
  */
 export async function POST(req: NextRequest) {
   try {
-    const { product_id, slug, name, category, session_id } = await req.json();
+    const { product_id, slug, name, category, session_id,
+            utm_source, utm_medium, utm_campaign, referrer, device } = await req.json();
     if (!slug) return Response.json({ ok: false });
 
     // Déduplication : pas deux fois le même slug + session dans la même heure
@@ -26,13 +27,28 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    await supabaseServer.from("page_views").insert([{
+    const core = {
       product_id: product_id ?? null,
       slug,
       name:     name     ?? null,
       category: category ?? null,
       session_id: session_id ?? null,
+    };
+
+    // Tentative AVEC les colonnes d'attribution (migration 007). Si elles
+    // n'existent pas encore en base → l'insert échoue → fallback sur le core.
+    // Le tracking des vues n'est donc JAMAIS interrompu par l'absence de migration.
+    const { error } = await supabaseServer.from("page_views").insert([{
+      ...core,
+      utm_source:   utm_source   ?? null,
+      utm_medium:   utm_medium   ?? null,
+      utm_campaign: utm_campaign ?? null,
+      referrer:     referrer ? String(referrer).slice(0, 300) : null,
+      device:       device ?? null,
     }]);
+    if (error) {
+      await supabaseServer.from("page_views").insert([core]);
+    }
 
     return Response.json({ ok: true });
   } catch (e: any) {

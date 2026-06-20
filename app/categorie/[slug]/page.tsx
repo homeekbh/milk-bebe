@@ -4,6 +4,7 @@ import type { Metadata }  from "next";
 import ProduitsGrid       from "@/app/produits/ProduitsGrid";
 import { JsonLd }         from "@/components/seo/JsonLd";
 import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
+import { GigoteusesFaq }       from "@/components/seo/GigoteusesFaq";
 import { Breadcrumb }          from "@/components/seo/Breadcrumb";
 
 // ISR : page catégorie SEO (landing organique). Cache CDN + régénération 2 min.
@@ -169,6 +170,7 @@ export default async function CategoriePage({ params }: Props) {
         defaultCategory={slug}
       />
       <CategorySeoContent slug={slug} />
+      {slug === "gigoteuses" && <GigoteusesFaq />}
     </>
   );
 }

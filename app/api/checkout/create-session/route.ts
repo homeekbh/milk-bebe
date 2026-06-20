@@ -205,12 +205,13 @@ export async function POST(req: Request) {
     }
 
     const sessionParams: any = {
-      // payment_method_types: ['card'] suffit pour Stripe Checkout — Apple Pay
-      // et Google Pay sont automatiquement présentés sur Safari iOS / Chrome
-      // Android par Stripe quand 'card' est activé. Tentative précédente avec
-      // automatic_payment_methods rejetée par l'API ("unknown parameter") même
-      // avec apiVersion pin → revert au mode 'card' qui marche.
-      payment_method_types: ["card"],
+      // 'card' → Apple Pay / Google Pay sont automatiquement présentés sur
+      // Safari iOS / Chrome Android par Stripe. 'paypal' → bouton PayPal natif
+      // dans le Checkout Stripe (aucune clé PayPal requise : le compte PayPal
+      // est lié côté Stripe Dashboard → Paramètres → Moyens de paiement).
+      // ⚠️ 'paypal' doit être ACTIVÉ dans le Dashboard Stripe, sinon l'API
+      // rejette la création de session ("payment method type paypal is invalid").
+      payment_method_types: ["card", "paypal"],
       line_items:           lineItems,
       mode:                 "payment",
       billing_address_collection: "auto",
@@ -220,7 +221,16 @@ export async function POST(req: Request) {
       locale:      "fr",
       ...(customer_email ? { customer_email } : {}),
       metadata: {
-        items:             JSON.stringify(validatedItems),
+        // ⚠️ Stripe limite chaque valeur de metadata à 500 caractères. On ne
+        // stocke donc QUE le strict minimum (id + quantité + taille) — le
+        // webhook re-fetch name/slug/price/category depuis Supabase. Avant ce
+        // slim, le JSON complet (7 champs/article) dépassait 500 car. dès 3-4
+        // articles → erreur "metadata values can have up to 500 characters".
+        items:             JSON.stringify(validatedItems.map(i => ({
+          id:       i.id,
+          quantity: i.quantity,
+          taille:   i.taille,
+        }))),
         // ⚠️ Metadata = vérité serveur (utilisée par le webhook pour
         // persister la commande). Aucune confiance dans le client.
         promo_code:        serverPromoCode,

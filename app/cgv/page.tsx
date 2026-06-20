@@ -45,7 +45,7 @@ Email : contact@milkbebe.fr`,
           },
           {
             title: "6. Paiement",
-            content: "Le paiement s'effectue en ligne via la plateforme sécurisée Stripe. Les données bancaires ne transitent pas par nos serveurs. M!LK accepte les cartes Visa, Mastercard, American Express ainsi que PayPal.",
+            content: "Le paiement s'effectue en ligne via la plateforme sécurisée Stripe. Les données bancaires ne transitent pas par nos serveurs. M!LK accepte les cartes Visa, Mastercard, American Express ainsi que PayPal via Stripe.",
           },
           {
             title: "7. Livraison",

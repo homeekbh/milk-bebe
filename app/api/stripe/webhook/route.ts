@@ -54,7 +54,43 @@ export async function POST(req: Request) {
     process.env.NODE_ENV !== "production" && console.log("✅ Webhook received:", session.id);
 
     try {
-      const items     = JSON.parse(session.metadata?.items ?? "[]");
+      // ── metadata.items = SLIM (id + quantity + taille seulement) ───────────
+      // create-session ne stocke plus que ces 3 champs (limite Stripe 500 car.
+      // par valeur de metadata). On re-fetch name/slug/price/category depuis
+      // Supabase et on reconstruit le même tableau enrichi qu'avant, pour que
+      // tout le code en aval (order, emails, stock) reste inchangé.
+      const itemsRaw = JSON.parse(session.metadata?.items ?? "[]");
+      const items = await Promise.all(
+        (itemsRaw as any[]).map(async (it) => {
+          const { data: product } = await supabaseServer
+            .from("products")
+            .select("name, slug, price_ttc, promo_price, promo_start, promo_end, category_slug")
+            .eq("id", it.id)
+            .single();
+
+          const now = new Date();
+          const promoActive =
+            product?.promo_price && product?.promo_start && product?.promo_end &&
+            new Date(product.promo_start) <= now && new Date(product.promo_end) >= now;
+          const price = promoActive ? product!.promo_price : (product?.price_ttc ?? 0);
+
+          // Reconstitue le nom affiché avec la taille (ex: "Body éclairs — 0-3 mois")
+          const displayName = it.taille && product?.name
+            ? `${product.name} — ${it.taille}`
+            : (product?.name ?? "");
+
+          return {
+            id:            it.id,
+            quantity:      it.quantity ?? 1,
+            taille:        it.taille ?? null,
+            name:          displayName,
+            slug:          product?.slug ?? null,
+            price,
+            category_slug: product?.category_slug ?? "",
+          };
+        })
+      );
+
       const promoCode = session.metadata?.promo_code || null;
       const discount  = parseFloat(session.metadata?.discount ?? "0");
       const email     = session.customer_details?.email ?? "";
@@ -218,7 +254,7 @@ export async function POST(req: Request) {
         }
 
         const qty    = item.quantity ?? 1;
-        const taille = extractTailleFromName(item.name ?? "");
+        const taille = item.taille ?? extractTailleFromName(item.name ?? "");
 
         const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
           p_product_id: productId,

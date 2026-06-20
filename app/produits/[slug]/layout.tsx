@@ -4,6 +4,21 @@ import { JsonLd } from "@/components/seo/JsonLd";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+// ── SSG + ISR ──────────────────────────────────────────────────────────────
+// Pré-génère au build le shell + les métadonnées/JSON-LD SSR de CHAQUE produit
+// publié, et les régénère toutes les heures (ISR). Le contenu visible reste
+// hydraté côté client (page.tsx = "use client"), mais les signaux SEO réels
+// (meta, OG, Product schema) sont servis depuis le cache statique.
+export const revalidate = 3600;
+
+export async function generateStaticParams() {
+  const { data } = await supabaseServer
+    .from("products")
+    .select("slug")
+    .eq("published", true);
+  return (data ?? []).map((p: { slug: string }) => ({ slug: p.slug }));
+}
+
 export async function generateMetadata(
   { params }: { params: Promise<{ slug: string }> }
 ): Promise<Metadata> {

@@ -60,36 +60,40 @@ export async function POST(req: Request) {
       // Supabase et on reconstruit le même tableau enrichi qu'avant, pour que
       // tout le code en aval (order, emails, stock) reste inchangé.
       const itemsRaw = JSON.parse(session.metadata?.items ?? "[]");
-      const items = await Promise.all(
-        (itemsRaw as any[]).map(async (it) => {
-          const { data: product } = await supabaseServer
-            .from("products")
-            .select("name, slug, price_ttc, promo_price, promo_start, promo_end, category_slug")
-            .eq("id", it.id)
-            .single();
 
-          const now = new Date();
-          const promoActive =
-            product?.promo_price && product?.promo_start && product?.promo_end &&
-            new Date(product.promo_start) <= now && new Date(product.promo_end) >= now;
-          const price = promoActive ? product!.promo_price : (product?.price_ttc ?? 0);
+      // Batch : 1 seule requête pour TOUS les produits (élimine le N+1 — avant,
+      // 1 requête .single() par article via Promise.all).
+      const enrichIds = [...new Set((itemsRaw as any[]).map(i => i.id).filter(Boolean))];
+      const { data: enrichProds } = await supabaseServer
+        .from("products")
+        .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, category_slug")
+        .in("id", enrichIds.length ? enrichIds : ["none"]);
+      const enrichMap: Record<string, any> = {};
+      (enrichProds ?? []).forEach((p: any) => { enrichMap[p.id] = p; });
 
-          // Reconstitue le nom affiché avec la taille (ex: "Body éclairs — 0-3 mois")
-          const displayName = it.taille && product?.name
-            ? `${product.name} — ${it.taille}`
-            : (product?.name ?? "");
+      const items = (itemsRaw as any[]).map((it) => {
+        const product = enrichMap[it.id];
+        const now = new Date();
+        const promoActive =
+          product?.promo_price && product?.promo_start && product?.promo_end &&
+          new Date(product.promo_start) <= now && new Date(product.promo_end) >= now;
+        const price = promoActive ? product!.promo_price : (product?.price_ttc ?? 0);
 
-          return {
-            id:            it.id,
-            quantity:      it.quantity ?? 1,
-            taille:        it.taille ?? null,
-            name:          displayName,
-            slug:          product?.slug ?? null,
-            price,
-            category_slug: product?.category_slug ?? "",
-          };
-        })
-      );
+        // Reconstitue le nom affiché avec la taille (ex: "Body éclairs — 0-3 mois")
+        const displayName = it.taille && product?.name
+          ? `${product.name} — ${it.taille}`
+          : (product?.name ?? "");
+
+        return {
+          id:            it.id,
+          quantity:      it.quantity ?? 1,
+          taille:        it.taille ?? null,
+          name:          displayName,
+          slug:          product?.slug ?? null,
+          price,
+          category_slug: product?.category_slug ?? "",
+        };
+      });
 
       const promoCode = session.metadata?.promo_code || null;
       const discount  = parseFloat(session.metadata?.discount ?? "0");

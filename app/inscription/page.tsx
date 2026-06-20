@@ -10,6 +10,19 @@ const COMMENT_CONNU = [
   "Un ami / famille", "Blog ou article", "Autre",
 ];
 
+// Mappe les messages d'erreur Supabase Auth (anglais) vers du français maîtrisé.
+// Évite d'exposer "User already registered" & co. au client final.
+function frAuthError(msg?: string | null): string {
+  const m = String(msg ?? "").toLowerCase();
+  if (m.includes("already registered") || m.includes("already been registered")) return "Cet email est déjà utilisé. Essaie de te connecter.";
+  if (m.includes("invalid login credentials")) return "Email ou mot de passe incorrect.";
+  if (m.includes("email not confirmed")) return "Vérifie ta boîte mail pour confirmer ton inscription.";
+  if (m.includes("password") && (m.includes("at least") || m.includes("should be") || m.includes("weak"))) return "Le mot de passe doit faire au moins 8 caractères.";
+  if (m.includes("invalid email") || m.includes("unable to validate email")) return "Adresse email invalide.";
+  if (m.includes("rate limit") || m.includes("too many")) return "Trop de tentatives. Réessaie dans quelques minutes.";
+  return "Une erreur est survenue lors de l'inscription. Réessaie.";
+}
+
 function Field({ label, children, required = false }: { label: string; children: React.ReactNode; required?: boolean }) {
   return (
     <div style={{ display: "grid", gap: 6 }}>
@@ -77,7 +90,7 @@ export default function InscriptionPage() {
     });
 
     if (signUpError || !data.user) {
-      setError(signUpError?.message ?? "Erreur lors de l'inscription.");
+      setError(frAuthError(signUpError?.message));
       setLoading(false);
       return false;
     }

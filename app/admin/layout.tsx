@@ -358,6 +358,12 @@ function AdminCalendar({ onClose }: { onClose: () => void }) {
 }
 
 // ── Layout Admin ──────────────────────────────────────────────────────────────
+// TODO (C2 — backlog post-launch) : migrer l'auth admin vers @supabase/ssr
+// (session en cookies httpOnly). Actuellement le JWT est en localStorage (lu par
+// hooks/useAdminFetch.ts) → vol possible via XSS, et la protection server-side
+// (proxy.ts) est désactivée car l'Edge ne voit pas la session localStorage.
+// Migration cookies → réactiver le bloc /admin dans proxy.ts + sortir le token
+// du localStorage. Réf : https://supabase.com/docs/guides/auth/server-side-rendering
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router   = useRouter();

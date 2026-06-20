@@ -100,9 +100,15 @@ export async function POST(req: Request) {
     const lineItems      = [];
     const validatedItems = [];
 
+    // Batch : 1 seule requête pour TOUS les produits du panier (élimine le N+1).
+    const itemIds = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
+    const { data: productsData } = await supabaseServer
+      .from("products").select("*").in("id", itemIds.length ? itemIds : ["none"]);
+    const productMap: Record<string, any> = {};
+    (productsData ?? []).forEach((p: any) => { productMap[p.id] = p; });
+
     for (const item of items) {
-      const { data: product } = await supabaseServer
-        .from("products").select("*").eq("id", item.id).single();
+      const product = productMap[item.id];
 
       if (!product) {
         return Response.json({ error: `Produit introuvable : ${item.id}` }, { status: 400 });

@@ -704,7 +704,7 @@ function HeroBand({ freeShipThreshold }: { freeShipThreshold: number }) {
 const CATS = [
   { label: "Bodies",      desc: "L'essentiel du quotidien",      href: "/categorie/bodies"      },
   { label: "Pyjamas",     desc: "Pour des nuits sereines",       href: "/categorie/pyjamas"     },
-  { label: "Gigoteuses",  desc: "Sommeil sécurisé",              href: "/categorie/gigoteuses"  },
+  { label: "Gigoteuses",  desc: "Gigoteuse à nouer, sommeil serein", href: "/categorie/gigoteuses"  },
   { label: "Accessoires", desc: "Les détails qui changent tout", href: "/categorie/accessoires" },
 ];
 

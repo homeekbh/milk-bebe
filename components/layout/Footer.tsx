@@ -61,7 +61,7 @@ export default function Footer() {
             { label: "Tous les produits",    href: "/produits" },
             { label: "Bodies bébé bambou",   href: "/categorie/bodies" },
             { label: "Pyjamas bébé bambou",  href: "/categorie/pyjamas" },
-            { label: "Gigoteuses bébé bambou", href: "/categorie/gigoteuses" },
+            { label: "Gigoteuse à nouer bambou bébé", href: "/categorie/gigoteuses" },
             { label: "Accessoires bébé bambou", href: "/categorie/accessoires" },
           ].map(l => <Link key={l.href} href={l.href} style={{ fontSize: 14, color: "rgba(242,237,230,0.5)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
         </div>

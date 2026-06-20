@@ -10,7 +10,11 @@ async function getStats() {
   const [{ data: products }, { data: orders }, { data: allOrders }, { count: subsCountExact }] = await Promise.all([
     supabaseServer.from("products").select("*").order("stock", { ascending: true }),
     supabaseServer.from("orders").select("*").order("created_at", { ascending: false }).limit(10),
-    supabaseServer.from("orders").select("amount_total, refund_amount, created_at, status, shipping_status"),
+    // select("*") et NON une liste explicite : la colonne refund_amount n'existe
+    // pas tant que la migration 008 n'est pas lancée, et un select explicite d'une
+    // colonne absente FAIT ÉCHOUER toute la requête (→ CA = 0). select("*") ignore
+    // simplement la colonne manquante et la récupère dès qu'elle existe.
+    supabaseServer.from("orders").select("*").order("created_at", { ascending: false }),
     supabaseServer.from("newsletter_subscribers").select("id", { count: "exact", head: true }),
   ]);
 

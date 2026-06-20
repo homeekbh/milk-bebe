@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     title:       "Conditions Générales de Vente — M!LK",
     description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   },
+  alternates: { canonical: "https://www.milkbebe.fr/cgv" },
 };
 
 ﻿export default function CGV() {

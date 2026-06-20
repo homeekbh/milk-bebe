@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     title:       "Politique de confidentialité — M!LK",
     description: "Comment M!LK collecte et protège vos données personnelles conformément au RGPD.",
   },
+  alternates: { canonical: "https://www.milkbebe.fr/politique-confidentialite" },
 };
 
 export default function PolitiqueConfidentialite() {

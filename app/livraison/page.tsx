@@ -8,6 +8,7 @@ export const metadata: Metadata = {
     title:       "Livraison & Retours — M!LK",
     description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   },
+  alternates: { canonical: "https://www.milkbebe.fr/livraison" },
 };
 
 async function getFreeShipThreshold(): Promise<number> {

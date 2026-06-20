@@ -7,6 +7,7 @@ export const metadata: Metadata = {
     title:       "Mentions légales — M!LK",
     description: "Mentions légales de milkbebe.fr — EKBH SAS, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
   },
+  alternates: { canonical: "https://www.milkbebe.fr/mentions-legales" },
 };
 
 export default function MentionsLegales() {

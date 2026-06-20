@@ -15,7 +15,9 @@ export default function robots(): MetadataRoute.Robots {
           "/checkout",
           "/success",
           "/panier",
-          "/profil",
+          // /profil : PAS dans le Disallow — il porte un <meta robots noindex>
+          // (app/profil/layout.tsx). Google doit pouvoir le crawler pour voir le
+          // noindex et le DÉSINDEXER (un Disallow l'aurait laissé indexé sans contenu).
           "/favoris",
           "/connexion",
           "/inscription",

@@ -58,11 +58,11 @@ export default function Footer() {
         <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 2 }}>Collection</div>
           {[
-            { label: "Tous les produits", href: "/produits" },
-            { label: "Bodies",            href: "/categorie/bodies" },
-            { label: "Pyjamas",           href: "/categorie/pyjamas" },
-            { label: "Gigoteuses",        href: "/categorie/gigoteuses" },
-            { label: "Accessoires",       href: "/categorie/accessoires" },
+            { label: "Tous les produits",    href: "/produits" },
+            { label: "Bodies bébé bambou",   href: "/categorie/bodies" },
+            { label: "Pyjamas bébé bambou",  href: "/categorie/pyjamas" },
+            { label: "Gigoteuses bébé bambou", href: "/categorie/gigoteuses" },
+            { label: "Accessoires bébé bambou", href: "/categorie/accessoires" },
           ].map(l => <Link key={l.href} href={l.href} style={{ fontSize: 14, color: "rgba(242,237,230,0.5)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
         </div>
 

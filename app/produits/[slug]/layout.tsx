@@ -37,7 +37,9 @@ export async function generateMetadata(
     };
   }
 
-  const title = product.seo_title ?? `${product.name} en bambou OEKO-TEX`;
+  // Fallback enrichi (uniquement pour les produits SANS seo_title custom) :
+  // ajoute "bébé" + "0-6 mois" → meilleur ciblage GSC sur les product snippets.
+  const title = product.seo_title ?? `${product.name} bébé — bambou OEKO-TEX 0-6 mois`;
 
   // Description = premier paragraphe (jusqu'au premier saut de ligne, max 155 car)
   // + mention livraison offerte

@@ -30,7 +30,7 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
     title:    "Gigoteuses nourrisson",
     subtitle: "Sommeil sécurisé toute la nuit — bambou OEKO-TEX",
     seoTitle: "Gigoteuse bambou bébé 0-6 mois | Douce et thermorégulante",
-    seoDesc:  "Gigoteuses en bambou certifié OEKO-TEX pour bébé 0-6 mois. Ultra-douces, thermorégulantes, motifs unisexes. Livraison offerte dès 60€.",
+    seoDesc:  "Gigoteuse à nouer en bambou certifié OEKO-TEX pour bébé 0-6 mois. Ultra-douce, thermorégulante, sommeil serein sans zip ni bouton. Livraison offerte dès 60€.",
     keywords: ["gigoteuse bambou", "gigoteuse bébé", "gigoteuse à nouer", "turbulette bambou", "sac de couchage bébé bambou", "gigoteuse OEKO-TEX"],
   },
   accessoires: {

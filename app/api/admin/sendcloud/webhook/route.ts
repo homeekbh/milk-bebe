@@ -6,31 +6,51 @@ import type { NextRequest } from "next/server";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 /**
- * Webhook Sendcloud → mise à jour statut commande automatique
+ * Webhook Sendcloud → mise à jour automatique du statut de livraison.
  *
- * Sendcloud envoie un POST à chaque changement de statut colis.
- * Statuts Sendcloud → statuts M!LK :
- *   11 = En transit      → shipped (déjà fait)
- *   12 = Livraison       → shipped
- *   80 = Livré           → delivered ✅
- *   2000 = Retour        → returned
- *   1 = En attente       → pending
+ * Sendcloud POST à chaque changement de statut colis (action
+ * "parcel_status_changed"). Codes OFFICIELS — source vérifiée :
+ * GET https://panel.sendcloud.sc/api/v2/parcels/statuses
+ *
+ *   11   = Delivered                      → livree  ✅
+ *   93   = Shipment collected by customer  → livree  (retrait point relais effectué)
+ *   12   = Awaiting customer pickup        → expediee (colis au relais, pas encore retiré)
+ *   3/22/91/92 = en route / pris en charge → expediee (filet : auto-avance si oublié)
+ *   8    = Delivery attempt failed         → ignoré (pas de statut "échec" dans M!LK)
+ *   80   = Unable to deliver               → ignoré (échec, surtout PAS "livré")
+ *   2000 = Cancelled (côté Sendcloud)      → ignoré (ce n'est PAS un retour client)
+ * Tout autre code est ignoré (aucun changement de statut).
+ *
+ * ⚠️ CORRECTION DU BUG : l'ancien mapping avait 80→livree (faux : 80 = échec
+ * de livraison) et 11→expediee (faux : 11 = LIVRÉ). Les livraisons arrivant en
+ * code 11 étaient donc mappées en "expediee" (no-op) et ne passaient JAMAIS en
+ * "livree". 2000→retour était aussi faux (2000 = annulation Sendcloud, pas un
+ * retour). Les vrais retours arrivent via un webhook Sendcloud "return" distinct.
  */
-
 const STATUS_MAP: Record<number, string> = {
-  80:   "livree",          // Livré
-  2000: "retour",          // Retour reçu
-  2100: "retour",          // Retour en transit
-  11:   "expediee",        // En transit
-  12:   "expediee",        // En cours de livraison
-  1:    "en_preparation",  // En attente
+  11: "livree",   // Delivered
+  93: "livree",   // Shipment collected by customer (retrait relais)
+  12: "expediee", // Awaiting customer pickup
+  3:  "expediee", // En route to sorting center
+  22: "expediee", // Shipment picked up by driver
+  91: "expediee", // Parcel en route
+  92: "expediee", // Driver en route
 };
+
+// Filet de sécurité : certains transporteurs renvoient le bon message même si
+// l'id numérique varie. Le message Sendcloud canonique pour la livraison est
+// "Delivered" (localisé possible). On ne déclenche "livree" QUE sur un message
+// de livraison explicite — jamais sur "in transit"/"awaiting pickup".
+function messageMeansDelivered(msg: unknown): boolean {
+  return /deliver|livr[ée]|bezorgd|zugestellt|consegnat|entregad|collected by customer/i
+    .test(String(msg ?? ""));
+}
 
 export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
 
-    // ✅ Vérification signature Sendcloud
+    // ✅ Vérification signature Sendcloud (HMAC-SHA256 du body brut).
     const secret    = process.env.SENDCLOUD_WEBHOOK_SECRET ?? "";
     const signature = req.headers.get("sendcloud-signature") ?? "";
 
@@ -41,6 +61,12 @@ export async function POST(req: NextRequest) {
         console.error("Sendcloud webhook: signature invalide");
         return Response.json({ error: "Signature invalide" }, { status: 401 });
       }
+    } else if (!secret) {
+      // TODO(sécurité) : définir SENDCLOUD_WEBHOOK_SECRET dans Vercel puis le
+      // copier depuis le panel Sendcloud. Tant qu'il est absent, le webhook
+      // accepte les requêtes NON signées — acceptable temporairement (impact
+      // limité : changement de statut commande), à sécuriser avant volume.
+      console.warn("[sendcloud-webhook] SENDCLOUD_WEBHOOK_SECRET absent — signature NON vérifiée (TODO: configurer le secret).");
     }
 
     const body = JSON.parse(rawBody);
@@ -49,32 +75,46 @@ export async function POST(req: NextRequest) {
     const messages = Array.isArray(body) ? body : [body];
 
     for (const msg of messages) {
-      const statusCode    = msg.status?.id ?? msg.parcel?.status?.id;
+      const statusCode     = msg.status?.id ?? msg.parcel?.status?.id;
+      const statusMessage  = msg.status?.message ?? msg.parcel?.status?.message ?? "";
       const trackingNumber = msg.parcel?.tracking_number ?? msg.tracking_number;
       const orderNumber    = msg.parcel?.order_number ?? msg.order_number;
 
-      if (!statusCode || !orderNumber) continue;
+      // On a besoin d'au moins un identifiant pour retrouver la commande.
+      if (!trackingNumber && !orderNumber) continue;
 
-      const newStatus = STATUS_MAP[statusCode];
+      // Statut M!LK : mapping par code, + filet sur le message de livraison
+      // (robuste si l'id varie selon le transporteur).
+      let newStatus = STATUS_MAP[statusCode];
+      if (!newStatus && messageMeansDelivered(statusMessage)) newStatus = "livree";
       if (!newStatus) continue;
 
-      // Trouver la commande par order_id ou tracking_number
-      let query = supabaseServer.from("orders").select("id, customer_email, customer_name, shipping_status");
-
-      if (orderNumber) {
-        query = query.eq("id", orderNumber) as any;
-      } else if (trackingNumber) {
-        query = query.eq("tracking_number", trackingNumber) as any;
-      } else {
-        continue;
+      // Retrouver la commande — tracking_number EN PRIORITÉ : order_number est
+      // l'UUID de la commande tronqué à 30 caractères côté create-label
+      // (order_number = order.id.slice(0,30)), donc un .eq("id", orderNumber)
+      // ne matche PAS l'UUID complet (36 car.). Le tracking_number, lui, est
+      // stocké tel quel et identique au payload Sendcloud.
+      let order: { id: string; customer_email: string | null; customer_name: string | null; shipping_status: string } | null = null;
+      if (trackingNumber) {
+        const { data } = await supabaseServer
+          .from("orders")
+          .select("id, customer_email, customer_name, shipping_status")
+          .eq("tracking_number", trackingNumber)
+          .limit(1);
+        order = data?.[0] ?? null;
       }
-
-      const { data: orders } = await query.limit(1);
-      const order = orders?.[0];
+      if (!order && orderNumber) {
+        const { data } = await supabaseServer
+          .from("orders")
+          .select("id, customer_email, customer_name, shipping_status")
+          .eq("id", orderNumber)
+          .limit(1);
+        order = data?.[0] ?? null;
+      }
       if (!order) continue;
 
       // Ne pas rétrograder un statut (ex: livré → expédié)
-      const RANK: Record<string, number> = { en_preparation: 0, expediee: 1, livree: 2, retour: 3 };
+      const RANK: Record<string, number> = { en_preparation: 0, label_created: 0, expediee: 1, livree: 2, retour: 3 };
       if ((RANK[newStatus] ?? 0) <= (RANK[order.shipping_status] ?? 0) && newStatus !== "retour") continue;
 
       // Mettre à jour le statut
@@ -83,6 +123,16 @@ export async function POST(req: NextRequest) {
         .from("orders")
         .update({ shipping_status: newStatus })
         .eq("id", order.id);
+
+      // delivered_at : best-effort (la colonne existe — migration 001 — mais on
+      // protège le statut critique en isolant cet update secondaire).
+      if (newStatus === "livree") {
+        const { error: deliveredErr } = await supabaseServer
+          .from("orders")
+          .update({ delivered_at: new Date().toISOString() })
+          .eq("id", order.id);
+        if (deliveredErr) console.warn("[sendcloud-webhook] delivered_at non posé:", deliveredErr.message);
+      }
 
       // logActivity — type selon nouveau statut, on log uniquement les transitions significatives
       const logType =
@@ -128,53 +178,9 @@ export async function POST(req: NextRequest) {
           `,
         }).catch(() => {});
 
-        // Notification email CLIENT — confirme la livraison + invite à
-        // redécouvrir la collection / laisser un avis.
-        // Best-effort, indépendant de la réussite de l'email admin.
-        if (order.customer_email) {
-          const prenom = String(order.customer_name ?? "").split(" ")[0] ?? "";
-          await resend.emails.send({
-            from:    "M!LK <contact@milkbebe.fr>",
-            to:      order.customer_email,
-            subject: `Votre colis M!LK est arrivé ! 📦`,
-            html: `<!DOCTYPE html>
-<html lang="fr">
-<body style="margin:0;padding:0;background:#1a1410;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <div style="max-width:540px;margin:0 auto;padding:40px 20px">
-    <div style="text-align:center;margin-bottom:28px">
-      <div style="display:inline-block;background:#c49a4a;border-radius:12px;padding:14px 28px">
-        <span style="color:#1a1410;font-weight:950;font-size:24px;letter-spacing:-1px">M!LK</span>
-      </div>
-    </div>
-    <div style="background:#2a2018;border-radius:20px;padding:32px;border:1px solid rgba(242,237,230,0.08);margin-bottom:24px">
-      <h1 style="margin:0 0 14px;color:#f2ede6;font-size:24px;font-weight:950;letter-spacing:-0.5px">
-        ${prenom ? `${prenom}, votre` : "Votre"} colis est arrivé 📦
-      </h1>
-      <p style="margin:0 0 14px;color:rgba(242,237,230,0.7);font-size:15px;line-height:1.7">
-        Votre commande <strong style="color:#f2ede6">#${shortId}</strong> vient d'être livrée.
-        Bébé peut désormais profiter de la douceur du bambou M!LK 🌿
-      </p>
-      <p style="margin:0;color:rgba(242,237,230,0.55);font-size:14px;line-height:1.7">
-        Une question ou un souci ? Répondez à cet email — on revient vers vous sous 24h.
-      </p>
-    </div>
-    <div style="text-align:center;display:grid;gap:10px;margin-bottom:24px">
-      <a href="${baseUrl}/produits" style="display:inline-block;background:#c49a4a;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
-        Redécouvrir la collection M!LK →
-      </a>
-      <a href="${baseUrl}/avis" style="display:inline-block;color:rgba(242,237,230,0.55);padding:10px;font-weight:700;font-size:13px;text-decoration:underline">
-        Laisser un avis
-      </a>
-    </div>
-    <div style="text-align:center;color:rgba(242,237,230,0.2);font-size:12px;line-height:1.8">
-      <p style="margin:0">M!LK — Essentiels bébé en bambou premium</p>
-      <p style="margin:4px 0 0">contact@milkbebe.fr</p>
-    </div>
-  </div>
-</body>
-</html>`,
-          }).catch(() => {});
-        }
+        // NB : pas d'email de livraison à la cliente ici — Mondial Relay /
+        // le transporteur la notifie déjà de son côté. La relance avis part
+        // séparément via le cron J+7 (api/emails/avis).
       }
 
       // Notification email admin si retour

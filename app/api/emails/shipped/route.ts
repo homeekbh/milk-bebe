@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { getTrackingInfo } from "@/lib/sendcloud-utils";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -12,24 +13,15 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
-function getTrackingUrl(transporteur: string, tracking: string): string | null {
-  if (!tracking) return null;
-  const t = (transporteur ?? "").toLowerCase();
-  if (t.includes("mondial")) return `https://www.mondialrelay.fr/suivi-de-colis/?numColis=${encodeURIComponent(tracking)}`;
-  if (t.includes("colissimo") || t.includes("poste")) return `https://www.laposte.fr/outils/suivre-vos-envois?code=${encodeURIComponent(tracking)}`;
-  if (t.includes("chronopost")) return `https://www.chronopost.fr/fr/chrono_suivi_display?listeNumerosLT=${encodeURIComponent(tracking)}`;
-  if (t.includes("dhl")) return `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${encodeURIComponent(tracking)}`;
-  if (t.includes("dpd")) return `https://trace.dpd.fr/fr/trace/${encodeURIComponent(tracking)}`;
-  if (t.includes("gls")) return `https://gls-group.com/FR/fr/suivi-colis?match=${encodeURIComponent(tracking)}`;
-  return null;
-}
-
 function buildHtml(opts: {
   prenom?: string; tracking?: string; transporteur?: string; items?: any[]; custom_message?: string;
   delivery_type?: string | null; relay?: any; home_address?: any;
 }): string {
   const { prenom, tracking, transporteur, items, custom_message, delivery_type, relay, home_address } = opts;
-  const trackingUrl = tracking && transporteur ? getTrackingUrl(transporteur, tracking) : null;
+  // Suivi : URL + numéro propre + instructions centralisés (gère le cas Mondial
+  // Relay = URL fixe sans paramètre + numéro sans préfixe "MR").
+  const trackInfo   = tracking ? getTrackingInfo(transporteur, tracking) : null;
+  const trackingUrl = trackInfo?.url ?? null;
   // Inclut point_relais ET locker (Mondial Relay propose les deux)
   const isRelay = (delivery_type === "point_relais" || delivery_type === "locker") && relay;
   const isHome  = delivery_type === "home" && home_address;
@@ -83,10 +75,11 @@ function buildHtml(opts: {
       ${transporteur ? `<div style="font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(242,237,230,0.35);margin-bottom:8px">Transporteur</div>
       <div style="font-size:16px;font-weight:800;color:#f2ede6;margin-bottom:18px">${escapeHtml(transporteur)}</div>` : ""}
       <div style="font-size:12px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:rgba(242,237,230,0.35);margin-bottom:8px">Numéro de suivi</div>
-      <div style="font-size:22px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:1px;margin-bottom:${trackingUrl ? 20 : 0}px">${escapeHtml(tracking)}</div>
+      <div style="font-size:22px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:1px;margin-bottom:${trackingUrl ? 20 : 0}px">${escapeHtml(trackInfo?.displayNumber ?? tracking ?? "")}</div>
       ${trackingUrl ? `<a href="${trackingUrl}" target="_blank" rel="noopener noreferrer" style="display:inline-block;background:#c49a4a;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
         Suivre mon colis →
       </a>` : ""}
+      ${trackInfo?.instructions ? `<div style="font-size:13px;color:rgba(242,237,230,0.6);line-height:1.6;margin-top:16px">↪ ${escapeHtml(trackInfo.instructions)}</div>` : ""}
     </div>` : ""}
     ${deliveryBlock}
     ${custom_message ? `

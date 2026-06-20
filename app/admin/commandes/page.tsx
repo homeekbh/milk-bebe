@@ -1,5 +1,6 @@
 ﻿"use client";
 import { useIsNarrow } from "@/lib/useIsNarrow";
+import { getTrackingInfo, carrierLabel } from "@/lib/sendcloud-utils";
 async function logActivity(type: string, message: string, opts?: { entity_name?: string; entity_id?: string }) {
   try {
     let token = "";
@@ -50,6 +51,10 @@ type Order = {
   promo_code?: string;
   discount?: number;
   stripe_session_id?: string;
+  // Transporteur réel choisi par le client au checkout, persisté par le webhook
+  // Stripe (valeurs : "mondial_relay" | "colissimo"). Source de vérité pour
+  // l'affichage admin + le nom transporteur dans l'email de suivi.
+  carrier?: "mondial_relay" | "colissimo" | string | null;
   // 'locker' n'est plus proposé au client mais peut exister sur des
   // commandes historiques antérieures à la migration 002_remove_locker.sql.
   delivery_type?: "point_relais" | "home" | "locker" | null;
@@ -66,6 +71,7 @@ type Order = {
 
 const STATUTS: Record<string, { label: string; bg: string; color: string }> = {
   en_preparation: { label: "En préparation", bg: "#fef3c7", color: "#92400e" },
+  label_created:  { label: "Étiquette créée — À déposer", bg: "#ffedd5", color: "#9a3412" },
   expediee:       { label: "Expédiée",       bg: "#dcfce7", color: "#166534" },
   livree:         { label: "Livrée",         bg: "#c49a4a", color: "#1a1410" },
   retour:         { label: "Retour",         bg: "#fee2e2", color: "#b91c1c" },
@@ -135,18 +141,9 @@ const ADRESSE_EXPEDITEUR = {
   tel:     "07 45 27 21 34",
 };
 
-// Lien de suivi selon le transporteur
-function getTrackingUrl(transporteur: string, tracking: string): string | null {
-  if (!tracking) return null;
-  const t = transporteur.toLowerCase();
-  if (t.includes("colissimo") || t.includes("poste")) return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
-  if (t.includes("chronopost")) return `https://www.chronopost.fr/fr/chrono_suivi_display?listeNumerosLT=${tracking}`;
-  if (t.includes("dhl")) return `https://www.dhl.com/fr-fr/home/tracking.html?tracking-id=${tracking}`;
-  if (t.includes("dpd")) return `https://trace.dpd.fr/fr/trace/${tracking}`;
-  if (t.includes("gls")) return `https://gls-group.com/FR/fr/suivi-colis?match=${tracking}`;
-  // Colissimo / La Poste est le default — retourne le tracker Laposte si carrier inconnu
-  return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
-}
+// Le lien de suivi + le numéro propre sont désormais centralisés dans
+// lib/sendcloud-utils.ts (getTrackingInfo) — gère le cas Mondial Relay
+// (URL fixe sans paramètre + numéro sans préfixe "MR").
 
 // ── Fenêtre impression étiquette ─────────────────────────────────────────────
 function printLabel(order: Order, type: "expedition" | "retour") {
@@ -451,7 +448,9 @@ export default function AdminCommandes() {
 
   // Construit l'aperçu HTML de l'email d'expédition via la route /api/emails/shipped?preview=1
   async function buildShipPreview(order: Order, customMessage: string): Promise<string> {
-    const carrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
+    // Nom transporteur RÉEL (order.carrier) — pas le carrier_name hardcodé de
+    // COLISSIMO_OPTIONS qui valait toujours "Colissimo".
+    const carrier = carrierLabel(order.carrier);
     const deliveryPayload = getDeliveryPayload(order);
     try {
       const res = await adminFetch("/api/emails/shipped", {
@@ -498,7 +497,9 @@ export default function AdminCommandes() {
     if (!order) return;
     setShipModal({ ...shipModal, sending: true });
 
-    const carrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
+    // Nom transporteur RÉEL (order.carrier) — pas le carrier_name hardcodé de
+    // COLISSIMO_OPTIONS qui valait toujours "Colissimo".
+    const carrier = carrierLabel(order.carrier);
     // 1. Update Supabase
     await adminFetch("/api/admin/commandes-data", {
       method:  "PUT",
@@ -826,6 +827,7 @@ export default function AdminCommandes() {
   const validOrders = orders.filter(o => !isCancelled(o));
   const totalCA     = validOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);  // exclut annulées
   const pending     = orders.filter(o => o.shipping_status === "en_preparation" && !isCancelled(o)).length;
+  const labelCreated = orders.filter(o => o.shipping_status === "label_created" && !isCancelled(o)).length;
   const shipped     = orders.filter(o => o.shipping_status === "expediee").length;
   const delivered   = orders.filter(o => o.shipping_status === "livree").length;
   const cancelled   = orders.filter(o => isCancelled(o)).length;
@@ -851,6 +853,7 @@ export default function AdminCommandes() {
         {[
           { label: "Total",          value: orders.length,                                                              color: "#1a1410" },
           { label: "En préparation", value: pending,                                                                     color: "#92400e" },
+          { label: "À déposer",      value: labelCreated,                                                                color: labelCreated > 0 ? "#9a3412" : "#166534" },
           { label: "Expédiées",      value: shipped,                                                                     color: "#1e40af" },
           { label: "Livrées",        value: delivered,                                                                   color: "#166534" },
           { label: "Annulées",       value: cancelled,                                                                   color: cancelled > 0 ? "#7f1d1d" : "#166534" },
@@ -1018,7 +1021,7 @@ export default function AdminCommandes() {
                             order.relay_id ? (
                               <div>
                                 <div style={{ fontSize: 13, fontWeight: 900, color: "#1a1410", marginBottom: 4 }}>
-                                  📦 Colissimo Point Relais
+                                  📦 {carrierLabel(order.carrier)} — Point Relais
                                 </div>
                                 <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>{order.relay_name ?? "—"}</div>
                                 <div style={{ fontSize: 13, color: "rgba(26,20,16,0.7)", lineHeight: 1.6 }}>
@@ -1071,9 +1074,9 @@ export default function AdminCommandes() {
                             <button
                               onClick={() => openLabelPdf(order.id)}
                               style={{ padding: "12px 16px", borderRadius: 12, background: "#16a34a", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
-                              title="Télécharge le vrai PDF Colissimo via Sendcloud (proxy authentifié)"
+                              title="Télécharge le vrai PDF transporteur via Sendcloud (proxy authentifié)"
                             >
-                              🖨️ Étiquette PDF Colissimo
+                              🖨️ Étiquette PDF {carrierLabel(order.carrier)}
                             </button>
                           ) : (
                             <button
@@ -1118,11 +1121,11 @@ export default function AdminCommandes() {
                         {order.delivery_type ? (
                           (() => {
                             const dt      = normalizeDeliveryType(order.delivery_type);
-                            const matched = COLISSIMO_OPTIONS.find(o => o.delivery_type === dt);
+                            const carrier = carrierLabel(order.carrier);
                             const icon    = dt === "home" ? "🏠" : "📦";
                             const label   =
-                              dt === "home" ? "Colissimo Domicile" :
-                                              "Colissimo Point Relais";
+                              dt === "home" ? `${carrier} — Domicile` :
+                                              `${carrier} — Point Relais`;
                             return (
                               <div style={{ background: "#1a1410", borderRadius: 12, padding: "16px 18px", color: "#f2ede6" }}>
                                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(196,154,74,0.8)", marginBottom: 8 }}>
@@ -1148,7 +1151,7 @@ export default function AdminCommandes() {
                                   </div>
                                 ) : null}
                                 <div style={{ fontSize: 11, color: "rgba(242,237,230,0.5)", marginTop: 10, padding: "8px 10px", background: "rgba(196,154,74,0.1)", borderRadius: 6 }}>
-                                  ↪ Transporteur sélectionné automatiquement : <strong style={{ color: "#c49a4a" }}>{matched?.name ?? "—"}</strong> (ID {matched?.code ?? "—"})
+                                  ↪ Transporteur : <strong style={{ color: "#c49a4a" }}>{carrier}</strong>
                                 </div>
                               </div>
                             );
@@ -1213,46 +1216,60 @@ export default function AdminCommandes() {
                           />
                         </div>
 
-                        {/* Lien de suivi si déjà expédiée */}
-                        {order.shipping_status === "expediee" && order.tracking_number && (
+                        {/* Lien de suivi si déjà expédiée — numéro propre + URL correcte
+                            selon le transporteur réel (order.carrier). */}
+                        {order.shipping_status === "expediee" && order.tracking_number && (() => {
+                          const info = getTrackingInfo(order.carrier, order.tracking_number);
+                          return (
                           <div style={{ padding: "12px 14px", borderRadius: 10, background: "#dcfce7", border: "1px solid #bbf7d0" }}>
-                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#166534", marginBottom: 6 }}>Numéro de suivi</div>
-                            <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15, color: "#1a1410", marginBottom: 6 }}>{order.tracking_number}</div>
-                            {(() => {
-                              const notes = order.notes ?? "";
-                              const transporteurMatch = notes.match(/^Transporteur: ([^—]+)/);
-                              const transporteurName = transporteurMatch ? transporteurMatch[1].trim() : "";
-                              const url = getTrackingUrl(transporteurName, order.tracking_number);
-                              return url ? (
-                                <a href={url} target="_blank" rel="noopener noreferrer"
-                                  style={{ fontSize: 13, fontWeight: 800, color: "#166534", textDecoration: "underline" }}>
-                                  Suivre le colis →
-                                </a>
-                              ) : null;
-                            })()}
+                            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#166534", marginBottom: 6 }}>
+                              Numéro de suivi · {carrierLabel(order.carrier)}
+                            </div>
+                            <div style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15, color: "#1a1410", marginBottom: 6 }}>{info.displayNumber}</div>
+                            <a href={info.url} target="_blank" rel="noopener noreferrer"
+                              style={{ fontSize: 13, fontWeight: 800, color: "#166534", textDecoration: "underline" }}>
+                              Suivre le colis →
+                            </a>
+                            {info.instructions && (
+                              <div style={{ fontSize: 12, color: "#166534", marginTop: 6, lineHeight: 1.5 }}>
+                                ↪ {info.instructions}
+                              </div>
+                            )}
                           </div>
-                        )}
+                          );
+                        })()}
 
                         {/* ✅ Bouton Sendcloud — génération étiquette automatique */}
                         {order.shipping_status !== "expediee" && (
                           <div style={{ display: "grid", gap: 8 }}>
-                            <button
-                              onClick={() => generateLabel(order)}
-                              disabled={!transporteur || generatingLabel}
-                              style={{
-                                padding: "12px 16px",
-                                borderRadius: 12,
-                                border: "none",
-                                fontWeight: 900,
-                                fontSize: 14,
-                                cursor: (!transporteur || generatingLabel) ? "not-allowed" : "pointer",
-                                background: (!transporteur || generatingLabel) ? "#e5e7eb" : "#1d4ed8",
-                                color: (!transporteur || generatingLabel) ? "#9ca3af" : "#fff",
-                                transition: "all 0.2s",
-                              }}
-                            >
-                              {generatingLabel ? "⏳ Génération..." : "📦 Générer l'étiquette Sendcloud"}
-                            </button>
+                            {/* Le bouton de génération disparaît une fois le colis
+                                Sendcloud créé : on ne régénère pas (garde-fou 409
+                                serveur). On affiche à la place un rappel de l'étape
+                                suivante = déposer le colis puis "Marquer comme
+                                expédié" (BUG 1 : la génération ne marque PAS expédié). */}
+                            {!(order as any).sendcloud_parcel_id ? (
+                              <button
+                                onClick={() => generateLabel(order)}
+                                disabled={!transporteur || generatingLabel}
+                                style={{
+                                  padding: "12px 16px",
+                                  borderRadius: 12,
+                                  border: "none",
+                                  fontWeight: 900,
+                                  fontSize: 14,
+                                  cursor: (!transporteur || generatingLabel) ? "not-allowed" : "pointer",
+                                  background: (!transporteur || generatingLabel) ? "#e5e7eb" : "#1d4ed8",
+                                  color: (!transporteur || generatingLabel) ? "#9ca3af" : "#fff",
+                                  transition: "all 0.2s",
+                                }}
+                              >
+                                {generatingLabel ? "⏳ Génération..." : "📦 Générer l'étiquette Sendcloud"}
+                              </button>
+                            ) : (
+                              <div style={{ padding: "12px 14px", borderRadius: 12, background: "#ffedd5", border: "1px solid #fdba74", fontSize: 13, fontWeight: 800, color: "#9a3412", lineHeight: 1.5 }}>
+                                ✅ Étiquette créée. Imprime-la, dépose le colis chez {carrierLabel(order.carrier)}, puis clique « 🚚 Marquer comme expédié » ci-dessous pour prévenir la cliente.
+                              </div>
+                            )}
                             {labelError && (
                               <div style={{ padding: "8px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
                                 ✕ {labelError}

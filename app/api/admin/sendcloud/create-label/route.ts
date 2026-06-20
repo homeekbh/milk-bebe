@@ -515,21 +515,29 @@ export async function POST(req: NextRequest) {
     console.error(`[sendcloud:v3:response] SUCCESS tracking=${trackingNumber || "(pending)"} label=${labelUrl ? "OK" : "MISSING"} parcel_id=${parcelId}`);
 
     // ── 7. Update Supabase (2-step) ─────────────────────────────────────────
+    // BUG 1 fix : générer l'étiquette ne signifie PAS que le colis est expédié.
+    // On passe la commande au statut intermédiaire "label_created" (étiquette
+    // créée, à déposer chez le transporteur). Le passage en "expediee" + l'envoi
+    // de l'email de suivi au client se font UNIQUEMENT à l'étape manuelle
+    // "Marquer comme expédié" (dépôt réel chez le transporteur par Erika).
+    // On n'écrase pas un statut déjà "expediee" (cas régénération d'étiquette).
+    const nextStatus = order.shipping_status === "expediee" ? "expediee" : "label_created";
     const { error: updateErr1 } = await supabaseServer
       .from("orders")
       .update({
-        shipping_status: "expediee",
+        shipping_status: nextStatus,
         tracking_number: trackingNumber || null,
       })
       .eq("id", order_id);
     if (updateErr1) console.error("[sendcloud] Supabase update statut/tracking:", updateErr1);
 
+    // shipped_at n'est PAS renseigné ici : la date d'expédition réelle est
+    // posée à l'étape "Marquer comme expédié" (cf. mark-shipped via l'admin).
     const { error: updateErr2 } = await supabaseServer
       .from("orders")
       .update({
         label_url:           labelUrl || null,
         sendcloud_parcel_id: parcelId || null,
-        shipped_at:          new Date().toISOString(),
       })
       .eq("id", order_id);
     if (updateErr2) {

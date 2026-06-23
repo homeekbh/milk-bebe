@@ -139,6 +139,7 @@ function HeroQSN() {
 
   return (
     <section
+      className="qsn-cover"
       style={{
         position:   "relative",
         height:     "clamp(56vh, 64vh, 72vh)",
@@ -148,6 +149,7 @@ function HeroQSN() {
       }}
     >
       <div
+        className="qsn-cover-photo"
         style={{
           position: "absolute",
           inset:    "-10% 0 -10% 0",
@@ -163,7 +165,7 @@ function HeroQSN() {
           style={{ objectFit: "cover", objectPosition: "center 40%" }}
         />
         {/* Voile clair (au lieu du marron) */}
-        <div style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, rgba(242,237,230,0.35) 0%, rgba(242,237,230,0.15) 50%, rgba(26,20,16,0.55) 100%)` }} />
+        <div className="qsn-cover-veil" style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, rgba(242,237,230,0.35) 0%, rgba(242,237,230,0.15) 50%, rgba(26,20,16,0.55) 100%)` }} />
       </div>
       {/* Scrim haut — garantit la lisibilité du header + fil d'ariane (texte crème)
           dès le chargement : le hero étant clair, sans ce voile sombre le logo/nav
@@ -185,7 +187,7 @@ function HeroQSN() {
           items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
         />
       </div>
-      <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 56px" }}>
+      <div className="qsn-cover-content" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 56px" }}>
         <div style={{ padding: "0 clamp(16px,5vw,5vw)", width: "100%", boxSizing: "border-box" }}>
           <div
             style={{
@@ -604,6 +606,46 @@ export default function QuiSommesNousPage() {
           .qsn-kpis       { grid-template-columns: repeat(2,1fr) !important; }
           .qsn-kpis > div:nth-child(2) { border-right: none !important; }
           .qsn-val        { grid-template-columns: 1fr !important; }
+        }
+        /* ───── HERO QSN MOBILE — plein écran, même pattern que la homepage ─────
+           globals.css plafonne l'<img> via [style*="object-fit:cover"]{max-height:55vh}
+           et img{height:auto}. On lève le plafond avec une spécificité supérieure
+           (.qsn-cover .qsn-cover-photo img). Mes classes n'ont PAS "hero" dedans
+           pour ne pas déclencher [class*="hero"] img{max-height:60vh}. Desktop intact. */
+        @media (max-width: 700px) {
+          .qsn-cover {
+            height: 100svh !important;
+            min-height: 100svh !important;
+            max-height: 100svh !important;
+            overflow: hidden !important;
+          }
+          .qsn-cover-photo {
+            inset: 0 !important;
+            transform: none !important;
+          }
+          .qsn-cover .qsn-cover-photo img {
+            max-height: none !important;
+            min-height: 100% !important;
+            height: 100% !important;
+            width: 100% !important;
+            object-fit: cover !important;
+            object-position: center top !important;
+          }
+          .qsn-cover-content {
+            inset: auto 0 0 0 !important;
+            height: auto !important;
+            padding: 0 0 28px !important;
+          }
+          .qsn-cover-veil {
+            top: auto !important;
+            bottom: 0 !important;
+            height: 42% !important;
+            background: linear-gradient(to top,
+              rgba(13,11,9,0.80) 0%,
+              rgba(13,11,9,0.38) 45%,
+              transparent 100%
+            ) !important;
+          }
         }
         .qsn-valcard:hover {
           transform: perspective(1400px) translateY(-6px) scale(1.01) !important;

@@ -510,12 +510,13 @@ function Hero() {
               }}
             >
               L'essentiel.
-              <br />
-              <span style={{ color: P.cream }}>Sans compromis.</span>
+              <br className="milk-hero-h1-br" />
+              <span className="milk-hero-h1-rest" style={{ color: P.cream }}>Sans compromis.</span>
             </h1>
 
             {/* Sous-titre */}
             <p
+              className="milk-hero-sub"
               style={{
                 margin:    "0 0 28px",
                 fontSize:  "clamp(14px, 1.7vw, 18px)",
@@ -993,6 +994,7 @@ function ProductsSection({ products, lbl }: { products: any[]; lbl: string }) {
   return (
     <section
       ref={setRefs}
+      className="milk-sec-products"
       style={{
         position:  "relative",
         background: `linear-gradient(180deg, ${P.light} 0%, ${P.warm} 100%)`,
@@ -1803,7 +1805,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div style={{ background: P.light, color: P.dark, overflowX: "hidden" }}>
+    <div className="milk-home-root" style={{ background: P.light, color: P.dark, overflowX: "hidden" }}>
       <style>{`
         @keyframes milk-spin     { from{transform:rotate(0)} to{transform:rotate(360deg)} }
         @keyframes milk-bounce   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }
@@ -1904,19 +1906,32 @@ export default function HomePage() {
           .milk-gift-btns a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
           .milk-split     { grid-template-columns: 1fr !important; }
           .milk-tgrid     { grid-template-columns: 1fr !important; }
-          .milk-hero-btns { flex-direction: column !important; }
+          /* FIX 2 : CTA hero masqués sur mobile (re-présents plus bas dans la page) */
+          .milk-hero-btns { display: none !important; }
           .milk-hero-btns a { width: 100% !important; text-align: center !important; box-sizing: border-box !important; }
+
+          /* FIX 4 : réorg sections mobile → Hero, Produits, puis Stats + reste.
+             Root passe en flex-col ; seuls Hero (order:-2) et Produits (order:-1)
+             remontent, tout le reste garde son ordre source (order:0). Desktop intact. */
+          .milk-home-root   { display: flex !important; flex-direction: column !important; }
+          .milk-sec-products { order: -1 !important; }
+
+          /* FIX 2 : sur mobile, ne garder que "L'essentiel." + les tags d'âge */
+          .milk-hero-h1-br,
+          .milk-hero-h1-rest { display: none !important; }
+          .milk-hero-sub     { display: none !important; }
           .milk-band-stats { gap: 14px 0 !important; }
           .milk-band-stats > div { padding-right: 14px !important; margin-right: 14px !important; }
           .milk-heroband-badge { display: none !important; }
 
-          /* ───── HERO MOBILE — section simple 85svh, contenu visible direct ───── */
+          /* ───── HERO MOBILE — plein écran 100svh, image qui couvre tout ───── */
           .milk-hero-root {
-            height: 85svh !important;
+            height: 100svh !important;
             min-height: 560px !important;
-            max-height: 820px !important;
+            max-height: none !important;
             overflow: hidden !important;
             background: #f2ede6 !important; /* cream fallback explicite — jamais gris */
+            order: -2 !important;           /* FIX 4 : hero en 1er */
           }
           /* Inner reste absolute inset 0 (default desktop), pas de sticky ici */
           .milk-hero-sticky { background: #f2ede6 !important; }

@@ -1950,11 +1950,17 @@ export default function HomePage() {
             height: 100% !important;
             transform: none !important;
           }
-          .milk-hero-photo img {
+          /* IMPORTANT override globals.css : [class*="hero"] img { max-height:60vh }
+             et [style*="object-fit:cover"] { max-height:55vh } bridaient l'image
+             hero a 60vh -> 40% de vide gris en bas. Selecteur plus specifique
+             (0,2,1) + max-height:none pour lever le plafond. */
+          .milk-hero-root .milk-hero-photo img {
             object-fit: cover !important;
             object-position: center top !important;
             width: 100% !important;
             height: 100% !important;
+            max-height: none !important;
+            min-height: 100% !important;
           }
           /* Watermark M!LK masqué sur mobile (le logo du header suffit) */
           .milk-hero-logo-wrap { display: none !important; }
@@ -1973,7 +1979,7 @@ export default function HomePage() {
             inset: auto 0 0 0 !important;
             height: auto !important;
             align-items: flex-start !important;
-            padding: 0 5vw 40px !important;
+            padding: 0 5vw 24px !important;
           }
           /* H1 mobile : letter-spacing détendu, "Sans compromis" ne se colle plus */
           .milk-hero-h1 {
@@ -1982,13 +1988,17 @@ export default function HomePage() {
             font-size: clamp(32px, 8.5vw, 50px) !important;
             line-height: 1.05 !important;
           }
-          /* Voile bottom-only chaud (plus de gris diagonal qui délave tout) */
+          /* Voile confiné au bas 35% : il sert juste au contraste du texte.
+             Avant il couvrait toute la photo et grisait la partie unie du drap
+             sous les pieds → ça donnait l'illusion d'une zone vide grise. */
           .milk-hero-veil {
+            top: auto !important;
+            bottom: 0 !important;
+            height: 35% !important;
             background: linear-gradient(to top,
-              rgba(13,11,9,0.78) 0%,
-              rgba(60,38,22,0.45) 25%,
-              rgba(13,11,9,0.15) 55%,
-              transparent 78%
+              rgba(13,11,9,0.80) 0%,
+              rgba(13,11,9,0.40) 45%,
+              transparent 100%
             ) !important;
           }
           /* CTA "Pourquoi le bambou ?" : contraste renforcé */

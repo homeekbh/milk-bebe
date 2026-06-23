@@ -359,6 +359,7 @@ function Hero() {
       >
         {/* Photo plein écran : parallax + zoom doux au mount */}
         <div
+          className="milk-hero-photo"
           style={{
             position: "absolute",
             inset:    "-10% 0 -10% 0",
@@ -1935,12 +1936,22 @@ export default function HomePage() {
           }
           /* Inner reste absolute inset 0 (default desktop), pas de sticky ici */
           .milk-hero-sticky { background: #f2ede6 !important; }
-          /* Logo discret bottom-left (watermark) */
-          .milk-hero-logo-wrap {
-            bottom: 3.5vh !important;
-            left: 4vw !important;
-            top: auto !important;
+          /* FIX image hero : le wrapper photo utilisait inset:-10% (pourcentage),
+             qui s'effondre quand .milk-hero-root devient un flex item (bug
+             flexbox % height). On force inset:0 + pas de scale → l'image couvre
+             tout le hero (100svh). object-position:center top = pieds visibles. */
+          .milk-hero-photo {
+            inset: 0 !important;
+            transform: none !important;
           }
+          .milk-hero-photo img {
+            object-fit: cover !important;
+            object-position: center top !important;
+            width: 100% !important;
+            height: 100% !important;
+          }
+          /* Watermark M!LK masqué sur mobile (le logo du header suffit) */
+          .milk-hero-logo-wrap { display: none !important; }
           .milk-hero-logo {
             font-size: clamp(48px, 16vw, 96px) !important;
             letter-spacing: 0.02em !important;

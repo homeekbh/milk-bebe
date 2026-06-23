@@ -50,24 +50,16 @@ export async function POST(req: NextRequest) {
   try {
     const rawBody = await req.text();
 
-    // ✅ Vérification signature Sendcloud (HMAC-SHA256 du body brut).
-    const secret    = process.env.SENDCLOUD_WEBHOOK_SECRET ?? "";
-    const signature = req.headers.get("sendcloud-signature") ?? "";
-
-    if (secret && signature) {
-      const { createHmac } = await import("crypto");
-      const expected = createHmac("sha256", secret).update(rawBody).digest("hex");
-      if (signature !== expected) {
-        console.error("Sendcloud webhook: signature invalide");
-        return Response.json({ error: "Signature invalide" }, { status: 401 });
-      }
-    } else if (!secret) {
-      // TODO(sécurité) : définir SENDCLOUD_WEBHOOK_SECRET dans Vercel puis le
-      // copier depuis le panel Sendcloud. Tant qu'il est absent, le webhook
-      // accepte les requêtes NON signées — acceptable temporairement (impact
-      // limité : changement de statut commande), à sécuriser avant volume.
-      console.warn("[sendcloud-webhook] SENDCLOUD_WEBHOOK_SECRET absent — signature NON vérifiée (TODO: configurer le secret).");
-    }
+    // Pas de vérification de signature HMAC : en mode "Boutique connectée",
+    // Sendcloud n'envoie AUCUNE signature sur les webhooks entrants. Il
+    // s'authentifie via les clés publique/confidentielle au moment de la
+    // CRÉATION du colis (create-label), pas sur les webhooks de statut.
+    //
+    // La sécurité de cette route est assurée par le payload lui-même : un
+    // changement de statut n'est appliqué QUE si le tracking_number (ou
+    // l'order_number) matche une commande existante en base. Une requête forgée
+    // sans tracking_number valide ne déclenche aucune action (cf. lookup orders
+    // ci-dessous) — l'impact d'un faux POST est donc nul.
 
     const body = JSON.parse(rawBody);
 

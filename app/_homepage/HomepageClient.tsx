@@ -1927,9 +1927,12 @@ export default function HomePage() {
 
           /* ───── HERO MOBILE — plein écran 100svh, image qui couvre tout ───── */
           .milk-hero-root {
+            /* Les 3 verrouillées à 100svh : en flex item, height seul peut être
+               ignoré au profit de min-height. On force min=max=height=100svh →
+               hauteur exacte écran, immunisé contre flex-shrink/grow. */
             height: 100svh !important;
-            min-height: 560px !important;
-            max-height: none !important;
+            min-height: 100svh !important;
+            max-height: 100svh !important;
             overflow: hidden !important;
             background: #f2ede6 !important; /* cream fallback explicite — jamais gris */
             order: -2 !important;           /* FIX 4 : hero en 1er */
@@ -1941,7 +1944,10 @@ export default function HomePage() {
              flexbox % height). On force inset:0 + pas de scale → l'image couvre
              tout le hero (100svh). object-position:center top = pieds visibles. */
           .milk-hero-photo {
+            position: absolute !important;
             inset: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
             transform: none !important;
           }
           .milk-hero-photo img {
@@ -1960,9 +1966,14 @@ export default function HomePage() {
           /* Badge OEKO + hint Découvrir masqués (cohabitation chat impossible) */
           .milk-hero-badge { display: none !important; }
           .milk-hero-hint  { display: none !important; }
-          /* Contenu : padding adapté à un hero 85svh, lisible sans scroll */
+          /* Contenu (tags + "L'essentiel.") collé en BAS de la photo, hauteur
+             auto : plus de inset:0 + alignItems:center qui centrait le texte
+             dans le vide quand la photo paraissait courte. */
           .milk-hero-content {
-            padding: clamp(56px, 10vh, 100px) 5vw clamp(70px, 12vh, 120px) !important;
+            inset: auto 0 0 0 !important;
+            height: auto !important;
+            align-items: flex-start !important;
+            padding: 0 5vw 40px !important;
           }
           /* H1 mobile : letter-spacing détendu, "Sans compromis" ne se colle plus */
           .milk-hero-h1 {

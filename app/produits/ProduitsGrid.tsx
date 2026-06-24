@@ -7,6 +7,7 @@ import Link  from "next/link";
 import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign";
 import { useWishlist } from "@/context/WishlistContext";
 import ReviewsBlock from "@/components/product/ReviewsBlock";
+import PackCard, { type Pack } from "@/components/packs/PackCard";
 
 const PROMO_STYLES = `
   @keyframes milk-promo-shake {
@@ -176,12 +177,25 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   const [page,           setPage]           = useState(1);
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
 
+  // Onglet "Nos packs"
+  const [showPacks,   setShowPacks]   = useState(false);
+  const [packs,       setPacks]       = useState<Pack[]>([]);
+  const [packsLoaded, setPacksLoaded] = useState(false);
+
   useEffect(() => {
     fetch("/api/settings/public").then(r=>r.json()).then((s:any)=>{
       const n = Number(s?.free_shipping_threshold);
       if (Number.isFinite(n) && n > 0) setFreeShipThreshold(n);
     }).catch(()=>{});
   }, []);
+
+  useEffect(() => {
+    if (showPacks && !packsLoaded) {
+      fetch("/api/packs").then(r => r.json())
+        .then((d: any) => { setPacks(Array.isArray(d.packs) ? d.packs : []); setPacksLoaded(true); })
+        .catch(() => setPacksLoaded(true));
+    }
+  }, [showPacks, packsLoaded]);
 
   const filtered = useMemo(() => {
     let list = products.filter(p => p.published !== false);
@@ -206,6 +220,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
       router.push(slug === "" ? "/produits" : `/categorie/${slug}`);
       return;
     }
+    setShowPacks(false);
     setActiveCategory(slug);
     setPage(1);
   }
@@ -240,12 +255,19 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         {/* Filtres */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {buildCategoriesFromProducts(products).map(cat => (
-              <button key={cat.slug} onClick={() => changeCat(cat.slug)}
-                style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: activeCategory === cat.slug ? C.dark : "rgba(26,20,16,0.1)", color: activeCategory === cat.slug ? C.warm : "rgba(26,20,16,0.65)", fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", transition: "all 0.15s", whiteSpace: "nowrap" }}>
-                {cat.label}
-              </button>
-            ))}
+            {buildCategoriesFromProducts(products).map(cat => {
+              const active = !showPacks && activeCategory === cat.slug;
+              return (
+                <button key={cat.slug} onClick={() => changeCat(cat.slug)}
+                  style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: active ? C.dark : "rgba(26,20,16,0.1)", color: active ? C.warm : "rgba(26,20,16,0.65)", fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", transition: "all 0.15s", whiteSpace: "nowrap" }}>
+                  {cat.label}
+                </button>
+              );
+            })}
+            <button onClick={() => setShowPacks(true)}
+              style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: showPacks ? C.amber : "rgba(196,154,74,0.18)", color: showPacks ? C.dark : "#9a7327", fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", transition: "all 0.15s", whiteSpace: "nowrap" }}>
+              🎁 Nos packs
+            </button>
           </div>
           <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input type="search" value={search} onChange={e => changeSearch(e.target.value)} placeholder="Rechercher..."
@@ -257,6 +279,19 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           </div>
         </div>
 
+        {showPacks ? (
+          packs.length === 0 ? (
+            <div style={{ textAlign: "center", padding: "60px 24px", background: C.taupe, borderRadius: 20, border: "1px solid rgba(26,20,16,0.1)" }}>
+              <div style={{ fontSize: 20, fontWeight: 950, color: C.dark, marginBottom: 8 }}>{packsLoaded ? "Bientôt disponible" : "Chargement…"}</div>
+              {packsLoaded && <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Nos coffrets arrivent très vite 🎁</div>}
+            </div>
+          ) : (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 20 }}>
+              {packs.map(pk => <PackCard key={pk.id} pack={pk} />)}
+            </div>
+          )
+        ) : (
+        <>
         <div style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600, marginBottom: 20 }}>
           <span style={{ color: C.amber, fontWeight: 900 }}>{filtered.length}</span>{" "}produit{filtered.length > 1 ? "s" : ""}
         </div>
@@ -289,6 +324,8 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
               Suivant →
             </button>
           </div>
+        )}
+        </>
         )}
       </div>
 

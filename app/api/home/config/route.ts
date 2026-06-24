@@ -5,12 +5,14 @@ export async function GET() {
   try {
     const { data: config } = await supabaseServer
       .from("homepage_config")
-      .select("section_title, product_ids")
+      .select("section_title, product_ids, coffret_active")
       .eq("id", "main")
       .single();
 
+    const coffretActive = Boolean(config?.coffret_active);
+
     if (!config || !Array.isArray(config.product_ids) || config.product_ids.length === 0) {
-      return NextResponse.json({ section_title: "Sélection du moment", products: [] });
+      return NextResponse.json({ section_title: "Sélection du moment", products: [], coffret_active: coffretActive });
     }
 
     const { data: products } = await supabaseServer
@@ -26,6 +28,7 @@ export async function GET() {
     return NextResponse.json({
       section_title: config.section_title ?? "Sélection du moment",
       products: ordered,
+      coffret_active: coffretActive,
     });
   } catch {
     return NextResponse.json({ section_title: "Sélection du moment", products: [] });

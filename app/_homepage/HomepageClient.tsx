@@ -1774,6 +1774,7 @@ export default function HomePage() {
   const [products, setProducts]                   = useState<any[]>([]);
   const [lbl, setLbl]                             = useState("Sélection du moment");
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
+  const [coffretActive, setCoffretActive]         = useState(false);
 
   useEffect(() => {
     fetch("/api/settings/public")
@@ -1789,6 +1790,7 @@ export default function HomePage() {
     fetch("/api/home/config")
       .then(r => r.json())
       .then((data: any) => {
+        setCoffretActive(Boolean(data?.coffret_active));
         if (data?.products && Array.isArray(data.products) && data.products.length > 0) {
           setProducts(data.products);
           setLbl(data.section_title ?? "Sélection du moment");
@@ -2085,6 +2087,21 @@ export default function HomePage() {
         bg={P.warm}
         imgSquare
       />
+
+      {coffretActive && (
+        <section style={{ background: P.taupeAlt, padding: "clamp(48px,7vw,88px) 5vw", textAlign: "center" }}>
+          <div style={{ maxWidth: 720, margin: "0 auto" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>Idée cadeau</div>
+            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>Le coffret de naissance M!LK 🎁</h2>
+            <p style={{ margin: "0 0 26px", fontSize: "clamp(14px,1.4vw,17px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>
+              Nos essentiels bambou réunis à prix doux. Parfait pour une liste de naissance ou un cadeau.
+            </p>
+            <Link href="/packs" style={{ display: "inline-block", padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none" }}>
+              Découvrir les coffrets →
+            </Link>
+          </div>
+        </section>
+      )}
 
       <CadeauSection />
       <AccordionsSection />

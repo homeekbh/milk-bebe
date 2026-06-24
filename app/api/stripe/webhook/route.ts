@@ -34,6 +34,112 @@ function extractTailleFromName(name: string): string | null {
   return null;
 }
 
+// ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
+// Branche séparée du flow commande normal : décrémente le stock de chaque
+// produit du pack (qty 1, taille choisie) et crée UNE commande (items = 1 ligne
+// pack + breakdown produits, pack_id renseigné).
+async function handlePackOrder(session: Stripe.Checkout.Session) {
+  const meta   = session.metadata ?? {};
+  const packId = meta.pack_id || null;
+  const size   = meta.size || null;
+  let productIds: string[] = [];
+  try { productIds = JSON.parse(meta.product_ids ?? "[]"); } catch {}
+
+  const email  = session.customer_details?.email ?? meta.guest_email ?? "";
+  const name   = session.customer_details?.name ?? "";
+  const amount = (session.amount_total ?? 0) / 100;
+
+  const sAny = session as any;
+  const addr = sAny.shipping_details?.address ?? session.customer_details?.address ?? null;
+  const shippingAddress = addr ? {
+    name:        sAny.shipping_details?.name ?? name,
+    line1:       addr.line1 ?? "", line2: addr.line2 ?? "",
+    city:        addr.city ?? "", postal_code: addr.postal_code ?? "", country: addr.country ?? "FR",
+  } : null;
+
+  const { data: prods } = await supabaseServer
+    .from("products").select("id, name, slug")
+    .in("id", productIds.length ? productIds : ["none"]);
+  const prodMap: Record<string, any> = {};
+  (prods ?? []).forEach((p: any) => { prodMap[p.id] = p; });
+
+  // Décrément stock atomique par produit (avec fallback non-atomique).
+  for (const pid of productIds) {
+    const { error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+      p_product_id: pid, p_quantity: 1, p_size: size,
+    });
+    if (rpcErr) {
+      const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", pid).single();
+      if (fp) {
+        const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - 1) };
+        if (size) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [size]: Math.max(0, (ss[size] ?? 0) - 1) }; }
+        await supabaseServer.from("products").update(upd).eq("id", pid);
+      }
+    }
+  }
+
+  const packProducts = productIds.map(pid => ({
+    id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: size,
+  }));
+  const items = [{
+    id:            `pack:${packId}`,
+    is_pack:       true,
+    pack_id:       packId,
+    quantity:      1,
+    taille:        size,
+    name:          `${meta.pack_title ?? "Coffret"}${size ? ` — ${size}` : ""}`,
+    price:         amount,
+    slug:          null,
+    category_slug: "pack",
+    products:      packProducts,
+  }];
+
+  const { data: orderData, error: orderErr } = await supabaseServer
+    .from("orders")
+    .upsert([{
+      stripe_session_id: session.id,
+      items,
+      amount_total:      amount,
+      customer_email:    email,
+      customer_name:     name,
+      status:            "payee",
+      shipping_status:   "en_preparation",
+      shipping_address:  shippingAddress,
+      pack_id:           packId,
+    }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
+    .select().single();
+
+  if (orderErr) {
+    process.env.NODE_ENV !== "production" && console.error("❌ Pack order upsert:", orderErr.message);
+  }
+
+  if (email && orderData) {
+    try {
+      await fetch(`${BASE}/api/emails/confirmation`, {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+        body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress }),
+      });
+    } catch {}
+  }
+
+  if (orderData && ADMIN_EMAILS.length > 0) {
+    try {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `🎁 Nouveau pack vendu — ${amount.toFixed(2)} € — ${name || email}`,
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${meta.pack_title ?? ""}</h2><p>${name || "Client"} — ${email}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+      });
+    } catch {}
+  }
+
+  try {
+    await logActivity("commande_pack", `Pack vendu : ${meta.pack_title ?? ""} — ${amount.toFixed(2)} €`,
+      { entity_id: orderData?.id, meta: { pack_id: packId, size, product_ids: productIds, customer_email: email } });
+  } catch {}
+}
+
 export async function POST(req: Request) {
   const body        = await req.text();
   const headersList = await headers();
@@ -54,6 +160,13 @@ export async function POST(req: Request) {
     process.env.NODE_ENV !== "production" && console.log("✅ Webhook received:", session.id);
 
     try {
+      // Pack : branche dédiée. Le flow commande normal ci-dessous lit
+      // metadata.items, absent pour un pack → on traite et on sort.
+      if (session.metadata?.type === "pack") {
+        await handlePackOrder(session);
+        return new Response("OK", { status: 200 });
+      }
+
       // ── metadata.items = SLIM (id + quantity + taille seulement) ───────────
       // create-session ne stocke plus que ces 3 champs (limite Stripe 500 car.
       // par valeur de metadata). On re-fetch name/slug/price/category depuis

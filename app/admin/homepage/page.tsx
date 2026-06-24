@@ -91,6 +91,9 @@ export default function AdminHomePage() {
   const [stickerLabel,   setStickerLabel]   = useState("");
   const [stickerBusy,    setStickerBusy]    = useState(false);
 
+  // ── Section "Coffret de naissance" ──
+  const [coffretActive, setCoffretActive] = useState(false);
+
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
     setTimeout(() => setToast(null), 3500);
@@ -107,6 +110,7 @@ export default function AdminHomePage() {
           const cfg = await cfgRes.json();
           setSectionTitle(cfg.section_title ?? "Sélection du moment");
           setSelectedIds(Array.isArray(cfg.product_ids) ? cfg.product_ids : []);
+          setCoffretActive(Boolean(cfg.coffret_active));
         }
 
         // Catalogue produits — on essaie les deux routes possibles
@@ -143,7 +147,7 @@ export default function AdminHomePage() {
     try {
       const res = await adminFetch("/api/admin/homepage", {
         method: "POST",
-        body: JSON.stringify({ section_title: sectionTitle, product_ids: selectedIds }),
+        body: JSON.stringify({ section_title: sectionTitle, product_ids: selectedIds, coffret_active: coffretActive }),
       });
       if (res.ok) {
         showToast("Homepage sauvegardée !");
@@ -153,6 +157,20 @@ export default function AdminHomePage() {
       }
     } catch (e: any) { showToast("Erreur réseau : " + e.message, false); }
     finally { setSaving(false); }
+  };
+
+  // Toggle immédiat de la section Coffret (persiste tout de suite).
+  const toggleCoffret = async () => {
+    const next = !coffretActive;
+    setCoffretActive(next);
+    try {
+      const res = await adminFetch("/api/admin/homepage", {
+        method: "POST",
+        body: JSON.stringify({ section_title: sectionTitle, product_ids: selectedIds, coffret_active: next }),
+      });
+      if (res.ok) showToast(next ? "Section Coffret activée" : "Section Coffret masquée");
+      else { const e = await res.json().catch(() => ({})); showToast("Erreur : " + (e.error ?? res.status), false); setCoffretActive(!next); }
+    } catch { showToast("Erreur réseau", false); setCoffretActive(!next); }
   };
 
   const toggle = useCallback((id: string) => {
@@ -336,6 +354,22 @@ export default function AdminHomePage() {
         {/* État réel côté site (API publique mise en cache ~60s) */}
         <div style={{ marginTop: 12, fontSize: 12, color: "rgba(26,20,16,0.4)" }}>
           Côté site : {featured ? `« ${featured.code} » affiché` : "aucun sticker visible"} <span style={{ opacity: 0.7 }}>(cache ~60s)</span>
+        </div>
+      </div>
+
+      {/* ── COFFRET DE NAISSANCE ── */}
+      <div style={S.card}>
+        <h2 style={S.cardH}>🎁 Coffret de naissance</h2>
+        <p style={{ fontSize: 13, color: "rgba(26,20,16,0.45)", margin: "0 0 16px" }}>
+          Quand activé, une section « Coffret de naissance » apparaît sur la homepage et pointe vers <strong>/packs</strong>.
+        </p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+          <button type="button" onClick={toggleCoffret} style={{ width: 52, height: 28, borderRadius: 99, border: "none", cursor: "pointer", background: coffretActive ? "#c49a4a" : "#d1d5db", position: "relative", transition: "background 0.2s" }}>
+            <div style={{ position: "absolute", top: 3, left: coffretActive ? 26 : 3, width: 22, height: 22, borderRadius: "50%", background: "#fff", transition: "left 0.2s", boxShadow: "0 1px 4px rgba(0,0,0,0.2)" }} />
+          </button>
+          <span style={{ fontSize: 14, fontWeight: 800, color: coffretActive ? "#1a1410" : "#9ca3af" }}>
+            {coffretActive ? "Section visible sur la homepage" : "Section masquée"}
+          </span>
         </div>
       </div>
 

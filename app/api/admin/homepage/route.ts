@@ -33,12 +33,13 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: "product_ids doit être un tableau" }, { status: 400 });
   }
 
+  const payload: Record<string, any> = { id: "main", section_title, product_ids, updated_at: new Date().toISOString() };
+  // Toggle section "Coffret de naissance" (n'écrase pas la valeur si non fournie)
+  if (typeof body.coffret_active === "boolean") payload.coffret_active = body.coffret_active;
+
   const { data, error } = await supabaseServer
     .from("homepage_config")
-    .upsert(
-      { id: "main", section_title, product_ids, updated_at: new Date().toISOString() },
-      { onConflict: "id" }
-    )
+    .upsert(payload, { onConflict: "id" })
     .select()
     .single();
 

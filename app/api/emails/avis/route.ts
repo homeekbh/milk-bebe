@@ -51,6 +51,19 @@ export async function GET(req: Request) {
     const items  = Array.isArray(order.items) ? order.items : [];
     const prenom = order.customer_name?.split(" ")[0] ?? "toi";
 
+    // Lien de désabonnement : tokenisé si la cliente est abonnée à la newsletter,
+    // sinon fallback générique (/contact). L'ancien lien ?email= tombait toujours
+    // sur ?status=invalid car la route ne lit que ?token=.
+    const { data: sub } = await supabaseServer
+      .from("newsletter_subscribers")
+      .select("unsubscribe_token")
+      .eq("email", order.customer_email)
+      .eq("active", true)
+      .maybeSingle();
+    const unsubUrl = sub?.unsubscribe_token
+      ? `${BASE}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`
+      : `${BASE}/contact`;
+
     // Construire les liens d'avis vers /avis (form tokenisé via order_id+email)
     const emailParam = encodeURIComponent(order.customer_email);
     const orderParam = encodeURIComponent(order.id);
@@ -86,7 +99,7 @@ export async function GET(req: Request) {
   </p>
   <p style="color:rgba(242,237,230,0.2);font-size:11px;margin-top:24px">
     M!LK — Essentiels bébé en bambou premium<br>
-    <a href="${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(order.customer_email)}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+    <a href="${unsubUrl}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
   </p>
 </div>
 </body>

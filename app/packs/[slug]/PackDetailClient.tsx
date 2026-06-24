@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { type Pack, packProducts, packSavings } from "@/components/packs/PackCard";
 
@@ -34,6 +34,48 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
 
   const canBuy = !sizeRequired || (selectedSize && sizes.find(s => s.size === selectedSize)?.available);
 
+  // ── Favori pack (localStorage milk_pack_wishlist) ──
+  const [fav, setFav] = useState(false);
+  useEffect(() => {
+    try {
+      const list = JSON.parse(localStorage.getItem("milk_pack_wishlist") ?? "[]");
+      setFav(Array.isArray(list) && list.some((x: any) => x.id === pack.id));
+    } catch {}
+  }, []);
+
+  function toggleFav() {
+    try {
+      const raw = JSON.parse(localStorage.getItem("milk_pack_wishlist") ?? "[]");
+      const arr = Array.isArray(raw) ? raw : [];
+      let next;
+      if (arr.some((x: any) => x.id === pack.id)) {
+        next = arr.filter((x: any) => x.id !== pack.id);
+        setFav(false);
+      } else {
+        next = [...arr, { type: "pack", id: pack.id, slug: pack.slug, title: pack.title, price: pack.price, image: pack.image_url }];
+        setFav(true);
+        showToast("Ajouté aux favoris ❤️");
+      }
+      localStorage.setItem("milk_pack_wishlist", JSON.stringify(next));
+    } catch {}
+  }
+
+  // ── Ajout au panier (localStorage milk_pack_cart) — sans checkout immédiat ──
+  function addToCartLocal() {
+    if (sizeRequired && !selectedSize) { showToast("Choisis une taille"); return; }
+    try {
+      const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]");
+      const arr = Array.isArray(raw) ? raw : [];
+      arr.push({
+        type: "pack", pack_id: pack.id, slug: pack.slug, title: pack.title,
+        size: selectedSize || null, price: pack.price, image_url: pack.image_url ?? null,
+        items: prods.map(p => p.id),
+      });
+      localStorage.setItem("milk_pack_cart", JSON.stringify(arr));
+      showToast("Ajouté au panier 🎁");
+    } catch {}
+  }
+
   async function addToCart() {
     if (sizeRequired && !selectedSize) { showToast("Choisis une taille"); return; }
     setBusy(true);
@@ -58,7 +100,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
 
   function copyLink() {
     navigator.clipboard.writeText(window.location.href).then(
-      () => showToast("Lien copié ! Parfait pour une liste de naissance 🎁"),
+      () => showToast("Lien copié !"),
       () => showToast("Impossible de copier")
     );
   }
@@ -166,7 +208,16 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
               <button onClick={addToCart} disabled={busy || !canBuy}
                 style={{ padding: "16px 28px", borderRadius: 14, background: C.amber, color: C.dark, fontWeight: 950, fontSize: 16, border: "none", cursor: (busy || !canBuy) ? "not-allowed" : "pointer", opacity: (busy || !canBuy) ? 0.5 : 1 }}>
-                {busy ? "Redirection..." : "Ajouter au panier →"}
+                {busy ? "Redirection..." : "Acheter ce pack →"}
+              </button>
+              <button onClick={addToCartLocal} disabled={!canBuy}
+                style={{ padding: "14px 28px", borderRadius: 14, background: C.dark, color: C.cream, fontWeight: 900, fontSize: 15, border: "none", cursor: !canBuy ? "not-allowed" : "pointer", opacity: !canBuy ? 0.5 : 1 }}>
+                🛒 Ajouter au panier
+              </button>
+              <button onClick={toggleFav}
+                style={{ padding: "13px 24px", borderRadius: 14, border: `1.5px solid ${fav ? "rgba(220,38,38,0.3)" : "rgba(26,20,16,0.15)"}`, background: fav ? "rgba(220,38,38,0.05)" : "transparent", color: fav ? "#dc2626" : "rgba(26,20,16,0.55)", fontWeight: 700, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                <span style={{ fontSize: 18 }}>{fav ? "❤️" : "🤍"}</span>
+                {fav ? "Dans mes favoris" : "Ajouter aux favoris"}
               </button>
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={copyLink} style={{ flex: 1, padding: "12px 16px", borderRadius: 12, background: C.cream, color: C.dark, fontWeight: 800, fontSize: 13, border: "1px solid rgba(26,20,16,0.15)", cursor: "pointer" }}>
@@ -176,6 +227,9 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
                   Partager
                 </button>
               </div>
+              <p style={{ margin: "2px 0 0", fontSize: 13, fontStyle: "italic", color: C.amber, lineHeight: 1.5 }}>
+                💝 Ajoute ce lien à ta liste de naissance... ou envoie-le à ta meilleure copine !
+              </p>
             </div>
           </div>
         </div>

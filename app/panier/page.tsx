@@ -10,6 +10,7 @@ import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
+import PackCartSection from "./PackCartSection";
 import {
   DELIVERY_DELAY,
   getDeliveryPrice,
@@ -425,6 +426,9 @@ export default function CartPage() {
         <h1 style={{ margin: "0 0 32px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>
           Mon panier
         </h1>
+
+        {/* Coffrets (packs) — panier localStorage séparé */}
+        <PackCartSection />
 
         {items.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 20, padding: 60, textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>

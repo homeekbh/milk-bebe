@@ -1436,11 +1436,8 @@ function CadeauSection() {
             Parfait pour les listes de naissance, les baby showers, les coffrets nouveau-né. En bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.
           </p>
           <div className="milk-gift-btns" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-            <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, background: P.dark, color: P.cream, fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
-              Voir les essentiels →
-            </Link>
-            <Link href="/produits" style={{ padding: "14px 24px", borderRadius: 12, border: `2px solid ${P.dark}`, color: P.dark, fontWeight: 700, fontSize: 15, textDecoration: "none", display: "inline-block" }}>
-              Liste de naissance
+            <Link href="/packs" style={{ padding: "16px 30px", borderRadius: 12, background: P.amber, color: P.dark, fontWeight: 900, fontSize: 16, textDecoration: "none", display: "inline-block" }}>
+              Découvrir nos packs à offrir →
             </Link>
           </div>
         </div>

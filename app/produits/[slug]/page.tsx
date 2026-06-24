@@ -13,6 +13,7 @@ import { useCart }                     from "@/context/CartContext";
 import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
+import ShareButtons                    from "@/components/shared/ShareButtons";
 import { getAttribution }              from "@/lib/attribution";
 
 // ── Palette unifiée ──
@@ -1066,6 +1067,8 @@ export default function ProductPage() {
               <span style={{ fontSize: 18 }}>{product && isInList(product.id) ? "❤️" : "🤍"}</span>
               {product && isInList(product.id) ? "Dans mes favoris" : "Ajouter aux favoris"}
             </button>
+            {/* ── Partage ── */}
+            <ShareButtons title={product.name} />
             {cartCount > 0 && (
               <Link href="/panier" style={{ padding: "13px 24px", borderRadius: 16, border: `2px solid ${DARK}`, fontWeight: 800, fontSize: 14, textDecoration: "none", color: DARK, textAlign: "center", display: "block" }}>
                 Voir le panier ({cartCount})

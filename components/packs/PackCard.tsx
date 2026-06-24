@@ -41,16 +41,16 @@ function ImagesHeader({ pack }: { pack: Pack }) {
       </div>
     );
   }
-  // Grille auto des images produits (2 / 2+1 / 2×2)
+  // Grille auto des images produits (2 / 2+1 / 2×2), photos ENTIÈRES (contain).
   const imgs = prods.slice(0, 4);
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, aspectRatio: "4/3", background: C.light, overflow: "hidden" }}>
+    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2, background: C.cream, overflow: "hidden" }}>
       {imgs.map((p, i) => (
-        <div key={p.id} style={{ position: "relative", background: C.taupe, overflow: "hidden", gridColumn: imgs.length === 3 && i === 2 ? "1 / -1" : "auto" }}>
+        <div key={p.id} style={{ aspectRatio: "1/1", background: C.cream, display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden", gridColumn: imgs.length === 3 && i === 2 ? "1 / -1" : "auto" }}>
           {p.image_url
             // eslint-disable-next-line @next/next/no-img-element
-            ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
-            : <div style={{ width: "100%", height: "100%", minHeight: 80, display: "grid", placeItems: "center", fontWeight: 950, color: "rgba(26,20,16,0.15)" }}>M!LK</div>}
+            ? <img src={p.image_url} alt={p.name} style={{ maxWidth: "90%", maxHeight: "90%", objectFit: "contain", display: "block" }} />
+            : <div style={{ fontWeight: 950, color: "rgba(26,20,16,0.15)" }}>M!LK</div>}
         </div>
       ))}
     </div>

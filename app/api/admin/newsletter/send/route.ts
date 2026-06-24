@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { randomUUID } from "node:crypto";
 import { requireAdmin } from "@/lib/admin-auth";
 import { Resend } from "resend";
 import { supabaseServer } from "@/lib/server/supabase";
@@ -8,10 +9,10 @@ import { supabaseServer } from "@/lib/server/supabase";
 /**
  * Envoi d'une newsletter à tous les abonnés actifs.
  *
- * IMPORTANT (RGPD) : on n'envoie PAS un seul email avec tous les abonnés dans
- * le champ `to` (ils se verraient mutuellement). On utilise resend.batch.send()
- * qui crée UN email distinct par destinataire (max 100 par appel) — chacun ne
- * voit que sa propre adresse.
+ * RGPD : resend.batch.send() crée UN email distinct par destinataire (chacun ne
+ * voit que sa propre adresse). De plus, {{UNSUB_LINK}} est remplacé par un lien
+ * de désabonnement TOKENISÉ propre à chaque abonné → personne ne peut désabonner
+ * quelqu'un d'autre.
  */
 export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
@@ -28,10 +29,9 @@ export async function POST(req: NextRequest) {
     { auth: { persistSession: false } }
   );
 
-  // Colonne réelle = `active` (cf. interface Subscriber de la page admin).
   const { data: subscribers, error } = await supabase
     .from("newsletter_subscribers")
-    .select("email")
+    .select("email, unsubscribe_token")
     .eq("active", true);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
@@ -40,26 +40,42 @@ export async function POST(req: NextRequest) {
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);
+  const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
   // Pré-header (texte d'aperçu) masqué injecté en tête du HTML.
-  const finalHtml = preview_text
+  const baseHtml = preview_text
     ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preview_text}</div>${html}`
     : html;
 
-  const emails = subscribers.map(s => s.email).filter(Boolean) as string[];
+  // Destinataires + token (génère un token manquant, best-effort).
+  const recipients: { email: string; token: string }[] = [];
+  for (const s of subscribers) {
+    if (!s.email) continue;
+    let token = s.unsubscribe_token;
+    if (!token) {
+      token = randomUUID();
+      await supabase.from("newsletter_subscribers").update({ unsubscribe_token: token }).eq("email", s.email);
+    }
+    recipients.push({ email: s.email, token });
+  }
+
   const BATCH = 100; // resend.batch.send : max 100 emails distincts par appel
   let sent = 0;
   let failed = 0;
 
-  for (let i = 0; i < emails.length; i += BATCH) {
-    const slice = emails.slice(i, i + BATCH);
-    const payloads = slice.map(email => ({
-      from:    "M!LK <contact@milkbebe.fr>",
-      to:      [email],
-      subject,
-      html:    finalHtml,
-      replyTo: "contact@milkbebe.fr",
-    }));
+  for (let i = 0; i < recipients.length; i += BATCH) {
+    const slice = recipients.slice(i, i + BATCH);
+    const payloads = slice.map(r => {
+      const unsubUrl = `${BASE}/api/newsletter/unsubscribe?token=${r.token}`;
+      const personalizedHtml = baseHtml.replace(/\{\{UNSUB_LINK\}\}/g, unsubUrl);
+      return {
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      [r.email],
+        subject,
+        html:    personalizedHtml,
+        replyTo: "contact@milkbebe.fr",
+      };
+    });
     try {
       const { error: batchErr } = await resend.batch.send(payloads);
       if (batchErr) failed += slice.length;
@@ -73,10 +89,10 @@ export async function POST(req: NextRequest) {
   try {
     await supabaseServer.from("activity_log").insert([{
       type:    "newsletter_send",
-      message: `Newsletter envoyée : "${subject}" — ${sent}/${emails.length} OK`,
-      meta:    { subject, sent, failed, total: emails.length },
+      message: `Newsletter envoyée : "${subject}" — ${sent}/${recipients.length} OK`,
+      meta:    { subject, sent, failed, total: recipients.length },
     }]);
   } catch {}
 
-  return NextResponse.json({ ok: true, sent, failed, total: emails.length });
+  return NextResponse.json({ ok: true, sent, failed, total: recipients.length });
 }

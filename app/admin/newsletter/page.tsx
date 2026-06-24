@@ -55,9 +55,6 @@ const NEWSLETTER_TEMPLATE = `<!DOCTYPE html>
 </body>
 </html>`;
 
-// Lien de désabonnement injecté à l'envoi ({{UNSUB_LINK}} → cette URL).
-const UNSUB_URL = "https://www.milkbebe.fr/desabonnement";
-
 // Pages fixes proposées dans l'insertion de lien (les catégories s'ajoutent
 // dynamiquement via /api/admin/categories).
 const LINK_PAGES = [
@@ -148,7 +145,9 @@ export default function NewsletterAdminPage() {
   const actifs     = subscribers.filter(s => s.active).length;
   const desabonnes = subscribers.filter(s => !s.active).length;
 
-  // Construit le HTML final envoyé, selon le mode.
+  // Construit le HTML final envoyé. On laisse {{UNSUB_LINK}} INTACT : c'est le
+  // serveur (api/admin/newsletter/send) qui le remplace par le lien de
+  // désabonnement TOKENISÉ propre à chaque abonné.
   function buildFinalHtml(): string {
     if (mode === "simple") {
       const body = simpleText.replace(/\n/g, "<br>");
@@ -156,12 +155,12 @@ export default function NewsletterAdminPage() {
   <div style="font-size:24px;font-weight:900;color:#1a1410;letter-spacing:-1px;margin-bottom:24px;">M!LK</div>
   <p style="font-family:sans-serif;font-size:16px;line-height:1.7;color:#1a1410;margin:0;">${body}</p>
   <div style="margin-top:40px;padding-top:20px;border-top:1px solid rgba(26,20,16,0.1);font-size:12px;color:rgba(26,20,16,0.4);">
-    M!LK — Essentiels bébé bambou OEKO-TEX · <a href="${UNSUB_URL}" style="color:rgba(26,20,16,0.4);">Se désabonner</a>
+    M!LK — Essentiels bébé bambou OEKO-TEX · <a href="{{UNSUB_LINK}}" style="color:rgba(26,20,16,0.4);">Se désabonner</a>
   </div>
 </div>`;
     }
-    // Mode template : contenu tel quel, on injecte juste le lien de désabonnement.
-    return htmlContent.replace(/\{\{UNSUB_LINK\}\}/g, UNSUB_URL);
+    // Mode template : contenu tel quel (placeholder {{UNSUB_LINK}} conservé).
+    return htmlContent;
   }
 
   // Insère du texte à la position du curseur dans le textarea actif.
@@ -316,6 +315,9 @@ export default function NewsletterAdminPage() {
             ) : (
               <textarea ref={textareaRef} value={htmlContent} onChange={e => setHtmlContent(e.target.value)} spellCheck={false} style={{ ...TA, fontFamily: "ui-monospace, monospace", fontSize: 12.5, minHeight: 280 }} />
             )}
+            <div style={{ marginTop: 8, fontSize: 12, color: "rgba(26,20,16,0.5)", background: "rgba(196,154,74,0.08)", padding: "8px 12px", borderRadius: 8, lineHeight: 1.5 }}>
+              💡 <code style={{ fontWeight: 800 }}>{"{{UNSUB_LINK}}"}</code> sera remplacé automatiquement par le lien de désabonnement personnalisé de chaque abonné.
+            </div>
           </div>
 
           {/* 5. Upload image */}

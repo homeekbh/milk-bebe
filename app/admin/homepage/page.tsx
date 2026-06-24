@@ -177,16 +177,18 @@ export default function AdminHomePage() {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   }, []);
 
-  const moveUp = (idx: number) => {
-    if (idx === 0) return;
-    setSelectedIds(prev => { const n = [...prev]; [n[idx-1], n[idx]] = [n[idx], n[idx-1]]; return n; });
-  };
-  const moveDown = (idx: number) => {
+  // ── Réordonnancement par drag & drop (HTML5 natif, sans lib) ──
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [overIdx, setOverIdx] = useState<number | null>(null);
+  function reorder(from: number, to: number) {
+    if (from === to) return;
     setSelectedIds(prev => {
-      if (idx >= prev.length - 1) return prev;
-      const n = [...prev]; [n[idx], n[idx+1]] = [n[idx+1], n[idx]]; return n;
+      const n = [...prev];
+      const [moved] = n.splice(from, 1);
+      n.splice(to, 0, moved);
+      return n;
     });
-  };
+  }
   const remove = (id: string) => setSelectedIds(prev => prev.filter(x => x !== id));
 
   // ── Sticker promo : chargement (liste des codes + code publié) ──
@@ -424,8 +426,23 @@ export default function AdminHomePage() {
         ) : (
           <div style={{ display: "grid", gap: 10 }}>
             {selectedProducts.map((p: any, idx) => (
-              <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.08)" }}>
-                <div style={{ fontSize: 12, fontWeight: 900, color: "#c49a4a", minWidth: 20, textAlign: "center" }}>{idx + 1}</div>
+              <div
+                key={p.id}
+                draggable
+                onDragStart={() => setDragIdx(idx)}
+                onDragOver={e => { e.preventDefault(); if (overIdx !== idx) setOverIdx(idx); }}
+                onDrop={e => { e.preventDefault(); if (dragIdx !== null) reorder(dragIdx, idx); setDragIdx(null); setOverIdx(null); }}
+                onDragEnd={() => { setDragIdx(null); setOverIdx(null); }}
+                style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "10px 14px", borderRadius: 12, background: "#faf8f4",
+                  border: (overIdx === idx && dragIdx !== null && dragIdx !== idx) ? "2px solid #c49a4a" : "1px solid rgba(26,20,16,0.08)",
+                  opacity: dragIdx === idx ? 0.4 : 1,
+                  cursor: dragIdx === idx ? "grabbing" : "grab",
+                  transition: "border-color 0.12s",
+                }}>
+                {/* Grip — signale le drag */}
+                <span aria-hidden style={{ fontSize: 16, color: "rgba(26,20,16,0.3)", userSelect: "none", lineHeight: 1 }}>⠿</span>
+                <div style={{ fontSize: 12, fontWeight: 900, color: "#c49a4a", minWidth: 18, textAlign: "center" }}>{idx + 1}</div>
                 {/* Image avec img classique pour éviter les restrictions Next.js */}
                 <div style={{ width: 44, height: 44, borderRadius: 8, overflow: "hidden", background: "#ede8df", flexShrink: 0 }}>
                   {p.image_url
@@ -437,14 +454,8 @@ export default function AdminHomePage() {
                   <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
                   <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>{p.category_slug} · {Number(p.price_ttc).toFixed(2)} €{p.stock <= 0 ? " · ⚠️ rupture" : ""}</div>
                 </div>
-                <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
-                  <button onClick={() => moveUp(idx)} disabled={idx === 0}
-                    style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(26,20,16,0.12)", background: "transparent", cursor: idx === 0 ? "default" : "pointer", opacity: idx === 0 ? 0.3 : 1, fontSize: 12 }}>↑</button>
-                  <button onClick={() => moveDown(idx)} disabled={idx === selectedIds.length - 1}
-                    style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(26,20,16,0.12)", background: "transparent", cursor: idx === selectedIds.length - 1 ? "default" : "pointer", opacity: idx === selectedIds.length - 1 ? 0.3 : 1, fontSize: 12 }}>↓</button>
-                  <button onClick={() => remove(p.id)}
-                    style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.05)", cursor: "pointer", color: "#dc2626", fontSize: 14, fontWeight: 900 }}>×</button>
-                </div>
+                <button onClick={() => remove(p.id)} aria-label="Retirer"
+                  style={{ width: 28, height: 28, borderRadius: 6, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.05)", cursor: "pointer", color: "#dc2626", fontSize: 14, fontWeight: 900, flexShrink: 0 }}>×</button>
               </div>
             ))}
           </div>

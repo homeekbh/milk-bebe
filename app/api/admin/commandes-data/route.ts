@@ -42,7 +42,7 @@ export async function PUT(req: NextRequest) {
   // Charger l'état actuel pour détecter le changement de statut livraison
   const { data: before } = await supabaseServer
     .from("orders")
-    .select("status, shipping_status, tracking_number, customer_email")
+    .select("status, shipping_status, tracking_number, customer_email, delivered_at")
     .eq("id", id).single();
 
   // Miroir : quand on change shipping_status, on aligne aussi la colonne `status`
@@ -51,6 +51,13 @@ export async function PUT(req: NextRequest) {
   const TERMINAL = ["remboursee", "annulee", "echec_paiement"];
   if (shipping_status !== undefined && !TERMINAL.includes(String(before?.status))) {
     update.status = shipping_status;
+  }
+
+  // Passage en "livree" → poser delivered_at (utilisé par le cron avis J+7),
+  // mais SEULEMENT si vide : on n'écrase pas une vraie date posée par le
+  // webhook Sendcloud lors d'une livraison auto-détectée.
+  if (shipping_status === "livree" && !before?.delivered_at) {
+    update.delivered_at = new Date().toISOString();
   }
 
   const { data, error } = await supabaseServer

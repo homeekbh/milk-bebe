@@ -42,8 +42,16 @@ export async function PUT(req: NextRequest) {
   // Charger l'état actuel pour détecter le changement de statut livraison
   const { data: before } = await supabaseServer
     .from("orders")
-    .select("shipping_status, tracking_number, customer_email")
+    .select("status, shipping_status, tracking_number, customer_email")
     .eq("id", id).single();
+
+  // Miroir : quand on change shipping_status, on aligne aussi la colonne `status`
+  // (cycle de vie de la commande) — SAUF si la commande est dans un état paiement
+  // terminal qu'il ne faut pas écraser (remboursement / annulation / échec).
+  const TERMINAL = ["remboursee", "annulee", "echec_paiement"];
+  if (shipping_status !== undefined && !TERMINAL.includes(String(before?.status))) {
+    update.status = shipping_status;
+  }
 
   const { data, error } = await supabaseServer
     .from("orders").update(update).eq("id", id).select().single();

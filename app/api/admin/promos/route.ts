@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   // ✅ Construction explicite — jamais de ...body (risque colonnes inconnues)
   const clean: Record<string, any> = {
     code:                     (body.code ?? "").toUpperCase().trim(),
+    label:                    body.label?.trim() || null,
     discount_type:            body.discount_type ?? "percent",
     discount_value:           isNaN(parseFloat(body.discount_value)) ? 0 : parseFloat(body.discount_value),
     min_order:                body.min_order  ? parseFloat(body.min_order)  : null,
@@ -63,6 +64,7 @@ export async function PUT(req: NextRequest) {
 
   const clean: any = {};
   if (rest.code                     !== undefined) clean.code                     = String(rest.code).toUpperCase().trim();
+  if (rest.label                    !== undefined) clean.label                    = rest.label?.trim() || null;
   if (rest.discount_value           !== undefined) clean.discount_value           = isNaN(parseFloat(rest.discount_value)) ? 0 : parseFloat(rest.discount_value);
   if (rest.discount_type            !== undefined) clean.discount_type            = rest.discount_type;
   if (rest.min_order                !== undefined) clean.min_order                = rest.min_order ? parseFloat(rest.min_order) : null;

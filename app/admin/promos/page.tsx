@@ -25,7 +25,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
 import { useEffect, useState } from "react";
 
 const EMPTY = {
-  code: "", discount_type: "percent", discount_value: "",
+  code: "", label: "", discount_type: "percent", discount_value: "",
   min_order: "", max_uses: "", active: true,
   expires_at: "", cumulable: false, cumulable_avec: "rien",
   description: "",
@@ -85,6 +85,7 @@ export default function AdminPromos() {
   function openEdit(p: any) {
     setForm({
       code:           p.code            ?? "",
+      label:          p.label           ?? "",
       discount_type:  p.discount_type   ?? "percent",
       discount_value: String(p.discount_value ?? ""),
       min_order:      String(p.min_order ?? ""),
@@ -147,10 +148,23 @@ export default function AdminPromos() {
     load();
   }
 
+  // Publie / dépublie le code "mis en avant" (sticker site). Un seul à la fois.
+  async function toggleFeature(p: any, action: "publish" | "unpublish") {
+    await adminFetch("/api/admin/promos/feature", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ promo_id: p.id, action }),
+    });
+    load();
+  }
+
   const isFreeShipping = form.discount_type === "free_shipping";
+  // id du code actuellement en ligne (max 1, garanti par l'index unique DB)
+  const featuredId = promos.find((x: any) => x.is_featured)?.id ?? null;
 
   return (
     <div style={{ padding: "36px 40px", maxWidth: 1100 }}>
+      <style>{`@keyframes milk-blink { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
 
       {/* En-tête */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 32 }}>
@@ -193,6 +207,12 @@ export default function AdminPromos() {
           <div style={{ display: "grid", gap: 6 }}>
             <label style={labelStyle}>Description (usage interne)</label>
             <input type="text" value={form.description} onChange={e => set("description", e.target.value)} placeholder="Ex : Code de bienvenue pour les nouveaux clients" style={inputStyle} />
+          </div>
+
+          {/* Titre affiché — apparaît sur le sticker promo du site */}
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={labelStyle}>Titre affiché (optionnel) — visible sur le sticker</label>
+            <input type="text" value={form.label} onChange={e => set("label", e.target.value)} placeholder="ex : Soldes été — profitez-en !" style={inputStyle} />
           </div>
 
           {/* Valeurs */}
@@ -289,7 +309,7 @@ export default function AdminPromos() {
           <table style={{ width: "100%", borderCollapse: "collapse" }}>
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(0,0,0,0.06)", background: "#fafaf9" }}>
-                {["Code", "Réduction", "Min", "Utilisations", "Expiration", "Cumulable", "Statut", ""].map(h => (
+                {["Code", "Réduction", "Min", "Utilisations", "Expiration", "Cumulable", "Statut", "Sticker", ""].map(h => (
                   <th key={h} style={{ padding: "12px 16px", textAlign: "left", fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", opacity: 0.45 }}>{h}</th>
                 ))}
               </tr>
@@ -340,6 +360,39 @@ export default function AdminPromos() {
                       <button onClick={() => toggleActive(p)} style={{ width: 44, height: 24, borderRadius: 99, border: "none", cursor: "pointer", background: p.active ? "#16a34a" : "#d1d5db", position: "relative", transition: "background 0.2s" }}>
                         <div style={{ position: "absolute", top: 3, left: p.active ? 22 : 3, width: 18, height: 18, borderRadius: "50%", background: "#fff", transition: "left 0.2s" }} />
                       </button>
+                    </td>
+                    {/* Sticker — publier / dépublier le code mis en avant (1 seul à la fois) */}
+                    <td style={{ padding: "14px 16px" }}>
+                      {p.is_featured ? (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, fontWeight: 900, color: "#dc2626", letterSpacing: 0.5 }}>
+                            <span style={{ animation: "milk-blink 1s step-start infinite" }}>●</span> EN LIGNE
+                          </span>
+                          <button onClick={() => toggleFeature(p, "unpublish")} style={{ padding: "6px 10px", borderRadius: 8, border: "none", background: "#6b7280", color: "#fff", fontWeight: 800, fontSize: 11, cursor: "pointer" }}>
+                            Dépublier
+                          </button>
+                        </div>
+                      ) : (
+                        <button
+                          onClick={() => toggleFeature(p, "publish")}
+                          disabled={!!featuredId || !p.active}
+                          title={
+                            !p.active
+                              ? "Active le code d'abord"
+                              : featuredId
+                              ? "Un code est déjà en ligne — dépublie-le d'abord"
+                              : "Publier ce code sur le sticker du site"
+                          }
+                          style={{
+                            padding: "6px 12px", borderRadius: 8, border: "none",
+                            background: "#c49a4a", color: "#1a1410", fontWeight: 800, fontSize: 11,
+                            cursor: (!!featuredId || !p.active) ? "not-allowed" : "pointer",
+                            opacity: (!!featuredId || !p.active) ? 0.4 : 1,
+                          }}
+                        >
+                          📢 Publier
+                        </button>
+                      )}
                     </td>
                     <td style={{ padding: "14px 16px", textAlign: "right" }}>
                       <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>

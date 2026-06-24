@@ -13,6 +13,7 @@ import { AuthProvider }   from "@/context/AuthContext";
 import PopupBienvenue from "@/components/PopupBienvenue";
 import CookieBanner      from "@/components/CookieBanner";
 import ExitIntentPopup     from "@/components/ExitIntentPopup";
+import PromoSticker        from "@/components/promo/PromoSticker";
 import { WishlistProvider } from "@/context/WishlistContext";
 
 const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -342,6 +343,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
                 <ChatWidget />
                 <CookieBanner />
                 <ExitIntentPopup />
+                <PromoSticker />
               </IntroProvider>
             </LangProvider>
           </CartProvider>

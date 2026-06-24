@@ -733,12 +733,24 @@ export default function AdminCommandes() {
   // avec preview + champ message + 2 boutons (envoyer / sans email).
 
   async function updateStatus(id: string, shipping_status: string) {
-    // 1. Update statut Supabase
-    await adminFetch("/api/admin/commandes-data", {
+    // 1. Update statut Supabase — ⚠️ on VÉRIFIE la réponse. Avant, l'erreur
+    //    serveur (ex: rejet d'une valeur par une contrainte CHECK en base)
+    //    était avalée silencieusement → l'UI revenait à l'ancien statut au
+    //    rechargement sans rien signaler ("le statut ne se met pas à jour").
+    const putRes = await adminFetch("/api/admin/commandes-data", {
       method:  "PUT",
       headers: { "Content-Type": "application/json" },
       body:    JSON.stringify({ id, shipping_status }),
     });
+    if (!putRes.ok) {
+      const err = await putRes.json().catch(() => ({}));
+      alert(
+        `❌ Le statut « ${STATUTS[shipping_status]?.label ?? shipping_status} » n'a pas pu être enregistré.\n\n` +
+        `Erreur serveur : ${err.error ?? `HTTP ${putRes.status}`}`
+      );
+      await load();
+      return;
+    }
 
     // 2. Si nouveau statut = "expediee" → envoyer l'email shipped au client
     //    (sauf si déjà envoyé, vérifié via email_sent_at en DB pour idempotence).

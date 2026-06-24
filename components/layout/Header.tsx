@@ -105,7 +105,10 @@ export default function Header() {
     const compute = () => {
       const y = window.scrollY;
       setScrolled(y > 10);
-      if (["/", "/qui-sommes-nous", "/pourquoi-bambou"].includes(pathname) && y < 320) {
+      // Forçage thème sombre (texte crème) UNIQUEMENT sur la homepage, qui a un
+      // hero sombre plein écran. Les autres pages détectent leur vrai fond
+      // (sinon texte crème sur fond clair = invisible, cf. /qui-sommes-nous).
+      if (pathname === "/" && y < 320) {
         setTheme("dark"); return;
       }
       setTheme(findTheme(headerRef.current));
@@ -122,18 +125,22 @@ export default function Header() {
     };
   }, [pathname]);
 
+  // Header opaque dès le mount sur TOUTES les pages sauf la homepage (qui reste
+  // transparente sur son hero, puis opaque au scroll).
+  const opaque = scrolled || pathname !== "/";
+
   const C = useMemo(() => {
     const dark = theme === "dark";
     return {
       text:    dark ? "#f2ede6" : "#1a1410",
       muted:   dark ? "rgba(242,237,230,0.6)" : "rgba(26,20,16,0.55)",
-      bg:      scrolled ? (dark ? "rgba(13,11,9,0.93)" : "rgba(245,240,232,0.96)") : "transparent",
-      border:  scrolled ? (dark ? "1px solid rgba(242,237,230,0.08)" : "1px solid rgba(26,20,16,0.08)") : "1px solid transparent",
+      bg:      opaque ? (dark ? "rgba(13,11,9,0.93)" : "rgba(245,240,232,0.96)") : "transparent",
+      border:  opaque ? (dark ? "1px solid rgba(242,237,230,0.08)" : "1px solid rgba(26,20,16,0.08)") : "1px solid transparent",
       dropBg:  dark ? "rgba(22,18,14,0.98)" : "rgba(253,250,246,0.98)",
       dropBdr: dark ? "1px solid rgba(242,237,230,0.1)" : "1px solid rgba(26,20,16,0.1)",
       amber:   "#c49a4a",
     };
-  }, [theme, scrolled]);
+  }, [theme, opaque]);
 
   function cancel() { if (userTimer.current) clearTimeout(userTimer.current); }
   function delay(fn: () => void, ms = 400) { cancel(); userTimer.current = setTimeout(fn, ms); }
@@ -158,7 +165,7 @@ export default function Header() {
       `}</style>
 
       <header ref={el => { headerRef.current = el; }}
-        style={{ position: "fixed", top: "var(--milk-topbar-h, 0px)", left: 0, width: "100%", zIndex: 9999, overflowX: "hidden", background: C.bg, borderBottom: C.border, backdropFilter: scrolled ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s, top 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
+        style={{ position: "fixed", top: "var(--milk-topbar-h, 0px)", left: 0, width: "100%", zIndex: 9999, overflowX: "hidden", background: C.bg, borderBottom: C.border, backdropFilter: opaque ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s, top 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
         <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 clamp(8px,3vw,20px)", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
           {/* ✅ Logo — clic scroll to top */}

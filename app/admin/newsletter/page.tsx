@@ -35,12 +35,53 @@ function adminFetch(url: string, options: RequestInit = {}) {
   });
 }
 
+const NEWSLETTER_TEMPLATE = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#1a1410;padding:40px 32px;">
+    <div style="font-size:28px;font-weight:900;color:#f2ede6;letter-spacing:-1px;margin-bottom:32px;">M!LK</div>
+    <h1 style="color:#f2ede6;font-size:24px;font-weight:900;margin:0 0 16px;">Titre de votre newsletter</h1>
+    <p style="color:rgba(242,237,230,0.75);font-size:16px;line-height:1.7;margin:0 0 24px;">
+      Votre message ici.
+    </p>
+    <a href="https://www.milkbebe.fr/produits" style="display:inline-block;background:#c49a4a;color:#1a1410;font-weight:900;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;">
+      Découvrir la collection →
+    </a>
+    <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(242,237,230,0.1);font-size:12px;color:rgba(242,237,230,0.35);">
+      M!LK — Essentiels bébé bambou OEKO-TEX · <a href="https://www.milkbebe.fr/desabonnement" style="color:rgba(242,237,230,0.35);">Se désabonner</a>
+    </div>
+  </div>
+</body>
+</html>`;
+
+function Toast({ msg, ok }: { msg: string; ok: boolean }) {
+  return (
+    <div style={{ position: "fixed", bottom: 28, right: 28, background: ok ? "#16a34a" : "#dc2626", color: "#fff", padding: "13px 22px", borderRadius: 12, fontWeight: 800, fontSize: 14, zIndex: 9999, boxShadow: "0 8px 24px rgba(0,0,0,0.25)", maxWidth: 360 }}>
+      {msg}
+    </div>
+  );
+}
+
 export default function NewsletterAdminPage() {
   const narrow = useIsNarrow();
   const [subscribers, setSubscribers] = useState<Subscriber[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  // ── Composer newsletter ──
+  const [subject,     setSubject]     = useState("");
+  const [previewText, setPreviewText] = useState("");
+  const [htmlContent, setHtmlContent] = useState(NEWSLETTER_TEMPLATE);
+  const [showPreview, setShowPreview] = useState(false);
+  const [sending,     setSending]     = useState(false);
+  const [toast,       setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
+
+  const showToast = (msg: string, ok = true) => {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 4000);
+  };
 
   useEffect(() => { load(); }, []);
 
@@ -66,12 +107,46 @@ export default function NewsletterAdminPage() {
   const actifs     = subscribers.filter(s => s.active).length;
   const desabonnes = subscribers.filter(s => !s.active).length;
 
+  async function handleSend() {
+    if (!subject.trim() || !htmlContent.trim()) {
+      showToast("Sujet et contenu HTML requis", false);
+      return;
+    }
+    if (actifs === 0) { showToast("Aucun abonné actif", false); return; }
+    if (!window.confirm(`Envoyer cette newsletter à ${actifs} abonné${actifs > 1 ? "s" : ""} ? Cette action est irréversible.`)) return;
+
+    setSending(true);
+    try {
+      const res = await adminFetch("/api/admin/newsletter/send", {
+        method: "POST",
+        body: JSON.stringify({
+          subject:      subject.trim(),
+          html:         htmlContent,
+          preview_text: previewText.trim() || undefined,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
+      const n = data.sent ?? actifs;
+      showToast(
+        `✓ Newsletter envoyée à ${n} abonné${n > 1 ? "s" : ""}` +
+        (data.failed ? ` — ${data.failed} échec${data.failed > 1 ? "s" : ""}` : ""),
+        true
+      );
+    } catch (e: unknown) {
+      showToast("✕ " + (e instanceof Error ? e.message : "Erreur d'envoi"), false);
+    } finally {
+      setSending(false);
+    }
+  }
+
   const filtered = subscribers.filter(s =>
     s.email.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1100 }}>
+      {toast && <Toast msg={toast.msg} ok={toast.ok} />}
 
       {/* En-tête */}
       <div style={{ marginBottom: 28 }}>
@@ -97,6 +172,89 @@ export default function NewsletterAdminPage() {
             </div>
           </div>
         ))}
+      </div>
+
+      {/* ── ENVOYER UNE NEWSLETTER ── */}
+      <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: 24, marginBottom: 24 }}>
+        <h2 style={{ margin: "0 0 4px", fontSize: 18, fontWeight: 900, color: "#1a1410" }}>📤 Envoyer une newsletter</h2>
+        <div style={{ fontSize: 13, color: "rgba(26,20,16,0.45)", marginBottom: 20 }}>
+          Un email individuel est envoyé à chaque abonné actif (aucune adresse partagée).
+        </div>
+
+        <div style={{ display: "grid", gap: 16 }}>
+          {/* Sujet */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 }}>
+              Sujet de l&apos;email *
+            </label>
+            <input
+              type="text"
+              value={subject}
+              onChange={e => setSubject(e.target.value)}
+              placeholder="Ex : Nouvelle collection bambou — déjà en ligne 🎋"
+              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+
+          {/* Texte d'aperçu */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 }}>
+              Texte d&apos;aperçu (optionnel)
+            </label>
+            <input
+              type="text"
+              value={previewText}
+              onChange={e => setPreviewText(e.target.value)}
+              placeholder="S'affiche après le sujet dans la boîte mail du client"
+              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none", boxSizing: "border-box" }}
+            />
+          </div>
+
+          {/* Contenu HTML */}
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 }}>
+              Contenu HTML *
+            </label>
+            <textarea
+              value={htmlContent}
+              onChange={e => setHtmlContent(e.target.value)}
+              spellCheck={false}
+              style={{ width: "100%", minHeight: 240, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 12.5, fontFamily: "ui-monospace, monospace", lineHeight: 1.5, background: "#fafaf9", outline: "none", boxSizing: "border-box", resize: "vertical" }}
+            />
+            <button
+              onClick={() => setShowPreview(v => !v)}
+              style={{ marginTop: 8, background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 13, cursor: "pointer", padding: 0 }}
+            >
+              {showPreview ? "Masquer l'aperçu ↑" : "Voir un aperçu →"}
+            </button>
+          </div>
+
+          {/* Aperçu rendu */}
+          {showPreview && (
+            <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", overflow: "hidden" }}>
+              <div style={{ padding: "8px 14px", background: "#f9f7f4", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
+                Aperçu email
+              </div>
+              <div style={{ background: "#fff", padding: 16, maxHeight: 480, overflow: "auto" }}>
+                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+              </div>
+            </div>
+          )}
+
+          {/* Envoi */}
+          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+            <button
+              onClick={handleSend}
+              disabled={sending || actifs === 0}
+              style={{ padding: "13px 26px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: (sending || actifs === 0) ? "not-allowed" : "pointer", opacity: (sending || actifs === 0) ? 0.5 : 1 }}
+            >
+              {sending ? "Envoi en cours..." : `Envoyer à ${actifs} abonné${actifs > 1 ? "s" : ""}`}
+            </button>
+            <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>
+              Action irréversible — une confirmation sera demandée.
+            </span>
+          </div>
+        </div>
       </div>
 
       {/* RGPD */}

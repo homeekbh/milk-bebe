@@ -1,7 +1,7 @@
 "use client";
 import { useIsNarrow } from "@/lib/useIsNarrow";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef, type CSSProperties } from "react";
 
 interface Subscriber {
   id: string;
@@ -49,11 +49,27 @@ const NEWSLETTER_TEMPLATE = `<!DOCTYPE html>
       Découvrir la collection →
     </a>
     <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(242,237,230,0.1);font-size:12px;color:rgba(242,237,230,0.35);">
-      M!LK — Essentiels bébé bambou OEKO-TEX · <a href="https://www.milkbebe.fr/desabonnement" style="color:rgba(242,237,230,0.35);">Se désabonner</a>
+      M!LK — Essentiels bébé bambou OEKO-TEX · <a href="{{UNSUB_LINK}}" style="color:rgba(242,237,230,0.35);">Se désabonner</a>
     </div>
   </div>
 </body>
 </html>`;
+
+// Lien de désabonnement injecté à l'envoi ({{UNSUB_LINK}} → cette URL).
+const UNSUB_URL = "https://www.milkbebe.fr/desabonnement";
+
+// Pages fixes proposées dans l'insertion de lien (les catégories s'ajoutent
+// dynamiquement via /api/admin/categories).
+const LINK_PAGES = [
+  { label: "Accueil",            url: "https://www.milkbebe.fr/" },
+  { label: "Tous les produits",  url: "https://www.milkbebe.fr/produits" },
+  { label: "Qui sommes-nous",    url: "https://www.milkbebe.fr/qui-sommes-nous" },
+  { label: "Pourquoi le bambou", url: "https://www.milkbebe.fr/pourquoi-bambou" },
+];
+
+const LBL: CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 };
+const INP: CSSProperties = { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none", boxSizing: "border-box" };
+const TA:  CSSProperties = { width: "100%", minHeight: 220, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", lineHeight: 1.6, background: "#fafaf9", outline: "none", boxSizing: "border-box", resize: "vertical", fontSize: 14 };
 
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
@@ -73,10 +89,25 @@ export default function NewsletterAdminPage() {
   // ── Composer newsletter ──
   const [subject,     setSubject]     = useState("");
   const [previewText, setPreviewText] = useState("");
+  const [mode,        setMode]        = useState<"simple" | "template">("simple");
+  const [simpleText,  setSimpleText]  = useState("");
   const [htmlContent, setHtmlContent] = useState(NEWSLETTER_TEMPLATE);
   const [showPreview, setShowPreview] = useState(false);
   const [sending,     setSending]     = useState(false);
   const [toast,       setToast]       = useState<{ msg: string; ok: boolean } | null>(null);
+
+  // Images uploadées + upload
+  const [images,    setImages]    = useState<{ url: string; name: string }[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [copiedUrl, setCopiedUrl] = useState<string | null>(null);
+
+  // Insertion de lien
+  const [categories,    setCategories]    = useState<{ slug: string; label: string }[]>([]);
+  const [linkChoice,    setLinkChoice]    = useState("");   // "" | url | "__custom__"
+  const [linkCustomUrl, setLinkCustomUrl] = useState("");
+  const [linkText,      setLinkText]      = useState("");
+
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -84,6 +115,16 @@ export default function NewsletterAdminPage() {
   };
 
   useEffect(() => { load(); }, []);
+
+  // Catégories (pour le menu d'insertion de lien) — best-effort
+  useEffect(() => {
+    adminFetch("/api/admin/categories")
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any) => {
+        if (Array.isArray(data)) setCategories(data.map((c: any) => ({ slug: c.slug, label: c.label ?? c.slug })));
+      })
+      .catch(() => {});
+  }, []);
 
   async function load() {
     setLoading(true);
@@ -107,9 +148,70 @@ export default function NewsletterAdminPage() {
   const actifs     = subscribers.filter(s => s.active).length;
   const desabonnes = subscribers.filter(s => !s.active).length;
 
+  // Construit le HTML final envoyé, selon le mode.
+  function buildFinalHtml(): string {
+    if (mode === "simple") {
+      const body = simpleText.replace(/\n/g, "<br>");
+      return `<div style="max-width:600px;margin:0 auto;padding:32px 24px;font-family:sans-serif;background:#ffffff;">
+  <div style="font-size:24px;font-weight:900;color:#1a1410;letter-spacing:-1px;margin-bottom:24px;">M!LK</div>
+  <p style="font-family:sans-serif;font-size:16px;line-height:1.7;color:#1a1410;margin:0;">${body}</p>
+  <div style="margin-top:40px;padding-top:20px;border-top:1px solid rgba(26,20,16,0.1);font-size:12px;color:rgba(26,20,16,0.4);">
+    M!LK — Essentiels bébé bambou OEKO-TEX · <a href="${UNSUB_URL}" style="color:rgba(26,20,16,0.4);">Se désabonner</a>
+  </div>
+</div>`;
+    }
+    // Mode template : contenu tel quel, on injecte juste le lien de désabonnement.
+    return htmlContent.replace(/\{\{UNSUB_LINK\}\}/g, UNSUB_URL);
+  }
+
+  // Insère du texte à la position du curseur dans le textarea actif.
+  function insertAtCursor(insertion: string) {
+    const value    = mode === "simple" ? simpleText  : htmlContent;
+    const setValue = mode === "simple" ? setSimpleText : setHtmlContent;
+    const ta = textareaRef.current;
+    if (!ta) { setValue(value + insertion); return; }
+    const start = ta.selectionStart;
+    const end   = ta.selectionEnd;
+    setValue(value.slice(0, start) + insertion + value.slice(end));
+    setTimeout(() => {
+      ta.selectionStart = ta.selectionEnd = start + insertion.length;
+      ta.focus();
+    }, 0);
+  }
+
+  async function handleImageUpload(files: FileList | null) {
+    if (!files || files.length === 0) return;
+    setUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        const fd = new FormData();
+        fd.append("file", file);
+        const res  = await adminFetch("/api/admin/newsletter/upload", { method: "POST", body: fd });
+        const data = await res.json().catch(() => ({}));
+        if (res.ok && data.url) {
+          setImages(prev => [...prev, { url: data.url, name: file.name }]);
+        } else {
+          showToast("✕ Upload échoué : " + (data.error || file.name), false);
+        }
+      }
+    } finally { setUploading(false); }
+  }
+
+  function insertLink() {
+    const url = linkChoice === "__custom__" ? linkCustomUrl.trim() : linkChoice;
+    if (!url)            { showToast("Choisis une page ou saisis une URL", false); return; }
+    if (!linkText.trim()) { showToast("Saisis le texte du lien", false); return; }
+    const ins = mode === "template"
+      ? `<a href="${url}" style="color:#c49a4a;font-weight:700;">${linkText.trim()}</a>`
+      : `${linkText.trim()} : ${url}`;
+    insertAtCursor(ins);
+    setLinkText("");
+  }
+
   async function handleSend() {
-    if (!subject.trim() || !htmlContent.trim()) {
-      showToast("Sujet et contenu HTML requis", false);
+    const contentEmpty = mode === "simple" ? !simpleText.trim() : !htmlContent.trim();
+    if (!subject.trim() || contentEmpty) {
+      showToast("Sujet et contenu requis", false);
       return;
     }
     if (actifs === 0) { showToast("Aucun abonné actif", false); return; }
@@ -121,7 +223,7 @@ export default function NewsletterAdminPage() {
         method: "POST",
         body: JSON.stringify({
           subject:      subject.trim(),
-          html:         htmlContent,
+          html:         buildFinalHtml(),
           preview_text: previewText.trim() || undefined,
         }),
       });
@@ -182,71 +284,121 @@ export default function NewsletterAdminPage() {
         </div>
 
         <div style={{ display: "grid", gap: 16 }}>
-          {/* Sujet */}
+          {/* 1. Sujet */}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 }}>
-              Sujet de l&apos;email *
-            </label>
-            <input
-              type="text"
-              value={subject}
-              onChange={e => setSubject(e.target.value)}
-              placeholder="Ex : Nouvelle collection bambou — déjà en ligne 🎋"
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none", boxSizing: "border-box" }}
-            />
+            <label style={LBL}>Sujet de l&apos;email *</label>
+            <input type="text" value={subject} onChange={e => setSubject(e.target.value)} placeholder="Ex : Nouvelle collection bambou — déjà en ligne 🎋" style={INP} />
           </div>
 
-          {/* Texte d'aperçu */}
+          {/* 2. Texte d'aperçu */}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 }}>
-              Texte d&apos;aperçu (optionnel)
-            </label>
-            <input
-              type="text"
-              value={previewText}
-              onChange={e => setPreviewText(e.target.value)}
-              placeholder="S'affiche après le sujet dans la boîte mail du client"
-              style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none", boxSizing: "border-box" }}
-            />
+            <label style={LBL}>Texte d&apos;aperçu (optionnel)</label>
+            <input type="text" value={previewText} onChange={e => setPreviewText(e.target.value)} placeholder="S'affiche après le sujet dans la boîte mail du client" style={INP} />
           </div>
 
-          {/* Contenu HTML */}
+          {/* 3. Toggle mode */}
           <div>
-            <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", display: "block", marginBottom: 6 }}>
-              Contenu HTML *
-            </label>
-            <textarea
-              value={htmlContent}
-              onChange={e => setHtmlContent(e.target.value)}
-              spellCheck={false}
-              style={{ width: "100%", minHeight: 240, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 12.5, fontFamily: "ui-monospace, monospace", lineHeight: 1.5, background: "#fafaf9", outline: "none", boxSizing: "border-box", resize: "vertical" }}
-            />
-            <button
-              onClick={() => setShowPreview(v => !v)}
-              style={{ marginTop: 8, background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 13, cursor: "pointer", padding: 0 }}
-            >
-              {showPreview ? "Masquer l'aperçu ↑" : "Voir un aperçu →"}
+            <label style={LBL}>Type de contenu</label>
+            <div style={{ display: "inline-flex", background: "#f1ede6", borderRadius: 99, padding: 4, gap: 4 }}>
+              {([["simple", "📝 Message simple"], ["template", "🎨 Avec template"]] as const).map(([m, lbl]) => (
+                <button key={m} onClick={() => setMode(m)} style={{ padding: "8px 18px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, background: mode === m ? "#1a1410" : "transparent", color: mode === m ? "#f2ede6" : "rgba(26,20,16,0.55)", transition: "all 0.15s" }}>
+                  {lbl}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 4. Textarea selon mode */}
+          <div>
+            <label style={LBL}>{mode === "simple" ? "Votre message *" : "Contenu HTML *"}</label>
+            {mode === "simple" ? (
+              <textarea ref={textareaRef} value={simpleText} onChange={e => setSimpleText(e.target.value)} placeholder="Écris ton message ici. Les retours à la ligne sont conservés. Tu peux insérer des images et des liens ci-dessous." style={TA} />
+            ) : (
+              <textarea ref={textareaRef} value={htmlContent} onChange={e => setHtmlContent(e.target.value)} spellCheck={false} style={{ ...TA, fontFamily: "ui-monospace, monospace", fontSize: 12.5, minHeight: 280 }} />
+            )}
+          </div>
+
+          {/* 5. Upload image */}
+          <div style={{ display: "grid", gap: 10 }}>
+            <div>
+              <label htmlFor="nl-img" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "#faf8f4", fontSize: 13, fontWeight: 800, color: "#1a1410", cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1 }}>
+                {uploading ? "Upload en cours..." : "📎 Ajouter une image"}
+              </label>
+              <input id="nl-img" type="file" accept="image/*" multiple disabled={uploading}
+                onChange={e => { handleImageUpload(e.target.files); e.target.value = ""; }}
+                style={{ display: "none" }} />
+            </div>
+            {images.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
+                {images.map((img, i) => (
+                  <div key={i} style={{ width: 80, display: "grid", gap: 4 }}>
+                    {/* miniature — clic = copie l'URL publique */}
+                    <img src={img.url} alt={img.name} title="Cliquer pour copier l'URL"
+                      onClick={() => { navigator.clipboard.writeText(img.url); setCopiedUrl(img.url); setTimeout(() => setCopiedUrl(null), 1500); }}
+                      style={{ width: 80, height: 80, objectFit: "cover", borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", cursor: "pointer", display: "block" }} />
+                    <button onClick={() => insertAtCursor(`<img src="${img.url}" style="max-width:100%;border-radius:8px;margin:16px 0;" alt="">`)}
+                      style={{ fontSize: 10, fontWeight: 800, padding: "4px 6px", borderRadius: 6, border: "none", background: "rgba(196,154,74,0.18)", color: "#9a7327", cursor: "pointer", lineHeight: 1.2 }}>
+                      {copiedUrl === img.url ? "✓ URL copiée" : "Insérer"}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* 6. Insertion lien */}
+          <div style={{ padding: 16, borderRadius: 12, background: "#faf8f4", border: "1px solid rgba(0,0,0,0.06)", display: "grid", gap: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>🔗 Insérer un lien</div>
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 12 }}>
+              <div>
+                <label style={LBL}>Choisir une page</label>
+                <select value={linkChoice} onChange={e => setLinkChoice(e.target.value)} style={{ ...INP, cursor: "pointer" }}>
+                  <option value="">— Sélectionner —</option>
+                  {LINK_PAGES.map(p => <option key={p.url} value={p.url}>{p.label}</option>)}
+                  {categories.map(c => <option key={c.slug} value={`https://www.milkbebe.fr/categorie/${c.slug}`}>Catégorie : {c.label}</option>)}
+                  <option value="__custom__">Lien personnalisé...</option>
+                </select>
+              </div>
+              <div>
+                <label style={LBL}>Texte du lien</label>
+                <input type="text" value={linkText} onChange={e => setLinkText(e.target.value)} placeholder="Ex : Voir la collection" style={INP} />
+              </div>
+            </div>
+            {linkChoice === "__custom__" && (
+              <input type="text" value={linkCustomUrl} onChange={e => setLinkCustomUrl(e.target.value)} placeholder="https://..." style={INP} />
+            )}
+            <div>
+              <button onClick={insertLink} style={{ padding: "9px 18px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer" }}>
+                Insérer
+              </button>
+            </div>
+          </div>
+
+          {/* 7. Bouton aperçu (secondaire) */}
+          <div>
+            <button onClick={() => setShowPreview(v => !v)} style={{ padding: "10px 18px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.15)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 13, cursor: "pointer" }}>
+              {showPreview ? "👁 Masquer l'aperçu" : "👁 Voir un aperçu"}
             </button>
           </div>
 
-          {/* Aperçu rendu */}
+          {/* 8-9. Panneau aperçu (32px au-dessus) */}
           {showPreview && (
-            <div style={{ borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", overflow: "hidden" }}>
+            <div style={{ marginTop: 32, borderRadius: 12, border: "1px solid rgba(0,0,0,0.1)", overflow: "hidden" }}>
               <div style={{ padding: "8px 14px", background: "#f9f7f4", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
                 Aperçu email
               </div>
-              <div style={{ background: "#fff", padding: 16, maxHeight: 480, overflow: "auto" }}>
-                <div dangerouslySetInnerHTML={{ __html: htmlContent }} />
+              <div style={{ background: "#fff", padding: 24, maxHeight: 480, overflow: "auto" }}>
+                <div dangerouslySetInnerHTML={{ __html: buildFinalHtml() }} />
               </div>
             </div>
           )}
 
-          {/* Envoi */}
-          <div style={{ display: "flex", alignItems: "center", gap: 14, flexWrap: "wrap" }}>
+          {/* 10-12. Envoi (32px au-dessus) */}
+          <div style={{ marginTop: 32, display: "grid", gap: 8, justifyItems: "start" }}>
             <button
               onClick={handleSend}
               disabled={sending || actifs === 0}
-              style={{ padding: "13px 26px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: (sending || actifs === 0) ? "not-allowed" : "pointer", opacity: (sending || actifs === 0) ? 0.5 : 1 }}
+              style={{ padding: "15px 32px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: (sending || actifs === 0) ? "not-allowed" : "pointer", opacity: (sending || actifs === 0) ? 0.5 : 1 }}
             >
               {sending ? "Envoi en cours..." : `Envoyer à ${actifs} abonné${actifs > 1 ? "s" : ""}`}
             </button>

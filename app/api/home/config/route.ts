@@ -3,13 +3,15 @@ import { NextResponse } from "next/server";
 
 export async function GET() {
   try {
+    // select("*") (pas de colonne nommée) : si coffret_active n'existe pas encore
+    // en base, on ne casse pas la requête (sinon products tombait en fallback).
     const { data: config } = await supabaseServer
       .from("homepage_config")
-      .select("section_title, product_ids, coffret_active")
+      .select("*")
       .eq("id", "main")
       .single();
 
-    const coffretActive = Boolean(config?.coffret_active);
+    const coffretActive = Boolean((config as any)?.coffret_active);
 
     if (!config || !Array.isArray(config.product_ids) || config.product_ids.length === 0) {
       return NextResponse.json({ section_title: "Sélection du moment", products: [], coffret_active: coffretActive });

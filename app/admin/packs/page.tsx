@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import PackCard, { type Pack } from "@/components/packs/PackCard";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -39,6 +40,7 @@ export default function AdminPacks() {
   const [showForm, setShowForm] = useState(false);
   const [saving,   setSaving]   = useState(false);
   const [uploading,setUploading]= useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [toast,    setToast]    = useState<{ msg: string; ok: boolean } | null>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
@@ -142,6 +144,21 @@ export default function AdminPacks() {
   }
 
   const selected = form.product_ids.map((id: string) => prodMap[id]).filter(Boolean);
+  const selectedTotal = selected.reduce((s: number, p: any) => s + Number(p.price_ttc ?? 0), 0);
+
+  // Pack reconstruit depuis le formulaire pour l'aperçu (vraie PackCard cliente).
+  const previewPack: Pack = {
+    id: "preview", slug: "preview",
+    title: form.title || "Titre du pack",
+    description: form.description || null,
+    price: parseFloat(form.price) || 0,
+    image_url: form.image_url || null,
+    active: form.active,
+    pack_items: selected.map((p: any, i: number) => ({
+      position: i,
+      product: { id: p.id, name: p.name, slug: p.slug, price_ttc: p.price_ttc, image_url: p.image_url },
+    })),
+  };
 
   return (
     <div style={{ padding: "36px 40px", maxWidth: 1100 }}>
@@ -162,7 +179,15 @@ export default function AdminPacks() {
 
           <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
             <div><label style={lbl}>Titre du pack *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="Ex : Coffret naissance essentiel" style={inp} /></div>
-            <div><label style={lbl}>Prix du pack € *</label><input type="number" value={form.price} onChange={e => set("price", e.target.value)} placeholder="49.90" style={inp} /></div>
+            <div>
+              <label style={lbl}>Prix du pack € *</label>
+              {selected.length > 0 && (
+                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginBottom: 5 }}>
+                  Prix total des produits séparément : <strong>{selectedTotal.toFixed(2)}€</strong>
+                </div>
+              )}
+              <input type="number" value={form.price} onChange={e => set("price", e.target.value)} placeholder="49.90" style={inp} />
+            </div>
           </div>
 
           <div><label style={lbl}>Description</label><textarea value={form.description} onChange={e => set("description", e.target.value)} style={{ ...inp, minHeight: 70, resize: "vertical", fontWeight: 500 }} /></div>
@@ -226,8 +251,22 @@ export default function AdminPacks() {
             </div>
           </div>
 
+          {/* Aperçu avant publication — vraie PackCard avec les données du form */}
+          {showPreview && (
+            <div style={{ padding: 18, borderRadius: 14, background: "#ede8df", border: "1px solid rgba(0,0,0,0.08)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)" }}>👁 Aperçu — ce que verra la cliente</div>
+                <button onClick={() => setShowPreview(false)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Fermer l&apos;aperçu</button>
+              </div>
+              <div style={{ maxWidth: 360 }}>
+                <PackCard pack={previewPack} />
+              </div>
+            </div>
+          )}
+
           <div style={{ display: "flex", gap: 12 }}>
             <button onClick={save} disabled={saving} style={{ flex: 1, padding: "13px", borderRadius: 12, background: "#111", color: "#fff", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>{saving ? "Enregistrement…" : form.id ? "Enregistrer les modifications" : "Créer le pack"}</button>
+            <button onClick={() => setShowPreview(v => !v)} style={{ padding: "13px 20px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", background: "#faf8f4", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>👁 Aperçu</button>
             <button onClick={() => setShowForm(false)} style={{ padding: "13px 20px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Annuler</button>
           </div>
         </div>

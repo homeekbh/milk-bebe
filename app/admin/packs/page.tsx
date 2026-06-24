@@ -164,6 +164,21 @@ export default function AdminPacks() {
     <div style={{ padding: "36px 40px", maxWidth: 1100 }}>
       {toast && <Toast msg={toast.msg} ok={toast.ok} />}
 
+      {/* Overlay aperçu — PackCard centrée, telle que vue par la cliente */}
+      {showPreview && (
+        <div onClick={() => setShowPreview(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.7)", zIndex: 10000, display: "flex", alignItems: "center", justifyContent: "center", padding: 24 }}>
+          <div onClick={e => e.stopPropagation()} style={{ position: "relative", width: 360, maxWidth: "100%" }}>
+            <button onClick={() => setShowPreview(false)} aria-label="Fermer"
+              style={{ position: "absolute", top: -14, right: -14, width: 38, height: 38, borderRadius: 99, background: "#fff", border: "none", cursor: "pointer", fontSize: 17, fontWeight: 900, color: "#1a1410", boxShadow: "0 4px 14px rgba(0,0,0,0.35)", zIndex: 2 }}>✕</button>
+            {/* preventDefault : empêche le <Link> de la PackCard de naviguer vers /packs/preview */}
+            <div onClick={e => e.preventDefault()}>
+              <PackCard pack={previewPack} />
+            </div>
+          </div>
+        </div>
+      )}
+
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
         <div>
           <h1 style={{ margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: -1 }}>🎁 Packs</h1>
@@ -177,17 +192,15 @@ export default function AdminPacks() {
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(0,0,0,0.07)", padding: 28, marginBottom: 28, display: "grid", gap: 18 }}>
           <div style={{ fontWeight: 900, fontSize: 16 }}>{form.id ? "✏️ Modifier le pack" : "➕ Nouveau pack"}</div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16 }}>
-            <div><label style={lbl}>Titre du pack *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="Ex : Coffret naissance essentiel" style={inp} /></div>
-            <div>
-              <label style={lbl}>Prix du pack € *</label>
-              {selected.length > 0 && (
-                <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginBottom: 5 }}>
-                  Prix total des produits séparément : <strong>{selectedTotal.toFixed(2)}€</strong>
-                </div>
-              )}
-              <input type="number" value={form.price} onChange={e => set("price", e.target.value)} placeholder="49.90" style={inp} />
-            </div>
+          <div><label style={lbl}>Titre du pack *</label><input value={form.title} onChange={e => set("title", e.target.value)} placeholder="Ex : Coffret naissance essentiel" style={inp} /></div>
+          <div>
+            <label style={lbl}>Prix du pack € *</label>
+            {selected.length > 0 && (
+              <div style={{ fontSize: 13, color: "#c49a4a", background: "rgba(196,154,74,0.08)", padding: "8px 12px", borderRadius: 8, marginBottom: 8, lineHeight: 1.4 }}>
+                Prix total séparément : <strong>{selectedTotal.toFixed(2)}€</strong> — fixe un prix pack inférieur pour créer la valeur
+              </div>
+            )}
+            <input type="number" value={form.price} onChange={e => set("price", e.target.value)} placeholder="49.90" style={inp} />
           </div>
 
           <div><label style={lbl}>Description</label><textarea value={form.description} onChange={e => set("description", e.target.value)} style={{ ...inp, minHeight: 70, resize: "vertical", fontWeight: 500 }} /></div>
@@ -251,22 +264,13 @@ export default function AdminPacks() {
             </div>
           </div>
 
-          {/* Aperçu avant publication — vraie PackCard avec les données du form */}
-          {showPreview && (
-            <div style={{ padding: 18, borderRadius: 14, background: "#ede8df", border: "1px solid rgba(0,0,0,0.08)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)" }}>👁 Aperçu — ce que verra la cliente</div>
-                <button onClick={() => setShowPreview(false)} style={{ padding: "7px 14px", borderRadius: 8, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", fontWeight: 700, fontSize: 12, cursor: "pointer" }}>Fermer l&apos;aperçu</button>
-              </div>
-              <div style={{ maxWidth: 360 }}>
-                <PackCard pack={previewPack} />
-              </div>
-            </div>
-          )}
-
           <div style={{ display: "flex", gap: 12 }}>
             <button onClick={save} disabled={saving} style={{ flex: 1, padding: "13px", borderRadius: 12, background: "#111", color: "#fff", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer", opacity: saving ? 0.6 : 1 }}>{saving ? "Enregistrement…" : form.id ? "Enregistrer les modifications" : "Créer le pack"}</button>
-            <button onClick={() => setShowPreview(v => !v)} style={{ padding: "13px 20px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", background: "#faf8f4", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>👁 Aperçu</button>
+            <button
+              onClick={() => { if (selected.length < 2) { showToast("Coche au moins 2 produits pour prévisualiser", false); return; } setShowPreview(true); }}
+              style={{ padding: "13px 20px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", background: "#faf8f4", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+              👁 Aperçu du pack
+            </button>
             <button onClick={() => setShowForm(false)} style={{ padding: "13px 20px", borderRadius: 12, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer" }}>Annuler</button>
           </div>
         </div>

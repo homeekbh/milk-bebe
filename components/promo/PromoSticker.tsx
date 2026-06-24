@@ -39,7 +39,7 @@ export default function PromoSticker() {
   return (
     <div style={{
       position: 'fixed',
-      bottom: '24px',
+      bottom: '90px',
       right: '24px',
       zIndex: 9998,
       display: 'flex',

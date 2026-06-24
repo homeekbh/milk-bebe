@@ -43,6 +43,15 @@ const CATS = [
   { value: "accessoires", label: "Accessoires" },
 ];
 
+// Texte de remise pour le dropdown / la card sticker. Schéma réel :
+// discount_type = "percent" | "fixed" | "free_shipping".
+function discountText(p: any): string {
+  if (!p) return "";
+  if (p.discount_type === "free_shipping") return "Livraison offerte";
+  if (p.discount_type === "percent")       return `${p.discount_value}% off`;
+  return `${p.discount_value}€ off`;
+}
+
 const S = {
   page:   { padding: "32px 32px 64px", maxWidth: 1100 } as React.CSSProperties,
   h1:     { margin: "0 0 4px", fontSize: 32, fontWeight: 950, letterSpacing: -1, color: "#1a1410" } as React.CSSProperties,
@@ -74,6 +83,13 @@ export default function AdminHomePage() {
   const [filterCat,    setFilterCat]    = useState("");
   const [filterSearch, setFilterSearch] = useState("");
   const [apiError,     setApiError]     = useState("");
+
+  // ── Sticker promo ──
+  const [promos,         setPromos]         = useState<any[]>([]);
+  const [featured,       setFeatured]       = useState<any | null>(null); // vue publique (/api/promo/featured, cache ~60s)
+  const [stickerPromoId, setStickerPromoId] = useState("");
+  const [stickerLabel,   setStickerLabel]   = useState("");
+  const [stickerBusy,    setStickerBusy]    = useState(false);
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -155,6 +171,64 @@ export default function AdminHomePage() {
   };
   const remove = (id: string) => setSelectedIds(prev => prev.filter(x => x !== id));
 
+  // ── Sticker promo : chargement (liste des codes + code publié) ──
+  const loadSticker = useCallback(async () => {
+    try {
+      const [pRes, fRes] = await Promise.all([
+        adminFetch("/api/admin/promos"),
+        adminFetch("/api/promo/featured"),
+      ]);
+      const list = pRes.ok ? await pRes.json() : [];
+      const feat = fRes.ok ? (await fRes.json())?.promo : null;
+      setPromos(Array.isArray(list) ? list : []);
+      setFeatured(feat ?? null);
+    } catch { /* silencieux */ }
+  }, []);
+
+  useEffect(() => { loadSticker(); }, [loadSticker]);
+
+  const publishSticker = async () => {
+    if (!stickerPromoId) return;
+    setStickerBusy(true);
+    try {
+      // 1. MAJ du label si saisi — route PUT existante (/api/admin/promos {id,...})
+      if (stickerLabel.trim()) {
+        await adminFetch("/api/admin/promos", {
+          method: "PUT",
+          body:   JSON.stringify({ id: stickerPromoId, label: stickerLabel.trim() }),
+        });
+      }
+      // 2. Publier (un seul featured à la fois — géré côté API + index unique DB)
+      const res = await adminFetch("/api/admin/promos/feature", {
+        method: "POST",
+        body:   JSON.stringify({ promo_id: stickerPromoId, action: "publish" }),
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        showToast("Erreur : " + (e.error ?? res.status), false);
+      } else {
+        showToast("Sticker publié !");
+        setStickerPromoId(""); setStickerLabel("");
+      }
+      await loadSticker();
+    } catch (e: any) { showToast("Erreur réseau : " + e.message, false); }
+    finally { setStickerBusy(false); }
+  };
+
+  const unpublishSticker = async (promoId: string) => {
+    setStickerBusy(true);
+    try {
+      const res = await adminFetch("/api/admin/promos/feature", {
+        method: "POST",
+        body:   JSON.stringify({ promo_id: promoId, action: "unpublish" }),
+      });
+      if (!res.ok) showToast("Erreur dépublication", false);
+      else showToast("Sticker dépublié");
+      await loadSticker();
+    } catch (e: any) { showToast("Erreur réseau : " + e.message, false); }
+    finally { setStickerBusy(false); }
+  };
+
   const filtered = allProducts.filter(p => {
     const matchCat    = !filterCat    || p.category_slug === filterCat;
     const matchSearch = !filterSearch || p.name?.toLowerCase().includes(filterSearch.toLowerCase());
@@ -162,6 +236,12 @@ export default function AdminHomePage() {
   });
 
   const selectedProducts = selectedIds.map(id => allProducts.find(p => p.id === id)).filter(Boolean);
+
+  // Source de vérité du code publié = la liste admin (fraîche, non cachée,
+  // contient id + is_featured). `featured` (API publique) sert juste à afficher
+  // ce que voient réellement les visiteurs (cache ~60s).
+  const publishedPromo = promos.find((p: any) => p.is_featured) ?? null;
+  const activePromos   = promos.filter((p: any) => p.active);
 
   if (loading) return (
     <div style={{ display: "grid", placeItems: "center", height: 300, color: "rgba(26,20,16,0.4)", fontSize: 14 }}>
@@ -171,6 +251,7 @@ export default function AdminHomePage() {
 
   return (
     <div style={S.page}>
+      <style>{`@keyframes milk-blink-adm { 0%,100%{opacity:1} 50%{opacity:0} }`}</style>
       {toast && <Toast msg={toast.msg} ok={toast.ok} />}
 
       <h1 style={S.h1}>Homepage</h1>
@@ -181,6 +262,82 @@ export default function AdminHomePage() {
           ⚠️ {apiError}
         </div>
       )}
+
+      {/* ── STICKER PROMO ── */}
+      <div style={S.card}>
+        <h2 style={S.cardH}>📣 Sticker promo homepage</h2>
+        <p style={{ fontSize: 13, color: "rgba(26,20,16,0.45)", margin: "0 0 16px" }}>
+          Affiche un sticker rouge clignotant en bas à droite du site.
+        </p>
+
+        {publishedPromo ? (
+          <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 14, padding: "16px 18px", borderRadius: 12, background: "#fef2f2", border: "1px solid #fca5a5" }}>
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 900, color: "#dc2626", letterSpacing: 0.5 }}>
+              <span style={{ animation: "milk-blink-adm 1s step-start infinite" }}>●</span> EN LIGNE
+            </span>
+            <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15, color: "#1a1410", background: "#fff", padding: "4px 10px", borderRadius: 8 }}>{publishedPromo.code}</span>
+            {publishedPromo.label && <span style={{ fontSize: 13, color: "rgba(26,20,16,0.7)" }}>{publishedPromo.label}</span>}
+            <span style={{ fontWeight: 900, fontSize: 14, color: "#16a34a" }}>{discountText(publishedPromo)}</span>
+            <button
+              onClick={() => unpublishSticker(publishedPromo.id)}
+              disabled={stickerBusy}
+              style={{ marginLeft: "auto", padding: "10px 18px", borderRadius: 10, background: "#6b7280", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: stickerBusy ? "default" : "pointer", opacity: stickerBusy ? 0.6 : 1 }}
+            >
+              Dépublier
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 14 }}>
+            <div>
+              <label style={S.label}>Code à publier</label>
+              <select
+                value={stickerPromoId}
+                onChange={e => {
+                  const id = e.target.value;
+                  setStickerPromoId(id);
+                  const p = promos.find((x: any) => x.id === id);
+                  setStickerLabel(p?.label ?? "");
+                }}
+                style={S.select}
+              >
+                <option value="">— Sélectionner un code —</option>
+                {activePromos.map((p: any) => (
+                  <option key={p.id} value={p.id}>{p.code} — {discountText(p)}</option>
+                ))}
+              </select>
+              {activePromos.length === 0 && (
+                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 6 }}>
+                  Aucun code actif — crée-en un dans « Codes promos ».
+                </div>
+              )}
+            </div>
+            <div>
+              <label style={S.label}>Titre affiché</label>
+              <input
+                type="text"
+                value={stickerLabel}
+                onChange={e => setStickerLabel(e.target.value)}
+                placeholder="ex : Soldes été — profitez-en !"
+                style={S.input}
+              />
+            </div>
+            <div>
+              <button
+                onClick={publishSticker}
+                disabled={!stickerPromoId || stickerBusy}
+                style={{ ...S.btnSave, opacity: (!stickerPromoId || stickerBusy) ? 0.5 : 1, cursor: (!stickerPromoId || stickerBusy) ? "not-allowed" : "pointer" }}
+              >
+                {stickerBusy ? "Publication…" : "📢 Publier le sticker"}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* État réel côté site (API publique mise en cache ~60s) */}
+        <div style={{ marginTop: 12, fontSize: 12, color: "rgba(26,20,16,0.4)" }}>
+          Côté site : {featured ? `« ${featured.code} » affiché` : "aucun sticker visible"} <span style={{ opacity: 0.7 }}>(cache ~60s)</span>
+        </div>
+      </div>
 
       {/* ── 1. TITRE ── */}
       <div style={S.card}>

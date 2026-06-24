@@ -116,109 +116,6 @@ const VALEURS = [
 ];
 
 /* ──────────────────────────────────────────────────────────────────────────
-   HERO — clair, fond cream, photo + parallax léger
-   ────────────────────────────────────────────────────────────────────────── */
-function HeroQSN() {
-  const [mounted, setMounted] = useState(false);
-  const [scrollY, setScrollY] = useState(0);
-  const ticking = useRef(false);
-  useEffect(() => { setMounted(true); }, []);
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
-    const onScroll = () => {
-      if (ticking.current) return;
-      ticking.current = true;
-      requestAnimationFrame(() => { setScrollY(window.scrollY); ticking.current = false; });
-    };
-    onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-  const photoY = Math.min(scrollY * 0.35, 250);
-
-  return (
-    <section
-      className="qsn-cover"
-      style={{
-        position:   "relative",
-        height:     "clamp(56vh, 64vh, 72vh)",
-        minHeight:  360,
-        overflow:   "hidden",
-        background: P.cream,
-      }}
-    >
-      <div
-        className="qsn-cover-photo"
-        style={{
-          position: "absolute",
-          inset:    "-10% 0 -10% 0",
-          transform: `translateY(${photoY}px) scale(${mounted ? 1.04 : 1.1})`,
-          transition: "transform 1.8s cubic-bezier(0.22,1,0.36,1)",
-          willChange: "transform",
-        }}
-      >
-        <Image
-          src="/images/qui-sommes-nous/milk_qui_sommes_nous_hero.jpg"
-          alt="Collection M!LK — bodies, pyjamas et bonnet bambou"
-          fill priority sizes="100vw"
-          style={{ objectFit: "cover", objectPosition: "center 40%" }}
-        />
-        {/* Voile clair (au lieu du marron) */}
-        <div className="qsn-cover-veil" style={{ position: "absolute", inset: 0, background: `linear-gradient(135deg, rgba(242,237,230,0.35) 0%, rgba(242,237,230,0.15) 50%, rgba(26,20,16,0.55) 100%)` }} />
-      </div>
-      {/* Scrim haut — garantit la lisibilité du header + fil d'ariane (texte crème)
-          dès le chargement : le hero étant clair, sans ce voile sombre le logo/nav
-          et le breadcrumb seraient invisibles en haut de page. */}
-      <div
-        aria-hidden
-        style={{
-          position: "absolute",
-          top: 0, left: 0, right: 0, height: 200,
-          background: "linear-gradient(to bottom, rgba(13,11,9,0.62) 0%, rgba(13,11,9,0) 100%)",
-          pointerEvents: "none",
-        }}
-      />
-      {/* Fil d'ariane EN OVERLAY sur le hero (juste sous le header), au lieu d'un
-          bandeau crème séparé au-dessus qui masquait le header crème au chargement. */}
-      <div style={{ position: "absolute", top: "calc(var(--milk-topbar-h, 0px) + 66px)", left: 0, right: 0, zIndex: 3 }}>
-        <Breadcrumb
-          variant="light"
-          items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
-        />
-      </div>
-      <div className="qsn-cover-content" style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 56px" }}>
-        <div style={{ padding: "0 clamp(16px,5vw,5vw)", width: "100%", boxSizing: "border-box" }}>
-          <div
-            style={{
-              fontSize:     11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase",
-              color:        P.amber, marginBottom: 14,
-              opacity:      mounted ? 1 : 0,
-              transform:    mounted ? "translateY(0)" : "translateY(20px)",
-              transition:   "opacity 0.7s ease 0.15s, transform 0.7s cubic-bezier(0.22,1,0.36,1) 0.15s",
-            }}
-          >
-            Notre histoire
-          </div>
-          <h1
-            style={{
-              color: P.cream, margin: 0, fontWeight: 950, letterSpacing: -2, lineHeight: 1.02,
-              fontSize: "clamp(38px,6.5vw,82px)",
-              textShadow: "0 4px 24px rgba(13,11,9,0.5)",
-              opacity:    mounted ? 1 : 0,
-              transform:  mounted ? "translateY(0)" : "translateY(28px)",
-              transition: "opacity 0.8s ease 0.3s, transform 0.9s cubic-bezier(0.22,1,0.36,1) 0.3s",
-            }}
-          >
-            Moins de galères.<br />Plus de moments.
-          </h1>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-/* ──────────────────────────────────────────────────────────────────────────
    INTRO ERIKA — Photo top-left + texte side + bloc texte dessous
    Scroll-driven : photo glisse depuis la gauche, texte depuis la droite
    ────────────────────────────────────────────────────────────────────────── */
@@ -243,6 +140,13 @@ function IntroErika() {
         style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.35 }}
       />
       <div style={{ position: "relative", maxWidth: 1200, margin: "0 auto" }}>
+        {/* Fil d'ariane — déplacé depuis l'ancien hero (supprimé). variant="dark"
+            car la section est sur fond clair. */}
+        <Breadcrumb
+          variant="dark"
+          padding="0 0 18px"
+          items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
+        />
         {/* Eyebrow */}
         <div
           style={{
@@ -597,7 +501,10 @@ function CTASection() {
    ────────────────────────────────────────────────────────────────────────── */
 export default function QuiSommesNousPage() {
   return (
-    <div style={{ background: P.cream, minHeight: "100vh", color: P.dark }}>
+    // padding-top 68px = hauteur de la navbar fixe (Header). Le hero ayant été
+    // retiré, le 1er élément en flux (le Ticker) doit dégager la navbar pour ne
+    // pas passer dessous. La compensation va donc ici, AVANT le ticker.
+    <div style={{ background: P.cream, minHeight: "100vh", color: P.dark, paddingTop: 68 }}>
       <style>{`
         ${MILK_STYLES}
         .qsn-intro-grid { perspective: 1600px; }
@@ -606,46 +513,6 @@ export default function QuiSommesNousPage() {
           .qsn-kpis       { grid-template-columns: repeat(2,1fr) !important; }
           .qsn-kpis > div:nth-child(2) { border-right: none !important; }
           .qsn-val        { grid-template-columns: 1fr !important; }
-        }
-        /* ───── HERO QSN MOBILE — plein écran, même pattern que la homepage ─────
-           globals.css plafonne l'<img> via [style*="object-fit:cover"]{max-height:55vh}
-           et img{height:auto}. On lève le plafond avec une spécificité supérieure
-           (.qsn-cover .qsn-cover-photo img). Mes classes n'ont PAS "hero" dedans
-           pour ne pas déclencher [class*="hero"] img{max-height:60vh}. Desktop intact. */
-        @media (max-width: 700px) {
-          .qsn-cover {
-            height: 100svh !important;
-            min-height: 100svh !important;
-            max-height: 100svh !important;
-            overflow: hidden !important;
-          }
-          .qsn-cover-photo {
-            inset: 0 !important;
-            transform: none !important;
-          }
-          .qsn-cover .qsn-cover-photo img {
-            max-height: none !important;
-            min-height: 100% !important;
-            height: 100% !important;
-            width: 100% !important;
-            object-fit: cover !important;
-            object-position: center top !important;
-          }
-          .qsn-cover-content {
-            inset: auto 0 0 0 !important;
-            height: auto !important;
-            padding: 0 0 28px !important;
-          }
-          .qsn-cover-veil {
-            top: auto !important;
-            bottom: 0 !important;
-            height: 42% !important;
-            background: linear-gradient(to top,
-              rgba(13,11,9,0.80) 0%,
-              rgba(13,11,9,0.38) 45%,
-              transparent 100%
-            ) !important;
-          }
         }
         .qsn-valcard:hover {
           transform: perspective(1400px) translateY(-6px) scale(1.01) !important;
@@ -667,7 +534,6 @@ export default function QuiSommesNousPage() {
         }
       `}</style>
 
-      <HeroQSN />
       <Ticker />
       <IntroErika />
       <KPIsSection />

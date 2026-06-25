@@ -2105,6 +2105,11 @@ export default function HomePage() {
       <CadeauSection />
       <AccordionsSection />
       <FinalCTA />
+
+      {/* Badge Google Avis Clients — s'affiche une fois M!LK noté sur Google */}
+      <div itemScope itemType="http://schema.org/LocalBusiness" style={{ display: "flex", justifyContent: "center", padding: "0 0 24px" }}>
+        <div dangerouslySetInnerHTML={{ __html: '<g:ratingbadge merchant_id="5800602000"></g:ratingbadge>' }} />
+      </div>
     </div>
   );
 }

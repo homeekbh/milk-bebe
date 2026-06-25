@@ -4,11 +4,37 @@ import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
+import GoogleCustomerReviews from "@/components/analytics/GoogleCustomerReviews";
 import { trackPurchase, metaPurchase } from "@/lib/analytics";
 
 const FALLBACK_CATEGORY = "pyjamas";
 
 const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+// Date de livraison estimée : aujourd'hui + N jours ouvrés (samedi/dimanche sautés).
+function estimatedDeliveryDate(businessDays: number): string {
+  const d = new Date();
+  let added = 0;
+  while (added < businessDays) {
+    d.setDate(d.getDate() + 1);
+    const day = d.getDay();
+    if (day !== 0 && day !== 6) added++;
+  }
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function readGuestEmail(): string {
+  try {
+    const guest = localStorage.getItem("milk_guest_email");
+    if (guest) return guest;
+    const sbKey = Object.keys(localStorage).find(k => k.startsWith("sb-") && k.endsWith("-auth-token"));
+    if (sbKey) {
+      const parsed = JSON.parse(localStorage.getItem(sbKey) ?? "{}");
+      return parsed.user?.email ?? "";
+    }
+  } catch {}
+  return "";
+}
 
 async function fetchOrderBySession(sessionId: string): Promise<any | null> {
   try {
@@ -31,6 +57,8 @@ export default function SuccessPage() {
   //   3. FALLBACK_CATEGORY ('pyjamas')
   const [recoCategory, setRecoCategory] = useState<string>(FALLBACK_CATEGORY);
   const [recoProductId, setRecoProductId] = useState<string>("");
+  // Google Customer Reviews : { orderId, email } dès qu'ils sont disponibles.
+  const [gcr, setGcr] = useState<{ orderId: string; email: string } | null>(null);
 
   useEffect(() => {
     if (!cleared.current) {
@@ -83,6 +111,7 @@ export default function SuccessPage() {
           let purchaseItems = snapItems;
           let coupon: string | undefined;
           let txId = sessionId || `order_${Date.now()}`;
+          let orderEmail = "";
 
           if (sessionId) {
             let order = await fetchOrderBySession(sessionId);
@@ -91,6 +120,7 @@ export default function SuccessPage() {
               value  = Math.max(0, Number(order.amount_total ?? snapValue) - Number(order.refund_amount ?? 0));
               coupon = order.promo_code ?? undefined;
               txId   = order.id ?? txId;
+              orderEmail = order.customer_email ?? "";
               if (Array.isArray(order.items) && order.items.length > 0) {
                 purchaseItems = order.items.map((it: any) => ({
                   id:       String(it.id ?? ""),
@@ -109,6 +139,10 @@ export default function SuccessPage() {
             trackPurchase({ id: txId, value, tax: 0, shipping: 0, coupon, items: purchaseItems });
             metaPurchase(txId, value);
           }
+
+          // Google Customer Reviews : email de la commande sinon guest/sb.
+          const email = orderEmail || readGuestEmail();
+          if (txId && email) setGcr({ orderId: txId, email });
         })();
       }
 
@@ -200,6 +234,15 @@ export default function SuccessPage() {
         eyebrow=""
         titleColor="#c49a4a"
       />
+
+      {/* Google Customer Reviews — opt-in (uniquement si commande + email connus) */}
+      {gcr && (
+        <GoogleCustomerReviews
+          orderId={gcr.orderId}
+          customerEmail={gcr.email}
+          estimatedDeliveryDate={estimatedDeliveryDate(5)}
+        />
+      )}
     </div>
   );
 }

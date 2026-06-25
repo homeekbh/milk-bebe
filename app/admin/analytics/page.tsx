@@ -540,25 +540,28 @@ export default function AdminStats() {
 
   const [loading,     setLoading]     = useState(true);
   const [refreshing,  setRefreshing]  = useState(false);
-  const [partialData, setPartialData] = useState(false);
+  const [failedEndpoints, setFailedEndpoints] = useState<string[]>([]);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
     setRefreshing(true);
-    let anyError = false;
+    // Collecte des endpoints en échec (nom = dernier segment de l'URL).
+    const failed = new Set<string>();
+    const nameOf = (url: string) => url.split("?")[0].split("/").pop() || url;
 
-    // safe() : renvoie le JSON parsé ou null, et lève le flag d'erreur.
+    // safe() : renvoie le JSON parsé ou null, et enregistre l'endpoint en échec.
     const safe = async (url: string): Promise<any> => {
       try {
         const r = await adminFetch(url);
-        if (!r.ok) { anyError = true; return null; }
+        if (!r.ok) { failed.add(nameOf(url)); return null; }
         return await r.json();
-      } catch { anyError = true; return null; }
+      } catch { failed.add(nameOf(url)); return null; }
     };
     // Route analytics standardisée { data, error }
     const safeData = async (url: string): Promise<any> => {
       const j = await safe(url);
-      if (!j || j.error) { anyError = true; return null; }
+      if (!j) return null;                              // échec réseau déjà compté par safe()
+      if (j.error) { failed.add(nameOf(url)); return null; }
       return j.data ?? null;
     };
 
@@ -589,16 +592,19 @@ export default function AdminStats() {
       setConversion(convD); setPromos(promoD); setRetention(retD); setGeo(geoD); setStockDormant(dormantD);
       setPageViews(pvD);
 
-      if (Array.isArray(slim)) setSlimOrders(slim); else anyError = true;
+      if (Array.isArray(slim)) setSlimOrders(slim); else if (slim != null) failed.add("commandes-data");
       if (carts?.carts && Array.isArray(carts.carts)) setAbandonedCarts(carts.carts);
       else if (Array.isArray(carts)) setAbandonedCarts(carts);
+      else if (carts != null) failed.add("abandoned-carts");
       if (news?.subscribers && Array.isArray(news.subscribers)) setNewsletter(news.subscribers);
       else if (Array.isArray(news)) setNewsletter(news);
-      if (Array.isArray(revs)) setReviews(revs);
+      else if (news != null) failed.add("newsletter");
+      if (Array.isArray(revs)) setReviews(revs); else if (revs != null) failed.add("reviews");
       if (Array.isArray(alerts)) setStockAlerts(alerts);
       else if (alerts?.data && Array.isArray(alerts.data)) setStockAlerts(alerts.data);
+      else if (alerts != null) failed.add("stock-alerts");
 
-      setPartialData(anyError);
+      setFailedEndpoints([...failed]);
       setLastUpdated(new Date());
     } finally {
       setLoading(false);
@@ -726,9 +732,9 @@ export default function AdminStats() {
         </div>
       </div>
 
-      {partialData && (
+      {failedEndpoints.length > 0 && (
         <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 12, background: "rgba(217,93,77,0.10)", border: `1px solid rgba(217,93,77,0.28)`, color: C.red, fontSize: 13, fontWeight: 700 }}>
-          ⚠️ Certaines données sont incomplètes — actualisez ou contactez le support.
+          ⚠️ Données incomplètes sur : [{failedEndpoints.join(", ")}]
         </div>
       )}
 

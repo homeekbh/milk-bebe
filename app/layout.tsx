@@ -266,6 +266,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <link rel="dns-prefetch" href="https://ntkqmnenczltlwplswka.supabase.co" />
         <link rel="preconnect"   href="https://js.stripe.com" />
         <link rel="preconnect"   href="https://connect.facebook.net" />
+        <link rel="dns-prefetch" href="https://connect.facebook.net" />
+        <link rel="preconnect"   href="https://www.googletagmanager.com" />
+        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
+        <link rel="preconnect"   href="https://www.google-analytics.com" />
+        <link rel="dns-prefetch" href="https://www.google-analytics.com" />
 
         {/* JSON-LD Schema.org */}
         <script

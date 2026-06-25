@@ -6,9 +6,11 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
 
+  // ⚠️ Pas de colonne promo_code sur abandoned_carts (la sélectionner faisait
+  // échouer la requête → 500 → bandeau "Données incomplètes" côté dashboard).
   const { data, error } = await supabaseServer
     .from("abandoned_carts")
-    .select("id, email, items, total, converted, relance_1, relance_2, relance_3, created_at, email_sent_at, promo_code")
+    .select("id, email, items, total, converted, relance_1, relance_2, relance_3, created_at, email_sent_at")
     .order("created_at", { ascending: false });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });

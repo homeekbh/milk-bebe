@@ -50,6 +50,15 @@ const LEXIQUE: Record<string, { icon: string; def: string }> = {
   "Stock dormant":         { icon: "📦", def: "Produits avec du stock mais aucune vente depuis 30 jours. Capital immobilisé — candidats à une promo ou une story dédiée." },
   "Newsletter":            { icon: "📧", def: "Inscrits à votre liste email. Votre actif marketing le plus précieux — indépendant des algorithmes." },
   "Alertes réassort":      { icon: "🔔", def: "Clients ayant demandé à être alertés quand un produit épuisé revient. Indicateur fort d'intérêt produit." },
+  "Vues totales":          { icon: "👁️", def: "Nombre total de pages vues sur la période (chaque chargement compte)." },
+  "Sessions uniques":      { icon: "🔗", def: "Nombre de visites distinctes (une personne = une session, même si elle ouvre plusieurs pages)." },
+  "Visiteurs uniques":     { icon: "🧑", def: "Personnes distinctes, reconnues par un cookie local (un visiteur peut faire plusieurs sessions)." },
+  "Durée moyenne":         { icon: "⏱️", def: "Temps moyen passé sur une page avant de partir." },
+  "Taux de rebond":        { icon: "↩️", def: "% de visiteurs qui quittent sans interagir (moins de 10 secondes sur la page)." },
+  "Pages / session":       { icon: "📄", def: "Nombre moyen de pages vues par visite. Plus c'est haut, plus le site engage." },
+  "Canal":                 { icon: "📡", def: "Source de trafic regroupée : Direct, Recherche Google, Réseaux sociaux, Email, Référents…" },
+  "Scroll depth":          { icon: "🖱️", def: "Jusqu'où le visiteur a fait défiler la page, en %. Mesure l'intérêt pour le contenu." },
+  "Nouveaux visiteurs":    { icon: "✨", def: "Personnes qui n'avaient jamais visité le site auparavant (sur cet appareil)." },
 };
 
 // ─── Composants ───────────────────────────────────────────────────────────────
@@ -192,6 +201,298 @@ function periodFromMs(p: PeriodKey): number {
   const days = p === "7" ? 7 : p === "30" ? 30 : 90;
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
+const fmtDur = (sec: number | null | undefined): string => {
+  if (sec == null) return "—";
+  const s = Math.round(Number(sec)); const m = Math.floor(s / 60);
+  return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
+};
+const CHANNEL_COLORS: Record<string, string> = {
+  "Direct": "#c49a4a", "Organic Search": "#4ade80", "Paid Search": "#60a5fa",
+  "Organic Social": "#f472b6", "Paid Social": "#a78bfa", "Email": "#fb923c", "Referral": "#94a3b8",
+};
+const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const DEVICE_ICON: Record<string, string> = { mobile: "📱", tablet: "💻", desktop: "🖥" };
+
+// Barres horizontales pour une distribution (scroll / durée).
+function HBars({ data, color = C.amber }: { data: { label: string; value: number }[]; color?: string }) {
+  const max   = Math.max(...data.map(d => d.value), 1);
+  const total = data.reduce((s, d) => s + d.value, 0);
+  if (total === 0) return <div style={{ color: C.muted, fontSize: 12 }}>Données disponibles après les premières visites trackées.</div>;
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {data.map(d => (
+        <div key={d.label}>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: C.muted }}>
+            <span>{d.label}</span><span style={{ color: C.warm, fontWeight: 700 }}>{d.value}</span>
+          </div>
+          <MiniBar value={d.value} max={max} color={color} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ─── Section Trafic & Comportement Visiteurs ────────────────────────────────────
+function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
+  const [showAllPages, setShowAllPages] = useState(false);
+
+  if (!pv) {
+    return (
+      <>
+        <SectionTitle>📊 Trafic &amp; Comportement Visiteurs</SectionTitle>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", marginBottom: 24 }}>
+          {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} h={110} />)}
+        </div>
+      </>
+    );
+  }
+
+  const th = { padding: "8px 10px", fontWeight: 700, textAlign: "left" as const };
+  const td = { padding: "9px 10px" };
+
+  const channelDonut = (pv.by_channel ?? []).map((c: any) => ({ label: c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
+
+  const nvr      = pv.new_vs_returning ?? { new: 0, returning: 0 };
+  const nvrTotal = (nvr.new ?? 0) + (nvr.returning ?? 0);
+  const pctNew   = nvrTotal > 0 ? Math.round((nvr.new / nvrTotal) * 100) : 0;
+  const nvrDonut = [
+    { label: "Nouveaux",  value: nvr.new,       color: C.amber },
+    { label: "Récurrents", value: nvr.returning, color: C.green },
+  ].filter(d => d.value > 0);
+
+  const allPages   = pv.top_pages ?? [];
+  const pagesShown = showAllPages ? allPages : allPages.slice(0, 10);
+
+  return (
+    <>
+      <SectionTitle>📊 Trafic &amp; Comportement Visiteurs</SectionTitle>
+
+      {/* BLOC 1 — KPIs trafic */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
+        <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue} />
+        <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} />
+        <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} />
+        <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)}     color={C.green} />
+        <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`} />
+        <KpiCard label="Pages / session"   value={Number(pv.pages_per_session ?? 0).toFixed(1)} />
+      </div>
+
+      {/* BLOC 2 — Vues par jour */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="📈 Vues par jour" lexique="Vues totales">
+          <BarChart data={(pv.by_day ?? []).map((d: any) => ({ label: String(d.date).slice(5), value: d.views }))} />
+          <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
+            Sessions uniques sur la période : <span style={{ color: C.warm, fontWeight: 700 }}>{pv.unique_sessions ?? 0}</span>
+          </div>
+        </Card>
+      </div>
+
+      {/* BLOC 3 — Sources de trafic */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="📡 Sources de trafic" lexique="Canal">
+          <DonutChart data={channelDonut} />
+          {(pv.by_channel ?? []).length > 0 && (
+            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 14 }}>
+              <thead><tr style={{ color: C.muted }}><th style={th}>Canal</th><th style={th}>Sessions</th><th style={th}>%</th></tr></thead>
+              <tbody>
+                {pv.by_channel.map((c: any) => (
+                  <tr key={c.channel} style={{ borderTop: `1px solid ${C.faint}` }}>
+                    <td style={td}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: CHANNEL_COLORS[c.channel] ?? "#94a3b8", marginRight: 8 }} />{c.channel}</td>
+                    <td style={{ ...td, color: C.warm, fontWeight: 700 }}>{c.sessions}</td>
+                    <td style={{ ...td, color: C.muted }}>{c.pct}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </Card>
+      </div>
+
+      {/* BLOC 4 — Top pages */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="📄 Top pages vues">
+          {allPages.length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune vue trackée pour l'instant.</div> : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ color: C.muted }}>
+                  <th style={th}>Page</th><th style={th}>Vues</th><th style={th}>Sessions</th><th style={th}>Durée</th><th style={th}>Scroll</th><th style={th}>Rebond</th>
+                </tr></thead>
+                <tbody>
+                  {pagesShown.map((p: any) => (
+                    <tr key={p.page_path} style={{ borderTop: `1px solid ${C.faint}` }}>
+                      <td style={{ ...td, color: C.warm }}>
+                        {String(p.page_path).startsWith("/produits/") && <span style={{ fontSize: 10, fontWeight: 800, color: "#000", background: C.amber, borderRadius: 5, padding: "1px 6px", marginRight: 6 }}>Produit</span>}
+                        {p.page_path}
+                      </td>
+                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{p.views}</td>
+                      <td style={{ ...td, color: C.muted }}>{p.unique_sessions}</td>
+                      <td style={{ ...td, color: C.muted }}>{fmtDur(p.avg_time)}</td>
+                      <td style={{ ...td, color: C.muted }}>{p.avg_scroll}%</td>
+                      <td style={{ ...td, color: C.muted }}>{p.bounce_rate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {allPages.length > 10 && (
+                <button onClick={() => setShowAllPages(v => !v)} style={{ marginTop: 12, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                  {showAllPages ? "Voir moins" : `Voir plus (${allPages.length - 10})`}
+                </button>
+              )}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* BLOC 5 — Produits les plus vus */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="🛍️ Produits les plus vus" lexique="Top produits">
+          {(pv.top_products_viewed ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune fiche produit vue.</div> : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ color: C.muted }}><th style={th}>Produit</th><th style={th}>Vues</th><th style={th}>Sessions</th><th style={th}>Durée moy.</th></tr></thead>
+                <tbody>
+                  {pv.top_products_viewed.map((p: any) => (
+                    <tr key={p.page_path} style={{ borderTop: `1px solid ${C.faint}` }}>
+                      <td style={{ ...td, color: C.warm }}>{p.name}</td>
+                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{p.views}</td>
+                      <td style={{ ...td, color: C.muted }}>{p.unique_sessions}</td>
+                      <td style={{ ...td, color: C.muted }}>{fmtDur(p.avg_time)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* BLOC 6 — Comportement */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="🖱️ Profondeur de scroll" lexique="Scroll depth">
+          <HBars data={(pv.scroll_distribution ?? []).map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />
+        </Card>
+        <Card title="⏱️ Durée de visite" lexique="Durée moyenne">
+          <HBars data={(pv.time_distribution ?? []).map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />
+        </Card>
+      </div>
+
+      {/* BLOC 7 — Géographie */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="🌍 Top pays">
+          {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée géo (Vercel uniquement).</div> : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {pv.by_country.slice(0, 8).map((c: any) => (
+                <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: C.warm }}>{c.country}</span><span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+        <Card title="🏙️ Top villes">
+          {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée ville.</div> : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {pv.by_city.slice(0, 8).map((c: any, i: number) => (
+                <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: C.warm }}>{c.city}{c.region ? <span style={{ color: C.muted }}> · {c.region}</span> : null}</span>
+                  <span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+      </div>
+
+      {/* BLOC 8 — Appareils */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="📱 Appareils">
+          <div style={{ display: "grid", gap: 8 }}>
+            {(pv.by_device ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+              pv.by_device.map((d: any) => (
+                <div key={d.device_type} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
+                  <span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
+                </div>
+              ))}
+          </div>
+        </Card>
+        <Card title="💿 Système">
+          <div style={{ display: "grid", gap: 8 }}>
+            {(pv.by_os ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+              pv.by_os.map((d: any) => (
+                <div key={d.os} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                </div>
+              ))}
+          </div>
+        </Card>
+        <Card title="🌐 Navigateur">
+          <div style={{ display: "grid", gap: 8 }}>
+            {(pv.by_browser ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+              pv.by_browser.map((d: any) => (
+                <div key={d.browser} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                </div>
+              ))}
+          </div>
+        </Card>
+      </div>
+
+      {/* BLOC 9 — Temporalité */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="🕐 Trafic par heure (UTC)">
+          <BarChart data={(pv.by_hour ?? []).map((h: any) => ({ label: h.hour % 4 === 0 ? `${h.hour}h` : "", value: h.views }))} height={120} />
+        </Card>
+        <Card title="📅 Trafic par jour">
+          <BarChart data={(pv.by_weekday ?? []).map((d: any) => ({ label: WEEKDAYS[d.day] ?? String(d.day), value: d.views }))} height={120} />
+        </Card>
+      </div>
+
+      {/* BLOC 10 — Nouveaux vs récurrents */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="✨ Nouveaux vs récurrents" lexique="Nouveaux visiteurs">
+          <DonutChart data={nvrDonut} />
+          <div style={{ fontSize: 13, color: C.muted, marginTop: 10 }}>
+            <span style={{ color: C.amber, fontWeight: 900, fontSize: 20 }}>{pctNew}%</span> de nouveaux visiteurs
+          </div>
+        </Card>
+      </div>
+
+      {/* BLOC 11 — Référents & campagnes */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="🔗 Top référents">
+          {(pv.top_referrers ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucun référent externe.</div> : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {pv.top_referrers.map((r: any) => (
+                <div key={r.domain} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                  <span style={{ color: C.warm }}>{r.domain}</span><span style={{ color: C.amber, fontWeight: 700 }}>{r.sessions}</span>
+                </div>
+              ))}
+            </div>
+          )}
+        </Card>
+        <Card title="🎯 Campagnes UTM">
+          {(pv.top_campaigns ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune campagne UTM trackée.</div> : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ color: C.muted }}><th style={th}>Campagne</th><th style={th}>Source</th><th style={th}>Sessions</th></tr></thead>
+                <tbody>
+                  {pv.top_campaigns.map((c: any, i: number) => (
+                    <tr key={c.campaign + i} style={{ borderTop: `1px solid ${C.faint}` }}>
+                      <td style={{ ...td, color: C.warm }}>{c.campaign}</td>
+                      <td style={{ ...td, color: C.muted }}>{c.source}</td>
+                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{c.sessions}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Card>
+      </div>
+    </>
+  );
+}
 
 // ─── Page principale ──────────────────────────────────────────────────────────
 export default function AdminStats() {
@@ -209,6 +510,7 @@ export default function AdminStats() {
   const [retention,    setRetention]    = useState<any>(null);
   const [geo,          setGeo]          = useState<any>(null);
   const [stockDormant, setStockDormant] = useState<any>(null);
+  const [pageViews,    setPageViews]    = useState<any>(null);
 
   // Données client-side conservées
   const [slimOrders,     setSlimOrders]     = useState<any[]>([]);
@@ -244,7 +546,7 @@ export default function AdminStats() {
     const q = `?period=${period}`;
     try {
       const [
-        kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD,
+        kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD,
         slim, carts, news, revs, alerts,
       ] = await Promise.all([
         safeData(`/api/admin/analytics/kpis${q}`),
@@ -256,6 +558,7 @@ export default function AdminStats() {
         safeData(`/api/admin/analytics/retention${q}`),
         safeData(`/api/admin/analytics/geo${q}`),
         safeData(`/api/admin/analytics/stock-dormant`),
+        safeData(`/api/admin/page-views${q}`),
         safe(`/api/admin/commandes-data?fields=slim`),
         safe(`/api/admin/abandoned-carts`),
         safe(`/api/admin/newsletter`),
@@ -265,6 +568,7 @@ export default function AdminStats() {
 
       setKpis(kpisD); setRevenueChart(revD); setTopProducts(topPD); setTopCustomers(topCD);
       setConversion(convD); setPromos(promoD); setRetention(retD); setGeo(geoD); setStockDormant(dormantD);
+      setPageViews(pvD);
 
       if (Array.isArray(slim)) setSlimOrders(slim); else anyError = true;
       if (carts?.carts && Array.isArray(carts.carts)) setAbandonedCarts(carts.carts);
@@ -428,6 +732,9 @@ export default function AdminStats() {
           {revenueChart ? <BarChart data={(revenueChart.points ?? []).map((p: any) => ({ label: p.label, value: p.revenue }))} /> : <Skeleton h={150} />}
         </Card>
       </div>
+
+      {/* ══ TRAFIC & COMPORTEMENT VISITEURS ══ */}
+      <TrafficSection pv={pageViews} narrow={narrow} />
 
       {/* Top produits + Statuts livraison */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1.3fr 1fr", gap: 16, marginBottom: 24 }}>

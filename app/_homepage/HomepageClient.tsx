@@ -374,7 +374,9 @@ function Hero() {
             alt="M!LK — essentiels bébé bambou OEKO-TEX"
             fill
             priority
-            sizes="100vw"
+            fetchPriority="high"
+            quality={75}
+            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 100vw, 100vw"
             style={{ objectFit: "cover", objectPosition: "center" }}
           />
           {/* Voile : confiné au hero. Sur desktop = diagonal, sur mobile = bottom-only chaud. */}

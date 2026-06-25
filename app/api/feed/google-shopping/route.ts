@@ -42,6 +42,11 @@ function colorSlug(name: any): string {
 
 const money = (n: any) => `${Number(n ?? 0).toFixed(2)} EUR`;
 
+// Normalisation pour comparer nom produit / nom motif (casse + accents ignorés).
+function normalizeStr(s: any): string {
+  return String(s ?? "").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").trim();
+}
+
 // Promo active ? mêmes règles que la fiche produit (dates locales).
 function isPromoActive(p: any): boolean {
   if (!p?.promo_price || Number(p.promo_price) <= 0) return false;
@@ -120,9 +125,13 @@ export async function GET() {
           const cName  = c?.name || "Bambou naturel";
           const cStock = Number(c?.stock ?? p.stock ?? 0);
           const cSlug  = colorSlug(cName) || "motif";
+          // Évite le doublon si le nom du produit contient déjà le motif.
+          const title  = normalizeStr(p.name).includes(normalizeStr(cName))
+            ? p.name
+            : `${p.name} — ${cName}`;
           items.push(itemXml({
             id:           `${p.slug}-${cSlug}`,
-            title:        `${p.name} — ${cName}`,
+            title,
             description:  desc,
             link,
             image:        c?.image_url || p.image_url || FALLBACK_IMG,

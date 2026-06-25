@@ -1,0 +1,53 @@
+import { supabaseServer } from "@/lib/server/supabase";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * GET /api/orders/by-session?session_id=cs_xxx
+ *
+ * Lookup d'une commande par son stripe_session_id, pour la page /success
+ * (tracking purchase avec les vraies valeurs). Public : le session_id Stripe
+ * est un token opaque non devinable → sa possession suffit. On ne renvoie que
+ * des données non sensibles (montant, items, email de la commande elle-même).
+ *
+ * Race condition webhook : si la commande n'existe pas encore, on réessaie
+ * une fois après ~1.5s (total < 3s) puis on renvoie { order: null }.
+ */
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+async function lookup(sessionId: string) {
+  const { data } = await supabaseServer
+    .from("orders")
+    .select("id, amount_total, refund_amount, items, customer_email, discount, promo_code, status")
+    .eq("stripe_session_id", sessionId)
+    .maybeSingle();
+  return data;
+}
+
+export async function GET(req: Request) {
+  try {
+    const sessionId = new URL(req.url).searchParams.get("session_id") ?? "";
+    if (!sessionId) return Response.json({ order: null });
+
+    let order = await lookup(sessionId);
+    if (!order) {
+      await sleep(1500);
+      order = await lookup(sessionId);
+    }
+    if (!order) return Response.json({ order: null });
+
+    return Response.json({
+      order: {
+        id:             order.id,
+        amount_total:   order.amount_total,
+        refund_amount:  order.refund_amount ?? 0,
+        items:          Array.isArray(order.items) ? order.items : [],
+        customer_email: order.customer_email,
+        discount:       order.discount ?? 0,
+        promo_code:     order.promo_code ?? null,
+      },
+    });
+  } catch {
+    return Response.json({ order: null });
+  }
+}

@@ -1,17 +1,24 @@
 "use client";
 
-function fbqTrack(event: string, data?: Record<string, unknown>) {
-  try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
-}
-
-// ── Meta Pixel ──────────────────────────────────────────────────────────────
-
 import { useEffect, useState, useRef } from "react";
 import { useCart } from "@/context/CartContext";
 import Link from "next/link";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
+import { trackPurchase, metaPurchase } from "@/lib/analytics";
 
 const FALLBACK_CATEGORY = "pyjamas";
+
+const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
+
+async function fetchOrderBySession(sessionId: string): Promise<any | null> {
+  try {
+    const r = await fetch(`/api/orders/by-session?session_id=${encodeURIComponent(sessionId)}`);
+    const j = await r.json();
+    return j.order ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export default function SuccessPage() {
   const { items, clearCart } = useCart();
@@ -45,10 +52,69 @@ export default function SuccessPage() {
       setRecoCategory(category);
       if (first?.id) setRecoProductId(first.id);
 
-      // ── 2. clearCart une seule fois ───────────────────────────────────────
+      // ── 2. Tracking purchase ──────────────────────────────────────────────
+      // Snapshot panier (toujours présent au mount) = fallback. On tente
+      // d'enrichir avec les VRAIES valeurs depuis /api/orders/by-session
+      // (montant exact incl. port/remise). Retry 1× après 2s si la commande
+      // n'existe pas encore (webhook Stripe asynchrone).
+      let sessionId = "";
+      try { sessionId = new URLSearchParams(window.location.search).get("session_id") ?? ""; } catch {}
+
+      const snapItems = items.map(it => ({
+        id:       it.id,
+        name:     it.name,
+        price:    it.price,
+        quantity: it.quantity,
+        category: it.category_slug,
+        variant:  it.taille ?? it.couleur,
+        slug:     it.slug,
+      }));
+      const snapValue = items.reduce((a, it) => a + (it.price ?? 0) * (it.quantity ?? 1), 0);
+
+      // Dédup : ne pas re-tracker un achat déjà tracké (refresh de /success).
+      let alreadyTracked = false;
+      try { alreadyTracked = !!sessionId && sessionStorage.getItem("milk_purchase_tracked") === sessionId; } catch {}
+
+      if (!alreadyTracked && (snapItems.length > 0 || sessionId)) {
+        try { if (sessionId) sessionStorage.setItem("milk_purchase_tracked", sessionId); } catch {}
+
+        void (async () => {
+          let value: number = snapValue;
+          let purchaseItems = snapItems;
+          let coupon: string | undefined;
+          let txId = sessionId || `order_${Date.now()}`;
+
+          if (sessionId) {
+            let order = await fetchOrderBySession(sessionId);
+            if (!order) { await sleep(2000); order = await fetchOrderBySession(sessionId); }
+            if (order) {
+              value  = Math.max(0, Number(order.amount_total ?? snapValue) - Number(order.refund_amount ?? 0));
+              coupon = order.promo_code ?? undefined;
+              txId   = order.id ?? txId;
+              if (Array.isArray(order.items) && order.items.length > 0) {
+                purchaseItems = order.items.map((it: any) => ({
+                  id:       String(it.id ?? ""),
+                  name:     it.name ?? "",
+                  price:    Number(it.price ?? 0),
+                  quantity: Number(it.quantity ?? 1),
+                  category: it.category_slug,
+                  variant:  it.taille ?? it.couleur,
+                  slug:     it.slug,
+                }));
+              }
+            }
+          }
+
+          if (purchaseItems.length > 0 || value > 0) {
+            trackPurchase({ id: txId, value, tax: 0, shipping: 0, coupon, items: purchaseItems });
+            metaPurchase(txId, value);
+          }
+        })();
+      }
+
+      // ── 3. clearCart une seule fois ───────────────────────────────────────
       clearCart();
       cleared.current = true;
-      fbqTrack("Purchase", { currency: "EUR", content_type: "product" });
 
       // ✅ Pour les users connectés : marquer le panier abandonné comme converti côté client
       // Pour les guests : le webhook Stripe s'en charge automatiquement

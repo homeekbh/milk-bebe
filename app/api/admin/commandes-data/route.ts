@@ -8,9 +8,15 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
 
   try {
+    // ?fields=slim → uniquement les colonnes nécessaires aux stats (donut
+    // statuts livraison). Évite un SELECT * massif pour /admin/analytics.
+    // Les autres consommateurs (commandes, comptabilité, recherche) gardent *.
+    const slim = new URL(req.url).searchParams.get("fields") === "slim";
+    const cols = slim ? "id, status, shipping_status, created_at" : "*";
+
     const { data, error } = await supabaseServer
       .from("orders")
-      .select("*")
+      .select(cols)
       .order("created_at", { ascending: false })
       .limit(50000);
     if (error) {

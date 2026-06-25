@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { createContext, useContext, useEffect, useState } from "react";
+import { trackAddToCart, trackRemoveFromCart, metaAddToCart } from "@/lib/analytics";
 
 type CartItem = {
   id: string;
@@ -55,6 +56,17 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   }
 
   function addToCart(item: Omit<CartItem, "quantity"> & { quantity?: number }) {
+    const qty = item.quantity ?? 1;
+    // Tracking (GA4 dataLayer + Meta Pixel) — non bloquant, guardé SSR.
+    trackAddToCart({
+      id:       item.id,
+      name:     item.name,
+      price:    item.price,
+      category: item.category_slug ?? "",
+      variant:  item.taille ?? item.couleur ?? undefined,
+      quantity: qty,
+    });
+    metaAddToCart({ id: item.id, name: item.name, price: item.price, quantity: qty });
     setItems(prev => {
       const key = cartKey(item);
       const existing = prev.find(i => cartKey(i) === key);
@@ -71,6 +83,10 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
   function removeFromCart(id: string, taille?: string, couleur?: string) {
     const key = cartKey({ id, taille, couleur });
+    const removed = items.find(i => cartKey(i) === key);
+    if (removed) {
+      trackRemoveFromCart({ id: removed.id, name: removed.name, price: removed.price, quantity: removed.quantity });
+    }
     setItems(prev => prev.filter(i => cartKey(i) !== key));
   }
 

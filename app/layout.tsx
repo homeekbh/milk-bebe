@@ -15,6 +15,7 @@ import CookieBanner      from "@/components/CookieBanner";
 import ExitIntentPopup     from "@/components/ExitIntentPopup";
 import PromoSticker        from "@/components/promo/PromoSticker";
 import { WishlistProvider } from "@/context/WishlistContext";
+import GTMScript, { GTMNoScript } from "@/components/analytics/GTMScript";
 
 const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
@@ -270,9 +271,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
+
+        {/* Google Tag Manager — ne s'injecte que si NEXT_PUBLIC_GTM_ID défini */}
+        <GTMScript />
       </head>
 
       <body>
+        {/* GTM noscript fallback (sans JS) */}
+        <GTMNoScript />
         {/* ── Google Analytics 4 ── */}
         {process.env.NEXT_PUBLIC_GA4_ID && (
           <>

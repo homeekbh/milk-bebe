@@ -1,10 +1,5 @@
 "use client";
 
-function fbqTrack(event: string, data?: Record<string, unknown>) {
-  try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
-}
-
-// ── Meta Pixel ────────────────────────────────────────────────────────────────
 import { useEffect, useRef, useState } from "react";
 import { useParams }                   from "next/navigation";
 import Image                           from "next/image";
@@ -15,6 +10,7 @@ import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
 import ShareButtons                    from "@/components/shared/ShareButtons";
 import { getAttribution }              from "@/lib/attribution";
+import { trackViewItem, metaViewContent } from "@/lib/analytics";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -597,8 +593,12 @@ export default function ProductPage() {
         setRelated((Array.isArray(all) ? all : []).filter((p: any) => p.id !== found.id && p.category_slug === found.category_slug).slice(0, 4));
       }
       setLoading(false);
-      // ✅ Meta Pixel — ViewContent
-      if (found) fbqTrack("ViewContent", { content_ids:[found.id], content_name:found.name, content_type:"product", value:found.promo_price||found.price_ttc||0, currency:"EUR" });
+      // ✅ Tracking vue produit — GA4 view_item (dataLayer) + Meta ViewContent
+      if (found) {
+        const viewPrice = found.promo_price || found.price_ttc || 0;
+        trackViewItem({ id: String(found.id), name: found.name, price: viewPrice, category: found.category_slug || "" });
+        metaViewContent({ id: String(found.id), name: found.name, price: viewPrice });
+      }
     // ✅ Tracker vues produit — analytics interne
       if (found) {
         const sid = sessionStorage.getItem("milk_sid") || (() => {
@@ -641,14 +641,7 @@ export default function ProductPage() {
       return;
     }
     const name = [product.name, taille, couleur].filter(Boolean).join(" — ");
-    fbqTrack("AddToCart", {
-      content_ids:  [product.id],
-      content_name: product.name,
-      value:        product.promo_price || product.price_ttc || 0,
-      currency:     "EUR",
-      contents:     [{ id: product.id, quantity: qty }],
-    });
-    fbqTrack("AddToCart", { content_ids:[product.id], content_name:product.name, value:product.promo_price||product.price_ttc||0, currency:"EUR", contents:[{id:product.id,quantity:qty}] });
+    // Tracking add_to_cart (GA4) + AddToCart (Meta) est centralisé dans CartContext.addToCart()
     addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: taille || undefined, couleur: couleur || undefined, category_slug: product.category_slug || undefined });
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }

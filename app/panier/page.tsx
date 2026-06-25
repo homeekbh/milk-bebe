@@ -1,16 +1,12 @@
 ﻿"use client";
 
-// ── Meta Pixel helper ─────────────────────────────────────────────────────────
-function fbqTrack(event: string, data?: Record<string, unknown>) {
-  try { if (typeof window !== "undefined" && (window as any).fbq) (window as any).fbq("track", event, data); } catch {}
-}
-
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
 import Link         from "next/link";
 import { useRouter } from "next/navigation";
 import PackCartSection from "./PackCartSection";
+import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 import {
   DELIVERY_DELAY,
   getDeliveryPrice,
@@ -364,7 +360,23 @@ export default function CartPage() {
       return;
     }
 
-    fbqTrack("InitiateCheckout", { value: items.reduce((a,it) => a + (it.price??0)*(it.quantity??1), 0), currency: "EUR", num_items: items.reduce((a,it) => a + it.quantity, 0) });
+    // Tracking begin_checkout (GA4) + InitiateCheckout (Meta) — non bloquant.
+    const cartValue = items.reduce((a, it) => a + (it.price ?? 0) * (it.quantity ?? 1), 0);
+    const numItems  = items.reduce((a, it) => a + (it.quantity ?? 1), 0);
+    trackBeginCheckout(
+      items.map(it => ({
+        id:       it.id,
+        name:     it.name,
+        price:    it.price,
+        quantity: it.quantity,
+        category: it.category_slug,
+        variant:  it.taille ?? it.couleur,
+        slug:     it.slug,
+      })),
+      cartValue,
+      promoData ? (promoCode || undefined) : undefined,
+    );
+    metaInitiateCheckout(cartValue, numItems);
     // ✅ Sauvegarder l'email guest pour la success page (conversion panier abandonné)
     if (!user && guestEmail.trim()) {
       try { localStorage.setItem("milk_guest_email", guestEmail.trim().toLowerCase()); } catch {}

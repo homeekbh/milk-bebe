@@ -6,6 +6,7 @@ import { JsonLd }         from "@/components/seo/JsonLd";
 import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
 import { GigoteusesFaq }       from "@/components/seo/GigoteusesFaq";
 import { Breadcrumb }          from "@/components/seo/Breadcrumb";
+import ViewItemListTracker     from "@/components/analytics/ViewItemListTracker";
 
 // ISR : page catégorie SEO (landing organique). Cache CDN + régénération 2 min.
 export const revalidate = 120;
@@ -153,6 +154,16 @@ export default async function CategoriePage({ params }: Props) {
   return (
     <>
       <JsonLd data={[collectionLd, breadcrumbLd]} />
+      <ViewItemListTracker
+        listName={meta.title}
+        items={inCat.map(p => ({
+          id:       String(p.id),
+          name:     p.name,
+          price:    p.promo_price || p.price_ttc || 0,
+          category: slug,
+          slug:     p.slug,
+        }))}
+      />
       <div style={{ background: "#ede8df" }}>
         <Breadcrumb
           variant="dark"

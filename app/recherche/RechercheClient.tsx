@@ -4,6 +4,7 @@ import { useEffect, useState, useRef, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { trackSearch } from "@/lib/analytics";
 
 function slugify(input: any) {
   return String(input ?? "").trim().toLowerCase()
@@ -149,6 +150,8 @@ export default function RechercheClient() {
 
   const filterProducts = useCallback((val: string) => {
     if (!val.trim()) { setResults([]); return; }
+    // Tracking GA4 `search` (d\u00e9j\u00e0 debounc\u00e9 via handleSearch/URL-load).
+    if (val.trim().length >= 2) trackSearch(val.trim());
     const needle = val.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     setResults(products.filter(p => {
       const hay = [p.name, p.description, p.category_slug, p.slug]

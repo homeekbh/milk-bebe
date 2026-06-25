@@ -43,6 +43,22 @@ const nextConfig: NextConfig = {
       "upgrade-insecure-requests",
     ].join("; ");
 
+    // ── CSP enforce (active) ───────────────────────────────────────────────
+    // Politique d'enforcement explicite (bloque réellement). Couvre GTM, GA4,
+    // Meta Pixel, Stripe, Supabase, Maps, Google Fonts. Cohabite avec la
+    // Report-Only ci-dessus (qui continue de remonter les violations).
+    const cspEnforce = [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://ssl.google-analytics.com https://connect.facebook.net https://js.stripe.com https://maps.googleapis.com",
+      "script-src-elem 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://ssl.google-analytics.com https://connect.facebook.net https://js.stripe.com",
+      "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com https://www.facebook.com https://ntkqmnenczltlwplswka.supabase.co https://images.unsplash.com",
+      "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://region1.google-analytics.com https://www.googletagmanager.com https://www.facebook.com https://connect.facebook.net https://ntkqmnenczltlwplswka.supabase.co https://api.stripe.com https://panel.sendcloud.sc",
+      "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+      "font-src 'self' https://fonts.gstatic.com",
+      "media-src 'self' blob: https://ntkqmnenczltlwplswka.supabase.co",
+    ].join("; ");
+
     return [
       {
         source: "/(.*)",
@@ -53,6 +69,7 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy",                value: "camera=(), microphone=(), geolocation=()" },
           { key: "X-XSS-Protection",                  value: "1; mode=block"                            },
           { key: "Strict-Transport-Security",         value: "max-age=63072000; includeSubDomains; preload" },
+          { key: "Content-Security-Policy",             value: cspEnforce },
           { key: "Content-Security-Policy-Report-Only", value: csp },
         ],
       },

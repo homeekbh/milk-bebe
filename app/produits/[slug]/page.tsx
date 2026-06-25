@@ -9,7 +9,6 @@ import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
 import ShareButtons                    from "@/components/shared/ShareButtons";
-import { getAttribution }              from "@/lib/attribution";
 import { trackViewItem, metaViewContent } from "@/lib/analytics";
 
 // ── Palette unifiée ──

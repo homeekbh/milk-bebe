@@ -17,6 +17,7 @@ import PromoSticker        from "@/components/promo/PromoSticker";
 import { WishlistProvider } from "@/context/WishlistContext";
 import GTMScript, { GTMNoScript } from "@/components/analytics/GTMScript";
 import PageTracker from "@/components/analytics/PageTracker";
+import MerchantBadge from "@/components/analytics/MerchantBadge";
 
 const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
@@ -287,6 +288,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <GTMNoScript />
         {/* Tracking visiteur 1st-party (sessions, scroll, durée, géo, device) */}
         <PageTracker />
+        {/* Badge Google Merchant Widget (avis clients) sur toutes les pages */}
+        <MerchantBadge />
         {/* ── Google Analytics 4 ── */}
         {process.env.NEXT_PUBLIC_GA4_ID && (
           <>

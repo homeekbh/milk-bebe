@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { loadMerchantWidget } from "@/components/analytics/MerchantBadge";
 
 /**
  * Google Customer Reviews — opt-in affiché sur la page de confirmation.
@@ -55,11 +56,10 @@ export default function GoogleCustomerReviews({ orderId, customerEmail, estimate
     document.head.appendChild(s);
   }, [orderId, customerEmail, estimatedDeliveryDate]);
 
-  // Badge Google Avis Clients (rendu par platform.js une fois M!LK noté).
-  return (
-    <div
-      style={{ display: "flex", justifyContent: "center", padding: "8px 0 28px" }}
-      dangerouslySetInnerHTML={{ __html: `<g:ratingbadge merchant_id="${MERCHANT_ID}"></g:ratingbadge>` }}
-    />
-  );
+  // Badge avis = Google Merchant Widget (remplace l'ancien g:ratingbadge).
+  // Indépendant de l'opt-in : idempotent, ne s'initialise qu'une fois même si
+  // le MerchantBadge global est aussi monté.
+  useEffect(() => { loadMerchantWidget(); }, []);
+
+  return null;
 }

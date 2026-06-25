@@ -82,13 +82,15 @@ function LexiqueTag({ terme }: { terme: string }) {
   );
 }
 
-function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc." }: {
-  label: string; value: string; sub?: string; color?: string; delta?: number; deltaLabel?: string;
+function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc.", pending, title }: {
+  label: string; value: string; sub?: string; color?: string; delta?: number; deltaLabel?: string; pending?: boolean; title?: string;
 }) {
   return (
-    <div style={{ background: C.card, borderRadius: 16, padding: "22px 20px", border: `1px solid ${C.faint}` }}>
+    <div title={title} style={{ background: C.card, borderRadius: 16, padding: "22px 20px", border: `1px solid ${C.faint}` }}>
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" as const, color: C.muted, marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: "clamp(22px,2.5vw,32px)", fontWeight: 950, letterSpacing: -1, color, lineHeight: 1 }}>{value}</div>
+      {pending
+        ? <div style={{ fontSize: 14, fontStyle: "italic", color: C.muted, lineHeight: 1.3 }}>En cours de collecte…</div>
+        : <div style={{ fontSize: "clamp(22px,2.5vw,32px)", fontWeight: 950, letterSpacing: -1, color, lineHeight: 1 }}>{value}</div>}
       {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{sub}</div>}
       {delta !== undefined && (
         <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: delta >= 0 ? C.green : C.red }}>
@@ -213,6 +215,15 @@ const CHANNEL_COLORS: Record<string, string> = {
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const DEVICE_ICON: Record<string, string> = { mobile: "📱", tablet: "💻", desktop: "🖥" };
 
+// Placeholder quand aucune donnée de comportement (PATCH) n'est encore arrivée.
+function BehaviorPlaceholder() {
+  return (
+    <div style={{ textAlign: "center", padding: "32px", color: C.muted, fontSize: 13 }}>
+      📊 Les données de comportement apparaîtront<br />après les premières visites complètes
+    </div>
+  );
+}
+
 // Barres horizontales pour une distribution (scroll / durée).
 function HBars({ data, color = C.amber }: { data: { label: string; value: number }[]; color?: string }) {
   const max   = Math.max(...data.map(d => d.value), 1);
@@ -272,8 +283,12 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
         <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue} />
         <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} />
         <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} />
-        <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)}     color={C.green} />
-        <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`} />
+        <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)} color={C.green}
+                 pending={pv.avg_time_on_page == null || pv.avg_time_on_page === 0}
+                 title="Ces données se remplissent après les premières navigations complètes" />
+        <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`}
+                 pending={pv.bounce_rate == null || pv.bounce_rate === 0}
+                 title="Ces données se remplissent après les premières navigations complètes" />
         <KpiCard label="Pages / session"   value={Number(pv.pages_per_session ?? 0).toFixed(1)} />
       </div>
 
@@ -369,17 +384,21 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
       {/* BLOC 6 — Comportement */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="🖱️ Profondeur de scroll" lexique="Scroll depth">
-          <HBars data={(pv.scroll_distribution ?? []).map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />
+          {(pv.scroll_distribution ?? []).every((d: any) => !d.count)
+            ? <BehaviorPlaceholder />
+            : <HBars data={pv.scroll_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />}
         </Card>
         <Card title="⏱️ Durée de visite" lexique="Durée moyenne">
-          <HBars data={(pv.time_distribution ?? []).map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />
+          {(pv.time_distribution ?? []).every((d: any) => !d.count)
+            ? <BehaviorPlaceholder />
+            : <HBars data={pv.time_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />}
         </Card>
       </div>
 
       {/* BLOC 7 — Géographie */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="🌍 Top pays">
-          {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée géo (Vercel uniquement).</div> : (
+          {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
             <div style={{ display: "grid", gap: 8 }}>
               {pv.by_country.slice(0, 8).map((c: any) => (
                 <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
@@ -390,7 +409,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
           )}
         </Card>
         <Card title="🏙️ Top villes">
-          {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée ville.</div> : (
+          {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
             <div style={{ display: "grid", gap: 8 }}>
               {pv.by_city.slice(0, 8).map((c: any, i: number) => (
                 <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
@@ -440,7 +459,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
 
       {/* BLOC 9 — Temporalité */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="🕐 Trafic par heure (UTC)">
+        <Card title="🕐 Trafic par heure (heure Paris)">
           <BarChart data={(pv.by_hour ?? []).map((h: any) => ({ label: h.hour % 4 === 0 ? `${h.hour}h` : "", value: h.views }))} height={120} />
         </Card>
         <Card title="📅 Trafic par jour">

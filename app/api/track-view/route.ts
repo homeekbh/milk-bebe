@@ -40,10 +40,11 @@ export async function POST(req: NextRequest) {
     const latitude  = parseFloat(h.get("x-vercel-ip-latitude") ?? "")  || null;
     const longitude = parseFloat(h.get("x-vercel-ip-longitude") ?? "") || null;
 
-    // ── Dérivés temporels (serveur UTC) ─────────────────────────────────────
-    const now = new Date();
-    const hour_of_day = now.getHours();
-    const day_of_week = (now.getDay() + 6) % 7; // 0 = lundi … 6 = dimanche
+    // ── Dérivés temporels (heure de Paris, pas UTC serveur) ─────────────────
+    const nowParis = new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" });
+    const parisDt  = new Date(nowParis);
+    const hour_of_day = parisDt.getHours();
+    const day_of_week = parisDt.getDay();
 
     // ── Visiteur nouveau vs récurrent ───────────────────────────────────────
     let is_new_visitor: boolean | null = null;

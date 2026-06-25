@@ -127,13 +127,13 @@ export async function GET(req: NextRequest) {
     });
     const by_day = [...dayMap.entries()].map(([date, e]) => ({ date, views: e.views, sessions: e.sessions.size }));
 
-    // ── Par heure (0-23) & jour de semaine (0=lundi) ────────────────────────
+    // ── Par heure (0-23) & jour de semaine (0=lundi), en heure de Paris ──────
     const hourArr = Array.from({ length: 24 }, () => 0);
     const wdArr   = Array.from({ length: 7 }, () => 0);
     rows.forEach(r => {
-      const dt = new Date(r.viewed_at);
-      hourArr[dt.getUTCHours()]++;
-      wdArr[(dt.getUTCDay() + 6) % 7]++;
+      const p = new Date(new Date(r.viewed_at).toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+      hourArr[p.getHours()]++;
+      wdArr[(p.getDay() + 6) % 7]++;
     });
     const by_hour    = hourArr.map((views, hour) => ({ hour, views }));
     const by_weekday = wdArr.map((views, day) => ({ day, views }));

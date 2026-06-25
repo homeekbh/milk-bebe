@@ -1,18 +1,18 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { Suspense, useEffect, useRef } from "react";
+import { usePathname } from "next/navigation";
 
 /**
  * PageTracker — tracking visiteur 1st-party, injecté une seule fois dans le
- * layout. Capture au mount (session, visiteur, page, attribution, écran), puis
- * le comportement (scroll, clics, durée), et envoie un PATCH au départ.
+ * layout. Track la page d'entrée PUIS chaque changement de page en navigation
+ * SPA (usePathname). Au changement : PATCH de la page précédente (durée, scroll,
+ * clics) avant le POST de la nouvelle.
  *
- * ⚠️ N'utilise AUCUN hook Next.js (useRouter/usePathname) : il se monte une
- * fois et écoute les events natifs (pas de re-render sur changement de route).
- *
- * Note technique : navigator.sendBeacon n'émet que des POST → impossible de
- * cibler le handler PATCH. On utilise donc fetch({ keepalive: true }) qui
- * survit à la fermeture de page tout en gardant la bonne méthode.
+ * - session_id : sessionStorage (persiste pendant la session).
+ * - visitor_id : localStorage  (persiste entre sessions).
+ * - sendBeacon n'émet que des POST → on utilise fetch({ keepalive: true }) pour
+ *   atteindre le handler PATCH tout en survivant à la fermeture de page.
  */
 
 function getOrCreate(storage: Storage, key: string): string {
@@ -29,56 +29,51 @@ function getOrCreate(storage: Storage, key: string): string {
   }
 }
 
-export default function PageTracker() {
-  const sentExit    = useRef(false);
+function postView(payload: Record<string, any>) {
+  try {
+    fetch("/api/track-view", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {}
+}
+
+function patchBehavior(session_id: string, page_path: string, time_on_page: number, scroll_depth: number, clicks_count: number) {
+  if (!session_id || !page_path) return;
+  try {
+    fetch("/api/track-view", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id, page_path, time_on_page, scroll_depth, clicks_count,
+        is_bounce: time_on_page < 10, exit_page: page_path,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch {}
+}
+
+function PageTrackerInner() {
+  const pathname = usePathname();
+
+  const sid         = useRef<string>("");
+  const vid         = useRef<string>("");
+  const prevPath    = useRef<string | null>(null);
+  const currentPath = useRef<string>("");
   const timeOnPage  = useRef(0);
   const scrollDepth = useRef(0);
   const clicks      = useRef(0);
+  const sentExit    = useRef(false);
 
+  // ── Listeners globaux : montés une seule fois ───────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const sid = getOrCreate(window.sessionStorage, "milk_sid");
-    const vid = getOrCreate(window.localStorage,   "milk_vid");
+    sid.current = getOrCreate(window.sessionStorage, "milk_sid");
+    vid.current = getOrCreate(window.localStorage,   "milk_vid");
 
-    const params    = new URLSearchParams(window.location.search);
-    const page_path = window.location.pathname;
-
-    // entry_page : tout premier path de la session.
-    let entry_page = page_path;
-    try {
-      const stored = window.sessionStorage.getItem("milk_entry");
-      if (stored) entry_page = stored;
-      else window.sessionStorage.setItem("milk_entry", page_path);
-    } catch {}
-
-    // ── POST initial (vue de page) ──────────────────────────────────────────
-    const payload = {
-      session_id: sid,
-      visitor_id: vid,
-      page_path,
-      page_title: document.title,
-      referrer:   document.referrer || null,
-      utm_source:   params.get("utm_source"),
-      utm_medium:   params.get("utm_medium"),
-      utm_campaign: params.get("utm_campaign"),
-      utm_content:  params.get("utm_content"),
-      utm_term:     params.get("utm_term"),
-      screen_width:  window.screen?.width  ?? null,
-      screen_height: window.screen?.height ?? null,
-      language: navigator.language ?? null,
-      entry_page,
-    };
-    try {
-      fetch("/api/track-view", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-        keepalive: true,
-      }).catch(() => {});
-    } catch {}
-
-    // ── Comportement : scroll / clics / durée ───────────────────────────────
     const onScroll = () => {
       const sh = document.documentElement.scrollHeight || 1;
       const d  = Math.round(((window.scrollY + window.innerHeight) / sh) * 100);
@@ -88,35 +83,17 @@ export default function PageTracker() {
 
     window.addEventListener("scroll", onScroll, { passive: true });
     document.addEventListener("click", onClick);
-    onScroll(); // capture initiale (page courte = déjà 100%)
 
     const interval = window.setInterval(() => { timeOnPage.current += 1; }, 1000);
 
-    // ── Départ : PATCH comportement (une seule fois) ────────────────────────
     const sendExit = () => {
       if (sentExit.current) return;
       sentExit.current = true;
-      try { window.sessionStorage.setItem("milk_exit", page_path); } catch {}
-      const body = JSON.stringify({
-        session_id:   sid,
-        page_path,
-        time_on_page: timeOnPage.current,
-        scroll_depth: scrollDepth.current,
-        clicks_count: clicks.current,
-        is_bounce:    timeOnPage.current < 10,
-        exit_page:    page_path,
-      });
-      try {
-        fetch("/api/track-view", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body,
-          keepalive: true,
-        }).catch(() => {});
-      } catch {}
+      patchBehavior(sid.current, currentPath.current, timeOnPage.current, scrollDepth.current, clicks.current);
+      try { window.sessionStorage.setItem("milk_exit", currentPath.current); } catch {}
     };
-
     const onVisibility = () => { if (document.hidden) sendExit(); };
+
     window.addEventListener("beforeunload", sendExit);
     document.addEventListener("visibilitychange", onVisibility);
 
@@ -129,5 +106,61 @@ export default function PageTracker() {
     };
   }, []);
 
+  // ── À chaque page (mount + changement SPA de pathname) ──────────────────────
+  useEffect(() => {
+    if (typeof window === "undefined" || !pathname) return;
+
+    if (!sid.current) sid.current = getOrCreate(window.sessionStorage, "milk_sid");
+    if (!vid.current) vid.current = getOrCreate(window.localStorage,   "milk_vid");
+
+    // PATCH de la page précédente avant de tracker la nouvelle.
+    if (prevPath.current && prevPath.current !== pathname) {
+      patchBehavior(sid.current, prevPath.current, timeOnPage.current, scrollDepth.current, clicks.current);
+    }
+
+    // Réinitialisation des compteurs pour la nouvelle page.
+    timeOnPage.current  = 0;
+    scrollDepth.current = 0;
+    clicks.current      = 0;
+    sentExit.current    = false;
+    currentPath.current = pathname;
+
+    // entry_page : toute première page de la session (ne pas écraser).
+    let entry_page = pathname;
+    try {
+      const stored = window.sessionStorage.getItem("milk_entry");
+      if (stored) entry_page = stored;
+      else window.sessionStorage.setItem("milk_entry", pathname);
+    } catch {}
+
+    const params = new URLSearchParams(window.location.search);
+    postView({
+      session_id: sid.current,
+      visitor_id: vid.current,
+      page_path:  pathname,
+      page_title: document.title,
+      referrer:   document.referrer || null,
+      utm_source:   params.get("utm_source"),
+      utm_medium:   params.get("utm_medium"),
+      utm_campaign: params.get("utm_campaign"),
+      utm_content:  params.get("utm_content"),
+      utm_term:     params.get("utm_term"),
+      screen_width:  window.screen?.width  ?? null,
+      screen_height: window.screen?.height ?? null,
+      language: navigator.language ?? null,
+      entry_page,
+    });
+
+    prevPath.current = pathname;
+  }, [pathname]);
+
   return null;
+}
+
+export default function PageTracker() {
+  return (
+    <Suspense fallback={null}>
+      <PageTrackerInner />
+    </Suspense>
+  );
 }

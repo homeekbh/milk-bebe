@@ -599,26 +599,7 @@ export default function ProductPage() {
         trackViewItem({ id: String(found.id), name: found.name, price: viewPrice, category: found.category_slug || "" });
         metaViewContent({ id: String(found.id), name: found.name, price: viewPrice });
       }
-    // ✅ Tracker vues produit — analytics interne
-      if (found) {
-        const sid = sessionStorage.getItem("milk_sid") || (() => {
-          const s = Math.random().toString(36).slice(2);
-          sessionStorage.setItem("milk_sid", s);
-          return s;
-        })();
-        fetch("/api/track-view", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            product_id: found.id,
-            slug:       found.slug,
-            name:       found.name,
-            category:   found.category_slug,
-            session_id: sid,
-            ...getAttribution(),
-          }),
-        }).catch(() => {});
-      }}).catch(() => setLoading(false));
+    }).catch(() => setLoading(false));
   }, [slug]);
 
   useEffect(() => {

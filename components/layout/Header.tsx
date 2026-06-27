@@ -1,6 +1,8 @@
 ﻿"use client";
 
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
+import { useTranslations } from "next-intl";
+import { LangSwitcher } from "@/components/i18n/LangSwitcher";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart }     from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -87,6 +89,7 @@ export default function Header() {
   const { items }         = useCart();
   const { ids: wishIds }  = useWishlist();
   const { user, signOut } = useAuth();
+  const t                 = useTranslations("nav");
 
   const [scrolled,   setScrolled]   = useState(false);
   const [theme,      setTheme]      = useState<"dark"|"light">("dark");
@@ -184,9 +187,9 @@ export default function Header() {
           {/* Nav desktop */}
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
             {[
-              { label: "Notre collection",   href: "/produits",         active: pathname.startsWith("/produits") || pathname.startsWith("/categorie") },
-              { label: "Qui sommes-nous",    href: "/qui-sommes-nous",  active: pathname === "/qui-sommes-nous" },
-              { label: "Pourquoi le bambou", href: "/pourquoi-bambou",  active: pathname === "/pourquoi-bambou" },
+              { label: t("collection"), href: "/produits",         active: pathname.startsWith("/produits") || pathname.startsWith("/categorie") },
+              { label: t("about"),      href: "/qui-sommes-nous",  active: pathname === "/qui-sommes-nous" },
+              { label: t("bamboo"),     href: "/pourquoi-bambou",  active: pathname === "/pourquoi-bambou" },
             ].map(l => (
               <Link key={l.href} href={l.href} className="hdr-link"
                 style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 16px", borderRadius: 10, opacity: l.active ? 1 : 0.85, borderBottom: l.active ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block", whiteSpace: "nowrap" }}>
@@ -195,8 +198,9 @@ export default function Header() {
             ))}
           </nav>
 
-          {/* Actions desktop — ✅ SANS sélecteur de langue */}
+          {/* Actions desktop — avec sélecteur de langue FR | EN */}
           <div className="milk-desktop" style={{ alignItems: "center", gap: 8, flexShrink: 0 }}>
+            <span style={{ color: C.text, marginRight: 2 }}><LangSwitcher /></span>
             <Link href="/recherche" aria-label="Recherche" className="hdr-icon"
               style={{ width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}>
               <SearchIcon color={C.text} size={20} />

@@ -353,5 +353,53 @@
         ]
       }
     ]
+  },
+  "bamboo": {
+    "breadcrumb_home": "Accueil",
+    "hero_eyebrow": "La matière",
+    "hero_title": "Pourquoi le bambou ?",
+    "hero_desc": "La peau d'un nourrisson est 5× plus fine que celle d'un adulte. Chaque matière compte.",
+    "intro_title": "La peau de votre nourrisson mérite mieux que le coton ordinaire",
+    "intro_desc": "Nous avons passé des mois à chercher la meilleure matière pour les nourrissons. Après avoir testé le coton bio, le modal, le tencel — nous sommes revenus au bambou. Chaque fois. Pour les mêmes raisons.",
+    "property_label": "Propriété",
+    "comparatif_eyebrow": "Comparatif matières",
+    "comparatif_title": "Bambou vs Coton vs Synthétique",
+    "col_critere": "Critère",
+    "col_bambou": "Bambou M!LK",
+    "col_coton": "Coton",
+    "col_synth": "Synthétique",
+    "oeko_badge": "Certifié OEKO-TEX Standard 100",
+    "oeko_title": "La certification la plus exigeante pour les textiles nourrisson",
+    "oeko_p1_pre": "OEKO-TEX Standard 100 teste plus de ",
+    "oeko_p1_bold": "100 substances nocives",
+    "oeko_p1_post": ". C'est la référence mondiale pour les textiles en contact avec la peau des nourrissons.",
+    "oeko_p2": "Chaque lot M!LK est certifié. Pas de compromis. Pas d'exceptions.",
+    "oeko_cta": "Voir les produits certifiés →",
+    "faq_title": "Questions fréquentes sur le bambou",
+    "bigtext": "BAMBOU CERTIFIÉ OEKO-TEX · PEAU DOUCE PROTÉGÉE",
+    "cta_title": "Prêt à essayer le bambou ?",
+    "cta_desc": "Tous nos produits sont en bambou certifié OEKO-TEX. Livraison offerte dès 60€.",
+    "cta_collection": "Voir la collection",
+    "cta_story": "Notre histoire",
+    "properties": [
+      { "titre": "Thermorégulation naturelle", "texte": "La fibre de bambou absorbe et évacue l'humidité 3× plus vite que le coton. Votre nourrisson reste à la bonne température, été comme hiver. Moins de surchauffe, moins de sueurs, moins de réveils nocturnes.", "stat": "3×", "statLabel": "plus respirant que le coton", "image": "/images/pourquoi-bambou/bambou-thermoregulation.jpg", "imageAlt": "Macro tissu bambou M!LK — thermorégulation naturelle certifiée OEKO-TEX" },
+      { "titre": "Douceur extrême", "texte": "Les microfibres de bambou sont naturellement rondes, sans aspérités. La sensation est comparable à la soie. Pour la peau d'un nourrisson — 5× plus fine que celle d'un adulte — chaque frottement compte.", "stat": "5×", "statLabel": "plus doux que le coton classique", "image": "/images/pourquoi-bambou/milk_pkoi_bambou_douceur_main_bebe.webp", "imageAlt": "Main bébé sur tissu waffle bambou M!LK — douceur extrême" },
+      { "titre": "Antibactérien naturel", "texte": "Le bambou contient une substance naturelle qui inhibe la croissance des bactéries. Moins de bactéries : moins d'odeurs, moins d'irritations cutanées, moins de risques pour la peau ultra-sensible de votre nourrisson.", "stat": "70%", "statLabel": "de bactéries en moins vs coton", "image": "/images/pourquoi-bambou/milk_pkoi_bambou_naturel_hypoallergenique_stack.webp", "imageAlt": "Stack vêtements bambou M!LK pliés tons naturels — antibactérien hypoallergénique" }
+    ],
+    "comparatif": [
+      { "critere": "Thermorégulation",      "bambou": true, "coton": false, "synth": false },
+      { "critere": "Antibactérien naturel", "bambou": true, "coton": false, "synth": false },
+      { "critere": "Certifié OEKO-TEX",     "bambou": true, "coton": false, "synth": false },
+      { "critere": "Douceur extrême",       "bambou": true, "coton": false, "synth": false },
+      { "critere": "Sans pesticides",       "bambou": true, "coton": false, "synth": true  },
+      { "critere": "Biodégradable",         "bambou": true, "coton": true,  "synth": false },
+      { "critere": "Durable au lavage",     "bambou": true, "coton": true,  "synth": true  }
+    ],
+    "faq": [
+      { "q": "Le bambou est-il vraiment meilleur que le coton bio pour les nourrissons ?", "r": "Oui. Le bambou est naturellement thermorégulateur, antibactérien et 3× plus doux. Le coton bio est sans pesticides mais n'a pas ces propriétés fonctionnelles — un avantage décisif pour la peau ultra-sensible des nourrissons." },
+      { "q": "Le bambou rétrécit-il au lavage ?", "r": "Nos produits M!LK sont pré-lavés pour éviter le rétrécissement. Un lavage à 30°C maximum, cycle délicat, préserve la forme et la douceur indéfiniment." },
+      { "q": "Le bambou est-il durable pour l'environnement ?", "r": "Oui — le bambou pousse sans pesticides, se régénère naturellement en quelques mois et consomme 30% moins d'eau que le coton." },
+      { "q": "Puis-je mettre les vêtements M!LK en machine ?", "r": "Oui, machine à 30°C, cycle délicat. Évitez l'adoucissant. Séchage à plat recommandé." }
+    ]
   }
 }

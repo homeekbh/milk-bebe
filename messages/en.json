@@ -353,5 +353,53 @@
         ]
       }
     ]
+  },
+  "bamboo": {
+    "breadcrumb_home": "Home",
+    "hero_eyebrow": "The fabric",
+    "hero_title": "Why bamboo?",
+    "hero_desc": "A newborn's skin is 5× thinner than an adult's. Every fabric matters.",
+    "intro_title": "Your newborn's skin deserves better than ordinary cotton",
+    "intro_desc": "We spent months looking for the best fabric for newborns. After testing organic cotton, modal, tencel — we came back to bamboo. Every time. For the same reasons.",
+    "property_label": "Property",
+    "comparatif_eyebrow": "Fabric comparison",
+    "comparatif_title": "Bamboo vs Cotton vs Synthetic",
+    "col_critere": "Criterion",
+    "col_bambou": "M!LK Bamboo",
+    "col_coton": "Cotton",
+    "col_synth": "Synthetic",
+    "oeko_badge": "OEKO-TEX Standard 100 certified",
+    "oeko_title": "The most demanding certification for newborn textiles",
+    "oeko_p1_pre": "OEKO-TEX Standard 100 tests more than ",
+    "oeko_p1_bold": "100 harmful substances",
+    "oeko_p1_post": ". It's the global benchmark for textiles in contact with newborn skin.",
+    "oeko_p2": "Every M!LK batch is certified. No compromise. No exceptions.",
+    "oeko_cta": "See certified products →",
+    "faq_title": "Frequently asked questions about bamboo",
+    "bigtext": "OEKO-TEX CERTIFIED BAMBOO · SOFT SKIN PROTECTED",
+    "cta_title": "Ready to try bamboo?",
+    "cta_desc": "All our products are OEKO-TEX certified bamboo. Free delivery from €60.",
+    "cta_collection": "See the collection",
+    "cta_story": "Our story",
+    "properties": [
+      { "titre": "Natural thermoregulation", "texte": "Bamboo fibre absorbs and wicks away moisture 3× faster than cotton. Your newborn stays at the right temperature, summer and winter. Less overheating, less sweating, fewer night wakings.", "stat": "3×", "statLabel": "more breathable than cotton", "image": "/images/pourquoi-bambou/bambou-thermoregulation.jpg", "imageAlt": "Macro tissu bambou M!LK — thermorégulation naturelle certifiée OEKO-TEX" },
+      { "titre": "Extreme softness", "texte": "Bamboo microfibres are naturally round, with no rough edges. The feel is comparable to silk. For a newborn's skin — 5× thinner than an adult's — every bit of friction counts.", "stat": "5×", "statLabel": "softer than regular cotton", "image": "/images/pourquoi-bambou/milk_pkoi_bambou_douceur_main_bebe.webp", "imageAlt": "Main bébé sur tissu waffle bambou M!LK — douceur extrême" },
+      { "titre": "Naturally antibacterial", "texte": "Bamboo contains a natural substance that inhibits bacterial growth. Fewer bacteria means less odour, less skin irritation, less risk for your newborn's ultra-sensitive skin.", "stat": "70%", "statLabel": "fewer bacteria vs cotton", "image": "/images/pourquoi-bambou/milk_pkoi_bambou_naturel_hypoallergenique_stack.webp", "imageAlt": "Stack vêtements bambou M!LK pliés tons naturels — antibactérien hypoallergénique" }
+    ],
+    "comparatif": [
+      { "critere": "Thermoregulation",       "bambou": true, "coton": false, "synth": false },
+      { "critere": "Naturally antibacterial","bambou": true, "coton": false, "synth": false },
+      { "critere": "OEKO-TEX certified",      "bambou": true, "coton": false, "synth": false },
+      { "critere": "Extreme softness",        "bambou": true, "coton": false, "synth": false },
+      { "critere": "Pesticide-free",          "bambou": true, "coton": false, "synth": true  },
+      { "critere": "Biodegradable",           "bambou": true, "coton": true,  "synth": false },
+      { "critere": "Durable in the wash",     "bambou": true, "coton": true,  "synth": true  }
+    ],
+    "faq": [
+      { "q": "Is bamboo really better than organic cotton for newborns?", "r": "Yes. Bamboo is naturally thermo-regulating, antibacterial and 3× softer. Organic cotton is pesticide-free but lacks these functional properties — a decisive advantage for a newborn's ultra-sensitive skin." },
+      { "q": "Does bamboo shrink in the wash?", "r": "Our M!LK products are pre-washed to prevent shrinking. A wash at 30°C max, gentle cycle, keeps the shape and softness indefinitely." },
+      { "q": "Is bamboo environmentally sustainable?", "r": "Yes — bamboo grows without pesticides, regenerates naturally within months and uses 30% less water than cotton." },
+      { "q": "Can I machine-wash M!LK clothing?", "r": "Yes, machine wash at 30°C, gentle cycle. Avoid fabric softener. Drying flat is recommended." }
+    ]
   }
 }

@@ -1,25 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { C, Divider, Reveal, BigTextScroll, Ticker, MILK_STYLES } from "@/components/shared/MilkDesign";
 import { Breadcrumb } from "@/components/seo/Breadcrumb";
 
-const PROPRIETES = [
-  { titre: "Thermorégulation naturelle", texte: "La fibre de bambou absorbe et évacue l'humidité 3× plus vite que le coton. Votre nourrisson reste à la bonne température, été comme hiver. Moins de surchauffe, moins de sueurs, moins de réveils nocturnes.", stat: "3×", statLabel: "plus respirant que le coton", image: "/images/pourquoi-bambou/bambou-thermoregulation.jpg", imageAlt: "Macro tissu bambou M!LK — thermorégulation naturelle certifiée OEKO-TEX" },
-  { titre: "Douceur extrême", texte: "Les microfibres de bambou sont naturellement rondes, sans aspérités. La sensation est comparable à la soie. Pour la peau d'un nourrisson — 5× plus fine que celle d'un adulte — chaque frottement compte.", stat: "5×", statLabel: "plus doux que le coton classique", image: "/images/pourquoi-bambou/milk_pkoi_bambou_douceur_main_bebe.webp", imageAlt: "Main bébé sur tissu waffle bambou M!LK — douceur extrême" },
-  { titre: "Antibactérien naturel", texte: "Le bambou contient une substance naturelle qui inhibe la croissance des bactéries. Moins de bactéries : moins d'odeurs, moins d'irritations cutanées, moins de risques pour la peau ultra-sensible de votre nourrisson.", stat: "70%", statLabel: "de bactéries en moins vs coton", image: "/images/pourquoi-bambou/milk_pkoi_bambou_naturel_hypoallergenique_stack.webp", imageAlt: "Stack vêtements bambou M!LK pliés tons naturels — antibactérien hypoallergénique" },
-];
-
-const COMPARATIF = [
-  { critere: "Thermorégulation",      bambou: true,  coton: false, synth: false },
-  { critere: "Antibactérien naturel", bambou: true,  coton: false, synth: false },
-  { critere: "Certifié OEKO-TEX",     bambou: true,  coton: false, synth: false },
-  { critere: "Douceur extrême",       bambou: true,  coton: false, synth: false },
-  { critere: "Sans pesticides",       bambou: true,  coton: false, synth: true  },
-  { critere: "Biodégradable",         bambou: true,  coton: true,  synth: false },
-  { critere: "Durable au lavage",     bambou: true,  coton: true,  synth: true  },
-];
+type Property = { titre: string; texte: string; stat: string; statLabel: string; image: string; imageAlt: string };
+type CompRow = { critere: string; bambou: boolean; coton: boolean; synth: boolean };
+type QA = { q: string; r: string };
 
 function Check({ amber = false }: { amber?: boolean }) {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M5 12l5 5L19 7" stroke={amber ? C.amber : "#6bcf7f"} strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/></svg>;
@@ -29,6 +18,10 @@ function Cross() {
 }
 
 export default function PourquoiBambouPage() {
+  const t = useTranslations("bamboo");
+  const PROPRIETES = t.raw("properties") as Property[];
+  const COMPARATIF = t.raw("comparatif") as CompRow[];
+  const FAQ = t.raw("faq") as QA[];
   return (
     <div style={{ background: C.bg, minHeight: "100vh", color: C.warm }}>
       <style>{`
@@ -48,7 +41,7 @@ export default function PourquoiBambouPage() {
       <div style={{ background: C.bg }}>
         <Breadcrumb
           variant="light"
-          items={[{ label: "Accueil", href: "/" }, { label: "Pourquoi le bambou" }]}
+          items={[{ label: t("breadcrumb_home"), href: "/" }, { label: t("hero_title") }]}
         />
       </div>
 
@@ -59,9 +52,9 @@ export default function PourquoiBambouPage() {
         <div style={{ position: "absolute", inset: 0, background: `linear-gradient(to bottom, rgba(45,26,14,0.1), rgba(45,26,14,0.92))` }} />
         <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "flex-end", padding: "0 0 44px" }}>
           <div style={{ padding: "0 5vw", width: "100%", boxSizing: "border-box" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 12 }}>La matière</div>
-            <h1 style={{ margin: "0 0 12px", fontSize: "clamp(36px,6vw,72px)", fontWeight: 950, letterSpacing: -2, lineHeight: 1.05 }}>Pourquoi le bambou ?</h1>
-            <p style={{ margin: 0, fontSize: "clamp(14px,1.8vw,18px)", color: C.muted, maxWidth: 480, lineHeight: 1.65 }}>La peau d'un nourrisson est 5× plus fine que celle d'un adulte. Chaque matière compte.</p>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 12 }}>{t("hero_eyebrow")}</div>
+            <h1 style={{ margin: "0 0 12px", fontSize: "clamp(36px,6vw,72px)", fontWeight: 950, letterSpacing: -2, lineHeight: 1.05 }}>{t("hero_title")}</h1>
+            <p style={{ margin: 0, fontSize: "clamp(14px,1.8vw,18px)", color: C.muted, maxWidth: 480, lineHeight: 1.65 }}>{t("hero_desc")}</p>
           </div>
         </div>
       </section>
@@ -74,10 +67,10 @@ export default function PourquoiBambouPage() {
         <Reveal>
           <div style={{ maxWidth: 780, margin: "0 auto", textAlign: "center" }}>
             <h2 style={{ margin: "0 0 20px", fontSize: "clamp(22px,3.5vw,38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.2, color: C.dark }}>
-              La peau de votre nourrisson mérite mieux que le coton ordinaire
+              {t("intro_title")}
             </h2>
             <p style={{ margin: 0, fontSize: "clamp(15px,1.6vw,17px)", lineHeight: 1.8, color: "rgba(26,20,16,0.6)" }}>
-              Nous avons passé des mois à chercher la meilleure matière pour les nourrissons. Après avoir testé le coton bio, le modal, le tencel — nous sommes revenus au bambou. Chaque fois. Pour les mêmes raisons.
+              {t("intro_desc")}
             </p>
           </div>
         </Reveal>
@@ -99,7 +92,7 @@ export default function PourquoiBambouPage() {
             </Reveal>
             <Reveal delay={0.1}>
               <div className="pb-txt">
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: C.amber, marginBottom: 14 }}>Propriété {i + 1} / {PROPRIETES.length}</div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: C.amber, marginBottom: 14 }}>{t("property_label")} {i + 1} / {PROPRIETES.length}</div>
                 <h2 style={{ margin: "0 0 18px", fontSize: "clamp(22px,2.8vw,34px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: C.dark }}>{p.titre}</h2>
                 <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,17px)", lineHeight: 1.8, color: "rgba(26,20,16,0.6)" }}>{p.texte}</p>
               </div>
@@ -114,13 +107,13 @@ export default function PourquoiBambouPage() {
       <div style={{ background: C.bg, padding: "56px 5vw" }}>
         <Reveal>
           <div style={{ textAlign: "center", marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>Comparatif matières</div>
-            <h2 style={{ margin: 0, fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1, color: C.warm }}>Bambou vs Coton vs Synthétique</h2>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>{t("comparatif_eyebrow")}</div>
+            <h2 style={{ margin: 0, fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1, color: C.warm }}>{t("comparatif_title")}</h2>
           </div>
           <div style={{ borderRadius: 16, overflow: "hidden", boxShadow: "0 8px 32px rgba(0,0,0,0.3)" }}>
             <div className="pb-cmp" style={{ background: C.faint, padding: "16px 24px" }}>
-              <div style={{ fontSize: "clamp(12px,1.2vw,14px)", color: C.muted, fontWeight: 700 }}>Critère</div>
-              {["Bambou M!LK", "Coton", "Synthétique"].map((h, idx) => (
+              <div style={{ fontSize: "clamp(12px,1.2vw,14px)", color: C.muted, fontWeight: 700 }}>{t("col_critere")}</div>
+              {[t("col_bambou"), t("col_coton"), t("col_synth")].map((h, idx) => (
                 <div key={h} style={{ textAlign: "center", fontSize: "clamp(11px,1.1vw,14px)", fontWeight: 900, color: idx === 0 ? C.amber : C.muted }}>{h}</div>
               ))}
             </div>
@@ -149,12 +142,12 @@ export default function PourquoiBambouPage() {
           <Reveal delay={0.12}>
             <div style={{ display: "grid", gap: 18 }}>
               <div style={{ display: "inline-block", padding: "7px 14px", borderRadius: 99, background: "rgba(196,154,74,0.15)", color: C.amber, fontSize: 11, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", width: "fit-content", border: `1px solid rgba(196,154,74,0.3)` }}>
-                Certifié OEKO-TEX Standard 100
+                {t("oeko_badge")}
               </div>
-              <h2 style={{ margin: 0, fontSize: "clamp(20px,3vw,34px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: C.dark }}>La certification la plus exigeante pour les textiles nourrisson</h2>
-              <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,17px)", lineHeight: 1.8, color: "rgba(26,20,16,0.65)" }}>OEKO-TEX Standard 100 teste plus de <strong style={{ color: C.dark }}>100 substances nocives</strong>. C'est la référence mondiale pour les textiles en contact avec la peau des nourrissons.</p>
-              <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,17px)", lineHeight: 1.8, color: "rgba(26,20,16,0.65)" }}>Chaque lot M!LK est certifié. Pas de compromis. Pas d'exceptions.</p>
-              <Link href="/produits" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 12, background: C.dark, color: C.warm, fontWeight: 900, fontSize: 14, textDecoration: "none", width: "fit-content" }}>Voir les produits certifiés →</Link>
+              <h2 style={{ margin: 0, fontSize: "clamp(20px,3vw,34px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.15, color: C.dark }}>{t("oeko_title")}</h2>
+              <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,17px)", lineHeight: 1.8, color: "rgba(26,20,16,0.65)" }}>{t("oeko_p1_pre")}<strong style={{ color: C.dark }}>{t("oeko_p1_bold")}</strong>{t("oeko_p1_post")}</p>
+              <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,17px)", lineHeight: 1.8, color: "rgba(26,20,16,0.65)" }}>{t("oeko_p2")}</p>
+              <Link href="/produits" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 12, background: C.dark, color: C.warm, fontWeight: 900, fontSize: 14, textDecoration: "none", width: "fit-content" }}>{t("oeko_cta")}</Link>
             </div>
           </Reveal>
         </div>
@@ -166,13 +159,8 @@ export default function PourquoiBambouPage() {
       <div style={{ background: C.light, padding: "56px 5vw" }}>
         <Reveal>
           <div style={{ maxWidth: 900, margin: "0 auto" }}>
-            <h2 style={{ margin: "0 0 28px", fontSize: "clamp(22px,3.5vw,36px)", fontWeight: 950, letterSpacing: -1, color: C.dark }}>Questions fréquentes sur le bambou</h2>
-            {[
-              { q: "Le bambou est-il vraiment meilleur que le coton bio pour les nourrissons ?", r: "Oui. Le bambou est naturellement thermorégulateur, antibactérien et 3× plus doux. Le coton bio est sans pesticides mais n'a pas ces propriétés fonctionnelles — un avantage décisif pour la peau ultra-sensible des nourrissons." },
-              { q: "Le bambou rétrécit-il au lavage ?", r: "Nos produits M!LK sont pré-lavés pour éviter le rétrécissement. Un lavage à 30°C maximum, cycle délicat, préserve la forme et la douceur indéfiniment." },
-              { q: "Le bambou est-il durable pour l'environnement ?", r: "Oui — le bambou pousse sans pesticides, se régénère naturellement en quelques mois et consomme 30% moins d'eau que le coton." },
-              { q: "Puis-je mettre les vêtements M!LK en machine ?", r: "Oui, machine à 30°C, cycle délicat. Évitez l'adoucissant. Séchage à plat recommandé." },
-            ].map((faq, i, arr) => (
+            <h2 style={{ margin: "0 0 28px", fontSize: "clamp(22px,3.5vw,36px)", fontWeight: 950, letterSpacing: -1, color: C.dark }}>{t("faq_title")}</h2>
+            {FAQ.map((faq, i, arr) => (
               <div key={faq.q} style={{ borderBottom: i < arr.length - 1 ? `1px solid rgba(26,20,16,0.1)` : "none", padding: "18px 0" }}>
                 <h3 style={{ margin: "0 0 10px", fontSize: "clamp(15px,1.8vw,18px)", fontWeight: 900, color: C.dark, lineHeight: 1.35 }}>{faq.q}</h3>
                 <p style={{ margin: 0, fontSize: "clamp(13px,1.4vw,16px)", lineHeight: 1.75, color: "rgba(26,20,16,0.6)" }}>{faq.r}</p>
@@ -182,18 +170,18 @@ export default function PourquoiBambouPage() {
         </Reveal>
       </div>
 
-      <BigTextScroll text="BAMBOU CERTIFIÉ OEKO-TEX · PEAU DOUCE PROTÉGÉE" speed={28} bg={C.light} />
+      <BigTextScroll text={t("bigtext")} speed={28} bg={C.light} />
       <Divider from={C.light} to={C.bg} />
 
       {/* CTA */}
       <section style={{ background: C.bg, padding: "56px 5vw", textAlign: "center" }}>
         <Reveal>
           <div style={{ maxWidth: 560, margin: "0 auto" }}>
-            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(22px,3.5vw,36px)", fontWeight: 950, letterSpacing: -1, color: C.warm }}>Prêt à essayer le bambou ?</h2>
-            <p style={{ margin: "0 0 24px", fontSize: "clamp(14px,1.5vw,16px)", color: C.muted, lineHeight: 1.7 }}>Tous nos produits sont en bambou certifié OEKO-TEX. Livraison offerte dès 60€.</p>
+            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(22px,3.5vw,36px)", fontWeight: 950, letterSpacing: -1, color: C.warm }}>{t("cta_title")}</h2>
+            <p style={{ margin: "0 0 24px", fontSize: "clamp(14px,1.5vw,16px)", color: C.muted, lineHeight: 1.7 }}>{t("cta_desc")}</p>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-              <Link href="/produits" style={{ padding: "14px 30px", borderRadius: 14, background: C.warm, color: C.dark, fontWeight: 900, fontSize: 15, textDecoration: "none" }}>Voir la collection</Link>
-              <Link href="/qui-sommes-nous" style={{ padding: "14px 30px", borderRadius: 14, border: `1px solid ${C.faint}`, color: C.warm, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>Notre histoire</Link>
+              <Link href="/produits" style={{ padding: "14px 30px", borderRadius: 14, background: C.warm, color: C.dark, fontWeight: 900, fontSize: 15, textDecoration: "none" }}>{t("cta_collection")}</Link>
+              <Link href="/qui-sommes-nous" style={{ padding: "14px 30px", borderRadius: 14, border: `1px solid ${C.faint}`, color: C.warm, fontWeight: 800, fontSize: 15, textDecoration: "none" }}>{t("cta_story")}</Link>
             </div>
           </div>
         </Reveal>

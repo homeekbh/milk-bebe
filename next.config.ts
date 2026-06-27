@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import createNextIntlPlugin from "next-intl/plugin";
 
 const nextConfig: NextConfig = {
   turbopack: {},
@@ -96,4 +97,6 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+// next-intl : charge la config i18n/request.ts (chemin par défaut).
+const withNextIntl = createNextIntlPlugin();
+export default withNextIntl(nextConfig);

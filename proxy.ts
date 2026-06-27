@@ -1,5 +1,11 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import createMiddleware from "next-intl/middleware";
+import { routing } from "./i18n/routing";
+
+// Pilote i18n — instance du middleware next-intl, appliquée UNIQUEMENT aux
+// routes préfixées /fr et /en (cf. branche dans proxy()).
+const intlMiddleware = createMiddleware(routing);
 
 /**
  * Proxy Next.js (équivalent middleware) — runtime Edge.
@@ -16,6 +22,14 @@ import type { NextRequest } from "next/server";
  */
 export async function proxy(req: NextRequest) {
   const { pathname, search } = req.nextUrl;
+
+  // ── 0. Pilote i18n ───────────────────────────────────────────────────────
+  // Délègue à next-intl UNIQUEMENT pour les routes préfixées /fr et /en.
+  // Toutes les autres routes (/, /panier, /produits, /admin, /api, /success…)
+  // tombent dans la logique existante ci-dessous → comportement live inchangé.
+  if (/^\/(fr|en)(\/|$)/.test(pathname)) {
+    return intlMiddleware(req);
+  }
 
   // ── 1. Protection admin server-side ──────────────────────────────────────
   // ⚠️ DÉSACTIVÉE (commit 2026-05-24) — voir TODO ci-dessous.

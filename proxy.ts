@@ -34,6 +34,9 @@ export async function proxy(req: NextRequest) {
  */
 export const config = {
   matcher: [
-    "/((?!api|admin|_next/static|_next/image|sitemap.xml|robots.txt|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff2?)).*)",
+    // ⚠️ Inclure otf|ttf dans la liste d'extensions exclues : sinon next-intl
+    // intercepte /fonts/boldin-bold.otf et le redirige (307) vers /fr|/en/...
+    // → 404 → BoldinBold ne charge jamais → fallback police système sur le hero.
+    "/((?!api|admin|_next/static|_next/image|sitemap.xml|robots.txt|manifest.json|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|otf|ttf|woff2?)).*)",
   ],
 };

@@ -3,7 +3,6 @@
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { LangSwitcher } from "@/components/i18n/LangSwitcher";
-import { MilkLogo } from "@/components/shared/MilkLogo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart }     from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -178,8 +177,31 @@ export default function Header() {
             style={{ textDecoration: "none", flexShrink: 0 }}
             onClick={() => { if (typeof window !== "undefined" && window.scrollY > 0) window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
+            {/* Logo M!LK figé : asset PNG (glyphes noirs transparents) recoloré
+                à la couleur du thème via CSS mask. Zéro dépendance à BoldinBold
+                → s'affiche correctement même si la police n'a pas (encore) chargé,
+                et s'adapte au thème dark/light (cream sur fond sombre, encre sur
+                fond clair). Identique sur /fr et /en. */}
             <div style={{ display: "flex", alignItems: "center", background: "transparent", borderRadius: 10, padding: "4px 2px" }}>
-              <MilkLogo color={C.text} size={30} />
+              <span
+                role="img"
+                aria-label="M!LK"
+                style={{
+                  display:            "block",
+                  width:              50,
+                  height:             28,
+                  backgroundColor:    C.text,
+                  transition:         "background-color 0.25s",
+                  WebkitMaskImage:    "url(/logo-milk-white.png)",
+                  maskImage:          "url(/logo-milk-white.png)",
+                  WebkitMaskRepeat:   "no-repeat",
+                  maskRepeat:         "no-repeat",
+                  WebkitMaskPosition: "left center",
+                  maskPosition:       "left center",
+                  WebkitMaskSize:     "contain",
+                  maskSize:           "contain",
+                }}
+              />
             </div>
           </Link>
 

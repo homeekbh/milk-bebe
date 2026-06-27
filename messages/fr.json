@@ -8,7 +8,13 @@
     "account": "Mon compte",
     "login": "Se connecter",
     "register": "Créer un compte",
-    "logout": "Se déconnecter"
+    "logout": "Se déconnecter",
+    "collection_section": "Collection",
+    "all_products": "Tous les produits",
+    "brand_section": "La marque",
+    "my_profile_orders": "Mon profil & commandes",
+    "connected": "Connecté :",
+    "my_cart": "Mon panier"
   },
   "home": {
     "hero_title": "L'essentiel.",

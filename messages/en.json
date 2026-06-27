@@ -8,7 +8,13 @@
     "account": "My account",
     "login": "Sign in",
     "register": "Create account",
-    "logout": "Sign out"
+    "logout": "Sign out",
+    "collection_section": "Collection",
+    "all_products": "All products",
+    "brand_section": "The brand",
+    "my_profile_orders": "My profile & orders",
+    "connected": "Logged in:",
+    "my_cart": "My cart"
   },
   "home": {
     "hero_title": "The essentials.",

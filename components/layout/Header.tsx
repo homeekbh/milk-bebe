@@ -247,11 +247,11 @@ export default function Header() {
       {mobileOpen && (
         <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: "calc(100vh - 80px)" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>Collection</div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>{t("collection_section")}</div>
             <Link href="/produits" onClick={() => setMobileOpen(false)}
               style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#c49a4a", display: "flex", alignItems: "center", gap: 12 }}>
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round"/></svg>
-              Tous les produits
+              {t("all_products")}
             </Link>
             {CATS.map(cat => (
               <Link key={cat.href} href={cat.href} onClick={() => setMobileOpen(false)}
@@ -261,10 +261,10 @@ export default function Header() {
               </Link>
             ))}
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>La marque</div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>{t("brand_section")}</div>
             {[
-              { label: "Qui sommes-nous",    href: "/qui-sommes-nous" },
-              { label: "Pourquoi le bambou", href: "/pourquoi-bambou" },
+              { label: t("about"),  href: "/qui-sommes-nous" },
+              { label: t("bamboo"), href: "/pourquoi-bambou" },
             ].map(l => (
               <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
                 style={{ padding: "14px 18px", borderRadius: 14, background: "rgba(242,237,230,0.04)", textDecoration: "none", fontSize: 17, fontWeight: 700, color: "rgba(242,237,230,0.7)" }}>
@@ -275,32 +275,32 @@ export default function Header() {
             {user ? (
               <>
                 <div style={{ padding: "12px 18px", fontSize: 13, color: "rgba(242,237,230,0.4)", background: "rgba(242,237,230,0.03)", borderRadius: 12 }}>
-                  Connecté : <strong style={{ color: "#f2ede6" }}>{user.email}</strong>
+                  {t("connected")} <strong style={{ color: "#f2ede6" }}>{user.email}</strong>
                 </div>
                 <Link href="/profil" onClick={() => setMobileOpen(false)}
                   style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(242,237,230,0.05)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#f2ede6" }}>
-                  Mon profil & commandes
+                  {t("my_profile_orders")}
                 </Link>
                 <button onClick={handleSignOut}
                   style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(239,68,68,0.1)", border: "none", cursor: "pointer", fontSize: 17, fontWeight: 800, color: "#ef4444", textAlign: "left", width: "100%" }}>
-                  Se déconnecter
+                  {t("logout")}
                 </button>
               </>
             ) : (
               <>
                 <Link href="/connexion" onClick={() => setMobileOpen(false)}
                   style={{ padding: "16px 18px", borderRadius: 14, background: "#f2ede6", textDecoration: "none", fontSize: 17, fontWeight: 900, color: "#1a1410", textAlign: "center" }}>
-                  Se connecter
+                  {t("login")}
                 </Link>
                 <Link href="/inscription" onClick={() => setMobileOpen(false)}
                   style={{ padding: "16px 18px", borderRadius: 14, border: "1px solid rgba(242,237,230,0.15)", textDecoration: "none", fontSize: 17, fontWeight: 700, color: "#f2ede6", textAlign: "center" }}>
-                  Créer un compte
+                  {t("register")}
                 </Link>
               </>
             )}
             <Link href="/panier" onClick={() => setMobileOpen(false)}
               style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ display: "flex", alignItems: "center", gap: 10 }}><CartIcon color="#c49a4a" size={20} />Mon panier</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 10 }}><CartIcon color="#c49a4a" size={20} />{t("my_cart")}</span>
               {totalItems > 0 && <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>}
             </Link>
           </div>

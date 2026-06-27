@@ -255,6 +255,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="fr">
       <head>
+        {/* Intro déjà vue → masquage AVANT le premier paint via ce script
+            bloquant synchrone (évite tout flash plein écran chez un visiteur
+            déjà venu). Le 1er visiteur (clé absente) voit l'intro normalement.
+            Doit rester en tête du <head>, avant le rendu du <body>. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "try{if(localStorage.getItem('milk_intro_seen')==='1'){var s=document.createElement('style');s.appendChild(document.createTextNode('#milk-intro{display:none!important}'));(document.head||document.documentElement).appendChild(s);}}catch(e){}",
+          }}
+        />
+
         {/* Favicons */}
         <link rel="icon"             href="/favicon.svg"          type="image/svg+xml" />
         <link rel="icon"             href="/favicon.ico"          sizes="any" />

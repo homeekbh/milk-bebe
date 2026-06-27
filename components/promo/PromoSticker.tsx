@@ -1,6 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
 import { usePathname } from 'next/navigation'
+import { useIsNarrow } from '@/lib/useIsNarrow'
 
 interface PromoData {
   code: string
@@ -16,6 +17,8 @@ export default function PromoSticker() {
   const [copied, setCopied] = useState(false)
   const [visible, setVisible] = useState(true)
   const [isMobile, setIsMobile] = useState(false)
+  // Tâche 3 — sur mobile, valeurs réduites (padding/polices) UNIQUEMENT.
+  const narrow = useIsNarrow()
 
   useEffect(() => {
     fetch('/api/promo/featured')
@@ -94,7 +97,7 @@ export default function PromoSticker() {
           right: 0,
           width: '100%',
           borderRadius: 0,
-          padding: '10px 16px',
+          padding: narrow ? '6px 14px' : '10px 16px',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
@@ -108,19 +111,19 @@ export default function PromoSticker() {
           animation: 'milk-promo-pulse 1.8s ease-in-out infinite',
         }}
       >
-        <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontSize: narrow ? '11px' : '12px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
           <span style={{ animation: 'milk-blink 1s step-start infinite' }}>●</span>
           PROMO
         </span>
         {promo.label && (
-          <span style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
+          <span style={{ fontSize: narrow ? '11px' : '12px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
             {promo.label}
           </span>
         )}
-        <span style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.5px', whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', padding: '3px 8px', flexShrink: 0 }}>
+        <span style={{ fontSize: narrow ? '11px' : '12px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.5px', whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', padding: '3px 8px', flexShrink: 0 }}>
           {copied ? '✓ Copié !' : `CODE : ${promo.code}`}
         </span>
-        <span style={{ fontSize: '13px', fontWeight: 950, whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontSize: narrow ? '11px' : '13px', fontWeight: 950, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {discount}
         </span>
         {closeBtn}

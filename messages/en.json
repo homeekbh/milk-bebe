@@ -401,5 +401,45 @@
       { "q": "Is bamboo environmentally sustainable?", "r": "Yes — bamboo grows without pesticides, regenerates naturally within months and uses 30% less water than cotton." },
       { "q": "Can I machine-wash M!LK clothing?", "r": "Yes, machine wash at 30°C, gentle cycle. Avoid fabric softener. Drying flat is recommended." }
     ]
+  },
+  "about": {
+    "breadcrumb_home": "Home",
+    "breadcrumb_self": "About us",
+    "founder_eyebrow": "A word from the founder",
+    "founder_tag": "Erika · Founder",
+    "title": "About us",
+    "mom": "I'm a mum. Twice.",
+    "mom_p1": "And I still remember those mornings in pyjamas — both of them cuddled against me, warm, smiling, the world still a little blurry. Those moments when nothing else exists.",
+    "born": "That's where M!LK was born.",
+    "mom_p2": "In that everyday life, intense and gentle at once — where everything moves fast, everything is new, and you just look for simple things. A piece you grab without thinking, slip on in two seconds, and that is just… perfect. For them. For us.",
+    "block_p1": "No overload. Nothing superfluous. Essentials with character — modern, unisex, different — for little ones who already deserve something a bit unusual.",
+    "block_p2": "My boys have grown up. And with them, I learned. I learned what I would have loved to find from day one. That's M!LK — years of dreams, glances and longings, finally put into practice.",
+    "block_p3": "We start with 0-6 months. But the vision is far bigger.",
+    "block_support": "Support us — the most beautiful projects are coming.",
+    "welcome": "Welcome to M!LK.",
+    "values_eyebrow": "What we believe in",
+    "values_title": "No design for design's sake.",
+    "values_sub": "Just what matters when you're exhausted.",
+    "philo_eyebrow": "M!LK philosophy",
+    "philo_quote_l1": "Button-up pyjamas? A guaranteed battle at every change.",
+    "philo_quote_l2": "Separate mittens? They get lost, fall off, disappear right when baby needs them most.",
+    "philo_p1": "Here, every M!LK product solves a real problem. Fewer movements, less struggle, fewer things to manage. The evening routine becomes smooth, not stressful.",
+    "philo_p2": "No pointless features. Just what matters when you're exhausted.",
+    "cta_title": "Fewer hassles. More moments.",
+    "cta_desc": "Essentials designed for the first 6 months. OEKO-TEX certified bamboo.",
+    "cta_products": "See the products",
+    "cta_bamboo": "Why bamboo?",
+    "kpis": [
+      { "val": "100%", "label": "OEKO-TEX certified bamboo" },
+      { "val": "0",    "label": "Harmful substance" },
+      { "val": "3×",   "label": "Softer than cotton" },
+      { "val": "15j",  "label": "Free returns" }
+    ],
+    "valeurs": [
+      { "titre": "Every product solves a real problem.", "texte": "No design for design's sake. No pointless features. We start from a concrete problem — getting dressed turning into a fight, overheating, lost mittens — and look for the simplest solution." },
+      { "titre": "Less, but better.", "texte": "No excessive seasonal collections. We perfect the pieces that really matter: bodysuit, pyjama, sleep bag. The ones you use every day, several times a day." },
+      { "titre": "Fabric first.", "texte": "Every product starts with a question: is this fabric really better for baby's skin? Bamboo isn't a trend. It's the most functional answer we found." },
+      { "titre": "Made by parents, for exhausted parents.", "texte": "We've lived the struggles. The bodysuits that don't open easily at 3am. The overheating. The irritation. The 15 snaps to line up while baby wriggles. We fixed them." }
+    ]
   }
 }

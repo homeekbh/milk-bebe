@@ -1,10 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useEffect, useRef, useState, RefObject } from "react";
 import { Ticker, MILK_STYLES } from "@/components/shared/MilkDesign";
 import { Breadcrumb } from "@/components/seo/Breadcrumb";
+
+type Valeur = { titre: string; texte: string };
+type Kpi = { val: string; label: string };
 
 /* ──────────────────────────────────────────────────────────────────────────
    Palette CLAIRE — alignée homepage (plus de marron foncé).
@@ -108,18 +112,12 @@ function IconLeafV()   { return <svg width="28" height="28" viewBox="0 0 24 24" 
 function IconBaby()    { return <svg width="28" height="28" viewBox="0 0 24 24" fill="none" aria-hidden><circle cx="12" cy="6" r="3" stroke={P.amber} strokeWidth="1.6"/><path d="M5 20a7 7 0 0 1 14 0" stroke={P.amber} strokeWidth="1.6" strokeLinecap="round"/><path d="M9 13c0 1.5.5 3 3 3s3-1.5 3-3" stroke={P.amber} strokeWidth="1.6" strokeLinecap="round"/></svg>; }
 const ICONS = [IconHands, IconDiamond, IconLeafV, IconBaby];
 
-const VALEURS = [
-  { titre: "Chaque produit répond à un problème réel.", texte: "Pas de design pour le design. Pas de fonctionnalité inutile. On part d'un problème concret — l'habillage qui tourne au combat, la surchauffe, les moufles perdues — et on cherche la solution la plus simple." },
-  { titre: "Moins, mais mieux.", texte: "Pas de collections saisonnières à outrance. On perfectionne les pièces qui comptent vraiment : body, pyjama, gigoteuse. Celles qu'on utilise tous les jours, plusieurs fois par jour." },
-  { titre: "La matière d'abord.", texte: "Chaque produit commence par une question : est-ce que cette matière est vraiment meilleure pour la peau de bébé ? Le bambou n'est pas une tendance. C'est la réponse la plus fonctionnelle qu'on a trouvée." },
-  { titre: "Pensé par des parents, pour des parents épuisés.", texte: "On a vécu les galères. Les body qui s'ouvrent pas facilement à 3h du matin. La surchauffe. Les irritations. Les 15 boutons-pression à aligner pendant que bébé se débat. On les a réglées." },
-];
-
 /* ──────────────────────────────────────────────────────────────────────────
    INTRO ERIKA — Photo top-left + texte side + bloc texte dessous
    Scroll-driven : photo glisse depuis la gauche, texte depuis la droite
    ────────────────────────────────────────────────────────────────────────── */
 function IntroErika() {
+  const t = useTranslations("about");
   // Seuil bas (5% visible) → l'entrée se déclenche dès que la section est
   // à peine entrée dans le viewport. Sur petit écran, la photo apparaît
   // immédiatement au scroll, plus besoin d'attendre.
@@ -145,7 +143,7 @@ function IntroErika() {
         <Breadcrumb
           variant="dark"
           padding="0 0 18px"
-          items={[{ label: "Accueil", href: "/" }, { label: "Qui sommes-nous" }]}
+          items={[{ label: t("breadcrumb_home"), href: "/" }, { label: t("breadcrumb_self") }]}
         />
         {/* Eyebrow */}
         <div
@@ -157,7 +155,7 @@ function IntroErika() {
             transition: "opacity 0.7s ease, transform 0.7s cubic-bezier(0.22,1,0.36,1)",
           }}
         >
-          Mot de la fondatrice
+          {t("founder_eyebrow")}
         </div>
 
         {/* Grid : photo gauche + texte droite */}
@@ -205,7 +203,7 @@ function IntroErika() {
                 fontSize: 10, fontWeight: 900, letterSpacing: 2, textTransform: "uppercase",
               }}
             >
-              Erika · Fondatrice
+              {t("founder_tag")}
             </div>
           </div>
 
@@ -220,19 +218,19 @@ function IntroErika() {
             }}
           >
             <h2 style={{ margin: 0, fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.08, color: P.dark, fontSize: "clamp(30px, 4.5vw, 56px)" }}>
-              Qui sommes-nous
+              {t("title")}
             </h2>
             <p style={{ margin: 0, fontSize: "clamp(20px, 2.2vw, 26px)", fontWeight: 900, color: P.dark, lineHeight: 1.35 }}>
-              Je suis maman. Deux fois.
+              {t("mom")}
             </p>
             <p style={{ margin: 0, fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>
-              Et je me souviens encore de ces matins en pyjama — les deux collés contre moi, chauds, souriants, le monde encore un peu flou. Ces moments où rien d'autre n'existe.
+              {t("mom_p1")}
             </p>
             <p style={{ margin: 0, fontSize: "clamp(16px, 1.7vw, 19px)", fontWeight: 800, color: P.amber, lineHeight: 1.45 }}>
-              C'est là qu'est né M!LK.
+              {t("born")}
             </p>
             <p style={{ margin: 0, fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>
-              Dans ce quotidien intense et doux à la fois — où tout va vite, où tout est nouveau, où on cherche juste des choses simples. Une pièce qu'on attrape sans réfléchir, qu'on enfile en deux secondes, et qui est juste… parfaite. Pour eux. Pour nous.
+              {t("mom_p2")}
             </p>
           </div>
         </div>
@@ -255,19 +253,19 @@ function IntroErika() {
         >
           <div style={{ display: "grid", gap: 16, fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>
             <p style={{ margin: 0 }}>
-              Pas de surcharge. Pas de superflu. Des essentiels avec du caractère — modernes, unisexes, différents — pour les tout-petits qui méritent déjà quelque chose d'un peu atypique.
+              {t("block_p1")}
             </p>
             <p style={{ margin: 0 }}>
-              Mes garçons ont grandi. Et avec eux, j'ai appris. J'ai appris ce que j'aurais aimé trouver dès le premier jour. M!LK, c'est ça — des années de rêves, de regards, d'envies, mis enfin en pratique.
+              {t("block_p2")}
             </p>
             <p style={{ margin: 0 }}>
-              On commence par les 0–6 mois. Mais la vision est bien plus grande.
+              {t("block_p3")}
             </p>
             <p style={{ margin: "10px 0 0", fontWeight: 800, color: P.dark, fontSize: "clamp(16px, 1.7vw, 19px)" }}>
-              Soutenez-nous — les plus beaux projets arrivent.
+              {t("block_support")}
             </p>
             <p style={{ margin: 0, fontWeight: 900, color: P.amber, fontSize: "clamp(18px, 2vw, 22px)", letterSpacing: -0.3 }}>
-              Bienvenue chez M!LK.
+              {t("welcome")}
             </p>
           </div>
         </div>
@@ -280,6 +278,8 @@ function IntroErika() {
    KPIs — 4 stats, scroll-driven cascade
    ────────────────────────────────────────────────────────────────────────── */
 function KPIsSection() {
+  const t = useTranslations("about");
+  const KPIS = t.raw("kpis") as Kpi[];
   const reveal = useReveal<HTMLDivElement>(0.1);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -295,12 +295,7 @@ function KPIsSection() {
       style={{ background: P.light, padding: "clamp(48px, 6vw, 80px) 0", position: "relative" }}
     >
       <div className="qsn-kpis" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", padding: "0 5vw", maxWidth: 1280, margin: "0 auto" }}>
-        {[
-          { val: "100%", label: "Bambou certifié OEKO-TEX" },
-          { val: "0",    label: "Substance nocive"          },
-          { val: "3×",   label: "Plus doux que le coton"   },
-          { val: "15j",  label: "Retour gratuit"            },
-        ].map((k, i) => {
+        {KPIS.map((k, i) => {
           const delay = i * 0.1;
           const cardP = Math.max(0, Math.min(1, (p - 0.05 - delay) * 3));
           const slideX = (1 - cardP) * (i % 2 === 0 ? -60 : 60);
@@ -332,6 +327,8 @@ function KPIsSection() {
    VALEURS — 4 cartes, scroll-driven 3D depuis les côtés
    ────────────────────────────────────────────────────────────────────────── */
 function ValeursSection() {
+  const t = useTranslations("about");
+  const VALEURS = t.raw("valeurs") as Valeur[];
   const reveal = useReveal<HTMLDivElement>(0.1);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -357,9 +354,9 @@ function ValeursSection() {
       />
       <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto" }}>
         <div style={{ marginBottom: 36, opacity: visible ? 1 : 0, transform: visible ? "translateY(0)" : "translateY(20px)", transition: "opacity 0.7s ease, transform 0.7s cubic-bezier(0.22,1,0.36,1)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>Ce en quoi on croit</div>
-          <h2 style={{ margin: 0, fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.08, color: P.dark, fontSize: "clamp(28px, 4vw, 50px)" }}>Pas de design pour le design.</h2>
-          <p style={{ margin: "12px 0 0", fontSize: "clamp(15px, 1.5vw, 18px)", color: P.muted, lineHeight: 1.6 }}>Juste ce qui compte quand t'es épuisé.</p>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{t("values_eyebrow")}</div>
+          <h2 style={{ margin: 0, fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.08, color: P.dark, fontSize: "clamp(28px, 4vw, 50px)" }}>{t("values_title")}</h2>
+          <p style={{ margin: "12px 0 0", fontSize: "clamp(15px, 1.5vw, 18px)", color: P.muted, lineHeight: 1.6 }}>{t("values_sub")}</p>
         </div>
 
         <div
@@ -432,6 +429,7 @@ function ValeursSection() {
    PHILOSOPHIE — citation, fond cream, scroll-driven
    ────────────────────────────────────────────────────────────────────────── */
 function PhilosophieSection() {
+  const t = useTranslations("about");
   const reveal = useReveal<HTMLDivElement>(0.1);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -449,16 +447,16 @@ function PhilosophieSection() {
       style={{ background: P.cream, padding: "clamp(56px, 8vw, 96px) 5vw", position: "relative", overflow: "hidden" }}
     >
       <div style={{ maxWidth: 880, margin: "0 auto", opacity: visible ? 1 : 0, transform: `translate3d(${qX}px, 0, 0)`, willChange: "transform, opacity" }}>
-        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 18 }}>Philosophie M!LK</div>
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 18 }}>{t("philo_eyebrow")}</div>
         <blockquote style={{ margin: 0, borderLeft: `3px solid ${P.amber}`, paddingLeft: 28 }}>
           <p style={{ margin: "0 0 18px", fontSize: "clamp(18px, 2.2vw, 26px)", fontWeight: 800, color: P.dark, lineHeight: 1.45, letterSpacing: -0.4 }}>
-            « Les pyjamas à boutons ? Combat garanti à chaque change.<br />Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin. »
+            « {t("philo_quote_l1")}<br />{t("philo_quote_l2")} »
           </p>
           <p style={{ margin: "0 0 18px", fontSize: "clamp(14px, 1.5vw, 17px)", color: P.muted, lineHeight: 1.75 }}>
-            Ici, chaque produit M!LK répond à un problème réel. Moins de gestes, moins de lutte, moins d'objets à gérer. La routine du soir devient fluide, pas stressante.
+            {t("philo_p1")}
           </p>
           <p style={{ margin: 0, fontSize: "clamp(14px, 1.5vw, 17px)", color: P.amber, fontWeight: 800, lineHeight: 1.5 }}>
-            Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.
+            {t("philo_p2")}
           </p>
         </blockquote>
       </div>
@@ -470,6 +468,7 @@ function PhilosophieSection() {
    CTA — fond clair, boutons
    ────────────────────────────────────────────────────────────────────────── */
 function CTASection() {
+  const t = useTranslations("about");
   const { ref, visible } = useReveal<HTMLDivElement>(0.1);
   return (
     <section
@@ -485,11 +484,11 @@ function CTASection() {
           transition: "opacity 0.8s ease, transform 0.8s cubic-bezier(0.22,1,0.36,1)",
         }}
       >
-        <h2 style={{ margin: "0 0 18px", fontSize: "clamp(26px, 4vw, 44px)", fontWeight: 950, letterSpacing: -1.2, color: P.dark, lineHeight: 1.1 }}>Moins de galères. Plus de moments.</h2>
-        <p style={{ margin: "0 0 32px", fontSize: "clamp(14px, 1.5vw, 17px)", color: P.muted, lineHeight: 1.7 }}>Des essentiels conçus pour les 6 premiers mois. Bambou certifié OEKO-TEX.</p>
+        <h2 style={{ margin: "0 0 18px", fontSize: "clamp(26px, 4vw, 44px)", fontWeight: 950, letterSpacing: -1.2, color: P.dark, lineHeight: 1.1 }}>{t("cta_title")}</h2>
+        <p style={{ margin: "0 0 32px", fontSize: "clamp(14px, 1.5vw, 17px)", color: P.muted, lineHeight: 1.7 }}>{t("cta_desc")}</p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
-          <Link href="/produits" className="qsn-cta-primary" style={{ padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block", boxShadow: "0 8px 28px rgba(26,20,16,0.25)", transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s" }}>Voir les produits</Link>
-          <Link href="/pourquoi-bambou" className="qsn-cta-secondary" style={{ padding: "16px 32px", borderRadius: 14, border: `1.5px solid ${P.dark}`, color: P.dark, fontWeight: 800, fontSize: 15, textDecoration: "none", display: "inline-block", background: P.cream, transition: "background 0.3s, color 0.3s" }}>Pourquoi le bambou ?</Link>
+          <Link href="/produits" className="qsn-cta-primary" style={{ padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: 15, textDecoration: "none", display: "inline-block", boxShadow: "0 8px 28px rgba(26,20,16,0.25)", transition: "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s" }}>{t("cta_products")}</Link>
+          <Link href="/pourquoi-bambou" className="qsn-cta-secondary" style={{ padding: "16px 32px", borderRadius: 14, border: `1.5px solid ${P.dark}`, color: P.dark, fontWeight: 800, fontSize: 15, textDecoration: "none", display: "inline-block", background: P.cream, transition: "background 0.3s, color 0.3s" }}>{t("cta_bamboo")}</Link>
         </div>
       </div>
     </section>

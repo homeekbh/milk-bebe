@@ -401,5 +401,45 @@
       { "q": "Le bambou est-il durable pour l'environnement ?", "r": "Oui — le bambou pousse sans pesticides, se régénère naturellement en quelques mois et consomme 30% moins d'eau que le coton." },
       { "q": "Puis-je mettre les vêtements M!LK en machine ?", "r": "Oui, machine à 30°C, cycle délicat. Évitez l'adoucissant. Séchage à plat recommandé." }
     ]
+  },
+  "about": {
+    "breadcrumb_home": "Accueil",
+    "breadcrumb_self": "Qui sommes-nous",
+    "founder_eyebrow": "Mot de la fondatrice",
+    "founder_tag": "Erika · Fondatrice",
+    "title": "Qui sommes-nous",
+    "mom": "Je suis maman. Deux fois.",
+    "mom_p1": "Et je me souviens encore de ces matins en pyjama — les deux collés contre moi, chauds, souriants, le monde encore un peu flou. Ces moments où rien d'autre n'existe.",
+    "born": "C'est là qu'est né M!LK.",
+    "mom_p2": "Dans ce quotidien intense et doux à la fois — où tout va vite, où tout est nouveau, où on cherche juste des choses simples. Une pièce qu'on attrape sans réfléchir, qu'on enfile en deux secondes, et qui est juste… parfaite. Pour eux. Pour nous.",
+    "block_p1": "Pas de surcharge. Pas de superflu. Des essentiels avec du caractère — modernes, unisexes, différents — pour les tout-petits qui méritent déjà quelque chose d'un peu atypique.",
+    "block_p2": "Mes garçons ont grandi. Et avec eux, j'ai appris. J'ai appris ce que j'aurais aimé trouver dès le premier jour. M!LK, c'est ça — des années de rêves, de regards, d'envies, mis enfin en pratique.",
+    "block_p3": "On commence par les 0–6 mois. Mais la vision est bien plus grande.",
+    "block_support": "Soutenez-nous — les plus beaux projets arrivent.",
+    "welcome": "Bienvenue chez M!LK.",
+    "values_eyebrow": "Ce en quoi on croit",
+    "values_title": "Pas de design pour le design.",
+    "values_sub": "Juste ce qui compte quand t'es épuisé.",
+    "philo_eyebrow": "Philosophie M!LK",
+    "philo_quote_l1": "Les pyjamas à boutons ? Combat garanti à chaque change.",
+    "philo_quote_l2": "Les moufles séparées ? Elles se perdent, tombent, disparaissent quand bébé en a le plus besoin.",
+    "philo_p1": "Ici, chaque produit M!LK répond à un problème réel. Moins de gestes, moins de lutte, moins d'objets à gérer. La routine du soir devient fluide, pas stressante.",
+    "philo_p2": "Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé.",
+    "cta_title": "Moins de galères. Plus de moments.",
+    "cta_desc": "Des essentiels conçus pour les 6 premiers mois. Bambou certifié OEKO-TEX.",
+    "cta_products": "Voir les produits",
+    "cta_bamboo": "Pourquoi le bambou ?",
+    "kpis": [
+      { "val": "100%", "label": "Bambou certifié OEKO-TEX" },
+      { "val": "0",    "label": "Substance nocive" },
+      { "val": "3×",   "label": "Plus doux que le coton" },
+      { "val": "15j",  "label": "Retour gratuit" }
+    ],
+    "valeurs": [
+      { "titre": "Chaque produit répond à un problème réel.", "texte": "Pas de design pour le design. Pas de fonctionnalité inutile. On part d'un problème concret — l'habillage qui tourne au combat, la surchauffe, les moufles perdues — et on cherche la solution la plus simple." },
+      { "titre": "Moins, mais mieux.", "texte": "Pas de collections saisonnières à outrance. On perfectionne les pièces qui comptent vraiment : body, pyjama, gigoteuse. Celles qu'on utilise tous les jours, plusieurs fois par jour." },
+      { "titre": "La matière d'abord.", "texte": "Chaque produit commence par une question : est-ce que cette matière est vraiment meilleure pour la peau de bébé ? Le bambou n'est pas une tendance. C'est la réponse la plus fonctionnelle qu'on a trouvée." },
+      { "titre": "Pensé par des parents, pour des parents épuisés.", "texte": "On a vécu les galères. Les body qui s'ouvrent pas facilement à 3h du matin. La surchauffe. Les irritations. Les 15 boutons-pression à aligner pendant que bébé se débat. On les a réglées." }
+    ]
   }
 }

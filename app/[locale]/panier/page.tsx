@@ -3,6 +3,7 @@
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
+import { useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import PackCartSection from "./PackCartSection";
@@ -44,6 +45,7 @@ export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
   const { user }  = useAuth();
   const router    = useRouter();
+  const locale    = useLocale();
 
   const [loading,       setLoading]       = useState(false);
   const [promoCode,     setPromoCode]     = useState("");
@@ -406,6 +408,7 @@ export default function CartPage() {
             type:        deliveryType,
           } : null,
           home_address:   deliveryType === "home" ? homeAddress : null,
+          locale,
         }),
       });
       const data = await res.json();

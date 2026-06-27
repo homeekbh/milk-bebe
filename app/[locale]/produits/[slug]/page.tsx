@@ -295,6 +295,7 @@ function ApplePayButton({ product, taille, couleur, qty, promo }: {
   product: any; taille: string; couleur: string; qty: number; promo: boolean;
 }) {
   const t = useTranslations("product");
+  const locale = useLocale();
   const [paymentRequest, setPaymentRequest] = useState<any>(null);
   const [canPay, setCanPay]                 = useState(false);
   const btnRef = useRef<HTMLDivElement>(null);
@@ -343,6 +344,7 @@ function ApplePayButton({ product, taille, couleur, qty, promo }: {
           body:    JSON.stringify({
             items: [{ id: product.id, name, quantity: qty }],
             customer_email: ev.payerEmail,
+            locale,
           }),
         });
         const data = await res.json();
@@ -357,7 +359,7 @@ function ApplePayButton({ product, taille, couleur, qty, promo }: {
 
     init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [product?.id, taille, couleur, qty, promo]);
+  }, [product?.id, taille, couleur, qty, promo, locale]);
 
   useEffect(() => {
     if (!paymentRequest || !btnRef.current) return;

@@ -66,7 +66,13 @@ export async function POST(req: Request) {
       carrier,
       relay,
       home_address,
+      locale,
     } = await req.json();
+
+    // Locale courante (passée par le client via useLocale()). On whiteliste
+    // strictement : tout sauf 'en' retombe sur 'fr' (defaultLocale). Évite
+    // qu'une valeur forgée crée une URL de redirection invalide.
+    const safeLocale: "fr" | "en" = locale === "en" ? "en" : "fr";
 
     // ⚠️ SÉCURITÉ : les champs `discount` et `free_shipping` envoyés par le
     // client sont VOLONTAIREMENT IGNORÉS. La remise et le statut "port offert"
@@ -223,9 +229,9 @@ export async function POST(req: Request) {
       mode:                 "payment",
       billing_address_collection: "auto",
       customer_creation:          "always",
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/panier`,
-      locale:      "fr",
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/panier`,
+      locale:      safeLocale,
       ...(customer_email ? { customer_email } : {}),
       metadata: {
         // ⚠️ Stripe limite chaque valeur de metadata à 500 caractères. On ne

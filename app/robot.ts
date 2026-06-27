@@ -12,17 +12,18 @@ export default function robots(): MetadataRoute.Robots {
           "/admin",
           "/admin/",
           "/api/",
-          "/checkout",
-          "/success",
-          "/panier",
-          // /profil : PAS dans le Disallow — il porte un <meta robots noindex>
-          // (app/profil/layout.tsx). Google doit pouvoir le crawler pour voir le
-          // noindex et le DÉSINDEXER (un Disallow l'aurait laissé indexé sans contenu).
-          "/favoris",
-          "/connexion",
-          "/inscription",
-          "/coming-soon",
-          "/recherche",
+          // Routes publiques préfixées par la locale → motif "/*/route".
+          "/*/checkout",
+          "/*/success",
+          "/*/panier",
+          // /profil (/*/profil) : PAS dans le Disallow — il porte un <meta robots
+          // noindex> (app/[locale]/profil/layout.tsx). Google doit pouvoir le
+          // crawler pour voir le noindex et le DÉSINDEXER.
+          "/*/favoris",
+          "/*/connexion",
+          "/*/inscription",
+          "/*/coming-soon",
+          "/*/recherche",
         ],
       },
     ],

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/server/supabase";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
@@ -20,9 +21,9 @@ export async function generateStaticParams() {
 }
 
 export async function generateMetadata(
-  { params }: { params: Promise<{ slug: string }> }
+  { params }: { params: Promise<{ locale: string; slug: string }> }
 ): Promise<Metadata> {
-  const { slug } = await params;
+  const { locale, slug } = await params;
 
   const { data: product } = await supabaseServer
     .from("products")
@@ -52,7 +53,7 @@ export async function generateMetadata(
         ? `${firstParagraph}… Livraison offerte dès 60€.`
         : `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€.`);
 
-  const url = `${BASE}/produits/${product.slug}`;
+  const url = `${BASE}/${locale}/produits/${product.slug}`;
 
   // Mots-clés contextuels : catégorie + nom + qualité matière
   const cat = product.category_slug ?? "";
@@ -92,7 +93,7 @@ export async function generateMetadata(
       description,
       images:      product.image_url ? [product.image_url] : [],
     },
-    alternates: { canonical: url },
+    alternates: getAlternates(locale, `/produits/${product.slug}`),
     other: {
       "script:breadcrumb": JSON.stringify(breadcrumbLd),
     },

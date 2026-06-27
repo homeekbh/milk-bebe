@@ -1,38 +1,55 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import type { MetadataRoute } from "next";
+import { routing } from "@/i18n/routing";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+type Freq = "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
+
 /**
- * Sitemap dynamique
- * - / : priority 1.0, daily
- * - /categorie/* (existantes en DB) : priority 0.9, weekly
- * - /produits/* (published, peu importe stock — out-of-stock garde SEO) : priority 0.8, weekly
- * - /qui-sommes-nous, /pourquoi-bambou, /faq, /livraison : 0.6, monthly
- * - /cgv, /mentions-legales, /politique-confidentialite : 0.3, yearly
- * Exclus : /admin, /api, /profil, /panier, /checkout, /favoris (via robots.ts)
+ * Sitemap multilingue — chaque chemin est émis pour CHAQUE locale (/fr, /en)
+ * avec les balises hreflang (alternates.languages). Exclus (via robots.ts) :
+ * /admin, /api, /profil, /panier, /checkout, /favoris, /recherche, etc.
  */
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const now = new Date();
+  const locales = routing.locales;
+
+  // Émet une entrée par locale pour un chemin donné (chemin SANS préfixe locale).
+  const expand = (
+    path: string,
+    changeFrequency: Freq,
+    priority: number,
+    lastModified: Date = now,
+  ): MetadataRoute.Sitemap => {
+    const languages = Object.fromEntries(
+      locales.map((l) => [l, `${BASE}/${l}${path}`]),
+    );
+    return locales.map((locale) => ({
+      url: `${BASE}/${locale}${path}`,
+      lastModified,
+      changeFrequency,
+      priority,
+      alternates: { languages },
+    }));
+  };
 
   const staticPages: MetadataRoute.Sitemap = [
-    { url: BASE,                                lastModified: now, changeFrequency: "daily",   priority: 1.0 },
-    { url: `${BASE}/produits`,                  lastModified: now, changeFrequency: "daily",   priority: 0.9 },
-    { url: `${BASE}/qui-sommes-nous`,           lastModified: now, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE}/pourquoi-bambou`,           lastModified: now, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE}/faq`,                       lastModified: now, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE}/livraison`,                 lastModified: now, changeFrequency: "monthly", priority: 0.6 },
-    { url: `${BASE}/contact`,                   lastModified: now, changeFrequency: "monthly", priority: 0.5 },
-    { url: `${BASE}/cgv`,                       lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
-    { url: `${BASE}/mentions-legales`,          lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
-    { url: `${BASE}/politique-confidentialite`, lastModified: now, changeFrequency: "yearly",  priority: 0.3 },
+    ...expand("",                           "daily",   1.0),
+    ...expand("/produits",                  "daily",   0.9),
+    ...expand("/qui-sommes-nous",           "monthly", 0.6),
+    ...expand("/pourquoi-bambou",           "monthly", 0.6),
+    ...expand("/faq",                       "monthly", 0.6),
+    ...expand("/livraison",                 "monthly", 0.6),
+    ...expand("/contact",                   "monthly", 0.5),
+    ...expand("/cgv",                       "yearly",  0.3),
+    ...expand("/mentions-legales",          "yearly",  0.3),
+    ...expand("/politique-confidentialite", "yearly",  0.3),
   ];
 
-  let productPages:  MetadataRoute.Sitemap = [];
-  let categoryPages: MetadataRoute.Sitemap = [];
+  let dynamicPages: MetadataRoute.Sitemap = [];
 
   try {
-    // Catégories : derived from existing products (pas de table dédiée)
     const { data: products } = await supabaseServer
       .from("products")
       .select("slug, updated_at, category_slug")
@@ -42,22 +59,22 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     for (const p of products ?? []) {
       if (p.category_slug) cats.add(p.category_slug);
     }
-    categoryPages = [...cats].map(slug => ({
-      url:             `${BASE}/categorie/${slug}`,
-      lastModified:    now,
-      changeFrequency: "weekly" as const,
-      priority:        0.9,
-    }));
 
-    productPages = (products ?? []).map(p => ({
-      url:             `${BASE}/produits/${p.slug}`,
-      lastModified:    p.updated_at ? new Date(p.updated_at) : now,
-      changeFrequency: "weekly" as const,
-      priority:        0.8,
-    }));
+    const categoryPages = [...cats].flatMap((slug) =>
+      expand(`/categorie/${slug}`, "weekly", 0.9),
+    );
+    const productPages = (products ?? []).flatMap((p) =>
+      expand(
+        `/produits/${p.slug}`,
+        "weekly",
+        0.8,
+        p.updated_at ? new Date(p.updated_at) : now,
+      ),
+    );
+    dynamicPages = [...categoryPages, ...productPages];
   } catch {
     // fallback : pages statiques uniquement
   }
 
-  return [...staticPages, ...categoryPages, ...productPages];
+  return [...staticPages, ...dynamicPages];
 }

@@ -2,10 +2,17 @@
 // generateMetadata fonctionne ici car ce fichier n'a aucun hook React
 import type { Metadata } from "next";
 import HomepageClient from "./_homepage/HomepageClient";
+import { getAlternates } from "@/i18n/seo";
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title: "M!LK — Bodies, Pyjamas, Gigoteuses & Langes nourrisson bambou | OEKO-TEX | 0-6 mois",
   description:
     "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX Standard 100. 3× plus doux que le coton, thermorégulateur, antibactérien. Idéal peaux sensibles, eczéma. Cadeau naissance parfait. Livraison offerte dès 60€. Marque française.",
@@ -52,10 +59,9 @@ export const metadata: Metadata = {
     description: "Bodies, pyjamas, gigoteuses et langes nourrisson en bambou certifié OEKO-TEX. Doux, thermorégulateur, anti-bactérien.",
     images:      [`${BASE_URL}/images/og/milk-og-homepage.jpg`],
   },
-  alternates: {
-    canonical: BASE_URL,
-  },
-};
+  alternates: getAlternates(locale),
+  };
+}
 
 export default function Page() {
   return <HomepageClient />;

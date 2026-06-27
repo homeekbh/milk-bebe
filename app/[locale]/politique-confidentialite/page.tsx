@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
+import { getAlternates } from "@/i18n/seo";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title:       "Politique de confidentialité — M!LK",
   description: "Comment M!LK collecte et protège vos données personnelles conformément au RGPD.",
   openGraph: {
     title:       "Politique de confidentialité — M!LK",
     description: "Comment M!LK collecte et protège vos données personnelles conformément au RGPD.",
   },
-  alternates: { canonical: "https://www.milkbebe.fr/politique-confidentialite" },
-};
+  alternates: getAlternates(locale, "/politique-confidentialite"),
+  };
+}
 
 export default function PolitiqueConfidentialite() {
   return (

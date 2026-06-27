@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { notFound }       from "next/navigation";
 import type { Metadata }  from "next";
+import { getAlternates }  from "@/i18n/seo";
 import ProduitsGrid       from "@/app/[locale]/produits/ProduitsGrid";
 import { JsonLd }         from "@/components/seo/JsonLd";
 import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
@@ -51,7 +52,7 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
   },
 };
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ locale: string; slug: string }> };
 
 function getMeta(slug: string) {
   if (CATEGORY_META[slug]) return CATEGORY_META[slug];
@@ -66,14 +67,14 @@ function getMeta(slug: string) {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  const { slug } = await params;
+  const { locale, slug } = await params;
   const meta = getMeta(slug);
-  const url  = `${BASE}/categorie/${slug}`;
+  const url  = `${BASE}/${locale}/categorie/${slug}`;
   return {
     title:       meta.seoTitle,
     description: meta.seoDesc,
     keywords:    meta.keywords,
-    alternates:  { canonical: url },
+    alternates:  getAlternates(locale, `/categorie/${slug}`),
     openGraph: {
       title:       meta.seoTitle,
       description: meta.seoDesc,

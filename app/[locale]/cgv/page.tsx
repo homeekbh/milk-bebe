@@ -1,14 +1,22 @@
 ﻿import type { Metadata } from "next";
+import { getAlternates } from "@/i18n/seo";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title:       "Conditions Générales de Vente — M!LK",
   description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   openGraph: {
     title:       "Conditions Générales de Vente — M!LK",
     description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   },
-  alternates: { canonical: "https://www.milkbebe.fr/cgv" },
-};
+  alternates: getAlternates(locale, "/cgv"),
+  };
+}
 
 ﻿export default function CGV() {
   return (

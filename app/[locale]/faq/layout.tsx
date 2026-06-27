@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
+import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title: "FAQ — Questions fréquentes | M!LK",
   description: "Toutes les réponses sur les produits M!LK : bambou OEKO-TEX, livraison, retours, tailles, paiement. Essentiels bébé bambou 0-6 mois.",
-  alternates: { canonical: `${BASE}/faq` },
+  alternates: getAlternates(locale, "/faq"),
   openGraph: {
     title: "FAQ M!LK — Questions fréquentes",
     description: "Réponses sur le bambou, les livraisons, les retours, les tailles et le paiement M!LK.",
     url: `${BASE}/faq`,
   },
-};
+  };
+}
 
 const faqSchema = {
   "@context": "https://schema.org",

@@ -1,8 +1,15 @@
 import type { Metadata } from "next";
+import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title: "Pourquoi le bambou pour bébé — Bienfaits, certification OEKO-TEX | M!LK",
   description:
     "Pourquoi le bambou est meilleur que le coton pour les nourrissons : 3× plus doux, thermorégulateur naturel, antibactérien, certifié OEKO-TEX Standard 100. Découvrez les bienfaits du bambou pour la peau sensible de votre bébé 0-6 mois.",
@@ -31,8 +38,9 @@ export const metadata: Metadata = {
     description: "Le bambou est 3× plus doux que le coton, thermorégulateur et antibactérien. Certifié OEKO-TEX Standard 100.",
     images:      [`${BASE}/matiere/bambou-02.png`],
   },
-  alternates: { canonical: `${BASE}/pourquoi-bambou` },
-};
+  alternates: getAlternates(locale, "/pourquoi-bambou"),
+  };
+}
 
 // JSON-LD FAQPage pour les questions bambou
 const faqSchema = {

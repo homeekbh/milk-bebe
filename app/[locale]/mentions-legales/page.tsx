@@ -1,14 +1,22 @@
 import type { Metadata } from "next";
+import { getAlternates } from "@/i18n/seo";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title:       "Mentions légales — M!LK",
   description: "Mentions légales de milkbebe.fr — EKBH SAS, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
   openGraph: {
     title:       "Mentions légales — M!LK",
     description: "Mentions légales de milkbebe.fr — EKBH SAS, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
   },
-  alternates: { canonical: "https://www.milkbebe.fr/mentions-legales" },
-};
+  alternates: getAlternates(locale, "/mentions-legales"),
+  };
+}
 
 export default function MentionsLegales() {
   return (

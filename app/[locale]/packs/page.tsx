@@ -1,17 +1,25 @@
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/server/supabase";
 import PackCard, { type Pack } from "@/components/packs/PackCard";
+import { getAlternates } from "@/i18n/seo";
 
 export const revalidate = 60;
 
 const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title: "Nos packs | M!LK",
   description:
     "Coffrets et packs M!LK : nos essentiels bébé bambou OEKO-TEX réunis à prix doux. Parfait pour une liste de naissance ou un cadeau.",
-  alternates: { canonical: `${BASE_URL}/packs` },
-};
+  alternates: getAlternates(locale, "/packs"),
+  };
+}
 
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", cream: "#f2ede6" };
 

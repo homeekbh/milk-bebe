@@ -1,9 +1,16 @@
 import type { Metadata } from "next";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title:       "Qui sommes-nous | M!LK — La fondatrice",
   description: "M!LK est une marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100, fondée par Erika, maman de deux garçons. Découvrez l'histoire et la vision.",
   keywords: [
@@ -15,7 +22,7 @@ export const metadata: Metadata = {
     "vêtement bébé made in France bambou",
     "fondatrice marque bébé bambou",
   ],
-  alternates: { canonical: `${BASE}/qui-sommes-nous` },
+  alternates: getAlternates(locale, "/qui-sommes-nous"),
   openGraph: {
     title:       "Qui sommes-nous — M!LK",
     description: "Marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100, fondée par Erika.",
@@ -35,7 +42,8 @@ export const metadata: Metadata = {
     title:       "Qui sommes-nous — M!LK",
     description: "Erika, fondatrice de M!LK — essentiels bébé bambou OEKO-TEX.",
   },
-};
+  };
+}
 
 const personLd = {
   "@context":   "https://schema.org",

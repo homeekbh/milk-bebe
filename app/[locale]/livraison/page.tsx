@@ -1,15 +1,23 @@
 ﻿import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/server/supabase";
+import { getAlternates } from "@/i18n/seo";
 
-export const metadata: Metadata = {
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   title:       "Livraison & Retours — M!LK",
   description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   openGraph: {
     title:       "Livraison & Retours — M!LK",
     description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   },
-  alternates: { canonical: "https://www.milkbebe.fr/livraison" },
-};
+  alternates: getAlternates(locale, "/livraison"),
+  };
+}
 
 async function getFreeShipThreshold(): Promise<number> {
   try {

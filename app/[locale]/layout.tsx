@@ -4,6 +4,7 @@ import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
+import { getAlternates } from "@/i18n/seo";
 
 import Header        from "@/components/layout/Header";
 import Footer        from "@/components/layout/Footer";
@@ -33,8 +34,14 @@ export const viewport: Viewport = {
   maximumScale: 5,
 };
 
-// ── SEO Metadata ──────────────────────────────────────────────────────────────
-export const metadata: Metadata = {
+// ── SEO Metadata (par locale) ─────────────────────────────────────────────────
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}): Promise<Metadata> {
+  const { locale } = await params;
+  return {
   metadataBase: new URL(BASE_URL),
 
   title: {
@@ -167,13 +174,8 @@ export const metadata: Metadata = {
     },
   },
 
-  // ── Canonique ───────────────────────────────────────────────────────────────
-  // Pas de `languages` (hreflang) : les routes /en /it /hu n'existent pas et
-  // l'i18n (LangContext) ne change que le localStorage, pas l'URL. Déclarer un
-  // hreflang vers des 404 génère des erreurs Search Console.
-  alternates: {
-    canonical: `${BASE_URL}/`,
-  },
+  // ── Canonique + hreflang (par locale) ───────────────────────────────────────
+  alternates: getAlternates(locale),
 
   // ── App / PWA ────────────────────────────────────────────────────────────────
   applicationName: "M!LK",
@@ -189,7 +191,8 @@ export const metadata: Metadata = {
   ...(process.env.NEXT_PUBLIC_GSC_VERIFICATION ? {
     verification: { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION },
   } : {}),
-};
+  };
+}
 
 // ── JSON-LD Schema.org ────────────────────────────────────────────────────────
 const jsonLd = {

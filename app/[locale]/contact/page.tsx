@@ -1,14 +1,16 @@
 "use client";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 export default function ContactPage() {
+  const t = useTranslations("contact");
   const [form,    setForm]    = useState({ nom: "", email: "", sujet: "", message: "" });
   const [sending, setSending] = useState(false);
   const [done,    setDone]    = useState(false);
   const [error,   setError]   = useState("");
 
   async function handleSubmit() {
-    if (!form.nom || !form.email || !form.message) { setError("Merci de remplir tous les champs obligatoires."); return; }
+    if (!form.nom || !form.email || !form.message) { setError(t("err_required")); return; }
     setSending(true); setError("");
     try {
       const res = await fetch("/api/contact", {
@@ -18,7 +20,7 @@ export default function ContactPage() {
       if (!res.ok) throw new Error();
       setDone(true);
     } catch {
-      setError("Une erreur est survenue. Réessaie ou écris-nous à contact@milkbebe.fr");
+      setError(t("err_generic"));
     } finally {
       setSending(false);
     }
@@ -35,21 +37,21 @@ export default function ContactPage() {
       <div style={{ maxWidth: 600, margin: "0 auto", padding: "0 20px" }}>
 
         <div style={{ marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 14 }}>Nous contacter</div>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 14 }}>{t("eyebrow")}</div>
           <h1 style={{ margin: 0, fontSize: "clamp(28px, 5vw, 48px)", fontWeight: 950, letterSpacing: -1.5, color: "#f2ede6", lineHeight: 1.1 }}>
-            Une question ? On répond.
+            {t("title")}
           </h1>
           <p style={{ margin: "16px 0 0", fontSize: 16, color: "rgba(242,237,230,0.5)", lineHeight: 1.7 }}>
-            On répond généralement sous 24h en jours ouvrés. Pour une commande en cours, pensez à inclure votre email de commande.
+            {t("desc")}
           </p>
         </div>
 
         {done ? (
           <div style={{ background: "#2a2018", borderRadius: 20, border: "1px solid rgba(196,154,74,0.2)", padding: 48, textAlign: "center" }}>
             <div style={{ fontSize: 48, marginBottom: 20 }}>✅</div>
-            <div style={{ fontSize: 22, fontWeight: 950, color: "#f2ede6", marginBottom: 10 }}>Message envoyé !</div>
+            <div style={{ fontSize: 22, fontWeight: 950, color: "#f2ede6", marginBottom: 10 }}>{t("sent_title")}</div>
             <div style={{ fontSize: 15, color: "rgba(242,237,230,0.5)", lineHeight: 1.7 }}>
-              On revient vers toi sous 24h. Merci {form.nom} !
+              {t("sent_desc", { name: form.nom })}
             </div>
           </div>
         ) : (
@@ -57,31 +59,31 @@ export default function ContactPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
               <div style={{ display: "grid", gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Nom *</label>
-                <input type="text" value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} placeholder="Votre nom" style={IS} />
+                <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>{t("f_name")} *</label>
+                <input type="text" value={form.nom} onChange={e => setForm(f => ({ ...f, nom: e.target.value }))} placeholder={t("ph_name")} style={IS} />
               </div>
               <div style={{ display: "grid", gap: 8 }}>
-                <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Email *</label>
-                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder="votre@email.com" style={IS} />
+                <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>{t("f_email")} *</label>
+                <input type="email" value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} placeholder={t("ph_email")} style={IS} />
               </div>
             </div>
 
             <div style={{ display: "grid", gap: 8 }}>
-              <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Sujet</label>
+              <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>{t("f_subject")}</label>
               <select value={form.sujet} onChange={e => setForm(f => ({ ...f, sujet: e.target.value }))}
                 style={{ ...IS, colorScheme: "dark" }}>
-                <option value="">Choisir un sujet</option>
-                <option value="commande">Ma commande</option>
-                <option value="retour">Retour / remboursement</option>
-                <option value="produit">Question produit</option>
-                <option value="autre">Autre</option>
+                <option value="">{t("subject_choose")}</option>
+                <option value="commande">{t("subject_order")}</option>
+                <option value="retour">{t("subject_return")}</option>
+                <option value="produit">{t("subject_product")}</option>
+                <option value="autre">{t("subject_other")}</option>
               </select>
             </div>
 
             <div style={{ display: "grid", gap: 8 }}>
-              <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>Message *</label>
+              <label style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>{t("f_message")} *</label>
               <textarea value={form.message} onChange={e => setForm(f => ({ ...f, message: e.target.value }))}
-                placeholder="Décris ta demande..." rows={5}
+                placeholder={t("ph_message")} rows={5}
                 style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.6 }} />
             </div>
 
@@ -89,11 +91,11 @@ export default function ContactPage() {
 
             <button onClick={handleSubmit} disabled={sending}
               style={{ padding: "16px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 16, border: "none", cursor: sending ? "not-allowed" : "pointer", opacity: sending ? 0.7 : 1 }}>
-              {sending ? "Envoi..." : "Envoyer le message →"}
+              {sending ? t("sending") : t("send")}
             </button>
 
             <div style={{ fontSize: 12, color: "rgba(242,237,230,0.25)", textAlign: "center" }}>
-              Ou directement : contact@milkbebe.fr
+              {t("or_direct")}
             </div>
           </div>
         )}

@@ -206,5 +206,29 @@
     "newborn": "Newborn",
     "0_3": "0-3 months",
     "3_6": "3-6 months"
+  },
+  "contact": {
+    "eyebrow": "Contact us",
+    "title": "A question? We answer.",
+    "desc": "We usually reply within 24h on business days. For an ongoing order, remember to include your order email.",
+    "sent_title": "Message sent!",
+    "sent_desc": "We'll get back to you within 24h. Thanks {name}!",
+    "f_name": "Name",
+    "f_email": "Email",
+    "f_subject": "Subject",
+    "f_message": "Message",
+    "ph_name": "Your name",
+    "ph_email": "your@email.com",
+    "ph_message": "Describe your request...",
+    "subject_choose": "Choose a subject",
+    "subject_order": "My order",
+    "subject_return": "Return / refund",
+    "subject_product": "Product question",
+    "subject_other": "Other",
+    "sending": "Sending...",
+    "send": "Send message →",
+    "or_direct": "Or directly: contact@milkbebe.fr",
+    "err_required": "Please fill in all required fields.",
+    "err_generic": "Something went wrong. Try again or email us at contact@milkbebe.fr"
   }
 }

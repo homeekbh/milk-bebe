@@ -1,5 +1,6 @@
 ﻿import type { Metadata } from "next";
 import { getAlternates } from "@/i18n/seo";
+import { getTranslations } from "next-intl/server";
 
 export async function generateMetadata({
   params,
@@ -18,18 +19,19 @@ export async function generateMetadata({
   };
 }
 
-﻿export default function CGV() {
+﻿export default async function CGV() {
+  const t = await getTranslations("legal");
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
         <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410", marginBottom: 8 }}>
-          Conditions Générales de Vente
+          {t("cgv_title")}
         </h1>
-        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Dernière mise à jour : mai 2026</p>
+        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>{t("cgv_subtitle")}</p>
 
         {[
           {
-            title: "1. Identification du vendeur",
+            title: t("cgv_s1"),
             content: `M!LK est une marque exploitée par EKBH, SAS au capital variable
 SIREN : 104 298 260
 SIRET : 104 298 260 00019
@@ -37,48 +39,48 @@ Siège social : Menton (06500), France
 Email : contact@milkbebe.fr`,
           },
           {
-            title: "2. Objet",
-            content: "Les présentes conditions générales de vente (CGV) régissent les relations contractuelles entre M!LK et tout client effectuant un achat sur le site milkbebe.fr. Toute commande implique l'acceptation pleine et entière des présentes CGV.",
+            title: t("cgv_s2"),
+            content: t("cgv_s2_c"),
           },
           {
-            title: "3. Produits",
-            content: "M!LK commercialise des vêtements et accessoires pour nourrissons (0 à 6 mois) fabriqués en bambou viscose certifié OEKO-TEX Standard 100. Les produits sont présentés avec la plus grande exactitude possible. En cas d'erreur ou d'omission, la responsabilité de M!LK ne saurait être engagée.",
+            title: t("cgv_s3"),
+            content: t("cgv_s3_c"),
           },
           {
-            title: "4. Prix",
-            content: "Les prix sont indiqués en euros TTC (toutes taxes comprises). M!LK se réserve le droit de modifier ses prix à tout moment. Les prix appliqués sont ceux en vigueur au moment de la validation de la commande.",
+            title: t("cgv_s4"),
+            content: t("cgv_s4_c"),
           },
           {
-            title: "5. Commande",
-            content: "La commande est validée après confirmation du paiement par Stripe. Un email de confirmation est envoyé à l'adresse fournie. M!LK se réserve le droit de refuser ou d'annuler toute commande en cas de problème avec le paiement ou de stock insuffisant.",
+            title: t("cgv_s5"),
+            content: t("cgv_s5_c"),
           },
           {
-            title: "6. Paiement",
-            content: "Le paiement s'effectue en ligne via la plateforme sécurisée Stripe. Les données bancaires ne transitent pas par nos serveurs. M!LK accepte les cartes Visa, Mastercard, American Express ainsi que PayPal via Stripe.",
+            title: t("cgv_s6"),
+            content: t("cgv_s6_c"),
           },
           {
-            title: "7. Livraison",
-            content: "Les commandes sont expédiées via Colissimo / La Poste en France métropolitaine, Belgique, Suisse, Luxembourg et Monaco. Le délai de livraison est de 2 à 3 jours ouvrés en France métropolitaine. La livraison est offerte dès 60€ d'achat. En dessous : 6,82€ en Point Relais Colissimo, 8,66€ à domicile. Un numéro de suivi est communiqué par email dès l'expédition.",
+            title: t("cgv_s7"),
+            content: t("cgv_s7_c"),
           },
           {
-            title: "8. Droit de rétractation",
-            content: "Conformément à l'article L221-18 du Code de la consommation, vous disposez d'un délai de 14 jours à compter de la réception de votre commande pour exercer votre droit de rétractation, sans avoir à justifier de motifs ni à payer de pénalités. Les frais de retour sont à la charge du client.",
+            title: t("cgv_s8"),
+            content: t("cgv_s8_c"),
           },
           {
-            title: "9. Retours et remboursements",
-            content: "Pour effectuer un retour, contactez-nous à contact@milkbebe.fr dans les 14 jours suivant la réception. Le produit doit être dans son état d'origine, non utilisé et dans son emballage d'origine. Les frais de retour sont à la charge du client (Colissimo recommandé). Le remboursement sera effectué dans les 14 jours suivant la réception du retour, sur le moyen de paiement initial.",
+            title: t("cgv_s9"),
+            content: t("cgv_s9_c"),
           },
           {
-            title: "10. Garanties",
-            content: "Tous nos produits bénéficient de la garantie légale de conformité (articles L217-4 à L217-14 du Code de la consommation) et de la garantie contre les vices cachés (articles 1641 à 1648 du Code civil).",
+            title: t("cgv_s10"),
+            content: t("cgv_s10_c"),
           },
           {
-            title: "11. Données personnelles",
-            content: "Les données personnelles collectées sont utilisées uniquement pour le traitement des commandes et l'amélioration de nos services. Conformément au RGPD, vous disposez d'un droit d'accès, de rectification et de suppression de vos données. Contactez-nous à contact@milkbebe.fr.",
+            title: t("cgv_s11"),
+            content: t("cgv_s11_c"),
           },
           {
-            title: "12. Litiges",
-            content: "En cas de litige, une solution amiable sera recherchée en priorité. À défaut, les tribunaux compétents du ressort du siège social d'EKBH seront saisis. La loi française est applicable.",
+            title: t("cgv_s12"),
+            content: t("cgv_s12_c"),
           },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: 36, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>

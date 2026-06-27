@@ -1,64 +1,62 @@
-import { getTranslations, setRequestLocale } from "next-intl/server";
-import { Link } from "@/i18n/navigation";
-import { LangSwitcher } from "@/components/i18n/LangSwitcher";
+﻿// app/page.tsx — Server Component (PAS de "use client")
+// generateMetadata fonctionne ici car ce fichier n'a aucun hook React
+import type { Metadata } from "next";
+import HomepageClient from "./_homepage/HomepageClient";
 
-// Page pilote 1 — démontre la chaîne i18n (messages FR/EN + switch + Link
-// localisé). Ce N'EST PAS la home finale localisée : la home live reste
-// app/page.tsx, intacte. Accessible en /fr et /en.
-export default async function LocaleHome({
-  params,
-}: {
-  params: Promise<{ locale: string }>;
-}) {
-  const { locale } = await params;
-  setRequestLocale(locale);
-  const t = await getTranslations("home");
+const BASE_URL = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-  return (
-    <main
-      style={{
-        minHeight: "60vh",
-        padding: "64px 24px",
-        background: "#ede8df",
-        color: "#1a1410",
-        fontFamily: "system-ui, -apple-system, sans-serif",
-      }}
-    >
-      <div style={{ maxWidth: 720, margin: "0 auto" }}>
-        <LangSwitcher />
-        <p
-          style={{
-            fontSize: 12,
-            fontWeight: 800,
-            letterSpacing: 2,
-            textTransform: "uppercase",
-            color: "#c49a4a",
-            marginTop: 24,
-          }}
-        >
-          Pilote i18n · locale active : {locale.toUpperCase()}
-        </p>
-        <h1
-          style={{
-            fontSize: "clamp(32px,6vw,64px)",
-            fontWeight: 950,
-            letterSpacing: -2,
-            lineHeight: 1,
-            margin: "8px 0 16px",
-          }}
-        >
-          {t("hero_title")}{" "}
-          <span style={{ color: "#c49a4a" }}>{t("hero_title_accent")}</span>
-        </h1>
-        <p style={{ fontSize: 16, lineHeight: 1.7, color: "rgba(26,20,16,0.7)", maxWidth: 520 }}>
-          {t("hero_desc")}
-        </p>
-        <p style={{ marginTop: 28 }}>
-          <Link href="/cgv" style={{ fontWeight: 800, color: "#c49a4a", textDecoration: "underline" }}>
-            → Page pilote 2 (/{locale}/cgv)
-          </Link>
-        </p>
-      </div>
-    </main>
-  );
+export const metadata: Metadata = {
+  title: "M!LK — Bodies, Pyjamas, Gigoteuses & Langes nourrisson bambou | OEKO-TEX | 0-6 mois",
+  description:
+    "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX Standard 100. 3× plus doux que le coton, thermorégulateur, antibactérien. Idéal peaux sensibles, eczéma. Cadeau naissance parfait. Livraison offerte dès 60€. Marque française.",
+  keywords: [
+    "body nourrisson bambou", "body bébé naissance bambou", "body bébé 0 3 mois bambou",
+    "body bébé nouveau né bambou", "body bébé 0 6 mois", "body bébé manches longues bambou",
+    "body bébé certifié OEKO-TEX", "body bébé peau sensible", "body bébé thermorégulateur",
+    "pyjama nourrisson bambou", "pyjama bébé naissance bambou", "pyjama bébé 0 3 mois bambou",
+    "pyjama bébé zip bambou", "grenouillère bébé bambou", "dors bien bébé naissance bambou",
+    "gigoteuse nourrisson bambou", "gigoteuse bébé naissance bambou", "gigoteuse bébé 0 3 mois",
+    "turbulette bébé bambou", "sac de couchage bébé bambou", "nid ange bébé bambou",
+    "lange nourrisson bambou", "lange emmaillotage nourrisson", "swaddle bébé bambou",
+    "bonnet bébé bambou", "bonnet nourrisson bambou",
+    "vêtements nourrisson bambou", "vêtements bébé naissance bambou", "vêtements bébé 0 3 mois",
+    "vêtements bébé peau sensible", "vêtements bébé OEKO-TEX", "bambou nourrisson OEKO-TEX",
+    "layette bambou nourrisson", "essentiels bébé bambou premium",
+    "vêtements bébé eczéma", "vêtements bébé peau atopique",
+    "trousseau naissance bambou", "valise maternité bébé bambou", "kit naissance bambou",
+    "cadeau naissance bambou", "cadeau baby shower bambou", "meilleur cadeau naissance 2025 2026",
+    "cadeau naissance original", "idée cadeau bébé bambou",
+    "boutique vêtements bébé bambou France", "marque française vêtements bébé bambou",
+    "M!LK bébé", "milkbebe", "milk bébé bambou",
+  ],
+  openGraph: {
+    type:      "website",
+    locale:    "fr_FR",
+    url:       BASE_URL,
+    siteName:  "M!LK",
+    title:     "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois",
+    description:
+      "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX. 3× plus doux que le coton. Cadeau naissance parfait.",
+    images: [
+      {
+        url:    `${BASE_URL}/images/og/milk-og-homepage.jpg`,
+        width:  1200,
+        height: 630,
+        alt:    "M!LK — Essentiels bébé bambou premium",
+      },
+    ],
+  },
+  twitter: {
+    card:        "summary_large_image",
+    title:       "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois",
+    description: "Bodies, pyjamas, gigoteuses et langes nourrisson en bambou certifié OEKO-TEX. Doux, thermorégulateur, anti-bactérien.",
+    images:      [`${BASE_URL}/images/og/milk-og-homepage.jpg`],
+  },
+  alternates: {
+    canonical: BASE_URL,
+  },
+};
+
+export default function Page() {
+  return <HomepageClient />;
 }

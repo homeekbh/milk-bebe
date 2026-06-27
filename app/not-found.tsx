@@ -10,6 +10,8 @@ export const metadata: Metadata = {
 
 export default function NotFound() {
   return (
+    <html lang="fr">
+      <body style={{ margin: 0 }}>
     <div style={{
       background: "#0d0b09",
       minHeight: "100vh",
@@ -142,5 +144,7 @@ export default function NotFound() {
       </div>
 
     </div>
+      </body>
+    </html>
   );
 }

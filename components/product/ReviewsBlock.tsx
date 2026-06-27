@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import { Link } from "@/i18n/navigation";
 
 /**
  * ReviewsBlock — affiche tous les avis clients approuvés sur la page /produits.

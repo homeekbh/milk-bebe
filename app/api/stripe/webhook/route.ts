@@ -1,4 +1,4 @@
-﻿import Stripe from "stripe";
+import Stripe from "stripe";
 import { headers } from "next/headers";
 import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
@@ -35,9 +35,10 @@ function extractTailleFromName(name: string): string | null {
 }
 
 // ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
-// Branche séparée du flow commande normal : décrémente le stock de chaque
-// produit du pack (qty 1, taille choisie) et crée UNE commande (items = 1 ligne
-// pack + breakdown produits, pack_id renseigné).
+// Branche séparée du flow commande normal : crée UNE commande (items = 1 ligne
+// pack + breakdown produits, pack_id renseigné) PUIS, une seule fois (claim
+// atomique webhook_processed), décrémente le stock de chaque produit du pack
+// (qty 1, taille choisie) et envoie les emails.
 async function handlePackOrder(session: Stripe.Checkout.Session) {
   const meta   = session.metadata ?? {};
   const packId = meta.pack_id || null;
@@ -63,21 +64,6 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   const prodMap: Record<string, any> = {};
   (prods ?? []).forEach((p: any) => { prodMap[p.id] = p; });
 
-  // Décrément stock atomique par produit (avec fallback non-atomique).
-  for (const pid of productIds) {
-    const { error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
-      p_product_id: pid, p_quantity: 1, p_size: size,
-    });
-    if (rpcErr) {
-      const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", pid).single();
-      if (fp) {
-        const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - 1) };
-        if (size) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [size]: Math.max(0, (ss[size] ?? 0) - 1) }; }
-        await supabaseServer.from("products").update(upd).eq("id", pid);
-      }
-    }
-  }
-
   const packProducts = productIds.map(pid => ({
     id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: size,
   }));
@@ -94,6 +80,9 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     products:      packProducts,
   }];
 
+  // 1) Upsert de la commande EN PREMIER (idempotent via stripe_session_id).
+  //    On ne met JAMAIS webhook_processed dans le payload : ON CONFLICT DO
+  //    UPDATE préserve les colonnes absentes → le flag de claim reste intact.
   const { data: orderData, error: orderErr } = await supabaseServer
     .from("orders")
     .upsert([{
@@ -113,31 +102,65 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     process.env.NODE_ENV !== "production" && console.error("❌ Pack order upsert:", orderErr.message);
   }
 
-  if (email && orderData) {
-    try {
-      await fetch(`${BASE}/api/emails/confirmation`, {
-        method:  "POST",
-        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-        body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress }),
-      });
-    } catch {}
+  // 2) Claim atomique : le premier webhook bascule webhook_processed false→true
+  //    et "gagne" le droit d'exécuter les effets de bord. Le WHERE
+  //    webhook_processed=false rend l'update atomique côté Postgres → sur un
+  //    rejeu Stripe, claimed=null → isFirstProcessing=false.
+  let isFirstProcessing = false;
+  if (orderData?.id) {
+    const { data: claimed } = await supabaseServer
+      .from("orders")
+      .update({ webhook_processed: true })
+      .eq("id", orderData.id)
+      .eq("webhook_processed", false)
+      .select("id")
+      .maybeSingle();
+    isFirstProcessing = !!claimed;
   }
 
-  if (orderData && ADMIN_EMAILS.length > 0) {
-    try {
-      await resend.emails.send({
-        from:    "M!LK <contact@milkbebe.fr>",
-        to:      ADMIN_EMAILS,
-        subject: `🎁 Nouveau pack vendu — ${amount.toFixed(2)} € — ${name || email}`,
-        html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${meta.pack_title ?? ""}</h2><p>${name || "Client"} — ${email}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+  // 3) Effets de bord EXACTEMENT-UNE-FOIS par commande.
+  if (isFirstProcessing) {
+    // Décrément stock atomique par produit (avec fallback non-atomique).
+    for (const pid of productIds) {
+      const { error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+        p_product_id: pid, p_quantity: 1, p_size: size,
       });
+      if (rpcErr) {
+        const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", pid).single();
+        if (fp) {
+          const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - 1) };
+          if (size) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [size]: Math.max(0, (ss[size] ?? 0) - 1) }; }
+          await supabaseServer.from("products").update(upd).eq("id", pid);
+        }
+      }
+    }
+
+    if (email && orderData) {
+      try {
+        await fetch(`${BASE}/api/emails/confirmation`, {
+          method:  "POST",
+          headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+          body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress }),
+        });
+      } catch {}
+    }
+
+    if (orderData && ADMIN_EMAILS.length > 0) {
+      try {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `🎁 Nouveau pack vendu — ${amount.toFixed(2)} € — ${name || email}`,
+          html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${meta.pack_title ?? ""}</h2><p>${name || "Client"} — ${email}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+        });
+      } catch {}
+    }
+
+    try {
+      await logActivity("commande_pack", `Pack vendu : ${meta.pack_title ?? ""} — ${amount.toFixed(2)} €`,
+        { entity_id: orderData?.id, meta: { pack_id: packId, size, product_ids: productIds, customer_email: email } });
     } catch {}
   }
-
-  try {
-    await logActivity("commande_pack", `Pack vendu : ${meta.pack_title ?? ""} — ${amount.toFixed(2)} €`,
-      { entity_id: orderData?.id, meta: { pack_id: packId, size, product_ids: productIds, customer_email: email } });
-  } catch {}
 }
 
 export async function POST(req: Request) {
@@ -254,6 +277,8 @@ export async function POST(req: Request) {
       // ─ Upsert en 2 étapes : status/statuts (GARANTI) + colonnes optionnelles
       //   (stripe_payment_intent_id) en best-effort. Si la colonne manque, on
       //   ne perd pas l'upsert principal (cf. migration 001 commit D).
+      //   ⚠️ Ne JAMAIS inclure webhook_processed ici : ON CONFLICT DO UPDATE
+      //   préserve les colonnes absentes → le flag de claim reste intact.
       const { data: orderData, error: orderError } = await supabaseServer
         .from("orders")
         .upsert([{
@@ -300,13 +325,13 @@ export async function POST(req: Request) {
         // le metadata est manquant (anciennes commandes ou bug client).
         if (orderData?.id) {
           const carrierFromMeta = session.metadata?.carrier;
-          console.log("[webhook] carrier from metadata:", carrierFromMeta);
-          console.log("[webhook] full metadata keys:", Object.keys(session.metadata ?? {}).join(", "));
+          process.env.NODE_ENV !== "production" && console.log("[webhook] carrier from metadata:", carrierFromMeta);
+          process.env.NODE_ENV !== "production" && console.log("[webhook] full metadata keys:", Object.keys(session.metadata ?? {}).join(", "));
           const carrierValue =
             carrierFromMeta === "mondial_relay" || carrierFromMeta === "colissimo"
               ? carrierFromMeta
               : "colissimo";
-          console.log("[webhook] persisting carrier:", carrierValue, "for order:", orderData.id);
+          process.env.NODE_ENV !== "production" && console.log("[webhook] persisting carrier:", carrierValue, "for order:", orderData.id);
           const { error: cErr } = await supabaseServer
             .from("orders")
             .update({ carrier: carrierValue })
@@ -330,151 +355,173 @@ export async function POST(req: Request) {
         }
       }
 
-      // ✅ Batch load produits — 1 requête au lieu de N (sert à mapper item.slug → id
-      // et à logguer le nom du produit dans les alertes stock)
-      const _itemIds   = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
-      const _itemSlugs = [...new Set(items.map((i: any) => i.slug).filter(Boolean))];
-      const { data: _allProds } = await supabaseServer
-        .from("products").select("id, slug, name")
-        .in("id", _itemIds.length ? _itemIds : ["none"]);
-      const { data: _allProds2 } = _itemSlugs.length
-        ? await supabaseServer.from("products").select("id, slug, name").in("slug", _itemSlugs)
-        : { data: [] };
-      const _prodsMap: Record<string, any> = {};
-      [...(_allProds ?? []), ...(_allProds2 ?? [])].forEach((p: any) => {
-        _prodsMap[p.id]   = p;
-        _prodsMap[p.slug] = p;
-      });
+      // ── Claim atomique d'idempotence ─────────────────────────────────────
+      // Le premier webhook reçu pour cette commande bascule webhook_processed
+      // false→true et "gagne" le droit d'exécuter les effets de bord une seule
+      // fois. Le WHERE webhook_processed=false rend l'update atomique côté
+      // Postgres → sur un rejeu Stripe (livraison "at least once"), claimed=null
+      // → isFirstProcessing=false → on saute stock / promo / email confirmation.
+      let isFirstProcessing = false;
+      if (orderData?.id) {
+        const { data: claimed } = await supabaseServer
+          .from("orders")
+          .update({ webhook_processed: true })
+          .eq("id", orderData.id)
+          .eq("webhook_processed", false)
+          .select("id")
+          .maybeSingle();
+        isFirstProcessing = !!claimed;
+      }
 
-      // #1/#8 — Décrément stock ATOMIQUE via RPC Supabase (cf. migration 001
-      // commit D). SELECT FOR UPDATE dans la fonction = deux paiements
-      // simultanés sur le dernier exemplaire ne peuvent plus réussir tous
-      // les deux. Si le stock est insuffisant côté serveur, on tracke
-      // l'anomalie pour notifier l'admin (le client reçoit quand même sa
-      // confirmation — il a payé, on ne peut pas le laisser dans le silence).
-      const stockIssues: Array<{ slug: string; name: string; requested: number; available: number; size?: string; error?: string }> = [];
-
-      for (const item of items) {
-        const productData: any = _prodsMap[item.id] ?? _prodsMap[item.slug] ?? null;
-        const productId = productData?.id ?? item.id ?? null;
-
-        if (!productId) {
-          console.warn("⚠️ Product not found for item:", item);
-          stockIssues.push({
-            slug: item.slug ?? "(inconnu)",
-            name: item.name ?? "(inconnu)",
-            requested: item.quantity ?? 1,
-            available: 0,
-            error: "product_not_found",
-          });
-          continue;
-        }
-
-        const qty    = item.quantity ?? 1;
-        const taille = item.taille ?? extractTailleFromName(item.name ?? "");
-
-        const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
-          p_product_id: productId,
-          p_quantity:   qty,
-          p_size:       taille,
+      if (isFirstProcessing) {
+        // ✅ Batch load produits — 1 requête au lieu de N (sert à mapper item.slug → id
+        // et à logguer le nom du produit dans les alertes stock)
+        const _itemIds   = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
+        const _itemSlugs = [...new Set(items.map((i: any) => i.slug).filter(Boolean))];
+        const { data: _allProds } = await supabaseServer
+          .from("products").select("id, slug, name")
+          .in("id", _itemIds.length ? _itemIds : ["none"]);
+        const { data: _allProds2 } = _itemSlugs.length
+          ? await supabaseServer.from("products").select("id, slug, name").in("slug", _itemSlugs)
+          : { data: [] };
+        const _prodsMap: Record<string, any> = {};
+        [...(_allProds ?? []), ...(_allProds2 ?? [])].forEach((p: any) => {
+          _prodsMap[p.id]   = p;
+          _prodsMap[p.slug] = p;
         });
 
-        if (rpcErr) {
-          // La RPC n'existe pas encore → fallback non-atomique (read-modify-write).
-          // On garde l'ancien comportement comme filet de sécurité pendant la
-          // période où la migration SQL n'est pas encore exécutée en prod.
-          console.error("[stripe-webhook] RPC decrement_stock_atomic indispo, fallback non-atomique:", rpcErr.message);
+        // #1/#8 — Décrément stock ATOMIQUE via RPC Supabase (cf. migration 001
+        // commit D). SELECT FOR UPDATE dans la fonction = deux paiements
+        // simultanés sur le dernier exemplaire ne peuvent plus réussir tous
+        // les deux. Si le stock est insuffisant côté serveur, on tracke
+        // l'anomalie pour notifier l'admin (le client reçoit quand même sa
+        // confirmation — il a payé, on ne peut pas le laisser dans le silence).
+        const stockIssues: Array<{ slug: string; name: string; requested: number; available: number; size?: string; error?: string }> = [];
 
-          const { data: fallbackProd } = await supabaseServer
-            .from("products").select("id, stock, sizes_stock, name, slug")
-            .eq("id", productId).single();
-          if (!fallbackProd) {
-            stockIssues.push({ slug: item.slug ?? "(?)", name: item.name ?? "(?)", requested: qty, available: 0, error: "fallback_product_not_found" });
+        for (const item of items) {
+          const productData: any = _prodsMap[item.id] ?? _prodsMap[item.slug] ?? null;
+          const productId = productData?.id ?? item.id ?? null;
+
+          if (!productId) {
+            console.warn("⚠️ Product not found for item:", item);
+            stockIssues.push({
+              slug: item.slug ?? "(inconnu)",
+              name: item.name ?? "(inconnu)",
+              requested: item.quantity ?? 1,
+              available: 0,
+              error: "product_not_found",
+            });
             continue;
           }
-          const availableGlobal = fallbackProd.stock ?? 0;
-          if (qty > availableGlobal) {
-            stockIssues.push({ slug: fallbackProd.slug, name: fallbackProd.name, requested: qty, available: availableGlobal });
-          }
-          const newStock = Math.max(0, availableGlobal - qty);
-          const updatePayload: Record<string, any> = { stock: newStock };
-          if (taille) {
-            const sizesStock: Record<string, number> = fallbackProd.sizes_stock ?? {};
-            const currentTailleStock = sizesStock[taille] ?? 0;
-            if (qty > currentTailleStock) {
-              stockIssues.push({ slug: fallbackProd.slug, name: fallbackProd.name, requested: qty, available: currentTailleStock, size: taille });
+
+          const qty    = item.quantity ?? 1;
+          const taille = item.taille ?? extractTailleFromName(item.name ?? "");
+
+          const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+            p_product_id: productId,
+            p_quantity:   qty,
+            p_size:       taille,
+          });
+
+          if (rpcErr) {
+            // La RPC n'existe pas encore → fallback non-atomique (read-modify-write).
+            // On garde l'ancien comportement comme filet de sécurité pendant la
+            // période où la migration SQL n'est pas encore exécutée en prod.
+            console.error("[stripe-webhook] RPC decrement_stock_atomic indispo, fallback non-atomique:", rpcErr.message);
+
+            const { data: fallbackProd } = await supabaseServer
+              .from("products").select("id, stock, sizes_stock, name, slug")
+              .eq("id", productId).single();
+            if (!fallbackProd) {
+              stockIssues.push({ slug: item.slug ?? "(?)", name: item.name ?? "(?)", requested: qty, available: 0, error: "fallback_product_not_found" });
+              continue;
             }
-            updatePayload.sizes_stock = { ...sizesStock, [taille]: Math.max(0, currentTailleStock - qty) };
+            const availableGlobal = fallbackProd.stock ?? 0;
+            if (qty > availableGlobal) {
+              stockIssues.push({ slug: fallbackProd.slug, name: fallbackProd.name, requested: qty, available: availableGlobal });
+            }
+            const newStock = Math.max(0, availableGlobal - qty);
+            const updatePayload: Record<string, any> = { stock: newStock };
+            if (taille) {
+              const sizesStock: Record<string, number> = fallbackProd.sizes_stock ?? {};
+              const currentTailleStock = sizesStock[taille] ?? 0;
+              if (qty > currentTailleStock) {
+                stockIssues.push({ slug: fallbackProd.slug, name: fallbackProd.name, requested: qty, available: currentTailleStock, size: taille });
+              }
+              updatePayload.sizes_stock = { ...sizesStock, [taille]: Math.max(0, currentTailleStock - qty) };
+            }
+            await supabaseServer.from("products").update(updatePayload).eq("id", productId);
+            continue;
           }
-          await supabaseServer.from("products").update(updatePayload).eq("id", productId);
-          continue;
+
+          // La RPC renvoie un JSON {ok, ...}
+          const result = rpcResult as any;
+          if (!result?.ok) {
+            const errCode = String(result?.error ?? "unknown");
+            console.error(`[stripe-webhook] RPC stock failed: ${errCode}`, result);
+            stockIssues.push({
+              slug:      productData?.slug ?? item.slug ?? "(?)",
+              name:      productData?.name ?? item.name ?? "(?)",
+              requested: qty,
+              available: Number(result?.available ?? 0),
+              size:      taille ?? undefined,
+              error:     errCode,
+            });
+          } else {
+            process.env.NODE_ENV !== "production" && console.log(`✅ Stock atomic OK: ${productData?.slug ?? productId} → ${result.new_stock}${taille ? ` (taille ${taille}: ${result.new_size_stock})` : ""}`);
+          }
         }
 
-        // La RPC renvoie un JSON {ok, ...}
-        const result = rpcResult as any;
-        if (!result?.ok) {
-          const errCode = String(result?.error ?? "unknown");
-          console.error(`[stripe-webhook] RPC stock failed: ${errCode}`, result);
-          stockIssues.push({
-            slug:      productData?.slug ?? item.slug ?? "(?)",
-            name:      productData?.name ?? item.name ?? "(?)",
-            requested: qty,
-            available: Number(result?.available ?? 0),
-            size:      taille ?? undefined,
-            error:     errCode,
-          });
-        } else {
-          process.env.NODE_ENV !== "production" && console.log(`✅ Stock atomic OK: ${productData?.slug ?? productId} → ${result.new_stock}${taille ? ` (taille ${taille}: ${result.new_size_stock})` : ""}`);
+        // #17 — Si problème de stock détecté, notifier l'admin (le client reçoit
+        // quand même sa confirmation — il a payé, on ne peut pas le laisser dans
+        // le flou — mais l'admin doit savoir qu'il y a un souci à résoudre).
+        if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0 && orderData) {
+          const issuesHtml = stockIssues.map(i =>
+            `<li><strong>${i.name}</strong>${i.size ? ` (taille ${i.size})` : ""} — commandé ${i.requested}, dispo ${i.available}</li>`
+          ).join("");
+          try {
+            await resend.emails.send({
+              from:    "M!LK <contact@milkbebe.fr>",
+              to:      ADMIN_EMAILS,
+              subject: `⚠️ STOCK INSUFFISANT — commande #${orderData.id.slice(0,8).toUpperCase()}`,
+              html: `
+                <div style="font-family:sans-serif;padding:24px;max-width:560px">
+                  <h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant détecté</h2>
+                  <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${name || email}</strong> :</p>
+                  <ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul>
+                  <p>📦 <strong>Action requise :</strong> vérifier le stock réel avant expédition. Si rupture confirmée, proposer alternative ou remboursement partiel/total.</p>
+                  <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
+                    Voir la commande →
+                  </a>
+                </div>
+              `,
+            });
+          } catch (e) {
+            console.error("[stripe-webhook] Admin stock alert email failed:", e);
+          }
+          try {
+            await logActivity(
+              "stock_alert",
+              `Stock insuffisant sur commande #${orderData.id.slice(0,8).toUpperCase()} — ${stockIssues.length} item(s)`,
+              { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }
+            );
+          } catch {}
         }
-      }
 
-      // #17 — Si problème de stock détecté, notifier l'admin (le client reçoit
-      // quand même sa confirmation — il a payé, on ne peut pas le laisser dans
-      // le flou — mais l'admin doit savoir qu'il y a un souci à résoudre).
-      if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0 && orderData) {
-        const issuesHtml = stockIssues.map(i =>
-          `<li><strong>${i.name}</strong>${i.size ? ` (taille ${i.size})` : ""} — commandé ${i.requested}, dispo ${i.available}</li>`
-        ).join("");
-        try {
-          await resend.emails.send({
-            from:    "M!LK <contact@milkbebe.fr>",
-            to:      ADMIN_EMAILS,
-            subject: `⚠️ STOCK INSUFFISANT — commande #${orderData.id.slice(0,8).toUpperCase()}`,
-            html: `
-              <div style="font-family:sans-serif;padding:24px;max-width:560px">
-                <h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant détecté</h2>
-                <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${name || email}</strong> :</p>
-                <ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul>
-                <p>📦 <strong>Action requise :</strong> vérifier le stock réel avant expédition. Si rupture confirmée, proposer alternative ou remboursement partiel/total.</p>
-                <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
-                  Voir la commande →
-                </a>
-              </div>
-            `,
-          });
-        } catch (e) {
-          console.error("[stripe-webhook] Admin stock alert email failed:", e);
-        }
-        try {
-          await logActivity(
-            "stock_alert",
-            `Stock insuffisant sur commande #${orderData.id.slice(0,8).toUpperCase()} — ${stockIssues.length} item(s)`,
-            { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }
-          );
-        } catch {}
-      }
-
-      if (promoCode) {
-        const { data: promo } = await supabaseServer
-          .from("promo_codes").select("id, uses_count").eq("code", promoCode).single();
-        if (promo) {
-          await supabaseServer
-            .from("promo_codes")
-            .update({ uses_count: (promo.uses_count ?? 0) + 1 })
-            .eq("id", promo.id);
+        if (promoCode) {
+          const { data: promo } = await supabaseServer
+            .from("promo_codes").select("id, uses_count").eq("code", promoCode).single();
+          if (promo) {
+            await supabaseServer
+              .from("promo_codes")
+              .update({ uses_count: (promo.uses_count ?? 0) + 1 })
+              .eq("id", promo.id);
+          }
         }
       }
 
+      // Hors garde : la conversion du panier abandonné est idempotente par
+      // nature (update converted=true) et utile à chaque réception.
       if (email) {
         await supabaseServer
           .from("abandoned_carts")
@@ -482,73 +529,75 @@ export async function POST(req: Request) {
           .eq("email", email.toLowerCase().trim());
       }
 
-      if (email && orderData) {
-        try {
-          await fetch(`${BASE}/api/emails/confirmation`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-            body: JSON.stringify({
-              to:               email,
-              email,
-              customer_name:    name,
-              items,
-              amount_total:     amount,
-              order_id:         orderData.id,
-              shipping_address: finalShippingAddress,
-              promo_code:       promoCode,
-              discount,
-              delivery_type:    deliveryType,
-              relay:            relayId ? {
-                id:          relayId,
-                name:        relayName,
-                street:      relayStreet,
-                city:        relayCity,
-                postal_code: relayCp,
-                type:        relayType,
-              } : null,
-              home_address:     homeAddrParsed,
-            }),
-          });
-        } catch (e) {
-          process.env.NODE_ENV !== "production" && console.error("❌ Confirmation email error:", e);
-        }
-      }
-
-      if (orderData && ADMIN_EMAILS.length > 0) {
-        const itemsHtml = items.map((i: any) =>
-          `<div style="font-size:14px;color:rgba(242,237,230,0.65);margin-top:6px">
-            ${i.name ?? i.slug} × ${i.quantity} — ${(Number(i.price) * i.quantity).toFixed(2)} €
-          </div>`
-        ).join("");
-
-        for (const adminEmail of ADMIN_EMAILS) {
+      if (isFirstProcessing) {
+        if (email && orderData) {
           try {
-            await resend.emails.send({
-              from:    "M!LK <contact@milkbebe.fr>",
-              to:      adminEmail,
-              subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
-              html: `
-                <div style="background:#1a1410;font-family:Arial,sans-serif;padding:32px;border-radius:16px;max-width:520px">
-                  <div style="background:#c49a4a;border-radius:12px;padding:14px 20px;margin-bottom:24px;text-align:center">
-                    <span style="color:#1a1410;font-weight:950;font-size:20px">M!LK — Nouvelle commande</span>
-                  </div>
-                  <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
-                    <div style="font-size:15px;font-weight:800;color:#f2ede6">${name || "Client"}</div>
-                    <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${email}</div>
-                    ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${shippingAddress.line1}, ${shippingAddress.city} ${shippingAddress.postal_code}</div>` : ""}
-                  </div>
-                  <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
-                    ${itemsHtml}
-                    <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(196,154,74,0.2);font-size:22px;font-weight:950;color:#c49a4a;text-align:right">${amount.toFixed(2)} €</div>
-                  </div>
-                  <a href="${BASE}/admin/commandes" style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:14px;border-radius:10px;font-weight:900;font-size:15px;text-decoration:none">
-                    Voir dans l'admin →
-                  </a>
-                </div>
-              `,
+            await fetch(`${BASE}/api/emails/confirmation`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+              body: JSON.stringify({
+                to:               email,
+                email,
+                customer_name:    name,
+                items,
+                amount_total:     amount,
+                order_id:         orderData.id,
+                shipping_address: finalShippingAddress,
+                promo_code:       promoCode,
+                discount,
+                delivery_type:    deliveryType,
+                relay:            relayId ? {
+                  id:          relayId,
+                  name:        relayName,
+                  street:      relayStreet,
+                  city:        relayCity,
+                  postal_code: relayCp,
+                  type:        relayType,
+                } : null,
+                home_address:     homeAddrParsed,
+              }),
             });
           } catch (e) {
-            process.env.NODE_ENV !== "production" && console.error("❌ Admin notification error:", e);
+            process.env.NODE_ENV !== "production" && console.error("❌ Confirmation email error:", e);
+          }
+        }
+
+        if (orderData && ADMIN_EMAILS.length > 0) {
+          const itemsHtml = items.map((i: any) =>
+            `<div style="font-size:14px;color:rgba(242,237,230,0.65);margin-top:6px">
+              ${i.name ?? i.slug} × ${i.quantity} — ${(Number(i.price) * i.quantity).toFixed(2)} €
+            </div>`
+          ).join("");
+
+          for (const adminEmail of ADMIN_EMAILS) {
+            try {
+              await resend.emails.send({
+                from:    "M!LK <contact@milkbebe.fr>",
+                to:      adminEmail,
+                subject: `🛍️ Nouvelle vente M!LK — ${amount.toFixed(2)} € — ${name || email}`,
+                html: `
+                  <div style="background:#1a1410;font-family:Arial,sans-serif;padding:32px;border-radius:16px;max-width:520px">
+                    <div style="background:#c49a4a;border-radius:12px;padding:14px 20px;margin-bottom:24px;text-align:center">
+                      <span style="color:#1a1410;font-weight:950;font-size:20px">M!LK — Nouvelle commande</span>
+                    </div>
+                    <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
+                      <div style="font-size:15px;font-weight:800;color:#f2ede6">${name || "Client"}</div>
+                      <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${email}</div>
+                      ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${shippingAddress.line1}, ${shippingAddress.city} ${shippingAddress.postal_code}</div>` : ""}
+                    </div>
+                    <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
+                      ${itemsHtml}
+                      <div style="margin-top:16px;padding-top:14px;border-top:1px solid rgba(196,154,74,0.2);font-size:22px;font-weight:950;color:#c49a4a;text-align:right">${amount.toFixed(2)} €</div>
+                    </div>
+                    <a href="${BASE}/admin/commandes" style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:14px;border-radius:10px;font-weight:900;font-size:15px;text-decoration:none">
+                      Voir dans l'admin →
+                    </a>
+                  </div>
+                `,
+              });
+            } catch (e) {
+              process.env.NODE_ENV !== "production" && console.error("❌ Admin notification error:", e);
+            }
           }
         }
       }

@@ -431,3 +431,13 @@ html, body {
     max-height: 55vh !important;
   }
 }
+
+/* ── Bandeau promo mobile : exempter le bouton × du min-height:44px global
+   (sinon il gonfle la hauteur de la barre). Reste tappable (28px). ── */
+@media (max-width: 768px) {
+  .milk-promo-close {
+    min-height: 28px !important;
+    height: 28px !important;
+    width: 28px !important;
+  }
+}

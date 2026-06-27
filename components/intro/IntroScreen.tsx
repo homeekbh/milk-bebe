@@ -17,6 +17,8 @@ export default function IntroScreen() {
   const [ready,   setReady]   = useState(false);
   const [phase,   setPhase]   = useState(0);
   const [exiting, setExiting] = useState(false);
+  // Correction 1 — accélère l'intro sur mobile uniquement (desktop inchangé).
+  const [mobile,  setMobile]  = useState(false);
   const timers = useRef<NodeJS.Timeout[]>([]);
 
   function dismiss() {
@@ -27,7 +29,7 @@ export default function IntroScreen() {
     setTimeout(() => {
       setShow(false);
       document.getElementById("intro-hide-hdr")?.remove();
-    }, 371);
+    }, mobile ? 232 : 371);
   }
 
   useEffect(() => {
@@ -49,23 +51,29 @@ export default function IntroScreen() {
 
     setShow(true); setReady(false); setPhase(0); setExiting(false);
 
+    // Correction 1 — sur mobile (< 768px) on accélère toute la séquence
+    // (÷1.6 ≈ -40%). Desktop : facteur 1 → timings d'origine inchangés.
+    const isM = typeof window !== "undefined" && window.innerWidth < 768;
+    setMobile(isM);
+    const f = isM ? 1 / 1.6 : 1;
+
     const s = document.createElement("style");
     s.id = "intro-hide-hdr";
     s.textContent = "header{display:none!important;}";
     document.head.appendChild(s);
 
-    // Timeline compressée (~3.2s, plus de phrase défilante) :
+    // Timeline (valeurs desktop, ×f sur mobile) :
     //  29ms  → DOM prêt
     //  17ms  → M et LK apparaissent (phase 1)
-    //  297ms → ! commence à tomber (phase 2, drop 0.63s)
-    //  943ms → ! a atterri → néon démarre (phase 3, néon 1.89s)
-    //  auto  → dismiss après le néon (3200ms)
-    const dur = INTRO_DUR;
+    //  297ms → ! commence à tomber (phase 2)
+    //  943ms → ! a atterri → néon démarre (phase 3)
+    //  dur   → dismiss après le néon
+    const dur = Math.round(INTRO_DUR * f);
     const t = [
-      setTimeout(() => setReady(true), 29),
-      setTimeout(() => setPhase(1), 17),
-      setTimeout(() => setPhase(2), 297),
-      setTimeout(() => setPhase(3), 943),
+      setTimeout(() => setReady(true), Math.round(29 * f)),
+      setTimeout(() => setPhase(1), Math.round(17 * f)),
+      setTimeout(() => setPhase(2), Math.round(297 * f)),
+      setTimeout(() => setPhase(3), Math.round(943 * f)),
       setTimeout(() => dismiss(),   dur),
     ];
     timers.current = t;
@@ -74,7 +82,11 @@ export default function IntroScreen() {
   }, [pathname]);
 
   if (!show) return null;
-  const totalDur = INTRO_DUR;
+  // Durées dérivées du flag mobile (Correction 1). Desktop = valeurs d'origine.
+  const totalDur = mobile ? Math.round(INTRO_DUR / 1.6) : INTRO_DUR;
+  const dropDur  = mobile ? "0.39s" : "0.63s";   // 0.63 ÷ 1.6
+  const neonDur  = mobile ? "1.18s" : "1.89s";   // 1.89 ÷ 1.6
+  const exitDur  = mobile ? "0.23s" : "0.37s";   // 0.37 ÷ 1.6
 
   return (
     <div id="milk-intro" onClick={dismiss} style={{
@@ -84,7 +96,7 @@ export default function IntroScreen() {
       cursor:"pointer",
       overflow:"hidden",
       opacity:  exiting ? 0 : 1,
-      transition: exiting ? "opacity 0.37s ease, transform 0.37s ease, filter 0.37s ease" : "none",
+      transition: exiting ? `opacity ${exitDur} ease, transform ${exitDur} ease, filter ${exitDur} ease` : "none",
       transform: exiting ? "scale(1.08) translateY(-6px)" : "none",
       filter: exiting ? "blur(3px)" : "none",
     }}>
@@ -140,13 +152,16 @@ export default function IntroScreen() {
         <div style={{
           display:"flex", alignItems:"flex-end", justifyContent:"center",
           lineHeight:1,
+          overflow:"visible",
+          // Correction 2 — marge en haut sur mobile pour que le "!" ne soit pas rogné.
+          paddingTop: mobile ? 12 : 0,
           fontFamily:"Boldin, Arial Black, sans-serif",
-          animation: exiting ? "mlk-exit 0.37s ease forwards" : undefined,
+          animation: exiting ? `mlk-exit ${exitDur} ease forwards` : undefined,
         }}>
 
           {/* M */}
           <span style={{
-            fontSize:"clamp(110px,30vw,380px)", fontWeight:900, color:DARK,
+            fontSize: mobile ? "clamp(88px,24vw,304px)" : "clamp(110px,30vw,380px)", fontWeight:900, color:DARK,
             letterSpacing:-2, lineHeight:1, display:"inline-block",
             opacity: phase >= 1 ? 1 : 0,
             transform: phase >= 1 ? "none" : "translateY(8px)",
@@ -157,20 +172,20 @@ export default function IntroScreen() {
           {/* Wrapper overflow:visible pour éviter le clipping sur mobile */}
           <span style={{ display:"inline-block", overflow:"visible", lineHeight:1 }}>
           <span style={{
-            fontSize:"clamp(114px,31vw,395px)", fontWeight:900, color:DARK,
+            fontSize: mobile ? "clamp(91px,25vw,316px)" : "clamp(114px,31vw,395px)", fontWeight:900, color:DARK,
             lineHeight:0.95, display:"inline-block", letterSpacing:0,
             overflow:"visible",
             opacity: phase >= 2 ? undefined : 0,
             animation:
-              phase >= 3 ? "mlk-neon 1.89s ease forwards" :
-              phase >= 2 ? "mlk-drop 0.63s cubic-bezier(.22,.61,.36,1) forwards" :
+              phase >= 3 ? `mlk-neon ${neonDur} ease forwards` :
+              phase >= 2 ? `mlk-drop ${dropDur} cubic-bezier(.22,.61,.36,1) forwards` :
               "none",
           }}>!</span>
           </span>
 
           {/* LK */}
           <span style={{
-            fontSize:"clamp(110px,30vw,380px)", fontWeight:900, color:DARK,
+            fontSize: mobile ? "clamp(88px,24vw,304px)" : "clamp(110px,30vw,380px)", fontWeight:900, color:DARK,
             letterSpacing:-2, lineHeight:1, display:"inline-block",
             opacity: phase >= 1 ? 1 : 0,
             transform: phase >= 1 ? "none" : "translateY(8px)",

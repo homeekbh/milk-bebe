@@ -297,5 +297,61 @@
     "cgv_s11_c": "The personal data collected is used solely to process orders and improve our services. In accordance with the GDPR, you have the right to access, rectify and erase your data. Contact us at contact@milkbebe.fr.",
     "cgv_s12": "12. Disputes",
     "cgv_s12_c": "In the event of a dispute, an amicable solution will be sought first. Failing that, the competent courts of EKBH's registered office will have jurisdiction. French law applies."
+  },
+  "faq": {
+    "breadcrumb_home": "Home",
+    "hero_eyebrow": "Help & answers",
+    "hero_title": "Frequently asked questions",
+    "hero_desc": "Everything you want to know about M!LK, bamboo, shipping and our products.",
+    "contact_title": "Didn't find your answer?",
+    "contact_desc": "Our team replies within 24h.",
+    "contact_cta": "Contact us →",
+    "data": [
+      {
+        "section": "The bamboo fabric",
+        "questions": [
+          { "q": "Why bamboo rather than cotton?", "r": "Bamboo is naturally thermo-regulating, antibacterial and 3× softer. It absorbs moisture faster than cotton, regulates body temperature and contains fewer allergens. Ideal for a newborn's skin, which is 5× thinner than ours." },
+          { "q": "Is M!LK bamboo certified?", "r": "Yes. Every M!LK batch is OEKO-TEX Standard 100 certified — the most demanding textile certification, testing over 100 harmful substances. Zero compromise." },
+          { "q": "Does bamboo shrink in the wash?", "r": "Our products are pre-washed. Wash at 30°C, gentle cycle, dry flat. Softness and shape are preserved indefinitely." },
+          { "q": "Is bamboo suitable for babies with eczema?", "r": "Yes. Bamboo microfibres are round and smooth. Naturally hypoallergenic and antibacterial — recommended for sensitive and atopic skin." },
+          { "q": "Can I machine-wash M!LK clothing?", "r": "Yes. Machine wash at 30°C, gentle cycle. Avoid fabric softener — it clogs the fibres and reduces bamboo's breathability." }
+        ]
+      },
+      {
+        "section": "Shipping & delivery times",
+        "questions": [
+          { "q": "What are the delivery times?", "r": "Orders placed before 4pm: same-day shipping (business days). Colissimo: 2-3 business days (home or pickup point). An email with the tracking number is sent as soon as the order ships." },
+          { "q": "Is delivery free?", "r": "Yes, free delivery from €60. Below that, shipping fees are shown at checkout." },
+          { "q": "Do you ship outside France?", "r": "For now, we only ship within mainland France. International shipping is coming soon." },
+          { "q": "Can I track my order?", "r": "Yes. An email with the Colissimo tracking number is sent as soon as the order ships. Track it on laposte.fr or in your profile area." }
+        ]
+      },
+      {
+        "section": "Orders & returns",
+        "questions": [
+          { "q": "Can I return an item?", "r": "Yes, within 14 days of receipt. The item must be unworn and in its original condition. Contact us at contact@milkbebe.fr to start a return. Return shipping is at the customer's expense (Colissimo recommended)." },
+          { "q": "How do I cancel an order?", "r": "Contact us as soon as possible at contact@milkbebe.fr. If the order hasn't shipped yet, we can cancel it. After shipping, a return is the only option." },
+          { "q": "My item is defective — what should I do?", "r": "Send a photo to contact@milkbebe.fr. We replace or refund immediately, no questions asked. Quality is our core commitment." },
+          { "q": "Can I order without creating an account?", "r": "For now, an account is required to complete an order. Guest checkout is coming soon." }
+        ]
+      },
+      {
+        "section": "Sizes & products",
+        "questions": [
+          { "q": "How do I choose the right size?", "r": "Newborn: up to ~3 kg. 0-3 months: 3 to 6 kg. 3-6 months: 6 to 9 kg. When in doubt, go one size up — bamboo adapts. Size charts are available on every product page." },
+          { "q": "Is M!LK clothing suitable for premature babies?", "r": "Our sizes start at Newborn (up to 3 kg). For premature babies, contact us — we have advice based on birth weight." },
+          { "q": "How are M!LK products made?", "r": "Our essentials are designed with care for the details that matter: smart openings, silent closures, flat anti-chafing seams, built-in mittens. Every product solves a real problem for an exhausted parent." },
+          { "q": "Are the patterns available in all sizes?", "r": "Yes. All our patterns (Lightning, Smileys, Checkerboard) are available in every size, while stocks last. Stock is limited — if it's sold out, you can set a restock alert." }
+        ]
+      },
+      {
+        "section": "Payment & security",
+        "questions": [
+          { "q": "Which payment methods do you accept?", "r": "Card (Visa, Mastercard, Amex), Apple Pay, Google Pay. All payments are secured via Stripe — your card details never pass through our servers." },
+          { "q": "Is my data secure?", "r": "Yes. Stripe payment (PCI-DSS certified), customer data stored on Supabase with encryption at rest. We never sell your data — it is only used to process your order and send your M!LK emails if you've opted in." },
+          { "q": "Can I use a promo code?", "r": "Yes. The promo code applies at the cart step, before payment. One code per order. Codes have an expiry date shown in the confirmation email." }
+        ]
+      }
+    ]
   }
 }

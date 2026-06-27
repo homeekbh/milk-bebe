@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
@@ -10,17 +11,16 @@ const COMMENT_CONNU = [
   "Un ami / famille", "Blog ou article", "Autre",
 ];
 
-// Mappe les messages d'erreur Supabase Auth (anglais) vers du français maîtrisé.
-// Évite d'exposer "User already registered" & co. au client final.
-function frAuthError(msg?: string | null): string {
+// Mappe les messages d'erreur Supabase Auth vers une CLÉ de traduction (auth.*).
+function authErrorKey(msg?: string | null): string {
   const m = String(msg ?? "").toLowerCase();
-  if (m.includes("already registered") || m.includes("already been registered")) return "Cet email est déjà utilisé. Essaie de te connecter.";
-  if (m.includes("invalid login credentials")) return "Email ou mot de passe incorrect.";
-  if (m.includes("email not confirmed")) return "Vérifie ta boîte mail pour confirmer ton inscription.";
-  if (m.includes("password") && (m.includes("at least") || m.includes("should be") || m.includes("weak"))) return "Le mot de passe doit faire au moins 8 caractères.";
-  if (m.includes("invalid email") || m.includes("unable to validate email")) return "Adresse email invalide.";
-  if (m.includes("rate limit") || m.includes("too many")) return "Trop de tentatives. Réessaie dans quelques minutes.";
-  return "Une erreur est survenue lors de l'inscription. Réessaie.";
+  if (m.includes("already registered") || m.includes("already been registered")) return "err_email_taken";
+  if (m.includes("invalid login credentials")) return "login_error";
+  if (m.includes("email not confirmed")) return "err_email_not_confirmed";
+  if (m.includes("password") && (m.includes("at least") || m.includes("should be") || m.includes("weak"))) return "err_pwd_short";
+  if (m.includes("invalid email") || m.includes("unable to validate email")) return "err_invalid_email";
+  if (m.includes("rate limit") || m.includes("too many")) return "err_rate_limit";
+  return "err_generic";
 }
 
 function Field({ label, children, required = false }: { label: string; children: React.ReactNode; required?: boolean }) {
@@ -50,6 +50,7 @@ const selectStyle = {
 
 export default function InscriptionPage() {
   const router = useRouter();
+  const t = useTranslations("auth");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -70,11 +71,11 @@ export default function InscriptionPage() {
 
   async function createAccount() {
     if (form.password !== form.confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("err_pwd_mismatch"));
       return false;
     }
     if (form.password.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caractères.");
+      setError(t("err_pwd_short"));
       return false;
     }
 
@@ -90,7 +91,7 @@ export default function InscriptionPage() {
     });
 
     if (signUpError || !data.user) {
-      setError(frAuthError(signUpError?.message));
+      setError(t(authErrorKey(signUpError?.message)));
       setLoading(false);
       return false;
     }
@@ -138,7 +139,7 @@ export default function InscriptionPage() {
     if (ok) router.push("/profil?welcome=1");
   }
 
-  const stepLabels = ["Compte", "Livraison", "Profil"];
+  const stepLabels = [t("register_step1"), t("register_step2"), t("register_step3")];
 
   return (
     <div style={{ minHeight: "100vh", background: "#1a1410", padding: "100px 24px 60px", display: "grid", placeItems: "start center" }}>
@@ -147,7 +148,7 @@ export default function InscriptionPage() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 32 }}>
           <div style={{ fontSize: 32, fontWeight: 950, letterSpacing: -1.5, marginBottom: 6, color: "#f2ede6" }}>M!LK</div>
-          <div style={{ fontSize: 15, color: "rgba(242,237,230,0.45)" }}>Crée ton compte premium</div>
+          <div style={{ fontSize: 15, color: "rgba(242,237,230,0.45)" }}>{t("register_title")}</div>
         </div>
 
         {/* Stepper */}
@@ -187,38 +188,38 @@ export default function InscriptionPage() {
             {step === 1 && (
               <>
                 <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4, color: "#f2ede6" }}>
-                  Tes informations de compte
+                  {t("step1_title")}
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <Field label="Prénom" required>
+                  <Field label={t("f_firstname")} required>
                     <input type="text" value={form.prenom} onChange={(e) => set("prenom", e.target.value)} required placeholder="Marie" style={inputStyle} />
                   </Field>
-                  <Field label="Nom" required>
+                  <Field label={t("f_lastname")} required>
                     <input type="text" value={form.nom} onChange={(e) => set("nom", e.target.value)} required placeholder="Dupont" style={inputStyle} />
                   </Field>
                 </div>
 
-                <Field label="Email" required>
+                <Field label={t("login_email")} required>
                   <input type="email" value={form.email} onChange={(e) => set("email", e.target.value)} required placeholder="marie@email.com" style={inputStyle} />
                 </Field>
 
-                <Field label="Téléphone">
+                <Field label={t("f_phone")}>
                   <input type="tel" value={form.telephone} onChange={(e) => set("telephone", e.target.value)} placeholder="+33 6 00 00 00 00" style={inputStyle} />
                 </Field>
 
-                <Field label="Mot de passe" required>
-                  <input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} required placeholder="8 caractères minimum" style={inputStyle} />
+                <Field label={t("f_password")} required>
+                  <input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} required placeholder={t("ph_password")} style={inputStyle} />
                 </Field>
 
-                <Field label="Confirmer le mot de passe" required>
+                <Field label={t("f_confirm")} required>
                   <input type="password" value={form.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} required placeholder="••••••••" style={inputStyle} />
                 </Field>
 
                 <div style={{ textAlign: "center", fontSize: 14, color: "rgba(242,237,230,0.45)", marginTop: 4 }}>
-                  Déjà un compte ?{" "}
+                  {t("already_account")}{" "}
                   <Link href="/connexion" style={{ fontWeight: 800, color: "#c49a4a", textDecoration: "underline" }}>
-                    Se connecter
+                    {t("login_btn")}
                   </Link>
                 </div>
               </>
@@ -228,23 +229,23 @@ export default function InscriptionPage() {
             {step === 2 && (
               <>
                 <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 4, color: "#f2ede6" }}>
-                  Adresse de livraison
+                  {t("step2_title")}
                 </div>
 
-                <Field label="Adresse" required>
+                <Field label={t("f_address")} required>
                   <input type="text" value={form.adresse_livraison} onChange={(e) => set("adresse_livraison", e.target.value)} required placeholder="12 rue des Fleurs" style={inputStyle} />
                 </Field>
 
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <Field label="Code postal" required>
+                  <Field label={t("f_postal")} required>
                     <input type="text" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} required placeholder="75001" style={inputStyle} />
                   </Field>
-                  <Field label="Ville" required>
+                  <Field label={t("f_city")} required>
                     <input type="text" value={form.ville} onChange={(e) => set("ville", e.target.value)} required placeholder="Paris" style={inputStyle} />
                   </Field>
                 </div>
 
-                <Field label="Pays">
+                <Field label={t("f_country")}>
                   <select value={form.pays} onChange={(e) => set("pays", e.target.value)} style={selectStyle}>
                     {["France", "Belgique", "Suisse", "Luxembourg", "Monaco"].map((p) => (
                       <option key={p} value={p}>{p}</option>
@@ -254,20 +255,20 @@ export default function InscriptionPage() {
 
                 <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#f2ede6" }}>
                   <input type="checkbox" checked={form.adresse_diff} onChange={(e) => set("adresse_diff", e.target.checked)} style={{ width: 18, height: 18 }} />
-                  J&apos;ai une adresse de livraison différente
+                  {t("diff_address")}
                 </label>
 
                 {form.adresse_diff && (
                   <div style={{ padding: 20, borderRadius: 14, background: "rgba(242,237,230,0.04)", border: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 14 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: "#f2ede6" }}>Adresse secondaire</div>
-                    <Field label="Adresse">
-                      <input type="text" value={form.adresse_livraison_alt} onChange={(e) => set("adresse_livraison_alt", e.target.value)} placeholder="Adresse alternative" style={inputStyle} />
+                    <div style={{ fontWeight: 800, fontSize: 14, color: "#f2ede6" }}>{t("secondary_address")}</div>
+                    <Field label={t("f_address")}>
+                      <input type="text" value={form.adresse_livraison_alt} onChange={(e) => set("adresse_livraison_alt", e.target.value)} placeholder={t("ph_alt_address")} style={inputStyle} />
                     </Field>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                      <Field label="Code postal">
+                      <Field label={t("f_postal")}>
                         <input type="text" value={form.code_postal_alt} onChange={(e) => set("code_postal_alt", e.target.value)} placeholder="75001" style={inputStyle} />
                       </Field>
-                      <Field label="Ville">
+                      <Field label={t("f_city")}>
                         <input type="text" value={form.ville_alt} onChange={(e) => set("ville_alt", e.target.value)} placeholder="Paris" style={inputStyle} />
                       </Field>
                     </div>
@@ -281,13 +282,13 @@ export default function InscriptionPage() {
               <>
                 <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
                   <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: 99, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", fontSize: 12, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16, color: "#c49a4a" }}>
-                    Étape optionnelle
+                    {t("step_optional")}
                   </div>
                   <div style={{ fontWeight: 950, fontSize: 20, letterSpacing: -0.5, marginBottom: 10, color: "#f2ede6" }}>
-                    Mieux te connaître
+                    {t("step3_title")}
                   </div>
                   <div style={{ fontSize: 14, color: "rgba(242,237,230,0.45)", lineHeight: 1.7, maxWidth: 380, margin: "0 auto" }}>
-                    Ces quelques infos nous permettent de personnaliser ton expérience M!LK. Tu peux aussi passer cette étape directement.
+                    {t("step3_desc")}
                   </div>
                 </div>
 
@@ -297,18 +298,18 @@ export default function InscriptionPage() {
                   disabled={loading}
                   style={{ padding: "13px", borderRadius: 12, border: "1px dashed rgba(242,237,230,0.2)", background: "transparent", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", color: "rgba(242,237,230,0.55)", opacity: loading ? 0.6 : 1 }}
                 >
-                  {loading ? "Création du compte..." : "Passer cette étape → créer mon compte directement"}
+                  {loading ? t("register_creating") : t("skip_btn")}
                 </button>
 
                 <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                   <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.08)" }} />
-                  <span style={{ fontSize: 12, color: "rgba(242,237,230,0.3)", fontWeight: 600 }}>ou remplir le formulaire</span>
+                  <span style={{ fontSize: 12, color: "rgba(242,237,230,0.3)", fontWeight: 600 }}>{t("or_fill")}</span>
                   <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.08)" }} />
                 </div>
 
-                <Field label="Comment nous avez-vous connus ?">
+                <Field label={t("how_known")}>
                   <select value={form.comment_connu} onChange={(e) => set("comment_connu", e.target.value)} style={selectStyle}>
-                    <option value="">Sélectionner...</option>
+                    <option value="">{t("select_placeholder")}</option>
                     {COMMENT_CONNU.map((c) => (
                       <option key={c} value={c}>{c}</option>
                     ))}
@@ -328,9 +329,9 @@ export default function InscriptionPage() {
                   <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
                     <input type="checkbox" checked={form.newsletter} onChange={(e) => set("newsletter", e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }} />
                     <div>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: "#f2ede6" }}>S&apos;inscrire à la newsletter M!LK</div>
+                      <div style={{ fontWeight: 800, fontSize: 14, color: "#f2ede6" }}>{t("newsletter_opt")}</div>
                       <div style={{ fontSize: 12, color: "rgba(242,237,230,0.45)", marginTop: 3, lineHeight: 1.5 }}>
-                        Nouveautés, offres exclusives, conseils bébé. Désabonnement possible à tout moment.
+                        {t("newsletter_opt_desc")}
                       </div>
                     </div>
                   </label>
@@ -353,7 +354,7 @@ export default function InscriptionPage() {
                   onClick={() => setStep(s => s - 1)}
                   style={{ padding: "14px 20px", borderRadius: 12, border: "1px solid rgba(242,237,230,0.12)", background: "transparent", fontWeight: 700, fontSize: 14, cursor: "pointer", color: "#f2ede6" }}
                 >
-                  ← Retour
+                  {t("register_back")}
                 </button>
               )}
               <button
@@ -361,7 +362,7 @@ export default function InscriptionPage() {
                 disabled={loading}
                 style={{ flex: 1, padding: "15px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
               >
-                {loading ? "Création du compte..." : step < 3 ? "Continuer →" : "Créer mon compte"}
+                {loading ? t("register_creating") : step < 3 ? t("register_next") : t("register_btn")}
               </button>
             </div>
           </div>

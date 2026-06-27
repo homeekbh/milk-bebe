@@ -256,5 +256,21 @@
     "conditions_label": "Conditions :",
     "conditions": "Les produits doivent être dans leur état d'origine, non lavés, non portés. Les articles en promotion ou personnalisés ne sont pas éligibles au retour.",
     "conditions_fee": "Frais de retour à la charge du client."
+  },
+  "legal": {
+    "ml_title": "Mentions légales",
+    "ml_subtitle": "Conformément à la loi n°2004-575 du 21 juin 2004",
+    "ml_editor": "Éditeur du site",
+    "ml_hosting": "Hébergement",
+    "ml_ip": "Propriété intellectuelle",
+    "ml_ip_content": "L'ensemble du contenu du site milkbebe.fr (textes, images, graphismes, logo, icônes, etc.) est la propriété exclusive de M!LK / EKBH. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.",
+    "ml_data": "Données personnelles",
+    "ml_data_content": "Le site milkbebe.fr collecte des données personnelles dans le cadre du traitement des commandes et de l'amélioration des services. Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits : contact@milkbebe.fr",
+    "ml_cookies": "Cookies",
+    "ml_cookies_content": "Le site utilise des cookies techniques nécessaires au bon fonctionnement du service (panier, session). Vous pouvez gérer vos préférences cookies via le bandeau dédié.",
+    "ml_liability": "Responsabilité",
+    "ml_liability_content": "M!LK s'efforce d'assurer l'exactitude des informations publiées. Cependant, EKBH ne saurait être tenu responsable des erreurs, omissions ou indisponibilités du site. L'utilisation du site se fait sous la seule responsabilité de l'utilisateur.",
+    "ml_law": "Droit applicable",
+    "ml_law_content": "Les présentes mentions légales sont soumises au droit français. En cas de litige, les tribunaux compétents du ressort du siège social d'EKBH seront saisis."
   }
 }

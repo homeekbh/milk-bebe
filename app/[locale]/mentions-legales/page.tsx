@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getAlternates } from "@/i18n/seo";
+import { getTranslations } from "next-intl/server";
 
 export async function generateMetadata({
   params,
@@ -18,18 +19,19 @@ export async function generateMetadata({
   };
 }
 
-export default function MentionsLegales() {
+export default async function MentionsLegales() {
+  const t = await getTranslations("legal");
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
         <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410", marginBottom: 8 }}>
-          Mentions légales
+          {t("ml_title")}
         </h1>
-        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Conformément à la loi n°2004-575 du 21 juin 2004</p>
+        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>{t("ml_subtitle")}</p>
 
         {[
           {
-            title: "Éditeur du site",
+            title: t("ml_editor"),
             content: `M!LK est une marque exploitée par EKBH, SAS
 SIREN : 104 298 260
 SIRET : 104 298 260 00019
@@ -39,31 +41,31 @@ Design & développement : BHK — Design & Graphisme
 Contact BHK : +33 7 45 27 21 34`,
           },
           {
-            title: "Hébergement",
+            title: t("ml_hosting"),
             content: `Vercel Inc.
 340 Pine Street, Suite 900
 San Francisco, CA 94104 — États-Unis
 Site : vercel.com`,
           },
           {
-            title: "Propriété intellectuelle",
-            content: "L'ensemble du contenu du site milkbebe.fr (textes, images, graphismes, logo, icônes, etc.) est la propriété exclusive de M!LK / EKBH. Toute reproduction, distribution ou utilisation sans autorisation préalable est strictement interdite.",
+            title: t("ml_ip"),
+            content: t("ml_ip_content"),
           },
           {
-            title: "Données personnelles",
-            content: "Le site milkbebe.fr collecte des données personnelles dans le cadre du traitement des commandes et de l'amélioration des services. Conformément au Règlement Général sur la Protection des Données (RGPD), vous disposez d'un droit d'accès, de rectification, de suppression et de portabilité de vos données. Pour exercer ces droits : contact@milkbebe.fr",
+            title: t("ml_data"),
+            content: t("ml_data_content"),
           },
           {
-            title: "Cookies",
-            content: "Le site utilise des cookies techniques nécessaires au bon fonctionnement du service (panier, session). Vous pouvez gérer vos préférences cookies via le bandeau dédié.",
+            title: t("ml_cookies"),
+            content: t("ml_cookies_content"),
           },
           {
-            title: "Responsabilité",
-            content: "M!LK s'efforce d'assurer l'exactitude des informations publiées. Cependant, EKBH ne saurait être tenu responsable des erreurs, omissions ou indisponibilités du site. L'utilisation du site se fait sous la seule responsabilité de l'utilisateur.",
+            title: t("ml_liability"),
+            content: t("ml_liability_content"),
           },
           {
-            title: "Droit applicable",
-            content: "Les présentes mentions légales sont soumises au droit français. En cas de litige, les tribunaux compétents du ressort du siège social d'EKBH seront saisis.",
+            title: t("ml_law"),
+            content: t("ml_law_content"),
           },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: 28, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>

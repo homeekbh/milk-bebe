@@ -256,5 +256,21 @@
     "conditions_label": "Conditions:",
     "conditions": "Products must be in their original condition, unwashed, unworn. Sale or personalised items are not eligible for return.",
     "conditions_fee": "Return shipping at the customer's expense."
+  },
+  "legal": {
+    "ml_title": "Legal notice",
+    "ml_subtitle": "In accordance with French law no. 2004-575 of 21 June 2004",
+    "ml_editor": "Site publisher",
+    "ml_hosting": "Hosting",
+    "ml_ip": "Intellectual property",
+    "ml_ip_content": "All content on milkbebe.fr (text, images, graphics, logo, icons, etc.) is the exclusive property of M!LK / EKBH. Any reproduction, distribution or use without prior authorisation is strictly prohibited.",
+    "ml_data": "Personal data",
+    "ml_data_content": "milkbebe.fr collects personal data to process orders and improve its services. In accordance with the General Data Protection Regulation (GDPR), you have the right to access, rectify, erase and port your data. To exercise these rights: contact@milkbebe.fr",
+    "ml_cookies": "Cookies",
+    "ml_cookies_content": "The site uses technical cookies required for the service to work (cart, session). You can manage your cookie preferences via the dedicated banner.",
+    "ml_liability": "Liability",
+    "ml_liability_content": "M!LK strives to ensure the accuracy of the information published. However, EKBH cannot be held liable for errors, omissions or unavailability of the site. Use of the site is at the sole responsibility of the user.",
+    "ml_law": "Applicable law",
+    "ml_law_content": "These legal notices are governed by French law. In the event of a dispute, the competent courts of EKBH's registered office will have jurisdiction."
   }
 }

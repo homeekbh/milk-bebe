@@ -1,5 +1,6 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
 import type { Metadata } from "next";
+import { getTranslations, setRequestLocale } from "next-intl/server";
 import ProduitsGrid from "@/app/[locale]/produits/ProduitsGrid";
 
 // ISR : page catalogue SEO (landing organique) servie depuis le cache CDN et
@@ -21,13 +22,20 @@ async function getProducts() {
   return data ?? [];
 }
 
-export default async function ProduitsPage() {
+export default async function ProduitsPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  setRequestLocale(locale);
+  const t = await getTranslations({ locale, namespace: "catalog" });
   const products = await getProducts();
   return (
     <ProduitsGrid
       products={products}
-      title="Notre collection"
-      subtitle="Vêtements nourrisson en bambou certifié OEKO-TEX"
+      title={t("collection_title")}
+      subtitle={t("collection_subtitle")}
     />
   );
 }

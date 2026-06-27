@@ -8,7 +8,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 
@@ -1762,6 +1762,7 @@ function FinalCTA() {
    ────────────────────────────────────────────────────────────────────────── */
 export default function HomePage() {
   const t = useTranslations("home");
+  const locale = useLocale();
   const [products, setProducts]                   = useState<any[]>([]);
   const [lbl, setLbl]                             = useState("");
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
@@ -2027,7 +2028,9 @@ export default function HomePage() {
       <Topbar freeShipThreshold={freeShipThreshold} />
       <Hero />
       <HeroBand freeShipThreshold={freeShipThreshold} />
-      <ProductsSection products={products} lbl={lbl || t("products_default_lbl")} />
+      {/* Le titre de section vient du DB (FR uniquement). Hors FR, on retombe
+          sur la clé traduite pour ne pas afficher de français sur /en. */}
+      <ProductsSection products={products} lbl={(locale === "fr" && lbl) ? lbl : t("products_default_lbl")} />
       <CategoriesSection />
 
       {/* Édito 1 — texte gauche / photo droite */}

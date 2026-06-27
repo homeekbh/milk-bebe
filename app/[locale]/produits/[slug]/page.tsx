@@ -574,10 +574,13 @@ export default function ProductPage() {
   const productCat    = product.category_slug ?? "";
 
   // ── Priorité : données custom admin (fiche_cards/fiche_faqs) sinon fallback auto ──
+  // ⚠️ i18n : le contenu custom de la DB est saisi en FR uniquement. Hors FR, on
+  // l'IGNORE et on retombe sur les fallbacks traduits (getProduct*) — sinon du
+  // français fuit sur /en. On ne traduit jamais les données DB elles-mêmes.
   const ficheCards: any[]  = Array.isArray(product.fiche_cards) ? product.fiche_cards : [];
   const ficheFaqs:  any[]  = Array.isArray(product.fiche_faqs)  ? product.fiche_faqs  : [];
-  const hasCustomCards     = ficheCards.length > 0;
-  const hasCustomFaqs      = ficheFaqs.length > 0;
+  const hasCustomCards     = locale === "fr" && ficheCards.length > 0;
+  const hasCustomFaqs      = locale === "fr" && ficheFaqs.length > 0;
 
   // Helpers fallback (utilisés si pas de custom)
   const subtitle      = hasCustomCards ? (ficheCards.find((c: any) => c.type === "subtitle")?.content ?? "") : getProductSubtitle(t, productCat, productSlug);

@@ -3,6 +3,7 @@
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { LangSwitcher } from "@/components/i18n/LangSwitcher";
+import { MilkLogo } from "@/components/shared/MilkLogo";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart }     from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -177,10 +178,8 @@ export default function Header() {
             style={{ textDecoration: "none", flexShrink: 0 }}
             onClick={() => { if (typeof window !== "undefined" && window.scrollY > 0) window.scrollTo({ top: 0, behavior: "smooth" }); }}
           >
-            <div style={{ display: "flex", alignItems: "baseline", background: "transparent", borderRadius: 10, padding: "4px 2px" }}>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>M</span>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 26, letterSpacing: -0.5, lineHeight: 1 }}>!</span>
-              <span style={{ color: C.text, fontWeight: 950, fontSize: 22, letterSpacing: -1, lineHeight: 1 }}>LK</span>
+            <div style={{ display: "flex", alignItems: "center", background: "transparent", borderRadius: 10, padding: "4px 2px" }}>
+              <MilkLogo color={C.text} size={30} />
             </div>
           </Link>
 

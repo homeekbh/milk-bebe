@@ -230,5 +230,31 @@
     "or_direct": "Ou directement : contact@milkbebe.fr",
     "err_required": "Merci de remplir tous les champs obligatoires.",
     "err_generic": "Une erreur est survenue. Réessaie ou écris-nous à contact@milkbebe.fr"
+  },
+  "shipping": {
+    "title": "Livraison & Retours",
+    "subtitle": "Tout ce que vous devez savoir",
+    "delivery_title": "Livraison Colissimo / La Poste",
+    "delivery_summary": "Point Relais : 6,82€ · Domicile : 8,66€ · Offerte dès {amount}€ d'achat",
+    "zone_france": "France métropolitaine",
+    "zone_benelux": "Belgique, Luxembourg",
+    "zone_swiss": "Suisse",
+    "zone_monaco": "Monaco",
+    "delay": "2-3 jours ouvrés",
+    "free_from": "Offerte dès {amount}€",
+    "free_from_80": "Offerte dès 80€",
+    "free_from_100": "Offerte dès 100€",
+    "delivery_note": "Les commandes passées avant 14h (jours ouvrés) sont expédiées le jour même via Colissimo / La Poste. Un email avec le numéro de suivi vous est envoyé dès l'expédition.",
+    "returns_title": "Retours sous 14 jours",
+    "returns_summary": "Frais de retour à la charge du client (Colissimo recommandé)",
+    "step1_title": "Contactez-nous",
+    "step1_desc": "Envoyez un email à contact@milkbebe.fr avec votre numéro de commande et la raison du retour. Nous vous indiquons l'adresse de retour.",
+    "step2_title": "Renvoyez le colis",
+    "step2_desc": "Retournez le produit dans son emballage d'origine, non utilisé, dans les 14 jours suivant la réception. Les frais de retour sont à votre charge (Colissimo conseillé pour le suivi).",
+    "step3_title": "Remboursement",
+    "step3_desc": "Dès réception et vérification du produit, le remboursement est effectué sous 14 jours sur votre moyen de paiement initial.",
+    "conditions_label": "Conditions :",
+    "conditions": "Les produits doivent être dans leur état d'origine, non lavés, non portés. Les articles en promotion ou personnalisés ne sont pas éligibles au retour.",
+    "conditions_fee": "Frais de retour à la charge du client."
   }
 }

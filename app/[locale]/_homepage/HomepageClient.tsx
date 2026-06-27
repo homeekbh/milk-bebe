@@ -8,6 +8,7 @@ import {
   useState,
   type RefObject,
 } from "react";
+import { useTranslations } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 
@@ -214,17 +215,18 @@ function Topbar({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
     };
   }, []);
 
+  const t = useTranslations("home");
   const items = useMemo(
     () => [
-      "✦ Bambou certifié OEKO-TEX",
-      "✦ 3× plus doux que le coton",
-      "✦ Thermorégulateur naturel",
-      `✦ Livraison offerte dès ${freeShipThreshold}€`,
-      "✦ Retour gratuit 15 jours",
-      "✦ Antibactérien naturel",
-      "✦ Bodies · Pyjamas · Gigoteuses",
+      t("ticker1"),
+      t("ticker2"),
+      t("ticker3"),
+      t("ticker4", { amount: freeShipThreshold }),
+      t("ticker5"),
+      t("ticker6"),
+      t("ticker7"),
     ],
-    [freeShipThreshold],
+    [freeShipThreshold, t],
   );
   const str = items.join("   ");
 
@@ -276,6 +278,8 @@ function Topbar({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
    le hero respirer.
    ────────────────────────────────────────────────────────────────────────── */
 function Hero() {
+  const t = useTranslations("home");
+  const heroTags = t.raw("hero_tags") as string[];
   const [mounted, setMounted] = useState(false);
   const [scrollY, setScrollY] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
@@ -481,7 +485,7 @@ function Hero() {
           <div style={{ maxWidth: 720 }}>
             {/* Tags */}
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 20 }}>
-              {["Nouveau-né", "0-3 mois", "3-6 mois"].map(tag => (
+              {heroTags.map(tag => (
                 <span
                   key={tag}
                   style={{
@@ -512,9 +516,9 @@ function Hero() {
                 textShadow:    "0 2px 18px rgba(13,11,9,0.45)",
               }}
             >
-              L'essentiel.
+              {t("hero_h1_l1")}
               <br className="milk-hero-h1-br" />
-              <span className="milk-hero-h1-rest" style={{ color: P.cream }}>Sans compromis.</span>
+              <span className="milk-hero-h1-rest" style={{ color: P.cream }}>{t("hero_h1_l2")}</span>
             </h1>
 
             {/* Sous-titre */}
@@ -529,7 +533,7 @@ function Hero() {
                 textShadow:"0 1px 8px rgba(13,11,9,0.55)",
               }}
             >
-              Des essentiels bébé en bambou certifié OEKO-TEX. Pensés pour réduire les galères du quotidien — pas pour faire joli en photo.
+              {t("hero_sub")}
             </p>
 
             {/* Boutons */}
@@ -550,7 +554,7 @@ function Hero() {
                   transition:   "transform 0.3s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.3s",
                 }}
               >
-                Découvrir la collection →
+                {t("hero_cta1")}
               </Link>
               <Link
                 href="/pourquoi-bambou"
@@ -569,7 +573,7 @@ function Hero() {
                   transition:   "background 0.3s, border-color 0.3s",
                 }}
               >
-                Pourquoi le bambou ?
+                {t("hero_cta2")}
               </Link>
             </div>
           </div>
@@ -594,7 +598,7 @@ function Hero() {
             zIndex:    3,
           }}
         >
-          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: P.cream }}>Découvrir</div>
+          <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: P.cream }}>{t("hero_hint")}</div>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ animation: "milk-bounce 2s ease infinite" }}>
             <path d="M12 5v14M5 12l7 7 7-7" stroke={P.cream} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
@@ -609,20 +613,21 @@ function Hero() {
    le hero. Sépare visuellement le logo du contenu chiffré.
    ────────────────────────────────────────────────────────────────────────── */
 function HeroBand({ freeShipThreshold }: { freeShipThreshold: number }) {
+  const t = useTranslations("home");
   const { ref, visible } = useReveal<HTMLDivElement>(0.1);
 
   const STATS = [
-    { val: `Dès ${freeShipThreshold}€`, label: "livraison offerte" },
-    { val: "100%", label: "Bambou OEKO-TEX" },
-    { val: "15j",  label: "retour gratuit" },
-    { val: "0",    label: "substance nocive" },
-    { val: "3×",   label: "plus doux que le coton" },
+    { val: t("band_free", { amount: freeShipThreshold }), label: t("band_free_label") },
+    { val: "100%", label: t("band_oeko") },
+    { val: "15j",  label: t("band_returns") },
+    { val: "0",    label: t("band_nocive") },
+    { val: "3×",   label: t("band_soft") },
   ];
 
   const REASS = [
-    { Icon: IconTruck, label: "Retour gratuit",    desc: "15 jours" },
-    { Icon: IconLeaf,  label: "Bambou OEKO-TEX",   desc: "certifié" },
-    { Icon: IconLock,  label: "Paiement sécurisé", desc: "Stripe" },
+    { Icon: IconTruck, label: t("reass_returns"), desc: t("reass_returns_d") },
+    { Icon: IconLeaf,  label: t("reass_oeko"),    desc: t("reass_oeko_d") },
+    { Icon: IconLock,  label: t("reass_pay"),     desc: t("reass_pay_d") },
   ];
 
   return (
@@ -705,14 +710,9 @@ function HeroBand({ freeShipThreshold }: { freeShipThreshold: number }) {
 /* ──────────────────────────────────────────────────────────────────────────
    CategoryCards — 4 cards par besoin, animation cascade alternée G/D.
    ────────────────────────────────────────────────────────────────────────── */
-const CATS = [
-  { label: "Bodies",      desc: "L'essentiel du quotidien",      href: "/categorie/bodies"      },
-  { label: "Pyjamas",     desc: "Pour des nuits sereines",       href: "/categorie/pyjamas"     },
-  { label: "Gigoteuses",  desc: "Gigoteuse à nouer, sommeil serein", href: "/categorie/gigoteuses"  },
-  { label: "Accessoires", desc: "Les détails qui changent tout", href: "/categorie/accessoires" },
-];
-
 function CategoriesSection() {
+  const t = useTranslations("home");
+  const CATS = t.raw("cats") as { label: string; desc: string; href: string }[];
   const reveal = useReveal<HTMLDivElement>(0.15);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -741,9 +741,9 @@ function CategoriesSection() {
       />
       <div style={{ position: "relative", maxWidth: 1280, margin: "0 auto" }}>
         <div style={{ marginBottom: 24, opacity: reveal.visible ? 1 : 0, transform: reveal.visible ? "none" : "translateY(20px)", transition: "opacity 0.7s ease, transform 0.7s cubic-bezier(0.22,1,0.36,1)" }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 8 }}>Par besoin</div>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 8 }}>{t("cats_eyebrow")}</div>
           <h2 style={{ margin: 0, fontSize: "clamp(24px, 3.4vw, 40px)", fontWeight: 950, letterSpacing: -1.2, color: P.dark, lineHeight: 1.05 }}>
-            Trouvez l'essentiel qui vous correspond
+            {t("cats_title")}
           </h2>
         </div>
 
@@ -823,7 +823,7 @@ function CategoriesSection() {
                   {/* Header : eyebrow + flèche */}
                   <div style={{ position: "relative", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
                     <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: P.amber }}>
-                      Catégorie
+                      {t("cat_tag")}
                     </span>
                     <span className="milk-catcard-arrow" style={{ fontSize: 22, fontWeight: 900, color: P.amber, transition: "transform 0.4s cubic-bezier(0.34,1.56,0.64,1)" }}>→</span>
                   </div>
@@ -985,6 +985,7 @@ function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: 
 }
 
 function ProductsSection({ products, lbl }: { products: any[]; lbl: string }) {
+  const t = useTranslations("home");
   const reveal = useReveal<HTMLDivElement>(0.1);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -1026,11 +1027,11 @@ function ProductsSection({ products, lbl }: { products: any[]; lbl: string }) {
           }}
         >
           <div>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 8 }}>Sélection</div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 8 }}>{t("products_eyebrow")}</div>
             <h2 style={{ margin: 0, fontSize: "clamp(24px, 3.4vw, 40px)", fontWeight: 950, letterSpacing: -1.2, color: P.dark, lineHeight: 1.05 }}>{lbl}</h2>
           </div>
           <Link href="/produits" style={{ fontSize: 15, fontWeight: 800, color: P.amber, textDecoration: "none" }}>
-            Voir tout →
+            {t("see_all")}
           </Link>
         </div>
 
@@ -1252,6 +1253,7 @@ function EditoSplit({
    FloatingCard — bande "carte image inclinée + texte" — Bande flottante.
    ────────────────────────────────────────────────────────────────────────── */
 function FloatingCard() {
+  const t = useTranslations("home");
   const reveal = useReveal<HTMLDivElement>(0.15);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -1331,7 +1333,7 @@ function FloatingCard() {
               textTransform:"uppercase",
             }}
           >
-            Le cadeau idéal
+            {t("float_badge")}
           </div>
         </div>
 
@@ -1344,13 +1346,13 @@ function FloatingCard() {
           }}
         >
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 14 }}>
-            Chaque détail compte
+            {t("float_eyebrow")}
           </div>
           <h2 style={{ margin: "0 0 18px", fontSize: "clamp(22px, 3vw, 38px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: P.dark }}>
-            Le bambou, notre matière.
+            {t("float_title")}
           </h2>
           <p style={{ margin: "0 0 24px", fontSize: "clamp(13px, 1.3vw, 16px)", color: P.muted, lineHeight: 1.75 }}>
-            Pensé pour la nursery, idéal en cadeau de naissance. Bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.
+            {t("float_body")}
           </p>
           <Link
             href="/produits"
@@ -1367,7 +1369,7 @@ function FloatingCard() {
               textDecoration:"none",
             }}
           >
-            Voir la collection →
+            {t("float_cta")}
           </Link>
         </div>
       </div>
@@ -1379,6 +1381,8 @@ function FloatingCard() {
    CADEAU — section INTACTE (textes, ordre, liens, photo) — fond + animation.
    ────────────────────────────────────────────────────────────────────────── */
 function CadeauSection() {
+  const t = useTranslations("home");
+  const giftCards = t.raw("gift_cards") as { titre: string; desc: string }[];
   const reveal = useReveal<HTMLDivElement>(0.1);
   const scroll = useScrollProgress<HTMLDivElement>();
   const setRefs = (el: HTMLDivElement | null) => {
@@ -1427,19 +1431,19 @@ function CadeauSection() {
             willChange: "transform, opacity",
           }}
         >
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>Idée cadeau</div>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{t("gift_eyebrow")}</div>
           <h2 style={{ margin: "0 0 16px", fontSize: "clamp(24px,3.5vw,42px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>
-            Le cadeau de naissance qui change vraiment la vie.
+            {t("gift_title")}
           </h2>
           <p style={{ margin: "0 0 16px", fontSize: "clamp(14px,1.4vw,17px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.75 }}>
-            Pas un énième doudou. Pas un vêtement trop petit en trois semaines. M!LK, c'est le cadeau qu'on n'ose pas s'offrir soi-même — mais qu'on utilise toutes les nuits.
+            {t("gift_p1")}
           </p>
           <p style={{ margin: "0 0 24px", fontSize: "clamp(13px,1.3vw,15px)", color: "rgba(26,20,16,0.5)", lineHeight: 1.75 }}>
-            Parfait pour les listes de naissance, les baby showers, les coffrets nouveau-né. En bambou certifié OEKO-TEX, doux dès le premier contact, lavable en machine.
+            {t("gift_p2")}
           </p>
           <div className="milk-gift-btns" style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
             <Link href="/packs" style={{ padding: "16px 30px", borderRadius: 12, background: P.amber, color: P.dark, fontWeight: 900, fontSize: 16, textDecoration: "none", display: "inline-block" }}>
-              Découvrir nos packs à offrir →
+              {t("gift_cta")}
             </Link>
           </div>
         </div>
@@ -1461,12 +1465,7 @@ function CadeauSection() {
             />
           </div>
           <div className="milk-gift-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-            {[
-              { titre: "Liste de naissance", desc: "Ajoutez M!LK à votre liste. Les futurs parents vous remercieront." },
-              { titre: "Baby shower",        desc: "Un coffret 2-3 pièces bambou. Pratique, beau, zéro déchet de style." },
-              { titre: "Cadeau de naissance",desc: "Livraison rapide. Le bon cadeau pour les premières semaines." },
-              { titre: "Coffret nouveau-né", desc: "Body + gigoteuse + lange. L'essentiel réuni dans un coffret simplifié." },
-            ].map((item, i) => (
+            {giftCards.map((item, i) => (
               <div
                 key={item.titre}
                 style={{
@@ -1557,6 +1556,12 @@ function acard(content: React.ReactNode, key?: string) {
    AccordionsSection — 4 accordéons conservés (textes inchangés).
    ────────────────────────────────────────────────────────────────────────── */
 function AccordionsSection() {
+  const t = useTranslations("home");
+  const acc1Cards = t.raw("acc1_cards") as { label: string; tension: string; benefice: string }[];
+  const pillars = t.raw("pillars") as string[];
+  const diffHeaders = t.raw("diff_headers") as string[];
+  const diffRows = t.raw("diff_rows") as { s: string; c: string; m: string }[];
+  const reviews = t.raw("reviews") as { name: string; role: string; text: string }[];
   const { ref, visible } = useReveal<HTMLDivElement>(0.1);
 
   return (
@@ -1586,23 +1591,19 @@ function AccordionsSection() {
       >
         {[
           {
-            title: "La vérité des parents", tag: "Nuits · Habillage · Sommeil",
+            title: t("acc1_title"), tag: t("acc1_tag"),
             render: (
               <div className="milk-tgrid" style={{ display: "grid", gap: 14 }}>
-                {[
-                  { label: "Nuits pourries",   tension: "Se lever 5 fois, changer une couche dans le noir, rendormir un bébé hurlant.",                                benefice: "Des vêtements pensés pour changer vite sans tout défaire." },
-                  { label: "Habillage combat", tension: "Un bébé qui se débat, 12 boutons-pression à aligner, ta patience qui fond.",                                  benefice: "Des ouvertures intelligentes, 3 gestes max, c'est fait." },
-                  { label: "Sommeil fragile",  tension: "Un bébé qui sursaute, se réveille, pleure. Un lange qui se défait au premier mouvement.",                     benefice: "Un lange qui tient et calme le réflexe de Moro." },
-                ].map(card =>
+                {acc1Cards.map(card =>
                   acard(
                     <>
                       <div style={{ padding: "16px 18px 12px" }}>
-                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.mutedFaint, marginBottom: 6 }}>La tension</div>
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.mutedFaint, marginBottom: 6 }}>{t("acc_tension")}</div>
                         <div style={{ fontSize: "clamp(15px,1.6vw,18px)", fontWeight: 950, color: P.dark, letterSpacing: -0.5, marginBottom: 8, lineHeight: 1.1 }}>{card.label}</div>
                         <p style={{ margin: 0, fontSize: "clamp(12px,1.1vw,13px)", color: P.muted, lineHeight: 1.7 }}>{card.tension}</p>
                       </div>
                       <div style={{ padding: "10px 18px 16px", background: "rgba(196,154,74,0.13)", borderTop: `1px solid ${P.faintLine}` }}>
-                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 6 }}>Le bénéfice M!LK</div>
+                        <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 6 }}>{t("acc_benefit")}</div>
                         <p style={{ margin: 0, fontSize: "clamp(12px,1.2vw,14px)", color: P.dark, lineHeight: 1.6, fontWeight: 800 }}>{card.benefice}</p>
                       </div>
                     </>,
@@ -1613,10 +1614,10 @@ function AccordionsSection() {
             ),
           },
           {
-            title: "Comment on conçoit nos essentiels", tag: "Notre approche",
+            title: t("acc2_title"), tag: t("acc2_tag"),
             render: (
               <div className="milk-pillars" style={{ display: "grid", gap: 12 }}>
-                {["Chaque seconde compte à 3h du mat'", "Zéro compromis sur la sécurité", "Matières douces et certifiées", "Testés par de vrais parents fatigués"].map((pillar, i) =>
+                {pillars.map((pillar, i) =>
                   acard(
                     <div style={{ padding: "16px 18px", display: "flex", gap: 12, alignItems: "flex-start" }}>
                       <div style={{ width: 28, height: 28, borderRadius: "50%", background: P.amber, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
@@ -1631,22 +1632,16 @@ function AccordionsSection() {
             ),
           },
           {
-            title: "La différence M!LK", tag: "Classique vs M!LK",
+            title: t("acc3_title"), tag: t("acc3_tag"),
             render: (
               <div>
                 <div style={{ borderRadius: 14, overflow: "hidden", border: `1px solid ${P.faintLine}`, marginBottom: 20, boxShadow: "0 6px 20px rgba(26,20,16,0.08)" }}>
                   <div className="milk-comptable" style={{ display: "grid", background: P.warm, gridTemplateColumns: "1.4fr 1fr 1fr" }}>
-                    {["Situation", "Classique", "M!LK"].map((h, i) => (
+                    {diffHeaders.map((h, i) => (
                       <div key={h} style={{ padding: "12px 16px", fontSize: 11, fontWeight: i === 2 ? 900 : 700, color: i === 2 ? P.amber : P.mutedFaint, textTransform: "uppercase", letterSpacing: 1, borderLeft: i > 0 ? `1px solid ${P.faintLine}` : "none" }}>{h}</div>
                     ))}
                   </div>
-                  {[
-                    { s: "Change de nuit",     c: "Défaire tout le pyjama",     m: "Zip inversé, 30 sec"      },
-                    { s: "Boutons-pression",   c: "8 à 12 à aligner",           m: "3 max, bien placés"       },
-                    { s: "Emmaillotage",       c: "Se défait, bébé sursaute",   m: "Tient toute la nuit"      },
-                    { s: "Habillage",          c: "Combat quotidien",           m: "2-3 gestes, c'est fait"   },
-                    { s: "Conception",         c: "Pour faire joli",            m: "Pour simplifier"          },
-                  ].map((row, i) => (
+                  {diffRows.map((row, i) => (
                     <div key={row.s} className="milk-comptable" style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr", borderTop: `1px solid ${P.faintLine}`, background: i % 2 === 0 ? P.cream : P.taupe }}>
                       <div style={{ padding: "10px 16px", fontWeight: 700, color: P.dark, fontSize: "clamp(11px,1.1vw,13px)" }}>{row.s}</div>
                       <div style={{ padding: "10px 16px", color: P.mutedFaint, fontSize: "clamp(10px,1vw,12px)", borderLeft: `1px solid ${P.faintLine}`, textDecoration: "line-through" }}>{row.c}</div>
@@ -1658,24 +1653,19 @@ function AccordionsSection() {
                   <div style={{ padding: "20px 24px" }}>
                     <div style={{ fontSize: 36, color: P.amber, lineHeight: 0.8, marginBottom: 10, fontFamily: "Georgia,serif", fontWeight: 900 }}>"</div>
                     <p style={{ margin: "0 0 8px", fontSize: "clamp(14px,1.8vw,20px)", color: P.dark, fontWeight: 800, fontStyle: "italic", lineHeight: 1.45 }}>
-                      Premier pyjama où je n'ai pas eu envie de pleurer à 4h du mat'.
+                      {t("acc3_quote")}
                     </p>
-                    <div style={{ fontSize: 13, color: P.muted, fontWeight: 600 }}>— Marie, maman de Léo</div>
+                    <div style={{ fontSize: 13, color: P.muted, fontWeight: 600 }}>{t("acc3_author")}</div>
                   </div>,
                 )}
               </div>
             ),
           },
           {
-            title: "Des parents, pas des acteurs", tag: "Ce qu'on entend",
+            title: t("acc4_title"), tag: t("acc4_tag"),
             render: (
               <div className="milk-rgrid" style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
-                {[
-                  { name: "Thomas R.", role: "Papa de Luna",                        text: "La gigoteuse à nouer a sauvé nos premières semaines. Pas d'exagération." },
-                  { name: "Sarah K.",  role: "Maman de Noah",                       text: "Enfin un lange qui ne se défait pas. Mon fils dort 4h d'affilée." },
-                  { name: "Amina B.",  role: "Maman de Samy, 3 mois",               text: "Samy transpire beaucoup la nuit. Avec les pyjamas M!LK, il dort mieux et se réveille moins." },
-                  { name: "Julie D.",  role: "Maman d'Emma, née en juin",           text: "Cadeau de naissance parfait. Les finitions sont soignées, le bambou est doux comme promis." },
-                ].map(r =>
+                {reviews.map(r =>
                   acard(
                     <div style={{ padding: "16px 18px" }}>
                       <div style={{ display: "flex", marginBottom: 8 }}>
@@ -1716,6 +1706,7 @@ function AccordionsSection() {
    FinalCTA — fond beige, accents ambre. Liens intacts.
    ────────────────────────────────────────────────────────────────────────── */
 function FinalCTA() {
+  const t = useTranslations("home");
   const { ref, visible } = useReveal<HTMLDivElement>(0.15);
   return (
     <section
@@ -1745,20 +1736,20 @@ function FinalCTA() {
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>
-          Prêts pour moins de galères au quotidien ?
+          {t("final_eyebrow")}
         </div>
         <h2 style={{ margin: "0 0 14px", fontSize: "clamp(22px,3.8vw,46px)", fontWeight: 950, letterSpacing: -2, color: P.dark, lineHeight: 1.05 }}>
-          Des essentiels conçus pour les vraies nuits, <span style={{ color: P.amber }}>les vrais matins, la vraie vie de parent.</span>
+          {t("final_h2_l1")}<span style={{ color: P.amber }}>{t("final_h2_l2")}</span>
         </h2>
         <p style={{ margin: "0 0 24px", fontSize: "clamp(13px,1.4vw,16px)", color: P.muted, lineHeight: 1.6 }}>
-          Des essentiels bébé. Sans le superflu.
+          {t("final_sub")}
         </p>
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
           <Link href="/produits" style={{ padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none", display: "inline-block", boxShadow: "0 8px 24px rgba(26,20,16,0.25)" }}>
-            Shopper les essentiels →
+            {t("final_cta1")}
           </Link>
           <Link href="/qui-sommes-nous" style={{ padding: "16px 32px", borderRadius: 14, border: `1px solid ${P.faintLine}`, color: P.dark, fontWeight: 700, fontSize: "clamp(13px,1.4vw,16px)", textDecoration: "none", display: "inline-block", background: P.cream }}>
-            Notre histoire
+            {t("final_cta2")}
           </Link>
         </div>
       </div>
@@ -1770,8 +1761,9 @@ function FinalCTA() {
    HOMEPAGE — entry point.
    ────────────────────────────────────────────────────────────────────────── */
 export default function HomePage() {
+  const t = useTranslations("home");
   const [products, setProducts]                   = useState<any[]>([]);
-  const [lbl, setLbl]                             = useState("Sélection du moment");
+  const [lbl, setLbl]                             = useState("");
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
   const [coffretActive, setCoffretActive]         = useState(false);
 
@@ -1792,7 +1784,7 @@ export default function HomePage() {
         setCoffretActive(Boolean(data?.coffret_active));
         if (data?.products && Array.isArray(data.products) && data.products.length > 0) {
           setProducts(data.products);
-          setLbl(data.section_title ?? "Sélection du moment");
+          setLbl(data.section_title ?? "");
         } else {
           fetch("/api/produits")
             .then(r => r.json())
@@ -2035,21 +2027,21 @@ export default function HomePage() {
       <Topbar freeShipThreshold={freeShipThreshold} />
       <Hero />
       <HeroBand freeShipThreshold={freeShipThreshold} />
-      <ProductsSection products={products} lbl={lbl} />
+      <ProductsSection products={products} lbl={lbl || t("products_default_lbl")} />
       <CategoriesSection />
 
       {/* Édito 1 — texte gauche / photo droite */}
       <EditoSplit
         align="text-left"
-        eyebrow="Notre raison d'être"
+        eyebrow={t("edito1_eyebrow")}
         text={
           <>
-            Parce que les parents n'ont pas besoin de plus de "mignon",
+            {t("edito1_text_l1")}
             <br />
-            mais de moins de charge mentale.
+            {t("edito1_text_l2")}
           </>
         }
-        body="M!LK conçoit des essentiels bébé qui simplifient les routines, réduisent les luttes et soutiennent les nuits difficiles."
+        body={t("edito1_body")}
         imgSrc="/images/home/milk_col_body_boule_tag.webp"
         imgAlt="M!LK — bébé bonnet camel + body smiley + maman, douceur bambou"
         bg={P.light}
@@ -2060,16 +2052,16 @@ export default function HomePage() {
       {/* Édito 2 — photo gauche / texte droite */}
       <EditoSplit
         align="image-left"
-        eyebrow="Notre conviction"
+        eyebrow={t("edito2_eyebrow")}
         text={
           <>
-            M!LK n'est pas une marque de vêtements.
+            {t("edito2_text_l1")}
             <br />
-            C'est une réponse aux petites galères répétées.
+            {t("edito2_text_l2")}
           </>
         }
-        body="Chaque produit répond à un problème réel. Pas de design pour le design. Pas de fonctionnalité inutile. Juste ce qui compte quand t'es épuisé."
-        cta={{ label: "Voir la collection →", href: "/produits" }}
+        body={t("edito2_body")}
+        cta={{ label: t("edito2_cta"), href: "/produits" }}
         imgSrc="/images/home/milk_rouleaux_tissu_mur_jouets.webp"
         imgAlt="M!LK — rouleaux de tissu bambou OEKO-TEX"
         bg={P.taupe}
@@ -2078,9 +2070,9 @@ export default function HomePage() {
       {/* Édito détail — texte gauche / photo carrée droite (étagère nursery) */}
       <EditoSplit
         align="text-left"
-        eyebrow="Chaque détail compte"
-        text="Les finitions soignées, les matières choisies, les coutures plates."
-        body="Les détails qu'on remarque à 3h du matin. Bonnet damier, tag bois, étiquettes qui ne grattent pas. Le confort vient des petits choix."
+        eyebrow={t("edito3_eyebrow")}
+        text={t("edito3_text")}
+        body={t("edito3_body")}
         imgSrc="/images/home/milk_baby_shower_etagere_nursery.webp"
         imgAlt="M!LK — étagère nursery, pièces coordonnées, finitions soignées"
         bg={P.warm}
@@ -2090,13 +2082,13 @@ export default function HomePage() {
       {coffretActive && (
         <section style={{ background: P.taupeAlt, padding: "clamp(48px,7vw,88px) 5vw", textAlign: "center" }}>
           <div style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>Idée cadeau</div>
-            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>Le coffret de naissance M!LK 🎁</h2>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{t("coffret_eyebrow")}</div>
+            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>{t("coffret_title")}</h2>
             <p style={{ margin: "0 0 26px", fontSize: "clamp(14px,1.4vw,17px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>
-              Nos essentiels bambou réunis à prix doux. Parfait pour une liste de naissance ou un cadeau.
+              {t("coffret_desc")}
             </p>
             <Link href="/packs" style={{ display: "inline-block", padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none" }}>
-              Découvrir les coffrets →
+              {t("coffret_cta")}
             </Link>
           </div>
         </section>

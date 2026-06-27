@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 
 export default function NouveauMotDePassePage() {
   const router = useRouter();
+  const t = useTranslations("auth");
   const [password,        setPassword]        = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading,         setLoading]         = useState(false);
@@ -26,11 +28,11 @@ export default function NouveauMotDePassePage() {
     setError("");
 
     if (password.length < 8) {
-      setError("Le mot de passe doit faire au moins 8 caractères.");
+      setError(t("err_pwd_short"));
       return;
     }
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("err_pwd_mismatch"));
       return;
     }
 
@@ -38,7 +40,7 @@ export default function NouveauMotDePassePage() {
     const { error } = await supabase.auth.updateUser({ password });
 
     if (error) {
-      setError("Erreur lors de la mise à jour. Le lien a peut-être expiré.");
+      setError(t("newpwd_update_error"));
       setLoading(false);
       return;
     }
@@ -54,7 +56,7 @@ export default function NouveauMotDePassePage() {
         {/* Logo */}
         <div style={{ textAlign: "center", marginBottom: 36 }}>
           <div style={{ fontSize: 32, fontWeight: 950, letterSpacing: -1.5, marginBottom: 6, color: "#f2ede6" }}>M!LK</div>
-          <div style={{ fontSize: 15, color: "rgba(242,237,230,0.45)" }}>Nouveau mot de passe</div>
+          <div style={{ fontSize: 15, color: "rgba(242,237,230,0.45)" }}>{t("newpwd_title")}</div>
         </div>
 
         <div style={{ background: "#221c16", borderRadius: 24, border: "1px solid rgba(242,237,230,0.08)", padding: 36, display: "grid", gap: 20 }}>
@@ -63,10 +65,10 @@ export default function NouveauMotDePassePage() {
             <>
               <div style={{ textAlign: "center", fontSize: 48 }}>✅</div>
               <div style={{ textAlign: "center", fontWeight: 900, fontSize: 20, color: "#f2ede6" }}>
-                Mot de passe mis à jour !
+                {t("newpwd_updated")}
               </div>
               <div style={{ textAlign: "center", fontSize: 14, color: "rgba(242,237,230,0.45)", lineHeight: 1.7 }}>
-                Tu vas être redirigé vers la page de connexion dans 3 secondes...
+                {t("newpwd_redirect")}
               </div>
               <div style={{ height: 4, background: "rgba(242,237,230,0.08)", borderRadius: 99, overflow: "hidden" }}>
                 <div style={{ height: "100%", background: "#c49a4a", borderRadius: 99, animation: "progress 3s linear forwards" }} />
@@ -78,15 +80,15 @@ export default function NouveauMotDePassePage() {
             <>
               <div style={{ textAlign: "center", fontSize: 48 }}>⏳</div>
               <div style={{ textAlign: "center", fontWeight: 900, fontSize: 18, color: "#f2ede6" }}>
-                Vérification du lien...
+                {t("newpwd_checking")}
               </div>
               <div style={{ textAlign: "center", fontSize: 14, color: "rgba(242,237,230,0.45)", lineHeight: 1.7 }}>
-                Si cette page ne se charge pas, le lien a peut-être expiré.{" "}
+                {t("newpwd_expired")}{" "}
                 <span
                   onClick={() => router.push("/mot-de-passe-oublie")}
                   style={{ color: "#c49a4a", cursor: "pointer", textDecoration: "underline" }}
                 >
-                  Demander un nouveau lien
+                  {t("newpwd_request_new")}
                 </span>
               </div>
             </>
@@ -94,18 +96,18 @@ export default function NouveauMotDePassePage() {
           ) : (
             <>
               <div style={{ fontWeight: 900, fontSize: 18, color: "#f2ede6" }}>
-                Choisis ton nouveau mot de passe
+                {t("newpwd_choose")}
               </div>
 
               <form onSubmit={handleSubmit} style={{ display: "grid", gap: 16 }}>
                 <div style={{ display: "grid", gap: 6 }}>
                   <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>
-                    Nouveau mot de passe
+                    {t("newpwd_label")}
                   </label>
                   <input
                     type="password" value={password}
                     onChange={e => setPassword(e.target.value)}
-                    required placeholder="8 caractères minimum"
+                    required placeholder={t("ph_password")}
                     style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.12)", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
                   />
                   {/* Indicateur de force */}
@@ -124,14 +126,14 @@ export default function NouveauMotDePassePage() {
                   )}
                   {password.length > 0 && (
                     <div style={{ fontSize: 11, color: "rgba(242,237,230,0.35)" }}>
-                      {password.length < 4 ? "Trop court" : password.length < 7 ? "Faible" : password.length < 10 ? "Correct" : "Fort ✓"}
+                      {password.length < 4 ? t("str_short") : password.length < 7 ? t("str_weak") : password.length < 10 ? t("str_ok") : t("str_strong")}
                     </div>
                   )}
                 </div>
 
                 <div style={{ display: "grid", gap: 6 }}>
                   <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>
-                    Confirmer le mot de passe
+                    {t("f_confirm")}
                   </label>
                   <input
                     type="password" value={confirmPassword}
@@ -141,12 +143,12 @@ export default function NouveauMotDePassePage() {
                   />
                   {confirmPassword && confirmPassword !== password && (
                     <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>
-                      ❌ Les mots de passe ne correspondent pas
+                      ❌ {t("pwd_mismatch_short")}
                     </div>
                   )}
                   {confirmPassword && confirmPassword === password && (
                     <div style={{ fontSize: 11, color: "#22c55e", fontWeight: 700 }}>
-                      ✅ Les mots de passe correspondent
+                      ✅ {t("pwd_match")}
                     </div>
                   )}
                 </div>
@@ -161,7 +163,7 @@ export default function NouveauMotDePassePage() {
                   type="submit" disabled={loading || password !== confirmPassword || password.length < 8}
                   style={{ padding: "15px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: (loading || password !== confirmPassword || password.length < 8) ? "not-allowed" : "pointer", opacity: (loading || password !== confirmPassword || password.length < 8) ? 0.5 : 1, transition: "opacity 0.2s" }}
                 >
-                  {loading ? "Mise à jour..." : "Enregistrer le nouveau mot de passe →"}
+                  {loading ? t("updating") : t("save_newpwd")}
                 </button>
               </form>
             </>

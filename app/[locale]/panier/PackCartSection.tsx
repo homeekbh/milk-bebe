@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useLocale } from "next-intl";
 
 /* Affiche les packs ajoutés au panier (localStorage milk_pack_cart). Indépendant
    du panier produit (CartContext) : les packs se finalisent via leur propre
@@ -19,6 +20,7 @@ type PackCartItem = {
 const C = { dark: "#1a1410", amber: "#c49a4a", cream: "#f2ede6", taupe: "#e9e1d4" };
 
 export default function PackCartSection() {
+  const locale = useLocale();
   const [packs, setPacks] = useState<PackCartItem[]>([]);
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
 
@@ -41,7 +43,7 @@ export default function PackCartSection() {
       const res = await fetch("/api/checkout/create-pack-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack_id: p.pack_id, size: p.size ?? null }),
+        body: JSON.stringify({ pack_id: p.pack_id, size: p.size ?? null, locale }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok && data.url) { window.location.href = data.url; return; }

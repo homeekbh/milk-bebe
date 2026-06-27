@@ -13,8 +13,12 @@ function db() {
 
 export async function POST(req: Request) {
   try {
-    const { pack_id, size, guest_email } = await req.json();
+    const { pack_id, size, guest_email, locale } = await req.json();
     if (!pack_id) return Response.json({ error: "pack_id manquant" }, { status: 400 });
+
+    // Locale courante (passée par le client via useLocale()). Whitelist stricte :
+    // tout sauf 'en' retombe sur 'fr' (defaultLocale).
+    const safeLocale: "fr" | "en" = locale === "en" ? "en" : "fr";
 
     const supabase = db();
 
@@ -52,7 +56,7 @@ export async function POST(req: Request) {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card", "paypal"],
       mode: "payment",
-      locale: "fr",
+      locale: safeLocale,
       billing_address_collection: "auto",
       customer_creation: "always",
       // Adresse de livraison collectée par Stripe (le pack doit pouvoir être expédié)
@@ -69,8 +73,8 @@ export async function POST(req: Request) {
         },
         quantity: 1,
       }],
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/packs/${pack.slug}`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/success?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/packs/${pack.slug}`,
       metadata: {
         type:        "pack",
         pack_id:     pack.id,

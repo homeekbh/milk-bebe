@@ -1,12 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { type Pack, packProducts, packSavings } from "@/components/packs/PackCard";
 
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", taupe: "#e9e1d4", cream: "#f2ede6", muted: "rgba(26,20,16,0.6)" };
 
 export default function PackDetailClient({ pack }: { pack: Pack }) {
+  const locale  = useLocale();
   const prods   = packProducts(pack);
   const savings = packSavings(pack);
 
@@ -83,7 +85,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
       const res = await fetch("/api/checkout/create-pack-session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack_id: pack.id, size: selectedSize || null }),
+        body: JSON.stringify({ pack_id: pack.id, size: selectedSize || null, locale }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok || !data.url) {

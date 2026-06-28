@@ -3,6 +3,7 @@
     "collection": "Our collection",
     "about": "About us",
     "bamboo": "Why bamboo",
+    "blog": "Journal",
     "search": "Search",
     "cart": "Cart",
     "account": "My account",
@@ -15,6 +16,19 @@
     "my_profile_orders": "My profile & orders",
     "connected": "Logged in:",
     "my_cart": "My cart"
+  },
+  "blog": {
+    "title": "M!LK Journal",
+    "subtitle": "Tips, bamboo, and real parent life. No bullshit.",
+    "empty": "Articles coming soon ✍️",
+    "read": "Read the article →",
+    "by": "By",
+    "breadcrumb_home": "Home",
+    "breadcrumb_blog": "Journal",
+    "recent": "Recent articles",
+    "back": "← Back to journal",
+    "ig_title": "Follow us on Instagram",
+    "ig_handle": "@milkbebe.fr"
   },
   "home": {
     "ticker1": "✦ OEKO-TEX certified bamboo",

@@ -14,6 +14,7 @@ const NAV: Array<{ href: string; label: string; icon: string; badgeKey?: "review
   { href: "/admin/homepage",     label: "Homepage",     icon: "🏠" },
   { href: "/admin/produits",     label: "Produits",     icon: "🏷" },
   { href: "/admin/packs",        label: "Packs",        icon: "🎁" },
+  { href: "/admin/blog",         label: "Journal",      icon: "✍️" },
   { href: "/admin/categories",   label: "Catégories",   icon: "📂" },
   { href: "/admin/commandes",    label: "Commandes",    icon: "📦", badgeKey: "commandesPending" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },

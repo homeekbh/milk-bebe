@@ -256,6 +256,46 @@ export default function Header() {
               <CartIcon color={C.text} size={22} />
               {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>{totalItems}</span>}
             </Link>
+
+            {/* Sélecteur de langue compact — visible directement dans le header
+                mobile (entre panier et burger), sans ouvrir le drawer. Même
+                logique que le LangSwitcher desktop : router.replace sur le chemin
+                courant en changeant uniquement la locale. */}
+            <div style={{ display: "flex", alignItems: "center", gap: 3, flexShrink: 0 }}>
+              {routing.locales.map((l, i) => {
+                const active = locale === l;
+                return (
+                  <span key={l} style={{ display: "inline-flex", alignItems: "center", gap: 3 }}>
+                    {i > 0 && <span aria-hidden style={{ color: C.text, opacity: 0.3, fontSize: 11 }}>|</span>}
+                    <button
+                      onClick={() => router.replace(pathname, { locale: l })}
+                      aria-current={active ? "true" : undefined}
+                      aria-label={l === "fr" ? "Français" : "English"}
+                      style={{
+                        background: "none",
+                        border: "none",
+                        cursor: "pointer",
+                        minWidth: 26,
+                        height: 36,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        padding: "0 3px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        letterSpacing: 0.5,
+                        lineHeight: 1,
+                        color: active ? C.amber : C.text,
+                        opacity: active ? 1 : 0.5,
+                      }}
+                    >
+                      {l.toUpperCase()}
+                    </button>
+                  </span>
+                );
+              })}
+            </div>
+
             <button onClick={() => setMobileOpen(v => !v)}
               style={{ width: 40, height: 40, borderRadius: 10, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, alignItems: "center", justifyContent: "center" }}>
               <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(45deg) translate(5px,5px)" : "none" }} />
@@ -321,42 +361,8 @@ export default function Header() {
                 </Link>
               </>
             )}
-            {/* ── Sélecteur de langue (mobile) — absent du header mobile,
-                   ajouté ici pour qu'un visiteur anglophone puisse basculer.
-                   Même logique que le LangSwitcher desktop : router.replace sur
-                   le chemin courant en changeant uniquement la locale. ── */}
-            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "auto 0 8px" }} />
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>Langue / Language</div>
-            <div style={{ display: "flex", gap: 10 }}>
-              {routing.locales.map(l => {
-                const active = locale === l;
-                return (
-                  <button
-                    key={l}
-                    onClick={() => { setMobileOpen(false); router.replace(pathname, { locale: l }); }}
-                    aria-current={active ? "true" : undefined}
-                    aria-label={l === "fr" ? "Français" : "English"}
-                    style={{
-                      flex: 1,
-                      padding: "14px 18px",
-                      borderRadius: 14,
-                      cursor: "pointer",
-                      border: active ? "1px solid rgba(196,154,74,0.4)" : "1px solid rgba(242,237,230,0.12)",
-                      background: active ? "rgba(196,154,74,0.15)" : "rgba(242,237,230,0.04)",
-                      color: active ? "#c49a4a" : "rgba(242,237,230,0.7)",
-                      fontSize: 16,
-                      fontWeight: active ? 900 : 700,
-                      letterSpacing: 1,
-                    }}
-                  >
-                    {l.toUpperCase()}
-                  </button>
-                );
-              })}
-            </div>
-
             <Link href="/panier" onClick={() => setMobileOpen(false)}
-              style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}><CartIcon color="#c49a4a" size={20} />{t("my_cart")}</span>
               {totalItems > 0 && <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>}
             </Link>

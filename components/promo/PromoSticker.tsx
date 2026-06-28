@@ -86,6 +86,10 @@ export default function PromoSticker() {
   // ── MOBILE (≤ 768px) : barre horizontale pleine largeur collée en bas ──
   if (isMobile) {
     return (
+      <>
+        {/* Spacer en flux normal : réserve la hauteur du bandeau (36px + safe
+            area) pour que le bas du contenu de page ne soit jamais masqué. */}
+        <div aria-hidden style={{ height: 'calc(36px + env(safe-area-inset-bottom, 0px))' }} />
       <div
         onClick={copy}
         style={{
@@ -95,39 +99,48 @@ export default function PromoSticker() {
           right: 0,
           width: '100%',
           borderRadius: 0,
-          padding: '6px 12px',
-          maxHeight: '44px',
+          // Bandeau très fin + safe area iOS : le contenu reste au-dessus de la
+          // barre Safari / home indicator via env(safe-area-inset-bottom). Le
+          // fond rouge va jusqu'au bord, le texte est remonté au-dessus.
+          paddingTop: '5px',
+          paddingRight: '12px',
+          paddingLeft: '12px',
+          paddingBottom: 'calc(5px + env(safe-area-inset-bottom, 0px))',
+          maxHeight: 'calc(36px + env(safe-area-inset-bottom, 0px))',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: '12px',
+          gap: '10px',
           zIndex: 9998,
           background: '#dc2626',
           color: '#fff',
           cursor: 'pointer',
           boxSizing: 'border-box',
+          fontSize: '11px',
+          lineHeight: 1,
           animation: 'milk-promo-pulse 1.8s ease-in-out infinite',
         }}
       >
-        <span style={{ fontSize: '12px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
           <span style={{ animation: 'milk-blink 1s step-start infinite' }}>●</span>
           PROMO
         </span>
         {promo.label && (
-          <span style={{ fontSize: '12px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
+          <span style={{ fontSize: '11px', fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', flex: '1 1 auto', minWidth: 0 }}>
             {promo.label}
           </span>
         )}
-        <span style={{ fontSize: '12px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.5px', whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', padding: '3px 8px', flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.5px', whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', padding: '2px 7px', flexShrink: 0 }}>
           {copied ? '✓ Copié !' : `CODE : ${promo.code}`}
         </span>
-        <span style={{ fontSize: '12px', fontWeight: 950, whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', fontWeight: 950, whiteSpace: 'nowrap', flexShrink: 0 }}>
           {discount}
         </span>
         {closeBtn}
         {keyframes}
       </div>
+      </>
     )
   }
 

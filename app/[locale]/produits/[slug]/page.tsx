@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useParams }                   from "next/navigation";
 import { useTranslations, useLocale }  from "next-intl";
+import { getSizeLabel }                from "@/lib/size-labels";
 import Image                           from "next/image";
 import { Link } from "@/i18n/navigation";
 import { useCart }                     from "@/context/CartContext";
@@ -429,6 +430,7 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
   productId: string; productName: string; productSlug: string; taille: string;
 }) {
   const t = useTranslations("product");
+  const locale = useLocale();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
   const [done,    setDone]    = useState(false);
@@ -461,7 +463,7 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
   return (
     <div style={{ padding: "16px 18px", borderRadius: 14, background: "rgba(26,20,16,0.05)", border: "1px solid rgba(26,20,16,0.12)" }}>
       <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410", marginBottom: 4 }}>{t("stock_alert_title")}</div>
-      {taille && <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginBottom: 10 }}>{t("stock_alert_size", { taille })}</div>}
+      {taille && <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginBottom: 10 }}>{t("stock_alert_size", { taille: getSizeLabel(taille, locale) })}</div>}
       <div style={{ display: "flex", gap: 8 }}>
         <input
           type="email"
@@ -864,7 +866,7 @@ export default function ProductPage() {
           {taillesDispos.length > 0 && (
             <div id="taille-selector" style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                {t("size_label")} {taille && <span style={{ color: DARK }}>— {taille}</span>}
+                {t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}
               </span>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {
@@ -874,7 +876,7 @@ export default function ProductPage() {
                   return (
                     <button key={t} onClick={() => { if (!epuise) setTaille(selected ? "" : t); }}
                       style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
-                      {t}
+                      {getSizeLabel(t, locale)}
                       {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
                       {!epuise && stockT <= 3 && <span style={{ marginLeft: 5, fontSize: 10, color: AMBER, fontWeight: 700 }}>({stockT})</span>}
                     </button>
@@ -910,7 +912,7 @@ export default function ProductPage() {
                     <tbody>
                       {GUIDE_TAILLES.map((row, i) => (
                         <tr key={row.taille} style={{ borderTop: "1px solid rgba(26,20,16,0.06)", background: i % 2 === 0 ? "transparent" : "rgba(26,20,16,0.03)" }}>
-                          <td style={{ padding: "9px 10px", fontWeight: 900, color: AMBER, fontSize: 13, textAlign: "left" }}>{row.taille}</td>
+                          <td style={{ padding: "9px 10px", fontWeight: 900, color: AMBER, fontSize: 13, textAlign: "left" }}>{getSizeLabel(row.taille, locale)}</td>
                           <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 12, textAlign: "center" }}>{row.poids}</td>
                           <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.poitrine}</td>
                           <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.longueur}</td>

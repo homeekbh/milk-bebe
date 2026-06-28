@@ -1,8 +1,9 @@
 ﻿"use client";
 
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { LangSwitcher } from "@/components/i18n/LangSwitcher";
+import { routing } from "@/i18n/routing";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart }     from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
@@ -90,6 +91,7 @@ export default function Header() {
   const { ids: wishIds }  = useWishlist();
   const { user, signOut } = useAuth();
   const t                 = useTranslations("nav");
+  const locale            = useLocale();
 
   const [scrolled,   setScrolled]   = useState(false);
   const [theme,      setTheme]      = useState<"dark"|"light">("dark");
@@ -319,8 +321,42 @@ export default function Header() {
                 </Link>
               </>
             )}
+            {/* ── Sélecteur de langue (mobile) — absent du header mobile,
+                   ajouté ici pour qu'un visiteur anglophone puisse basculer.
+                   Même logique que le LangSwitcher desktop : router.replace sur
+                   le chemin courant en changeant uniquement la locale. ── */}
+            <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "auto 0 8px" }} />
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>Langue / Language</div>
+            <div style={{ display: "flex", gap: 10 }}>
+              {routing.locales.map(l => {
+                const active = locale === l;
+                return (
+                  <button
+                    key={l}
+                    onClick={() => { setMobileOpen(false); router.replace(pathname, { locale: l }); }}
+                    aria-current={active ? "true" : undefined}
+                    aria-label={l === "fr" ? "Français" : "English"}
+                    style={{
+                      flex: 1,
+                      padding: "14px 18px",
+                      borderRadius: 14,
+                      cursor: "pointer",
+                      border: active ? "1px solid rgba(196,154,74,0.4)" : "1px solid rgba(242,237,230,0.12)",
+                      background: active ? "rgba(196,154,74,0.15)" : "rgba(242,237,230,0.04)",
+                      color: active ? "#c49a4a" : "rgba(242,237,230,0.7)",
+                      fontSize: 16,
+                      fontWeight: active ? 900 : 700,
+                      letterSpacing: 1,
+                    }}
+                  >
+                    {l.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+
             <Link href="/panier" onClick={() => setMobileOpen(false)}
-              style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              style={{ padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}><CartIcon color="#c49a4a" size={20} />{t("my_cart")}</span>
               {totalItems > 0 && <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>}
             </Link>

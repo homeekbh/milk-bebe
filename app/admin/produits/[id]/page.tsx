@@ -994,6 +994,11 @@ export default function AdminProductForm() {
   // ── Nouvelles states : cards fiche + FAQs ──
   const [ficheCards,   setFicheCards]   = useState<FicheCard[]>([]);
   const [faqs,         setFaqs]         = useState<FaqItem[]>([]);
+  // ── Vague 2 : contenu fiche EN (colonnes fiche_cards_en / fiche_faqs_en) +
+  //    langue d'édition active (sous-onglets FR | EN dans les onglets Contenu/FAQ).
+  const [ficheCardsEn, setFicheCardsEn] = useState<FicheCard[]>([]);
+  const [faqsEn,       setFaqsEn]       = useState<FaqItem[]>([]);
+  const [ficheLang,    setFicheLang]    = useState<"fr" | "en">("fr");
   const [showPreview,  setShowPreview]  = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [allProducts,  setAllProducts]  = useState<any[]>([]);
@@ -1103,6 +1108,10 @@ export default function AdminProductForm() {
           } else {
             setFaqs(buildDefaultFaqs(cat, slg, newId));
           }
+          // EN (Vague 2) : on NE pré-remplit PAS (laisser vide → fallback messages
+          // EN). Rempli uniquement si Erika a déjà saisi du contenu EN.
+          setFicheCardsEn(Array.isArray(data.fiche_cards_en) ? data.fiche_cards_en : []);
+          setFaqsEn(Array.isArray(data.fiche_faqs_en) ? data.fiche_faqs_en : []);
         }
         setLoading(false);
       })
@@ -1223,20 +1232,29 @@ export default function AdminProductForm() {
   }
 
   // ── Cards fiche produit ──
+  // ── Vague 2 : refs actives selon la langue d'édition (FR par défaut → la
+  //    logique FR existante est préservée). Les fonctions ci-dessous agissent
+  //    sur l'état de la langue active.
+  const editEn         = ficheLang === "en";
+  const cardsActive    = editEn ? ficheCardsEn : ficheCards;
+  const setCardsActive = editEn ? setFicheCardsEn : setFicheCards;
+  const faqsActive     = editEn ? faqsEn : faqs;
+  const setFaqsActive  = editEn ? setFaqsEn : setFaqs;
+
   function addCard(type: FicheCard["type"]) {
     const typeDef = CARD_TYPES.find(t => t.value === type);
     let defaultContent = "";
     if (type === "features")  defaultContent = JSON.stringify([""]);
     if (type === "whyresult") defaultContent = JSON.stringify({ why: "", result: "" });
     if (type === "entretien") defaultContent = JSON.stringify(["Lavage 40°C, cycle délicat", "Sans adoucissant ni javel", "Séchage à l'air libre recommandé", "Sèche-linge basse température"]);
-    setFicheCards(prev => [...prev, { id: newId(), type, title: typeDef?.label ?? type, content: defaultContent }]);
+    setCardsActive(prev => [...prev, { id: newId(), type, title: typeDef?.label ?? type, content: defaultContent }]);
   }
   function updateCard(id: string, field: keyof FicheCard, value: string) {
-    setFicheCards(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
+    setCardsActive(prev => prev.map(c => c.id === id ? { ...c, [field]: value } : c));
   }
-  function removeCard(id: string) { setFicheCards(prev => prev.filter(c => c.id !== id)); }
+  function removeCard(id: string) { setCardsActive(prev => prev.filter(c => c.id !== id)); }
   function moveCard(id: string, dir: "up"|"down") {
-    setFicheCards(prev => {
+    setCardsActive(prev => {
       const idx = prev.findIndex(c => c.id === id);
       if (idx === -1) return prev;
       const next = [...prev];
@@ -1248,13 +1266,13 @@ export default function AdminProductForm() {
   }
 
   // ── FAQs ──
-  function addFaq() { setFaqs(prev => [...prev, { id: newId(), question: "", reponse: "" }]); }
+  function addFaq() { setFaqsActive(prev => [...prev, { id: newId(), question: "", reponse: "" }]); }
   function updateFaq(id: string, field: keyof FaqItem, value: string) {
-    setFaqs(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
+    setFaqsActive(prev => prev.map(f => f.id === id ? { ...f, [field]: value } : f));
   }
-  function removeFaq(id: string) { setFaqs(prev => prev.filter(f => f.id !== id)); }
+  function removeFaq(id: string) { setFaqsActive(prev => prev.filter(f => f.id !== id)); }
   function moveFaq(id: string, dir: "up"|"down") {
-    setFaqs(prev => {
+    setFaqsActive(prev => {
       const idx = prev.findIndex(f => f.id === id);
       if (idx === -1) return prev;
       const next = [...prev];
@@ -1317,6 +1335,9 @@ export default function AdminProductForm() {
         // Nouvelles données fiche produit
         fiche_cards: ficheCards,
         fiche_faqs:  faqs,
+        // Vague 2 — contenu fiche EN (prioritaire sur /en, fallback messages EN sinon)
+        fiche_cards_en: ficheCardsEn,
+        fiche_faqs_en:  faqsEn,
       };
 
       const res  = await adminFetch("/api/admin/products", {
@@ -1816,7 +1837,7 @@ export default function AdminProductForm() {
               <div style={{ fontWeight: 900, fontSize: 22, color: "#1a1410", marginBottom: 4 }}>🎨 Contenu de la fiche produit</div>
               <div style={{ fontSize: 14, color: "rgba(26,20,16,0.55)" }}>Crée et ordonne les blocs affichés sur la fiche produit</div>
             </div>
-            {ficheCards.length > 0 && (
+            {cardsActive.length > 0 && !editEn && (
               <button onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
                 style={{ padding: "10px 18px", borderRadius: 10, border: "1.5px solid rgba(196,154,74,0.4)", background: "rgba(196,154,74,0.06)", color: "#1a1410", cursor: "pointer", fontSize: 13, fontWeight: 800, display: "flex", alignItems: "center", gap: 8 }}>
                 📋 Copier depuis un autre produit
@@ -1824,33 +1845,51 @@ export default function AdminProductForm() {
             )}
           </div>
 
+          {/* Sous-onglets FR | EN (Vague 2) */}
+          <div style={{ display: "flex", gap: 8 }}>
+            {(["fr", "en"] as const).map(lng => (
+              <button key={lng} type="button" onClick={() => setFicheLang(lng)}
+                style={{ padding: "8px 18px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 14, background: ficheLang === lng ? "#1a1410" : "rgba(26,20,16,0.06)", color: ficheLang === lng ? "#f2ede6" : "rgba(26,20,16,0.55)" }}>
+                {lng === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
+              </button>
+            ))}
+          </div>
+          {editEn && (
+            <div style={{ padding: "10px 14px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 13, color: "rgba(26,20,16,0.7)", lineHeight: 1.6 }}>
+              Contenu <strong>anglais</strong> (affiché sur /en). Si vide, la traduction par défaut (messages EN) est utilisée ; si elle aussi est vide, le FR sert de filet de sécurité.
+            </div>
+          )}
+
           {/* Aucun bloc — sélecteur en premier plan */}
-          {ficheCards.length === 0 && (
+          {cardsActive.length === 0 && (
             <div style={{ padding: "32px 28px", borderRadius: 20, background: "#fff", border: "2px dashed rgba(196,154,74,0.35)", display: "flex", flexDirection: "column", alignItems: "center", gap: 20, textAlign: "center" }}>
               <div style={{ fontSize: 40 }}>📋</div>
               <div>
-                <div style={{ fontWeight: 900, fontSize: 18, color: "#1a1410", marginBottom: 6 }}>Aucun bloc de contenu</div>
+                <div style={{ fontWeight: 900, fontSize: 18, color: "#1a1410", marginBottom: 6 }}>Aucun bloc de contenu{editEn ? " EN" : ""}</div>
                 <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", lineHeight: 1.6, maxWidth: 460 }}>
-                  Copie les blocs depuis un produit existant pour avoir une base à modifier,
-                  ou crée tes blocs manuellement ci-dessous.
+                  {editEn
+                    ? "Ajoute des blocs en anglais ci-dessous. Tant que c'est vide, /en utilise la traduction automatique (messages EN)."
+                    : "Copie les blocs depuis un produit existant pour avoir une base à modifier, ou crée tes blocs manuellement ci-dessous."}
                 </div>
               </div>
-              <button
-                onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
-                style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
-                📋 Choisir un produit source
-              </button>
+              {!editEn && (
+                <button
+                  onClick={() => { setShowDuplicateModal(true); loadAllProducts(); }}
+                  style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 16, border: "none", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, boxShadow: "0 4px 16px rgba(0,0,0,0.15)" }}>
+                  📋 Choisir un produit source
+                </button>
+              )}
               <div style={{ fontSize: 12, color: "rgba(26,20,16,0.35)" }}>ou ajoute des blocs individuellement ci-dessous ↓</div>
             </div>
           )}
 
           {/* Cards en 2 colonnes */}
-          {ficheCards.length > 0 && (
+          {cardsActive.length > 0 && (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(100%, 480px), 1fr))", gap: 16, width: "100%" }}>
-              {ficheCards.map((card, idx) => (
+              {cardsActive.map((card, idx) => (
                 <FicheCardEditor key={card.id} card={card} onUpdate={updateCard} onRemove={removeCard}
                   onMoveUp={(id) => moveCard(id, "up")} onMoveDown={(id) => moveCard(id, "down")}
-                  isFirst={idx === 0} isLast={idx === ficheCards.length - 1}
+                  isFirst={idx === 0} isLast={idx === cardsActive.length - 1}
                   colIdx={idx % 2} />
               ))}
             </div>
@@ -1889,16 +1928,29 @@ export default function AdminProductForm() {
                 + Ajouter une question
               </button>
             </div>
-            {faqs.length === 0 ? (
+
+            {/* Sous-onglets FR | EN (Vague 2) */}
+            <div style={{ display: "flex", gap: 8, marginTop: 4 }}>
+              {(["fr", "en"] as const).map(lng => (
+                <button key={lng} type="button" onClick={() => setFicheLang(lng)}
+                  style={{ padding: "8px 18px", borderRadius: 10, border: "none", cursor: "pointer", fontWeight: 800, fontSize: 14, background: ficheLang === lng ? "#1a1410" : "rgba(26,20,16,0.06)", color: ficheLang === lng ? "#f2ede6" : "rgba(26,20,16,0.55)" }}>
+                  {lng === "fr" ? "🇫🇷 Français" : "🇬🇧 English"}
+                </button>
+              ))}
+            </div>
+
+            {faqsActive.length === 0 ? (
               <div style={{ padding: "32px", borderRadius: 12, background: "#ede8df", textAlign: "center", fontSize: 15, color: "rgba(26,20,16,0.5)" }}>
-                Aucune FAQ — les questions par défaut selon la catégorie seront utilisées
+                {editEn
+                  ? "Aucune FAQ EN — /en utilise la FAQ traduite par défaut (messages EN) tant que c'est vide"
+                  : "Aucune FAQ — les questions par défaut selon la catégorie seront utilisées"}
               </div>
             ) : (
               <div style={{ display: "grid", gap: 10 }}>
-                {faqs.map((faq, idx) => (
+                {faqsActive.map((faq, idx) => (
                   <FaqEditor key={faq.id} faq={faq} onUpdate={updateFaq} onRemove={removeFaq}
                     onMoveUp={(id) => moveFaq(id, "up")} onMoveDown={(id) => moveFaq(id, "down")}
-                    isFirst={idx === 0} isLast={idx === faqs.length - 1} />
+                    isFirst={idx === 0} isLast={idx === faqsActive.length - 1} />
                 ))}
               </div>
             )}

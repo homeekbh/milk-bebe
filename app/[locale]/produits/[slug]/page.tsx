@@ -580,24 +580,44 @@ export default function ProductPage() {
   const catLabel = (c: string) => (({ bodies: t("cat_bodies"), pyjamas: t("cat_pyjamas"), gigoteuses: t("cat_gigoteuses"), accessoires: t("cat_accessoires"), bonnet: t("cat_bonnets"), langes: t("cat_langes") } as Record<string,string>)[c] || c);
 
   // ── Priorité : données custom admin (fiche_cards/fiche_faqs) sinon fallback auto ──
-  // ⚠️ i18n : le contenu custom de la DB est saisi en FR uniquement. Hors FR, on
-  // l'IGNORE et on retombe sur les fallbacks traduits (getProduct*) — sinon du
-  // français fuit sur /en. On ne traduit jamais les données DB elles-mêmes.
+  // hasCustomCards/hasCustomFaqs : logique FR existante — INCHANGÉE (le contenu
+  // DB FR ne s'applique que sur /fr ; sur /en il était ignoré au profit des
+  // fallbacks traduits getProduct*).
   const ficheCards: any[]  = Array.isArray(product.fiche_cards) ? product.fiche_cards : [];
   const ficheFaqs:  any[]  = Array.isArray(product.fiche_faqs)  ? product.fiche_faqs  : [];
   const hasCustomCards     = locale === "fr" && ficheCards.length > 0;
   const hasCustomFaqs      = locale === "fr" && ficheFaqs.length > 0;
 
-  // Helpers fallback (utilisés si pas de custom)
-  const subtitle      = hasCustomCards ? (ficheCards.find((c: any) => c.type === "subtitle")?.content ?? "") : getProductSubtitle(t, productCat, productSlug);
-  const extraDesc     = hasCustomCards ? (ficheCards.find((c: any) => c.type === "description")?.content ?? "") : getProductDesc(t, productSlug);
-  const coloris       = hasCustomCards ? (ficheCards.find((c: any) => c.type === "coloris")?.content ?? null) : getColoris(t, productSlug);
-  const motif         = hasCustomCards ? (() => { const m = ficheCards.find((c: any) => c.type === "motif"); if (!m?.content) return null; const parts = m.content.split(" — "); return parts.length >= 2 ? { motif: parts[0].replace("Motif ", ""), desc: parts.slice(1).join(" — ") } : null; })() : getMotifDetails(t, productSlug);
-  const features      = hasCustomCards ? (() => { try { return JSON.parse(ficheCards.find((c: any) => c.type === "features")?.content ?? "[]"); } catch { return []; } })() : getProductFeatures(t, productCat, productSlug);
-  const whyResult     = hasCustomCards ? (() => { try { const wr = JSON.parse(ficheCards.find((c: any) => c.type === "whyresult")?.content ?? "null"); return wr?.why ? wr : null; } catch { return null; } })() : getWhyResult(t, productCat, productSlug);
-  const philosophy    = hasCustomCards ? (ficheCards.find((c: any) => c.type === "philosophy")?.content ?? "") : getPhilosophy(t, productCat, productSlug);
-  const entretien     = hasCustomCards ? (() => { try { const arr = JSON.parse(ficheCards.find((c: any) => c.type === "entretien")?.content ?? "null"); return Array.isArray(arr) ? arr.map((text: string, i: number) => ({ Icon: [IconThermometer,IconBan,IconFlat,IconHeat][i%4], text })) : getProductEntretien(t, productSlug); } catch { return getProductEntretien(t, productSlug); } })() : getProductEntretien(t, productSlug);
-  const FAQ           = hasCustomFaqs ? ficheFaqs.map((f: any) => ({ q: f.question, r: f.reponse })) : getProductFAQ(t, productCat, productSlug);
+  // ── Vague 2 — contenu fiche EN saisi en admin (colonnes fiche_cards_en /
+  // fiche_faqs_en, même structure que fiche_cards). Fallback 3 niveaux sur /en :
+  //   (1) fiche_cards_en rempli → prioritaire
+  //   (2) sinon → getProduct* (messages/en.json — comportement ACTUEL intact)
+  //   (3) sinon → fiche_cards FR (filet de sécurité, /en uniquement, pour les
+  //       catégories non couvertes par messages — ex. accessoires).
+  // On ne touche NI à hasCustomCards NI aux fonctions getProduct*.
+  const ficheCardsEn: any[] = Array.isArray(product.fiche_cards_en) ? product.fiche_cards_en : [];
+  const ficheFaqsEn:  any[] = Array.isArray(product.fiche_faqs_en)  ? product.fiche_faqs_en  : [];
+  const hasCustomCardsEn    = locale === "en" && ficheCardsEn.length > 0;
+  const hasCustomFaqsEn     = locale === "en" && ficheFaqsEn.length  > 0;
+  // Source custom effective : EN sur /en (niveau 1) sinon FR sur /fr (existant).
+  const customCards: any[]  = hasCustomCardsEn ? ficheCardsEn : (hasCustomCards ? ficheCards : []);
+  const useCustom           = customCards.length > 0;
+  const customFaqs: any[]   = hasCustomFaqsEn ? ficheFaqsEn : (hasCustomFaqs ? ficheFaqs : []);
+  const useCustomFaq        = customFaqs.length > 0;
+  // Niveau 3 (cartes uniquement) : contenu FR de fiche_cards, /en seulement,
+  // quand getProduct* ne renvoie rien. La FAQ n'a PAS de filet FR (sinon la FAQ
+  // FR fuirait sur /en) → niveaux 1+2 seulement.
+  const frNet = (type: string): string => (locale === "en" ? (ficheCards.find((c: any) => c.type === type)?.content ?? "") : "");
+
+  const subtitle      = useCustom ? (customCards.find((c: any) => c.type === "subtitle")?.content ?? "") : (getProductSubtitle(t, productCat, productSlug) || frNet("subtitle"));
+  const extraDesc     = useCustom ? (customCards.find((c: any) => c.type === "description")?.content ?? "") : (getProductDesc(t, productSlug) || frNet("description"));
+  const coloris       = useCustom ? (customCards.find((c: any) => c.type === "coloris")?.content ?? null) : (getColoris(t, productSlug) ?? (frNet("coloris") || null));
+  const motif         = useCustom ? (() => { const m = customCards.find((c: any) => c.type === "motif"); if (!m?.content) return null; const parts = m.content.split(" — "); return parts.length >= 2 ? { motif: parts[0].replace("Motif ", ""), desc: parts.slice(1).join(" — ") } : null; })() : getMotifDetails(t, productSlug);
+  const features      = useCustom ? (() => { try { return JSON.parse(customCards.find((c: any) => c.type === "features")?.content ?? "[]"); } catch { return []; } })() : (() => { const auto = getProductFeatures(t, productCat, productSlug); if (auto.length) return auto; const net = frNet("features"); if (net) { try { return JSON.parse(net); } catch { return []; } } return []; })();
+  const whyResult     = useCustom ? (() => { try { const wr = JSON.parse(customCards.find((c: any) => c.type === "whyresult")?.content ?? "null"); return wr?.why ? wr : null; } catch { return null; } })() : (getWhyResult(t, productCat, productSlug) ?? (() => { const net = frNet("whyresult"); if (!net) return null; try { const wr = JSON.parse(net); return wr?.why ? wr : null; } catch { return null; } })());
+  const philosophy    = useCustom ? (customCards.find((c: any) => c.type === "philosophy")?.content ?? "") : (getPhilosophy(t, productCat, productSlug) || frNet("philosophy"));
+  const entretien     = useCustom ? (() => { try { const arr = JSON.parse(customCards.find((c: any) => c.type === "entretien")?.content ?? "null"); return Array.isArray(arr) ? arr.map((text: string, i: number) => ({ Icon: [IconThermometer,IconBan,IconFlat,IconHeat][i%4], text })) : getProductEntretien(t, productSlug); } catch { return getProductEntretien(t, productSlug); } })() : getProductEntretien(t, productSlug);
+  const FAQ           = useCustomFaq ? customFaqs.map((f: any) => ({ q: f.question, r: f.reponse })) : getProductFAQ(t, productCat, productSlug);
 
   const photoRows: string[][] = [];
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }

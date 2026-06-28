@@ -39,6 +39,8 @@ export async function POST(req: NextRequest) {
   if ("weight_g"    in body) clean.weight_g     = (!body.weight_g || isNaN(Number(body.weight_g))) ? null : Number(body.weight_g);
   if ("fiche_cards" in body) clean.fiche_cards  = Array.isArray(body.fiche_cards) ? body.fiche_cards : null;
   if ("fiche_faqs"  in body) clean.fiche_faqs   = Array.isArray(body.fiche_faqs)  ? body.fiche_faqs  : null;
+  if ("fiche_cards_en" in body) clean.fiche_cards_en = Array.isArray(body.fiche_cards_en) ? body.fiche_cards_en : null;
+  if ("fiche_faqs_en"  in body) clean.fiche_faqs_en  = Array.isArray(body.fiche_faqs_en)  ? body.fiche_faqs_en  : null;
 
   const { data, error } = await supabaseServer
     .from("products").insert([clean]).select().single();
@@ -78,6 +80,8 @@ export async function PUT(req: NextRequest) {
   if ("weight_g"    in rest) clean.weight_g     = (!rest.weight_g || isNaN(Number(rest.weight_g))) ? null : Number(rest.weight_g);
   if ("fiche_cards" in rest) clean.fiche_cards  = Array.isArray(rest.fiche_cards) ? rest.fiche_cards : null;
   if ("fiche_faqs"  in rest) clean.fiche_faqs   = Array.isArray(rest.fiche_faqs)  ? rest.fiche_faqs  : null;
+  if ("fiche_cards_en" in rest) clean.fiche_cards_en = Array.isArray(rest.fiche_cards_en) ? rest.fiche_cards_en : null;
+  if ("fiche_faqs_en"  in rest) clean.fiche_faqs_en  = Array.isArray(rest.fiche_faqs_en)  ? rest.fiche_faqs_en  : null;
 
   // Charger l'état actuel pour détecter les champs modifiés (prix/stock/published)
   const { data: before } = await supabaseServer

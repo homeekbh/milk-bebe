@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useTranslations } from "next-intl";
 import { useCart } from "@/context/CartContext";
 import { Link } from "@/i18n/navigation";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
@@ -47,6 +48,7 @@ async function fetchOrderBySession(sessionId: string): Promise<any | null> {
 }
 
 export default function SuccessPage() {
+  const t = useTranslations("product");
   const { items, clearCart } = useCart();
   const [show, setShow] = useState(false);
   const cleared = useRef(false);
@@ -230,8 +232,10 @@ export default function SuccessPage() {
       <ProductRecommendations
         productId={recoProductId}
         categorySlug={recoCategory}
-        title="Vous aimerez aussi"
+        title={t("related")}
         eyebrow=""
+        viewLabel={t("view_product")}
+        outLabel={t("sold_out")}
         titleColor="#c49a4a"
       />
 

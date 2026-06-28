@@ -38,6 +38,8 @@ export default function ProductRecommendations({
   categorySlug,
   title    = "Dans la même collection",
   eyebrow  = "Tu aimeras aussi",
+  viewLabel = "Voir le produit",
+  outLabel  = "Épuisé",
   titleColor,
   theme    = "dark",
 }: {
@@ -45,6 +47,9 @@ export default function ProductRecommendations({
   categorySlug: string;
   title?:       string;
   eyebrow?:     string;
+  /** Libellés des cards (i18n) passés par le parent localisé. Défauts FR. */
+  viewLabel?:   string;
+  outLabel?:    string;
   /** Override la couleur du <h2>. Par défaut : crème site (C.warm). */
   titleColor?:  string;
   /** "dark" (default) : fond sombre #1a1410, texte crème — usage standalone
@@ -149,6 +154,8 @@ export default function ProductRecommendations({
             : items.map(p => (
                 <ProductCardPremium
                   key={p.id}
+                  viewLabel={viewLabel}
+                  outLabel={outLabel}
                   product={{
                     id:          p.id,
                     name:        p.name,

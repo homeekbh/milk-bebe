@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign";
@@ -29,7 +29,7 @@ type Product = {
   price_ttc: number; promo_price?: number;
   promo_start?: string; promo_end?: string;
   stock: number; category_slug?: string;
-  image_url?: string; description?: string;
+  image_url?: string; description?: string; description_en?: string | null;
   featured?: boolean; published?: boolean;
   label?: string; position?: number;
 };
@@ -69,6 +69,11 @@ function DiagonalBadge({ label, outOfStock, isPromo }: { label?: string; outOfSt
 
 function ProductCard({ p }: { p: Product }) {
   const t          = useTranslations("catalog");
+  const locale     = useLocale();
+  // Card description : EN si dispo (non vide) en locale 'en', sinon FR (jamais vide).
+  const cardDesc   = (locale === "en" && p.description_en && p.description_en.trim())
+    ? p.description_en
+    : p.description;
   const promo      = isPromoActive(p);
   const price      = promo ? p.promo_price! : p.price_ttc;
   const outOfStock = (p.stock ?? 0) <= 0;
@@ -106,8 +111,8 @@ function ProductCard({ p }: { p: Product }) {
         </div>
         <div style={{ padding: "12px 14px 16px" }}>
           <div style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,15px)", color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{p.name}</div>
-          {p.description && (
-            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginBottom: 6, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{p.description}</div>
+          {cardDesc && (
+            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginBottom: 6, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cardDesc}</div>
           )}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
@@ -206,7 +211,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     if (activeCategory) list = list.filter(p => p.category_slug === activeCategory);
     if (search.trim()) {
       const q = search.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      list = list.filter(p => [p.name, p.description, p.category_slug].filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q));
+      list = list.filter(p => [p.name, p.description, p.description_en, p.category_slug].filter(Boolean).join(" ").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").includes(q));
     }
     if (sortValue === "price-asc")  list = [...list].sort((a,b) => (a.promo_price ?? a.price_ttc) - (b.promo_price ?? b.price_ttc));
     if (sortValue === "price-desc") list = [...list].sort((a,b) => (b.promo_price ?? b.price_ttc) - (a.promo_price ?? a.price_ttc));

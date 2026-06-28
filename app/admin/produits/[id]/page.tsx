@@ -55,7 +55,7 @@ const EMPTY: Record<string, string> = {
   promo_start: "", promo_end: "", stock: "0",
   category_slug: "bodies",
   image_url: "", image_url_2: "", image_url_3: "", image_url_4: "", image_url_5: "", image_url_6: "", image_url_7: "", image_url_8: "",
-  description: "", main_image_index: "0",
+  description: "", description_en: "", main_image_index: "0",
   label: "", highlight: "",
   position: "0", weight_g: "",
   seo_title: "", seo_description: "",
@@ -1059,6 +1059,7 @@ export default function AdminProductForm() {
             image_url_7:      data.image_url_7       ?? "",
             image_url_8:      data.image_url_8       ?? "",
             description:      data.description       ?? "",
+            description_en:   data.description_en    ?? "",
             main_image_index: String(data.main_image_index ?? 0),
             label:            data.label             ?? "",
             highlight:        data.highlight         ?? "",
@@ -1496,6 +1497,14 @@ export default function AdminProductForm() {
                 <textarea value={form.description} onChange={e => set("description", e.target.value)}
                   placeholder="Description courte interne..." rows={5}
                   style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+              </div>
+              {/* Traduction EN affichée sur la card collection en /en (sinon fallback FR). */}
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Description courte — EN 🇬🇧</label>
+                <textarea value={form.description_en} onChange={e => set("description_en", e.target.value)}
+                  placeholder="Short English description (shown on /en product cards)…" rows={5}
+                  style={{ ...IS, resize: "vertical", fontFamily: "inherit", lineHeight: 1.7 }} />
+                <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>Si vide, la version FR est affichée sur /en.</div>
               </div>
             </div>
 

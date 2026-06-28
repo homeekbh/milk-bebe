@@ -1049,6 +1049,10 @@ export default function ProductPage() {
           <ProductRecommendations
             productId={product.id}
             categorySlug={productCat ?? ""}
+            eyebrow={t("crosssell_eyebrow")}
+            title={t("crosssell_title")}
+            viewLabel={t("view_product")}
+            outLabel={t("sold_out")}
           />
           {philosophy && <PhilosophyCard text={philosophy} />}
         </div>

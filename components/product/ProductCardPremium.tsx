@@ -34,7 +34,16 @@ function slugify(input: any) {
  *   - Bouton "Voir le produit" compact 13px
  *   - Card padding 12px
  */
-export default function ProductCardPremium({ product }: { product: Product }) {
+export default function ProductCardPremium({
+  product,
+  viewLabel = "Voir le produit",
+  outLabel  = "Épuisé",
+}: {
+  product: Product;
+  /** Libellés passés par le parent localisé (i18n). Défauts FR = non-régression. */
+  viewLabel?: string;
+  outLabel?:  string;
+}) {
   const [hover, setHover] = useState(false);
 
   const slug =
@@ -159,7 +168,7 @@ export default function ProductCardPremium({ product }: { product: Product }) {
               transition: "all 0.2s ease",
             }}
           >
-            {out ? "Épuisé" : "Voir le produit"}
+            {out ? outLabel : viewLabel}
           </button>
         </div>
       </div>

@@ -575,6 +575,10 @@ export default function ProductPage() {
   const productSlug   = product.slug ?? "";
   const productCat    = product.category_slug ?? "";
 
+  // Label catégorie traduit (breadcrumb + eyebrow). Fallback = slug brut si
+  // catégorie inconnue. Note : la clé bonnet est cat_bonnets (pluriel) côté product.
+  const catLabel = (c: string) => (({ bodies: t("cat_bodies"), pyjamas: t("cat_pyjamas"), gigoteuses: t("cat_gigoteuses"), accessoires: t("cat_accessoires"), bonnet: t("cat_bonnets"), langes: t("cat_langes") } as Record<string,string>)[c] || c);
+
   // ── Priorité : données custom admin (fiche_cards/fiche_faqs) sinon fallback auto ──
   // ⚠️ i18n : le contenu custom de la DB est saisi en FR uniquement. Hors FR, on
   // l'IGNORE et on retombe sur les fallbacks traduits (getProduct*) — sinon du
@@ -668,7 +672,7 @@ export default function ProductPage() {
             { label: t("breadcrumb_home"),  href: "/" },
             { label: t("breadcrumb_products"), href: "/produits" },
             ...(productCat ? [{
-              label: ({ bodies: t("cat_bodies"), pyjamas: t("cat_pyjamas"), gigoteuses: t("cat_gigoteuses"), accessoires: t("cat_accessoires"), bonnet: t("cat_bonnets"), langes: t("cat_langes") } as Record<string,string>)[productCat] || productCat,
+              label: catLabel(productCat),
               href:  `/categorie/${productCat}`,
             }] : []),
             { label: product.name },
@@ -725,7 +729,7 @@ export default function ProductPage() {
         <div className="pl-right"><div className="pl-right-inner" ref={rightInnerRef}>
 
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
-            {productCat || "M!LK"} · {t("eyebrow_oeko")}
+            {productCat ? catLabel(productCat) : "M!LK"} · {t("eyebrow_oeko")}
           </div>
 
           <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>

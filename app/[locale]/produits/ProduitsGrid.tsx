@@ -177,7 +177,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   // Libellé de filtre catégorie : "" → Tout ; slug connu → traduit ; sinon capitalisé.
   const catLabel = (slug: string) => {
     if (!slug) return t("filter_all");
-    const known = ["bodies", "pyjamas", "gigoteuses", "accessoires", "langes"];
+    const known = ["bodies", "pyjamas", "gigoteuses", "accessoires", "bonnet", "langes"];
     return known.includes(slug) ? t(`cat_${slug}`) : slug.charAt(0).toUpperCase() + slug.slice(1);
   };
   const router = useRouter();

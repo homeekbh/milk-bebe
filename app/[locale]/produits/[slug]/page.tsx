@@ -668,7 +668,7 @@ export default function ProductPage() {
             { label: t("breadcrumb_home"),  href: "/" },
             { label: t("breadcrumb_products"), href: "/produits" },
             ...(productCat ? [{
-              label: ({ bodies: t("cat_bodies"), pyjamas: t("cat_pyjamas"), gigoteuses: t("cat_gigoteuses"), accessoires: t("cat_accessoires"), bonnets: t("cat_bonnets"), langes: t("cat_langes") } as Record<string,string>)[productCat] || productCat,
+              label: ({ bodies: t("cat_bodies"), pyjamas: t("cat_pyjamas"), gigoteuses: t("cat_gigoteuses"), accessoires: t("cat_accessoires"), bonnet: t("cat_bonnets"), langes: t("cat_langes") } as Record<string,string>)[productCat] || productCat,
               href:  `/categorie/${productCat}`,
             }] : []),
             { label: product.name },

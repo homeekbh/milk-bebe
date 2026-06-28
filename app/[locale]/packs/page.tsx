@@ -35,7 +35,12 @@ async function getPacks(): Promise<Pack[]> {
   }));
 }
 
-export default async function PacksPage() {
+export default async function PacksPage({
+  params,
+}: {
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
   const packs = await getPacks();
 
   return (
@@ -56,7 +61,7 @@ export default async function PacksPage() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: 24 }}>
-            {packs.map(pack => <PackCard key={pack.id} pack={pack} />)}
+            {packs.map(pack => <PackCard key={pack.id} pack={pack} locale={locale} />)}
           </div>
         )}
       </div>

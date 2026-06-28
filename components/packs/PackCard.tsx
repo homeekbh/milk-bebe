@@ -57,12 +57,17 @@ function ImagesHeader({ pack }: { pack: Pack }) {
   );
 }
 
-export default function PackCard({ pack }: { pack: Pack }) {
+export default function PackCard({ pack, locale }: { pack: Pack; locale?: string }) {
   const prods   = packProducts(pack);
   const savings = packSavings(pack);
 
+  // i18n : ce composant reste présentationnel (utilisable côté serveur, client
+  // ET admin hors provider → on garde next/link). Les appelants sous [locale]
+  // passent `locale` pour préfixer le href ; sinon href brut (admin).
+  const href = locale ? `/${locale}/packs/${pack.slug}` : `/packs/${pack.slug}`;
+
   return (
-    <Link href={`/packs/${pack.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+    <Link href={href} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
       <div style={{ borderRadius: 20, overflow: "hidden", background: C.cream, border: "1px solid rgba(26,20,16,0.1)", boxShadow: "0 8px 28px rgba(26,20,16,0.08)", display: "flex", flexDirection: "column", height: "100%" }}>
         <ImagesHeader pack={pack} />
         <div style={{ padding: "20px 22px 22px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>

@@ -172,6 +172,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   products: Product[]; title: string; subtitle?: string; defaultCategory?: string;
 }) {
   const t = useTranslations("catalog");
+  const locale = useLocale();
   const essentiels = t.raw("ess") as { titre: string; desc: string }[];
   // Libellé de filtre catégorie : "" → Tout ; slug connu → traduit ; sinon capitalisé.
   const catLabel = (slug: string) => {
@@ -296,7 +297,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
             </div>
           ) : (
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(300px,1fr))", gap: 20 }}>
-              {packs.map(pk => <PackCard key={pk.id} pack={pk} />)}
+              {packs.map(pk => <PackCard key={pk.id} pack={pk} locale={locale} />)}
             </div>
           )
         ) : (

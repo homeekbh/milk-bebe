@@ -66,33 +66,137 @@ function getMeta(slug: string) {
   };
 }
 
+// ── SEO bilingue (titles/desc/keywords FR + EN) ──────────────────────────────
+// Source dédiée aux balises <title>/<meta> servies par generateMetadata.
+// Corrige le service de métadonnées FR sur /en + capte les requêtes génériques.
+// (Le rendu visuel de la page — title/subtitle/H1, JSON-LD CollectionPage —
+//  reste alimenté par getMeta() ci-dessus pour ne pas régresser l'affichage.)
+const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; keywords: string[]; h1: string }; en: { seoTitle: string; seoDesc: string; keywords: string[]; h1: string } }> = {
+  bodies: {
+    fr: {
+      seoTitle: "Body bébé bambou OEKO-TEX — Body nourrisson ultra-doux 0-6 mois",
+      seoDesc:  "Body bébé en bambou certifié OEKO-TEX. Ultra-doux, hypoallergénique, pour peaux sensibles. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€.",
+      keywords: ["body bébé", "body nourrisson", "body bambou bébé", "body bébé peau sensible", "body bébé OEKO-TEX", "body bébé doux", "body naissance"],
+      h1: "Bodies bébé bambou",
+    },
+    en: {
+      seoTitle: "Baby Bodysuits OEKO-TEX Bamboo — Ultra-soft Newborn Bodysuits 0-6 months",
+      seoDesc:  "OEKO-TEX certified bamboo baby bodysuits. Ultra-soft, hypoallergenic, for sensitive skin. Envelope neckline + built-in fold-over mittens. Free delivery from €60.",
+      keywords: ["baby bodysuit", "newborn bodysuit", "bamboo bodysuit", "OEKO-TEX baby bodysuit"],
+      h1: "Baby Bodysuits",
+    },
+  },
+  pyjamas: {
+    fr: {
+      seoTitle: "Pyjama bébé bambou OEKO-TEX — Grenouillère nourrisson ultra-douce 0-6 mois",
+      seoDesc:  "Pyjama bébé en bambou certifié OEKO-TEX. Grenouillère nourrisson ultra-douce, thermorégulante. Double zip inversé + moufles intégrées. Livraison offerte dès 60€.",
+      keywords: ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "grenouillère nourrisson", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "turbulette pyjama"],
+      h1: "Pyjamas bébé bambou",
+    },
+    en: {
+      seoTitle: "Baby Pyjamas OEKO-TEX Bamboo — Ultra-soft Newborn Sleepsuits 0-6 months",
+      seoDesc:  "OEKO-TEX certified bamboo baby pyjamas. Ultra-soft, temperature-regulating newborn sleepsuits. Double reverse zip + built-in mittens. Free delivery from €60.",
+      keywords: ["baby pyjamas", "newborn sleepsuit", "bamboo baby pyjamas", "OEKO-TEX baby sleepsuit"],
+      h1: "Baby Pyjamas",
+    },
+  },
+  gigoteuses: {
+    fr: {
+      seoTitle: "Gigoteuse bébé bambou — Turbulette nourrisson 0-3 mois à nouer",
+      seoDesc:  "Gigoteuse bébé en bambou certifié OEKO-TEX. Turbulette nourrisson respirante, à nouer. Zéro bouton, change facile la nuit. Livraison offerte dès 60€.",
+      keywords: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "turbulette 0-3 mois", "gigoteuse bébé respirante", "gigoteuse sans bouton"],
+      h1: "Gigoteuses bébé bambou",
+    },
+    en: {
+      seoTitle: "Baby Sleep Bags OEKO-TEX Bamboo — Newborn Sleep Sack 0-3 months",
+      seoDesc:  "OEKO-TEX certified bamboo baby sleep bags. Breathable newborn sleep sack, tie fastening. Zero snaps, easy night changes. Free delivery from €60.",
+      keywords: ["baby sleep bag", "newborn sleep sack", "bamboo sleep bag", "baby sleeping bag 0-3 months"],
+      h1: "Baby Sleep Bags",
+    },
+  },
+  langes: {
+    fr: {
+      seoTitle: "Lange bébé bambou OEKO-TEX — Emmaillotage nourrisson 120x120 cm",
+      seoDesc:  "Lange bébé en bambou certifié OEKO-TEX. 120×120 cm, multi-usage : emmaillotage, couverture, protection soleil. Livraison offerte dès 60€.",
+      keywords: ["lange bébé", "lange emmaillotage", "lange bambou", "emmaillotage nourrisson", "lange bébé 120x120", "couverture emmaillotage"],
+      h1: "Langes bébé bambou",
+    },
+    en: {
+      seoTitle: "Baby Swaddle Blanket OEKO-TEX Bamboo — 120x120 cm Newborn Muslin",
+      seoDesc:  "OEKO-TEX certified bamboo swaddle blanket. 120×120 cm, multi-use: swaddle, blanket, sun shade. Free delivery from €60.",
+      keywords: ["baby swaddle", "newborn swaddle blanket", "bamboo muslin", "swaddle wrap"],
+      h1: "Baby Swaddles",
+    },
+  },
+  accessoires: {
+    fr: {
+      seoTitle: "Accessoires bébé bambou OEKO-TEX — Bonnets, Bandeaux nourrisson",
+      seoDesc:  "Accessoires bébé en bambou certifié OEKO-TEX. Bonnets et bandeaux nourrisson ultra-doux. Livraison offerte dès 60€.",
+      keywords: ["accessoire bébé", "bonnet bébé", "bandeau bébé", "accessoire nourrisson", "bonnet bambou bébé"],
+      h1: "Accessoires bébé bambou",
+    },
+    en: {
+      seoTitle: "Baby Accessories OEKO-TEX Bamboo — Hats, Headbands for Newborns",
+      seoDesc:  "OEKO-TEX certified bamboo baby accessories. Ultra-soft newborn hats and headbands. Free delivery from €60.",
+      keywords: ["baby hat", "newborn hat", "baby headband", "bamboo baby accessories"],
+      h1: "Baby Accessories",
+    },
+  },
+  bonnet: {
+    fr: {
+      seoTitle: "Bonnet bébé bambou OEKO-TEX — Bonnet nourrisson ultra-doux",
+      seoDesc:  "Bonnet bébé en bambou certifié OEKO-TEX. Ultra-doux, anatomique, pour les premières heures. Livraison offerte dès 60€.",
+      keywords: ["bonnet bébé", "bonnet nourrisson", "bonnet bambou bébé", "bonnet naissance", "bonnet bébé doux"],
+      h1: "Bonnets bébé bambou",
+    },
+    en: {
+      seoTitle: "Baby Hats OEKO-TEX Bamboo — Ultra-soft Newborn Beanie",
+      seoDesc:  "OEKO-TEX certified bamboo baby hats. Ultra-soft, anatomical fit for the first hours. Free delivery from €60.",
+      keywords: ["baby hat", "newborn beanie", "bamboo baby hat", "newborn hat"],
+      h1: "Baby Hats",
+    },
+  },
+};
+
+function getCategoryMeta(slug: string, locale: string) {
+  const cat  = CATEGORY_SEO[slug];
+  const lang = (locale === "en" ? "en" : "fr") as "fr" | "en";
+  if (cat) return cat[lang];
+  return {
+    seoTitle: locale === "en" ? "Baby Collection" : "Collection bébé",
+    seoDesc:  locale === "en" ? "Baby essentials in OEKO-TEX certified bamboo." : "Essentiels bébé en bambou certifié OEKO-TEX.",
+    keywords: ["bébé bambou", "OEKO-TEX"],
+    h1:       slug,
+  };
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { locale, slug } = await params;
-  const meta = getMeta(slug);
-  const url  = `${BASE}/${locale}/categorie/${slug}`;
+  const seo = getCategoryMeta(slug, locale);
+  const url = `${BASE}/${locale}/categorie/${slug}`;
   return {
-    title:       meta.seoTitle,
-    description: meta.seoDesc,
-    keywords:    meta.keywords,
+    title:       seo.seoTitle,
+    description: seo.seoDesc,
+    keywords:    seo.keywords,
     alternates:  getAlternates(locale, `/categorie/${slug}`),
     openGraph: {
-      title:       meta.seoTitle,
-      description: meta.seoDesc,
+      title:       seo.seoTitle,
+      description: seo.seoDesc,
       url,
       siteName:    "M!LK",
-      locale:      "fr_FR",
+      locale:      locale === "en" ? "en_GB" : "fr_FR",
       type:        "website",
       images: [{
         url:    `${BASE}/images/og/milk-og-homepage.jpg`,
         width:  1200,
         height: 630,
-        alt:    meta.seoTitle,
+        alt:    seo.seoTitle,
       }],
     },
     twitter: {
       card:        "summary_large_image",
-      title:       meta.seoTitle,
-      description: meta.seoDesc,
+      title:       seo.seoTitle,
+      description: seo.seoDesc,
       images:      [`${BASE}/images/og/milk-og-homepage.jpg`],
     },
   };

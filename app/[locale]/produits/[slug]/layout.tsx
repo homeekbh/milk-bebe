@@ -5,6 +5,35 @@ import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+// ── Fallbacks SEO par catégorie ──────────────────────────────────────────────
+// Utilisés UNIQUEMENT quand seo_title / seo_description sont NULL en DB.
+// Objectif : capter les requêtes génériques (« pyjama bébé », « gigoteuse
+// nourrisson », « turbulette »…) en plus des requêtes bambou.
+const CATEGORY_TITLE_MAP: Record<string, (name: string) => string> = {
+  pyjamas:     (n) => `${n} — Pyjama bébé bambou OEKO-TEX, grenouillère nourrisson 0-6 mois`,
+  bodies:      (n) => `${n} — Body bébé bambou OEKO-TEX, body nourrisson doux 0-6 mois`,
+  gigoteuses:  (n) => `${n} — Gigoteuse bébé bambou, turbulette nourrisson 0-3 mois`,
+  langes:      (n) => `${n} — Lange bébé bambou OEKO-TEX, emmaillotage nourrisson`,
+  bonnet:      (n) => `${n} — Bonnet bébé bambou OEKO-TEX, bonnet nourrisson doux`,
+  accessoires: (n) => `${n} — Accessoire bébé bambou OEKO-TEX`,
+};
+const CATEGORY_DESC_MAP: Record<string, (name: string) => string> = {
+  pyjamas:    (n) => `${n} en bambou certifié OEKO-TEX. Pyjama bébé ultra-doux, grenouillère nourrisson thermorégulante. Double zip + moufles intégrées. Livraison offerte dès 60€.`,
+  bodies:     (n) => `${n} en bambou certifié OEKO-TEX. Body bébé ultra-doux, body nourrisson hypoallergénique. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€.`,
+  gigoteuses: (n) => `${n} en bambou certifié OEKO-TEX. Gigoteuse bébé respirante, turbulette nourrisson 0-3 mois. À nouer, zéro bouton. Livraison offerte dès 60€.`,
+  langes:     (n) => `${n} en bambou certifié OEKO-TEX. Lange bébé 120×120 cm, emmaillotage nourrisson. Multi-usage. Livraison offerte dès 60€.`,
+  bonnet:     (n) => `${n} en bambou certifié OEKO-TEX. Bonnet bébé ultra-doux, bonnet nourrisson anatomique. Livraison offerte dès 60€.`,
+  accessoires:(n) => `${n} en bambou certifié OEKO-TEX. Accessoire bébé doux et hypoallergénique. Livraison offerte dès 60€.`,
+};
+const CATEGORY_KEYWORDS: Record<string, string[]> = {
+  pyjamas:    ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "pyjama bébé 0-6 mois"],
+  bodies:     ["body bébé", "body nourrisson", "body bambou bébé", "body bébé doux", "body bébé peau sensible", "body bébé OEKO-TEX", "body bébé 0-3 mois"],
+  gigoteuses: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "gigoteuse bébé respirante"],
+  langes:     ["lange bébé", "lange emmaillotage", "lange bambou", "emmaillotage nourrisson", "lange bébé 120x120"],
+  bonnet:     ["bonnet bébé", "bonnet nourrisson", "bonnet bébé bambou", "bonnet naissance"],
+  accessoires:["accessoire bébé", "bandeau bébé", "accessoire nourrisson"],
+};
+
 // ── SSG + ISR ──────────────────────────────────────────────────────────────
 // Pré-génère au build le shell + les métadonnées/JSON-LD SSR de CHAQUE produit
 // publié, et les régénère toutes les heures (ISR). Le contenu visible reste
@@ -38,33 +67,25 @@ export async function generateMetadata(
     };
   }
 
-  // Fallback enrichi (uniquement pour les produits SANS seo_title custom) :
-  // ajoute "bébé" + "0-6 mois" → meilleur ciblage GSC sur les product snippets.
-  const title = product.seo_title ?? `${product.name} bébé — bambou OEKO-TEX 0-6 mois`;
+  // Fallback enrichi par catégorie (uniquement pour les produits SANS seo_title
+  // custom en DB) : injecte les termes génériques recherchés par les parents
+  // (« pyjama bébé », « grenouillère », « turbulette »…) en plus du bambou.
+  const catSlug = product.category_slug ?? "";
+  const title = product.seo_title
+    ?? CATEGORY_TITLE_MAP[catSlug]?.(product.name)
+    ?? `${product.name} — bambou OEKO-TEX 0-6 mois`;
 
-  // Description = premier paragraphe (jusqu'au premier saut de ligne, max 155 car)
-  // + mention livraison offerte
-  const firstParagraph = (product.description ?? "")
-    .split(/\n\s*\n/)[0]?.trim()
-    .replace(/\s+/g, " ")
-    .slice(0, 130);
   const description = product.seo_description
-    ?? (firstParagraph
-        ? `${firstParagraph}… Livraison offerte dès 60€.`
-        : `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€.`);
+    ?? CATEGORY_DESC_MAP[catSlug]?.(product.name)
+    ?? `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€.`;
 
   const url = `${BASE}/${locale}/produits/${product.slug}`;
 
-  // Mots-clés contextuels : catégorie + nom + qualité matière
-  const cat = product.category_slug ?? "";
+  // Mots-clés : génériques de la catégorie + signaux marque/matière.
   const keywords = [
-    product.name,
-    `${product.name} bambou`,
-    cat ? `${cat} bambou bébé` : "",
-    cat ? `${cat} OEKO-TEX` : "",
-    "bambou bébé OEKO-TEX",
-    "cadeau naissance",
-  ].filter(Boolean) as string[];
+    ...(CATEGORY_KEYWORDS[catSlug] ?? []),
+    "bambou OEKO-TEX", "M!LK", "bébé 0-6 mois",
+  ];
 
   const breadcrumbLd = {
     "@context": "https://schema.org",

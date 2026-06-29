@@ -48,13 +48,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...expand("/politique-confidentialite", "yearly",  0.3),
   ];
 
+  // Produits actifs (published=true) + catégories dérivées. try/catch résilient.
+  // ⚠️ La table products N'A PAS de colonne `updated_at` (seulement `created_at`) :
+  // l'ancien select sur `updated_at` renvoyait data=null SILENCIEUSEMENT
+  // (supabase-js ne throw pas) → 0 produit/catégorie dans le sitemap. Corrigé.
   let dynamicPages: MetadataRoute.Sitemap = [];
 
   try {
-    const { data: products } = await supabaseServer
+    const { data: products, error } = await supabaseServer
       .from("products")
-      .select("slug, updated_at, category_slug")
+      .select("slug, created_at, category_slug")
       .eq("published", true);
+    if (error) throw error;
 
     const cats = new Set<string>();
     for (const p of products ?? []) {
@@ -62,14 +67,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     }
 
     const categoryPages = [...cats].flatMap((slug) =>
-      expand(`/categorie/${slug}`, "weekly", 0.9),
+      expand(`/categorie/${encodeURIComponent(slug)}`, "weekly", 0.8),
     );
     const productPages = (products ?? []).flatMap((p) =>
       expand(
-        `/produits/${p.slug}`,
+        `/produits/${encodeURIComponent(p.slug)}`,
         "weekly",
         0.8,
-        p.updated_at ? new Date(p.updated_at) : now,
+        p.created_at ? new Date(p.created_at) : now,
       ),
     );
     dynamicPages = [...categoryPages, ...productPages];

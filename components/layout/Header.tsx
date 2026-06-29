@@ -101,10 +101,19 @@ export default function Header() {
 
   // Fermer le dropdown si clic en dehors
   const headerRef = useRef<HTMLElement | null>(null);
-  // Compteur packs (store séparé milk_pack_cart) — relu à chaque navigation.
+  // Compteur packs (store séparé milk_pack_cart) — relu à chaque navigation ET en
+  // direct via l'event "milk-pack-cart-changed" (émis par le panier quand on retire
+  // un pack ou vide le panier) + "storage" (autres onglets). Badge resync sans reload.
   const [packCount, setPackCount] = useState(0);
   useEffect(() => {
-    try { const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]"); setPackCount(Array.isArray(raw) ? raw.length : 0); } catch {}
+    const read = () => { try { const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]"); setPackCount(Array.isArray(raw) ? raw.length : 0); } catch {} };
+    read();
+    window.addEventListener("milk-pack-cart-changed", read);
+    window.addEventListener("storage", read);
+    return () => {
+      window.removeEventListener("milk-pack-cart-changed", read);
+      window.removeEventListener("storage", read);
+    };
   }, [pathname]);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0) + packCount;
 

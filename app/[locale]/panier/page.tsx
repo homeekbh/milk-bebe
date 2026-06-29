@@ -128,6 +128,18 @@ export default function CartPage() {
       localStorage.setItem("milk_pack_cart", JSON.stringify(next));
     } catch {}
     setPacks(prev => prev.filter(p => !(p.pack_id === pack_id && p.size === size)));
+    try { window.dispatchEvent(new Event("milk-pack-cart-changed")); } catch {}
+  }
+
+  // « Vider le panier » : clearCart() ne touche que milk_cart_v2 (produits). Les
+  // packs vivent dans un store séparé milk_pack_cart → on les vide aussi + on reset
+  // le state local, puis on prévient le Header (badge) via un event custom (un write
+  // localStorage same-tab ne déclenche pas l'event natif "storage"). UI resync immédiate.
+  function handleClearCart() {
+    clearCart();                                          // produits (milk_cart_v2)
+    try { localStorage.removeItem("milk_pack_cart"); } catch {}
+    setPacks([]);                                         // packs (state local)
+    try { window.dispatchEvent(new Event("milk-pack-cart-changed")); } catch {}
   }
 
   // Charger depuis localStorage au mount.
@@ -333,8 +345,22 @@ export default function CartPage() {
   // port réel). Si un code repasse sous 60€, le port réapparaît avec la barre.
   // Promo non cumulable → seuil désactivé → barre masquée (pas de fausse promesse).
   const promoBlocksThreshold = promoData?.cumulable_avec_livraison === false && !promoData?.free_shipping;
-  const remaining = promoBlocksThreshold ? 0 : Math.max(0, freeShippingThreshold - totalAfterPromo);
-  const pct       = promoBlocksThreshold ? 0 : Math.min(100, (totalAfterPromo / freeShippingThreshold) * 100);
+  // « Plus que X€ » = montant de PRODUITS à AJOUTER (prix AVANT promo) pour franchir
+  // le seuil APRÈS remise — et non le simple écart post-promo. Car ce qu'on ajoute est
+  // lui aussi remisé : pour un code %, il faut ajouter gap / (1 − taux) (ex. pack 84,90
+  // −30% → écart 0,57 → 0,57/0,70 = 0,81€). Code € fixe, livraison offerte ou sans promo
+  // → l'ajout n'est pas remisé → restant = écart brut (60 − sous-total).
+  const gap = Math.max(0, freeShippingThreshold - totalAfterPromo);
+  let remaining: number;
+  if (promoBlocksThreshold) {
+    remaining = 0;
+  } else if (promoData?.type === "percent" && !promoData?.free_shipping) {
+    const rate = Math.min(Math.max((Number(promoData?.value) || 0) / 100, 0), 0.99); // garde anti division par 0
+    remaining = Math.round((gap / (1 - rate)) * 100) / 100;
+  } else {
+    remaining = Math.round(gap * 100) / 100;
+  }
+  const pct = promoBlocksThreshold ? 0 : Math.min(100, (totalAfterPromo / freeShippingThreshold) * 100);
 
   // Livraison complétée ?
   const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
@@ -882,7 +908,7 @@ export default function CartPage() {
                   {loading ? "Redirection..." : "Passer au paiement →"}
                 </button>
 
-                <button onClick={clearCart}
+                <button onClick={handleClearCart}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
                   Vider le panier
                 </button>

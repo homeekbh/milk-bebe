@@ -6,16 +6,22 @@ import { useState, useEffect, useCallback } from "react";
 import { useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
-import PackCartSection from "./PackCartSection";
 import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
+import { computeCartTotals } from "@/lib/cart-totals";
 import {
   DELIVERY_DELAY,
   getDeliveryPrice,
   isDeliveryCombinationAllowed,
-  computeShipping,
   type Carrier,
   type DeliveryType,
 } from "@/lib/delivery-config";
+
+// Ligne pack au panier (lue depuis localStorage milk_pack_cart, groupée par
+// pack_id + size en quantité).
+type PackLine = {
+  pack_id: string; slug: string; title: string; size: string | null;
+  price: number; image_url: string | null; items: string[]; quantity: number;
+};
 
 // Seuil par défaut si /api/settings/public échoue (chargement réseau)
 const DEFAULT_FREE_SHIPPING_THRESHOLD = 60;
@@ -91,6 +97,38 @@ export default function CartPage() {
       })
       .catch(() => {});
   }, []);
+
+  // ── Packs : lus depuis localStorage milk_pack_cart (store séparé, pas de
+  //    migration) et groupés par pack_id + size en quantité. Affichés dans la
+  //    MÊME liste que les produits, inclus dans le total/promo/livraison. ──────
+  const [packs, setPacks] = useState<PackLine[]>([]);
+  useEffect(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]");
+      if (!Array.isArray(raw)) return;
+      const map = new Map<string, PackLine>();
+      for (const p of raw) {
+        const key = `${p.pack_id}__${p.size ?? ""}`;
+        const ex  = map.get(key);
+        if (ex) ex.quantity += 1;
+        else map.set(key, {
+          pack_id: p.pack_id, slug: p.slug, title: p.title, size: p.size ?? null,
+          price: Number(p.price) || 0, image_url: p.image_url ?? null,
+          items: Array.isArray(p.items) ? p.items : [], quantity: 1,
+        });
+      }
+      setPacks([...map.values()]);
+    } catch {}
+  }, []);
+
+  function removePack(pack_id: string, size: string | null) {
+    try {
+      const raw  = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]");
+      const next = (Array.isArray(raw) ? raw : []).filter((p: any) => !(p.pack_id === pack_id && (p.size ?? null) === (size ?? null)));
+      localStorage.setItem("milk_pack_cart", JSON.stringify(next));
+    } catch {}
+    setPacks(prev => prev.filter(p => !(p.pack_id === pack_id && p.size === size)));
+  }
 
   // Charger depuis localStorage au mount.
   useEffect(() => {
@@ -238,9 +276,11 @@ export default function CartPage() {
     }
   }
 
-  const subtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
+  const productsSubtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
+  const packsSubtotal    = packs.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 0), 0);
+  const subtotal         = productsSubtotal + packsSubtotal;
 
-  // ✅ Recalcul automatique de la réduction quand le panier change
+  // ✅ Recalcul automatique de la réduction quand le panier change (produits + packs)
   const recalcPromo = useCallback(async (currentSubtotal: number) => {
     if (!promoData?.code) return;
     try {
@@ -270,29 +310,31 @@ export default function CartPage() {
   // Prix livraison depuis la matrice. 0 si carrier/type pas encore choisis.
   const basePrice = (carrier && deliveryType) ? getDeliveryPrice(carrier, deliveryType) : 0;
 
-  // ⚠️ Calcul du port DÉLÉGUÉ à computeShipping() — source unique partagée
-  // avec /api/checkout/create-session. Plus AUCUN recalcul local du seuil/
-  // cumul ici (le panier était désaligné du serveur avant : il appliquait
-  // le seuil sans tenir compte de cumulable_avec_livraison).
-  const shippingDecision = computeShipping({
-    subtotal,
-    freeShippingThreshold,
+  // ⚠️ Calcul UNIFIÉ (produits + packs) via computeCartTotals() — même fonction
+  // pure que /api/checkout/create-session (l'affiché = le facturé). Le seuil
+  // livraison est évalué sur le TOTAL APRÈS PROMO (décision actée).
+  const totals = computeCartTotals({
+    productsSubtotal,
+    packsSubtotal,
+    discount,
     basePrice,
+    freeShippingThreshold,
     promo: promoData ? {
       free_shipping:            !!promoData.free_shipping,
       cumulable_avec_livraison: promoData.cumulable_avec_livraison !== false,
     } : null,
   });
-  const shippingFree = shippingDecision.shippingFree;
-  const shipping     = shippingDecision.shipping;
-  const total        = Math.max(0, subtotal - discount) + shipping;
+  const totalAfterPromo = totals.totalAfterPromo;
+  const shippingFree    = totals.shippingFree;
+  const shipping        = totals.shipping;
+  const total           = totals.total;
 
-  // Barre de progression "il te reste X€" : Option A → calcul sur subtotal BRUT.
-  // Si une promo non-cumulable est active, le seuil ne s'appliquera PAS même
-  // une fois atteint → on cache la barre (logique = pas de promesse fausse).
+  // Barre "il te reste X€" : calculée sur le TOTAL APRÈS PROMO (même base que le
+  // port réel). Si un code repasse sous 60€, le port réapparaît avec la barre.
+  // Promo non cumulable → seuil désactivé → barre masquée (pas de fausse promesse).
   const promoBlocksThreshold = promoData?.cumulable_avec_livraison === false && !promoData?.free_shipping;
-  const remaining = promoBlocksThreshold ? 0 : Math.max(0, freeShippingThreshold - subtotal);
-  const pct       = promoBlocksThreshold ? 0 : Math.min(100, (subtotal / freeShippingThreshold) * 100);
+  const remaining = promoBlocksThreshold ? 0 : Math.max(0, freeShippingThreshold - totalAfterPromo);
+  const pct       = promoBlocksThreshold ? 0 : Math.min(100, (totalAfterPromo / freeShippingThreshold) * 100);
 
   // Livraison complétée ?
   const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
@@ -337,7 +379,7 @@ export default function CartPage() {
   }
 
   async function handleCheckout() {
-    if (items.length === 0 || loading) return;
+    if ((items.length === 0 && packs.length === 0) || loading) return;
     setGuestError("");
     setCheckoutError("");
 
@@ -391,6 +433,9 @@ export default function CartPage() {
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({
           items,
+          // Packs : envoyés en sélection (pack_id + taille choisie + qty). Le
+          // serveur recalcule le forfait + les tailles par pièce depuis la base.
+          packs: packs.map(p => ({ pack_id: p.pack_id, size: p.size, quantity: p.quantity })),
           // ⚠️ promo_code uniquement — discount/free_shipping sont RECALCULÉS
           // côté serveur via validatePromoCode + computeShipping. Empêche
           // tout client malveillant de forger une remise.
@@ -442,10 +487,7 @@ export default function CartPage() {
           Mon panier
         </h1>
 
-        {/* Coffrets (packs) — panier localStorage séparé */}
-        <PackCartSection />
-
-        {items.length === 0 ? (
+        {items.length === 0 && packs.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 20, padding: 60, textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>Votre panier est vide</div>
             <p style={{ opacity: 0.5, marginBottom: 28 }}>Découvrez nos essentiels en bambou pour nourrisson.</p>
@@ -536,6 +578,27 @@ export default function CartPage() {
                     {(item.price * item.quantity).toFixed(2)} €
                   </div>
                   <button onClick={() => removeFromCart(item.id, item.taille, item.couleur)} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+                    ✕
+                  </button>
+                </div>
+              ))}
+
+              {/* Coffrets (packs) — même liste, facturés au FORFAIT */}
+              {packs.map(p => (
+                <div key={`${p.pack_id}__${p.size ?? ""}`} style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(196,154,74,0.35)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+                  <div style={{ flex: 1, minWidth: 120 }}>
+                    <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>🎁 {p.title}</div>
+                    <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
+                      Coffret · {p.items.length} pièces{p.size ? ` · taille ${p.size}` : ""} · {Number(p.price).toFixed(2)} € / pack
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", background: "#ede8df", borderRadius: 10, padding: "8px 14px", flexShrink: 0, fontWeight: 900, fontSize: 15, color: "#1a1410" }}>
+                    × {p.quantity}
+                  </div>
+                  <div style={{ fontWeight: 950, fontSize: 18, color: "#1a1410", minWidth: 70, textAlign: "right", flexShrink: 0 }}>
+                    {(p.price * p.quantity).toFixed(2)} €
+                  </div>
+                  <button onClick={() => removePack(p.pack_id, p.size)} aria-label="Retirer le coffret" style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
                     ✕
                   </button>
                 </div>

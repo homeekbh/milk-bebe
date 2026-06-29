@@ -7,9 +7,9 @@ import {
   isDeliveryCombinationAllowed,
   getDeliveryPrice,
   deliveryLabel,
-  computeShipping,
 } from "@/lib/delivery-config";
 import { validatePromoCode } from "@/lib/promo-validate";
+import { computeCartTotals } from "@/lib/cart-totals";
 
 // Pin l'API version au plus récent supporté par le SDK installé (cf.
 // node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
@@ -59,6 +59,7 @@ export async function POST(req: Request) {
   try {
     const {
       items,
+      packs,
       promo_code,
       customer_email,
       customer_phone,
@@ -68,6 +69,9 @@ export async function POST(req: Request) {
       home_address,
       locale,
     } = await req.json();
+
+    const itemsArr: any[] = Array.isArray(items) ? items : [];
+    const packsArr: any[] = Array.isArray(packs) ? packs : [];
 
     // Locale courante (passée par le client via useLocale()). On whiteliste
     // strictement : tout sauf 'en' retombe sur 'fr' (defaultLocale). Évite
@@ -80,7 +84,7 @@ export async function POST(req: Request) {
     // Un client malveillant ne peut donc PAS forger une remise inexistante
     // ni s'offrir le port en passant free_shipping=true dans le body.
 
-    if (!items || items.length === 0) {
+    if (itemsArr.length === 0 && packsArr.length === 0) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
     }
 
@@ -107,13 +111,13 @@ export async function POST(req: Request) {
     const validatedItems = [];
 
     // Batch : 1 seule requête pour TOUS les produits du panier (élimine le N+1).
-    const itemIds = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
+    const itemIds = [...new Set(itemsArr.map((i: any) => i.id).filter(Boolean))];
     const { data: productsData } = await supabaseServer
       .from("products").select("*").in("id", itemIds.length ? itemIds : ["none"]);
     const productMap: Record<string, any> = {};
     (productsData ?? []).forEach((p: any) => { productMap[p.id] = p; });
 
-    for (const item of items) {
+    for (const item of itemsArr) {
       const product = productMap[item.id];
 
       if (!product) {
@@ -170,8 +174,79 @@ export async function POST(req: Request) {
       });
     }
 
-    // ── Subtotal serveur (jamais celui du client) ────────────────────────────
-    const subtotal = lineItems.reduce((s, l) => s + l.price_data.unit_amount * l.quantity, 0) / 100;
+    // ── PACKS : validation + résolution des tailles PAR PIÈCE (mono/multi) +
+    //    line item au FORFAIT. Le breakdown résolu (pour le webhook : record +
+    //    décrément) est stocké dans le draft. Stock vérifié × quantité. ─────────
+    const draftPacks: any[] = [];
+    let packsSubtotal = 0;
+    if (packsArr.length > 0) {
+      const packIds = [...new Set(packsArr.map((p: any) => p.pack_id).filter(Boolean))];
+      const { data: packsData } = await supabaseServer
+        .from("packs")
+        .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock ) )`)
+        .in("id", packIds.length ? packIds : ["none"])
+        .eq("active", true);
+      const packMap: Record<string, any> = {};
+      (packsData ?? []).forEach((p: any) => { packMap[p.id] = p; });
+
+      for (const pl of packsArr) {
+        const pack = packMap[pl.pack_id];
+        if (!pack) return Response.json({ error: `Coffret introuvable : ${pl.pack_id}` }, { status: 400 });
+        const qty = Number(pl.quantity) || 1;
+        if (!Number.isInteger(qty) || qty < 1 || qty > 99) {
+          return Response.json({ error: `Quantité invalide pour ${pack.title}` }, { status: 400 });
+        }
+        const prods = (pack.pack_items ?? []).map((it: any) => it.product).filter(Boolean);
+        if (prods.length === 0) return Response.json({ error: `Coffret vide : ${pack.title}` }, { status: 400 });
+
+        const pieces: { product_id: string; name: string; size: string | null }[] = [];
+        for (const p of prods) {
+          const sizes: string[] = Array.isArray(p.sizes) ? p.sizes : [];
+          let pieceSize: string | null;
+          if (sizes.length > 1) {
+            if (!pl.size) return Response.json({ error: "Taille requise", product: pack.title }, { status: 400 });
+            if (!sizes.includes(pl.size)) return Response.json({ error: "Taille indisponible pour un article", product: p.name }, { status: 400 });
+            pieceSize = pl.size;
+          } else if (sizes.length === 1) {
+            pieceSize = sizes[0];
+          } else {
+            pieceSize = null;
+          }
+          if (pieceSize) {
+            if (((p.sizes_stock ?? {})[pieceSize] ?? 0) < qty) {
+              return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
+            }
+          } else if ((p.stock ?? 0) < qty) {
+            return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
+          }
+          pieces.push({ product_id: p.id, name: p.name, size: pieceSize });
+        }
+
+        const forfait = Number(pack.price) || 0;
+        packsSubtotal += forfait * qty;
+
+        lineItems.push({
+          price_data: {
+            currency:     "eur",
+            product_data: {
+              name: `${pack.title}${pl.size ? ` — ${pl.size}` : ""}`,
+              ...(pack.image_url ? { images: [pack.image_url] } : {}),
+            },
+            unit_amount: Math.round(forfait * 100),
+          },
+          quantity: qty,
+        });
+
+        draftPacks.push({
+          pack_id: pack.id, title: pack.title, slug: pack.slug,
+          size: pl.size ?? null, quantity: qty, price: forfait, pieces,
+        });
+      }
+    }
+
+    // ── Sous-total serveur (produits + packs forfait — jamais le client) ──────
+    const productsSubtotal = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
+    const subtotal         = productsSubtotal + packsSubtotal;
 
     // ── RE-VALIDATION du code promo côté serveur ─────────────────────────────
     // Si promo_code est fourni : on rejoue la validation. Si elle échoue
@@ -195,16 +270,19 @@ export async function POST(req: Request) {
       // catastrophique de rejeter au checkout après un code accepté au panier.
     }
 
-    // ── Calcul port via computeShipping (Option A : seuil sur subtotal BRUT) ─
+    // ── Calcul UNIFIÉ produits+packs (seuil livraison sur le TOTAL APRÈS PROMO)
+    //    via computeCartTotals — MÊME fonction que le panier (affiché = facturé).
     const freeShipThreshold = await getFreeShippingThreshold();
     const basePrice         = getDeliveryPrice(carrier, delivery_type);
-    const shippingDecision  = computeShipping({
-      subtotal,
-      freeShippingThreshold: freeShipThreshold,
+    const totals = computeCartTotals({
+      productsSubtotal,
+      packsSubtotal,
+      discount: serverDiscount,
       basePrice,
+      freeShippingThreshold: freeShipThreshold,
       promo: serverPromoForCS,
     });
-    const deliveryCost = shippingDecision.shipping;
+    const deliveryCost = totals.shipping;
 
     if (deliveryCost > 0) {
       lineItems.push({
@@ -216,6 +294,34 @@ export async function POST(req: Request) {
         quantity: 1,
       });
     }
+
+    // ── DRAFT (pending_orders) : SÉLECTION RÉSOLUE (produits + pièces de packs
+    //    avec leurs tailles) + livraison + promo. Sert au webhook à RETROUVER la
+    //    commande et décrémenter. Le BILLING reste les line_items Stripe (calculés
+    //    depuis la base ci-dessus), jamais les montants du draft.
+    const { data: draft, error: draftErr } = await supabaseServer
+      .from("pending_orders")
+      .insert([{
+        products: validatedItems.map(i => ({ id: i.id, name: i.name, slug: i.slug, price: i.price, quantity: i.quantity, taille: i.taille, category_slug: i.category_slug })),
+        packs:    draftPacks,
+        promo_code: serverPromoCode || null,
+        delivery: {
+          carrier, delivery_type,
+          delivery_price: deliveryCost,
+          customer_phone: String(customer_phone ?? "").slice(0, 30),
+          relay: relay ? { id: relay.id, name: relay.name, street: relay.street, city: relay.city, postal_code: relay.postal_code, type: relay.type } : null,
+          home_address: home_address ?? null,
+        },
+        guest_email: customer_email ?? null,
+        locale:      safeLocale,
+        status:      "pending",
+      }])
+      .select("id").single();
+    if (draftErr || !draft) {
+      process.env.NODE_ENV !== "production" && console.error("pending_orders insert error:", draftErr?.message);
+      return Response.json({ error: "Erreur lors de la préparation de la commande." }, { status: 500 });
+    }
+    const pendingOrderId = draft.id as string;
 
     const sessionParams: any = {
       // 'card' → Apple Pay / Google Pay sont automatiquement présentés sur
@@ -233,34 +339,10 @@ export async function POST(req: Request) {
       cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/panier`,
       locale:      safeLocale,
       ...(customer_email ? { customer_email } : {}),
+      // ⚠️ Metadata = UNIQUEMENT l'id du draft (évite la limite Stripe 500 car.
+      // par valeur sur un panier mixte). Le webhook lit pending_orders par cet id.
       metadata: {
-        // ⚠️ Stripe limite chaque valeur de metadata à 500 caractères. On ne
-        // stocke donc QUE le strict minimum (id + quantité + taille) — le
-        // webhook re-fetch name/slug/price/category depuis Supabase. Avant ce
-        // slim, le JSON complet (7 champs/article) dépassait 500 car. dès 3-4
-        // articles → erreur "metadata values can have up to 500 characters".
-        items:             JSON.stringify(validatedItems.map(i => ({
-          id:       i.id,
-          quantity: i.quantity,
-          taille:   i.taille,
-        }))),
-        // ⚠️ Metadata = vérité serveur (utilisée par le webhook pour
-        // persister la commande). Aucune confiance dans le client.
-        promo_code:        serverPromoCode,
-        discount:          String(serverDiscount),
-        free_shipping:     String(shippingDecision.shippingFree),
-        shipping_reason:   shippingDecision.reason,
-        carrier,
-        delivery_type,
-        delivery_price:    String(deliveryCost),
-        customer_phone:    String(customer_phone ?? "").slice(0, 30),
-        relay_id:          relay?.id          ?? "",
-        relay_name:        relay?.name        ?? "",
-        relay_street:      relay?.street      ?? "",
-        relay_city:        relay?.city        ?? "",
-        relay_postal_code: relay?.postal_code ?? "",
-        relay_type:        relay?.type        ?? "",
-        home_address:      home_address ? JSON.stringify(home_address) : "",
+        pending_order_id: pendingOrderId,
       },
     };
 
@@ -275,7 +357,10 @@ export async function POST(req: Request) {
       // Avant: `Date.now() >> 16` changeait toutes les ~65s → coupons orphelins +
       // collisions. Ici, un retry/double-clic du MÊME panier réutilise le même
       // coupon (vraie idempotency Stripe) ; deux paniers différents → clés distinctes.
-      const cartSig = validatedItems.map(i => `${i.id}:${i.quantity}`).join(",");
+      const cartSig = [
+        ...validatedItems.map(i => `${i.id}:${i.quantity}`),
+        ...draftPacks.map(p => `pack:${p.pack_id}:${p.size ?? ""}:${p.quantity}`),
+      ].join(",");
       const cartHash = crypto.createHash("sha1").update(cartSig).digest("hex").slice(0, 12);
       const idempotencyKey = `coupon-${serverPromoCode || "anon"}-${Math.round(serverDiscount * 100)}-${customer_email ?? "guest"}-${cartHash}`;
       const coupon = await stripe.coupons.create({
@@ -294,6 +379,8 @@ export async function POST(req: Request) {
     }
 
     const session = await stripe.checkout.sessions.create(sessionParams);
+    // Lien retour draft ↔ session (le webhook retrouvera aussi par pending_order_id).
+    await supabaseServer.from("pending_orders").update({ stripe_session_id: session.id }).eq("id", pendingOrderId);
     return Response.json({ url: session.url });
 
   } catch (error: any) {

@@ -169,6 +169,171 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   }
 }
 
+// ── Commande UNIFIÉE (produits + packs) via draft pending_orders ─────────────
+// metadata = { pending_order_id }. On lit le draft (sélection RÉSOLUE), on crée
+// 1 commande (montant = Stripe, source de vérité) puis — UNE seule fois (claim
+// atomique du draft pending→consumed) — on décrémente CHAQUE pièce sur SA taille
+// (produits + pièces de packs) et on envoie les emails.
+async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
+  const meta = session.metadata ?? {};
+  const pendingId = meta.pending_order_id;
+  if (!pendingId) return;
+
+  const { data: draft } = await supabaseServer
+    .from("pending_orders").select("*").eq("id", pendingId).maybeSingle();
+  if (!draft) { console.error("[webhook] pending_order introuvable:", pendingId); return; }
+
+  const products: any[] = Array.isArray(draft.products) ? draft.products : [];
+  const packs:    any[] = Array.isArray(draft.packs)    ? draft.packs    : [];
+  const delivery: any   = draft.delivery ?? {};
+
+  const email    = session.customer_details?.email ?? draft.guest_email ?? "";
+  const name     = session.customer_details?.name ?? "";
+  const amount   = (session.amount_total ?? 0) / 100;
+  const discount = ((session.total_details?.amount_discount ?? 0)) / 100;
+
+  const sAny = session as any;
+  const sAddr = sAny.shipping_details?.address ?? session.customer_details?.address ?? null;
+  const shippingFromStripe = sAddr ? {
+    name: sAny.shipping_details?.name ?? name,
+    line1: sAddr.line1 ?? "", line2: sAddr.line2 ?? "",
+    city: sAddr.city ?? "", postal_code: sAddr.postal_code ?? "", country: sAddr.country ?? "FR",
+  } : null;
+  const finalShippingAddress = delivery.home_address
+    ? { ...delivery.home_address, line2: delivery.home_address.line2 ?? "" }
+    : shippingFromStripe;
+
+  // Items commande : produits + 1 ligne par pack (breakdown des pièces).
+  const items = [
+    ...products.map((p: any) => ({
+      id: p.id, name: p.name, slug: p.slug, price: p.price, quantity: p.quantity,
+      taille: p.taille ?? null, category_slug: p.category_slug ?? "",
+    })),
+    ...packs.map((pk: any) => ({
+      id: `pack:${pk.pack_id}`, is_pack: true, pack_id: pk.pack_id,
+      name: `${pk.title}${pk.size ? ` — ${pk.size}` : ""}`,
+      price: pk.price, quantity: pk.quantity, taille: pk.size ?? null,
+      slug: pk.slug ?? null, category_slug: "pack",
+      products: (pk.pieces ?? []).map((pc: any) => ({ id: pc.product_id, name: pc.name, taille: pc.size })),
+    })),
+  ];
+
+  const relay = delivery.relay ?? null;
+
+  const { data: orderData, error: orderErr } = await supabaseServer
+    .from("orders")
+    .upsert([{
+      stripe_session_id: session.id,
+      items,
+      amount_total:      amount,
+      customer_email:    email,
+      customer_name:     name,
+      promo_code:        draft.promo_code ?? null,
+      discount,
+      status:            "payee",
+      shipping_status:   "en_preparation",
+      shipping_address:  finalShippingAddress,
+      delivery_type:     delivery.delivery_type ?? null,
+      delivery_price:    Number(delivery.delivery_price ?? 0) || 0,
+      relay_id:          relay?.id ?? null,
+      relay_name:        relay?.name ?? null,
+      relay_address:     relay?.street ?? null,
+      relay_city:        relay?.city ?? null,
+      relay_postal_code: relay?.postal_code ?? null,
+      relay_type:        relay?.type ?? null,
+    }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
+    .select().single();
+  if (orderErr) process.env.NODE_ENV !== "production" && console.error("[webhook] unified order upsert:", orderErr.message);
+
+  // Best-effort (colonnes optionnelles) : carrier + téléphone.
+  if (orderData?.id) {
+    const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
+    try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
+    if (delivery.customer_phone) { try { await supabaseServer.from("orders").update({ customer_phone: String(delivery.customer_phone).trim() }).eq("id", orderData.id); } catch {} }
+  }
+
+  // ── Claim ATOMIQUE du draft (pending→consumed) → effets de bord exactement-1×.
+  const { data: claimed } = await supabaseServer
+    .from("pending_orders")
+    .update({ status: "consumed", consumed_at: new Date().toISOString() })
+    .eq("id", pendingId).eq("status", "pending")
+    .select("id").maybeSingle();
+  if (!claimed) return; // déjà consommé (rejeu Stripe) → pas de double décrément
+
+  // ── Décrément : produits + chaque pièce de chaque pack, sur SA taille (× qty).
+  const stockIssues: Array<{ name: string; size?: string; requested: number; available: number; error?: string }> = [];
+  const dec: { id: string; qty: number; size: string | null; name: string }[] = [];
+  for (const p of products) dec.push({ id: p.id, qty: Number(p.quantity) || 1, size: p.taille ?? null, name: p.name });
+  for (const pk of packs) {
+    const pq = Number(pk.quantity) || 1;
+    for (const pc of (pk.pieces ?? [])) dec.push({ id: pc.product_id, qty: pq, size: pc.size ?? null, name: pc.name });
+  }
+  for (const d of dec) {
+    const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+      p_product_id: d.id, p_quantity: d.qty, p_size: d.size,
+    });
+    if (rpcErr) {
+      const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", d.id).single();
+      if (fp) {
+        if ((fp.stock ?? 0) < d.qty) stockIssues.push({ name: d.name, size: d.size ?? undefined, requested: d.qty, available: fp.stock ?? 0 });
+        const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - d.qty) };
+        if (d.size) {
+          const ss = fp.sizes_stock ?? {};
+          if ((ss[d.size] ?? 0) < d.qty) stockIssues.push({ name: d.name, size: d.size, requested: d.qty, available: ss[d.size] ?? 0 });
+          upd.sizes_stock = { ...ss, [d.size]: Math.max(0, (ss[d.size] ?? 0) - d.qty) };
+        }
+        await supabaseServer.from("products").update(upd).eq("id", d.id);
+      } else {
+        stockIssues.push({ name: d.name, size: d.size ?? undefined, requested: d.qty, available: 0, error: "product_not_found" });
+      }
+      continue;
+    }
+    const result = rpcResult as any;
+    if (!result?.ok) stockIssues.push({ name: d.name, size: d.size ?? undefined, requested: d.qty, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
+  }
+
+  // GARDE-FOU B : rupture APRÈS paiement → commande CONSERVÉE + alerte Erika
+  // (PAS de remboursement auto — décision métier en attente).
+  if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0 && orderData) {
+    const issuesHtml = stockIssues.map(i => `<li><strong>${i.name}</strong>${i.size ? ` (taille ${i.size})` : ""} — commandé ${i.requested}, dispo ${i.available}</li>`).join("");
+    try {
+      await resend.emails.send({
+        from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
+        subject: `⚠️ STOCK INSUFFISANT — commande #${orderData.id.slice(0, 8).toUpperCase()}`,
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant après paiement</h2><p>Commande <strong>#${orderData.id.slice(0, 8).toUpperCase()}</strong> de <strong>${name || email}</strong> :</p><ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul><p>📦 Vérifier le stock réel avant expédition ; si rupture confirmée, alternative ou remboursement.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+      });
+    } catch {}
+    try { await logActivity("stock_alert", `Stock insuffisant (commande unifiée) #${orderData.id.slice(0, 8).toUpperCase()} — ${stockIssues.length} item(s)`, { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }); } catch {}
+  }
+
+  // Promo uses_count + conversion panier abandonné.
+  if (draft.promo_code) {
+    const { data: promo } = await supabaseServer.from("promo_codes").select("id, uses_count").eq("code", draft.promo_code).single();
+    if (promo) await supabaseServer.from("promo_codes").update({ uses_count: (promo.uses_count ?? 0) + 1 }).eq("id", promo.id);
+  }
+  if (email) await supabaseServer.from("abandoned_carts").update({ converted: true }).eq("email", email.toLowerCase().trim());
+
+  // Email confirmation client + alerte admin nouvelle commande.
+  if (email && orderData) {
+    try {
+      await fetch(`${BASE}/api/emails/confirmation`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+        body: JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: finalShippingAddress, promo_code: draft.promo_code ?? null, discount, delivery_type: delivery.delivery_type ?? null }),
+      });
+    } catch {}
+  }
+  if (orderData && ADMIN_EMAILS.length > 0) {
+    try {
+      await resend.emails.send({
+        from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
+        subject: `🛒 Nouvelle commande — ${amount.toFixed(2)} € — ${name || email}`,
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="margin:0 0 10px">🛒 Commande ${amount.toFixed(2)} €</h2><p>${name || "Client"} — ${email}</p><ul style="line-height:1.6">${items.map((it: any) => `<li>${it.name}${it.taille ? ` (${it.taille})` : ""} ×${it.quantity}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+      });
+    } catch {}
+  }
+}
+
 export async function POST(req: Request) {
   const body        = await req.text();
   const headersList = await headers();
@@ -193,6 +358,12 @@ export async function POST(req: Request) {
       // metadata.items, absent pour un pack → on traite et on sort.
       if (session.metadata?.type === "pack") {
         await handlePackOrder(session);
+        return new Response("OK", { status: 200 });
+      }
+
+      // Commande UNIFIÉE (produits + packs) via draft — flux panier actuel.
+      if (session.metadata?.pending_order_id) {
+        await handleUnifiedOrder(session);
         return new Response("OK", { status: 200 });
       }
 

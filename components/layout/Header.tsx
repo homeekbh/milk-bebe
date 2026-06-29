@@ -101,7 +101,12 @@ export default function Header() {
 
   // Fermer le dropdown si clic en dehors
   const headerRef = useRef<HTMLElement | null>(null);
-  const totalItems = items.reduce((s, i) => s + i.quantity, 0);
+  // Compteur packs (store séparé milk_pack_cart) — relu à chaque navigation.
+  const [packCount, setPackCount] = useState(0);
+  useEffect(() => {
+    try { const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]"); setPackCount(Array.isArray(raw) ? raw.length : 0); } catch {}
+  }, [pathname]);
+  const totalItems = items.reduce((s, i) => s + i.quantity, 0) + packCount;
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 

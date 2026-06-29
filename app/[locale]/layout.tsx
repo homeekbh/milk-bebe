@@ -141,7 +141,11 @@ export async function generateMetadata({
   openGraph: {
     type:        "website",
     locale:      "fr_FR",
-    url:         BASE_URL,
+    // PAS de `url` par défaut : un og:url racine (https://www.milkbebe.fr) crée
+    // une boucle avec le 307 racine→/fr (Débogueur Facebook). Sans défaut, les
+    // pages sans og:url propre n'en déclarent aucun → FB retombe sur l'URL
+    // chargée (correcte). Les pages qui ont besoin d'un og:url le déclarent
+    // elles-mêmes en auto-référent /{locale}/...  (metadataBase reste défini).
     siteName:    "M!LK",
     title:       "M!LK — Bodies, Pyjamas, Gigoteuses & Langes nourrisson bambou | OEKO-TEX",
     description: "Vêtements nourrisson 0-6 mois en bambou certifié OEKO-TEX. 3× plus doux que le coton, thermorégulateur, antibactérien. Cadeau naissance parfait. Livraison offerte dès 60€.",

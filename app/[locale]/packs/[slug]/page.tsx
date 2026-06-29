@@ -25,6 +25,14 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     title: `${pack.title} | Packs M!LK`,
     description: pack.description ?? `Le coffret ${pack.title} — essentiels bébé bambou OEKO-TEX M!LK.`,
     alternates: getAlternates(locale, `/packs/${pack.slug}`),
+    openGraph: {
+      type:        "website",
+      url:         `${BASE_URL}/${locale}/packs/${pack.slug}`,
+      siteName:    "M!LK",
+      title:       `${pack.title} | Packs M!LK`,
+      description: pack.description ?? `Le coffret ${pack.title} — essentiels bébé bambou OEKO-TEX M!LK.`,
+      images:      [{ url: `${BASE_URL}/images/og/milk-og-homepage.jpg`, width: 1200, height: 630 }],
+    },
   };
 }
 

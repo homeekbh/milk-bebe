@@ -18,6 +18,14 @@ export async function generateMetadata({
   description:
     "Coffrets et packs M!LK : nos essentiels bébé bambou OEKO-TEX réunis à prix doux. Parfait pour une liste de naissance ou un cadeau.",
   alternates: getAlternates(locale, "/packs"),
+  openGraph: {
+    type:        "website",
+    url:         `${BASE_URL}/${locale}/packs`,
+    siteName:    "M!LK",
+    title:       "Nos packs | M!LK",
+    description: "Coffrets et packs M!LK : nos essentiels bébé bambou OEKO-TEX réunis à prix doux.",
+    images:      [{ url: `${BASE_URL}/images/og/milk-og-homepage.jpg`, width: 1200, height: 630 }],
+  },
   };
 }
 

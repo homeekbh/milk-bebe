@@ -29,7 +29,6 @@ export async function generateMetadata({
   openGraph: {
     title:       "Pourquoi le bambou pour bébé — M!LK",
     description: "Le bambou est 3× plus doux que le coton, thermorégulateur et antibactérien. Certifié OEKO-TEX Standard 100. Idéal pour la peau sensible des nourrissons.",
-    url:         `${BASE}/pourquoi-bambou`,
     images: [{ url: `${BASE}/matiere/bambou-02.png`, width: 1200, height: 630, alt: "Tissu bambou M!LK certifié OEKO-TEX" }],
   },
   twitter: {

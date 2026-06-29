@@ -1,8 +1,6 @@
 import type { Metadata } from "next";
 import { getAlternates } from "@/i18n/seo";
 
-const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
-
 export async function generateMetadata({
   params,
 }: {
@@ -16,7 +14,6 @@ export async function generateMetadata({
   openGraph: {
     title: "FAQ M!LK — Questions fréquentes",
     description: "Réponses sur le bambou, les livraisons, les retours, les tailles et le paiement M!LK.",
-    url: `${BASE}/faq`,
   },
   };
 }

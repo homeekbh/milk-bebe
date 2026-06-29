@@ -45,6 +45,11 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   const size   = meta.size || null;
   let productIds: string[] = [];
   try { productIds = JSON.parse(meta.product_ids ?? "[]"); } catch {}
+  // Taille réelle par produit ({ [productId]: size|null }). Fallback sur `size`
+  // (sessions créées avant le mapping par produit) → aucune régression.
+  let productSizes: Record<string, string | null> = {};
+  try { productSizes = JSON.parse(meta.product_sizes ?? "{}"); } catch {}
+  const sizeFor = (pid: string): string | null => (pid in productSizes ? productSizes[pid] : size);
 
   const email  = session.customer_details?.email ?? meta.guest_email ?? "";
   const name   = session.customer_details?.name ?? "";
@@ -65,7 +70,7 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   (prods ?? []).forEach((p: any) => { prodMap[p.id] = p; });
 
   const packProducts = productIds.map(pid => ({
-    id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: size,
+    id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: sizeFor(pid),
   }));
   const items = [{
     id:            `pack:${packId}`,
@@ -122,14 +127,15 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   if (isFirstProcessing) {
     // Décrément stock atomique par produit (avec fallback non-atomique).
     for (const pid of productIds) {
+      const pSize = sizeFor(pid);
       const { error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
-        p_product_id: pid, p_quantity: 1, p_size: size,
+        p_product_id: pid, p_quantity: 1, p_size: pSize,
       });
       if (rpcErr) {
         const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", pid).single();
         if (fp) {
           const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - 1) };
-          if (size) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [size]: Math.max(0, (ss[size] ?? 0) - 1) }; }
+          if (pSize) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [pSize]: Math.max(0, (ss[pSize] ?? 0) - 1) }; }
           await supabaseServer.from("products").update(upd).eq("id", pid);
         }
       }

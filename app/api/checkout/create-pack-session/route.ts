@@ -36,13 +36,32 @@ export async function POST(req: Request) {
     const products = (pack.pack_items ?? []).map((it: any) => it.product).filter(Boolean);
     if (products.length === 0) return Response.json({ error: "Pack vide" }, { status: 400 });
 
-    // 2. Vérif stock de chaque produit pour la taille choisie
+    // 2. Mapping taille PAR PRODUIT (modèle mono/multi-taille générique) :
+    //    • multi-taille (sizes.length > 1) → la TAILLE CHOISIE (doit exister + stock>0)
+    //    • mono-taille  (sizes.length === 1) → sa taille unique (stock>0)
+    //    • sans taille  → null (vérif stock total)
+    //    Aucune session créée si une seule pièce est en rupture sur SA taille.
+    const productSizes: Record<string, string | null> = {};
     for (const p of products) {
-      const hasSizes = Array.isArray(p.sizes) && p.sizes.length > 0;
-      if (hasSizes) {
+      const sizes: string[] = Array.isArray(p.sizes) ? p.sizes : [];
+      if (sizes.length > 1) {
         if (!size) return Response.json({ error: "Taille requise" }, { status: 400 });
-        const stockForSize = (p.sizes_stock ?? {})[size] ?? 0;
-        if (stockForSize < 1) {
+        if (!sizes.includes(size)) {
+          return Response.json({ error: "Taille indisponible pour un article", product: p.name }, { status: 400 });
+        }
+        productSizes[p.id] = size;
+      } else if (sizes.length === 1) {
+        productSizes[p.id] = sizes[0];
+      } else {
+        productSizes[p.id] = null;
+      }
+    }
+
+    // 3. Vérif stock — chaque produit avec SA propre taille.
+    for (const p of products) {
+      const reqSize = productSizes[p.id];
+      if (reqSize) {
+        if (((p.sizes_stock ?? {})[reqSize] ?? 0) < 1) {
           return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
         }
       } else if ((p.stock ?? 0) < 1) {
@@ -76,12 +95,15 @@ export async function POST(req: Request) {
       success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url:  `${process.env.NEXT_PUBLIC_BASE_URL}/${safeLocale}/packs/${pack.slug}`,
       metadata: {
-        type:        "pack",
-        pack_id:     pack.id,
-        pack_title:  pack.title,
-        size:        size ?? "",
-        product_ids: JSON.stringify(productIds),
-        guest_email: guest_email ?? "",
+        type:          "pack",
+        pack_id:       pack.id,
+        pack_title:    pack.title,
+        size:          size ?? "",
+        product_ids:   JSON.stringify(productIds),
+        // Taille réelle expédiée par produit ({ [productId]: size|null }) →
+        // le webhook décrémente CHAQUE produit avec SA propre taille.
+        product_sizes: JSON.stringify(productSizes),
+        guest_email:   guest_email ?? "",
       },
     });
 

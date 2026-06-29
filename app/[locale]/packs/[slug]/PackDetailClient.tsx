@@ -12,17 +12,32 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
   const prods   = packProducts(pack);
   const savings = packSavings(pack);
 
-  // Tailles : intersection des produits "à taille". Une taille n'est proposée
-  // que si TOUS les produits à taille l'ont en stock (sizes_stock[t] > 0).
+  // Tailles du pack — modèle générique (mélange mono/multi-taille) :
+  //  • MULTI-taille (sizes.length > 1, ex. body/pyjama) → le sélecteur propose
+  //    l'INTERSECTION de leurs tailles (seules celles communes à tous les multi).
+  //  • MONO-taille (sizes.length === 1, ex. gigoteuse "0-6 mois") → JAMAIS dans le
+  //    sélecteur ; expédiée d'office dans sa taille unique, quelle que soit la
+  //    taille choisie. Sa dispo (stock>0) conditionne quand même tout le pack.
+  //  • Pack 100% mono/sans-taille → pas de sélecteur (sizeRequired = false).
   const { sizes, sizeRequired } = useMemo(() => {
-    const sizeProds = prods.filter(p => Array.isArray((p as any).sizes) && (p as any).sizes.length > 0);
-    if (sizeProds.length === 0) return { sizes: [] as { size: string; available: boolean }[], sizeRequired: false };
-    // intersection (ordre du 1er produit)
-    const first = (sizeProds[0] as any).sizes as string[];
-    const common = first.filter(s => sizeProds.every(p => ((p as any).sizes as string[]).includes(s)));
+    const sz = (p: any): string[] => Array.isArray(p.sizes) ? p.sizes : [];
+    const ss = (p: any): Record<string, number> => p.sizes_stock ?? {};
+    const multi = prods.filter(p => sz(p).length > 1);
+    const mono  = prods.filter(p => sz(p).length === 1);
+
+    // Les mono-tailles doivent toutes être en stock (sinon le pack ne part pas).
+    const monoOk = mono.every(p => (ss(p)[sz(p)[0]] ?? 0) > 0);
+
+    if (multi.length === 0) {
+      // Aucun produit multi-taille → pas de choix ; tout part en taille unique.
+      return { sizes: [] as { size: string; available: boolean }[], sizeRequired: false };
+    }
+    // Intersection des tailles des produits MULTI-tailles uniquement.
+    const first = sz(multi[0]);
+    const common = first.filter(s => multi.every(p => sz(p).includes(s)));
     const list = common.map(size => ({
       size,
-      available: sizeProds.every(p => (((p as any).sizes_stock ?? {})[size] ?? 0) > 0),
+      available: monoOk && multi.every(p => (ss(p)[size] ?? 0) > 0),
     }));
     return { sizes: list, sizeRequired: true };
   }, [prods]);
@@ -185,7 +200,9 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
               <div>
                 <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 10 }}>Taille (commune au pack)</div>
                 {sizes.length === 0 ? (
-                  <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>Aucune taille commune disponible.</div>
+                  <div style={{ fontSize: 13, color: "#b91c1c", fontWeight: 700, lineHeight: 1.5 }}>
+                    Les articles taillés de ce pack n&apos;ont pas de taille commune en stock pour le moment. Réessaie plus tard ou contacte-nous.
+                  </div>
                 ) : (
                   <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                     {sizes.map(s => (

@@ -211,7 +211,6 @@ export default function Header() {
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
             {[
               { label: t("collection"), href: "/produits",         active: pathname.startsWith("/produits") || pathname.startsWith("/categorie") },
-              { label: t("blog"),       href: "/blog",             active: pathname.startsWith("/blog") },
               { label: t("about"),      href: "/qui-sommes-nous",  active: pathname === "/qui-sommes-nous" },
               { label: t("bamboo"),     href: "/pourquoi-bambou",  active: pathname === "/pourquoi-bambou" },
             ].map(l => (
@@ -327,7 +326,6 @@ export default function Header() {
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>{t("brand_section")}</div>
             {[
-              { label: t("blog"),   href: "/blog" },
               { label: t("about"),  href: "/qui-sommes-nous" },
               { label: t("bamboo"), href: "/pourquoi-bambou" },
             ].map(l => (

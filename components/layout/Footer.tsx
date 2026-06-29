@@ -7,6 +7,7 @@ import PaymentMethods from "./PaymentMethods";
 
 export default function Footer() {
   const t = useTranslations("footer");
+  const tNav = useTranslations("nav");
   const year = new Date().getFullYear();
 
   const [email,   setEmail]   = useState("");
@@ -73,6 +74,7 @@ export default function Footer() {
           {[
             { label: t("link_story"),      href: "/qui-sommes-nous" },
             { label: t("link_bamboo"),     href: "/pourquoi-bambou" },
+            { label: tNav("blog"),         href: "/blog" },
             { label: t("link_commitment"), href: "/qui-sommes-nous" },
           ].map(l => <Link key={l.href+l.label} href={l.href} style={{ fontSize: 14, color: "rgba(242,237,230,0.5)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
         </div>

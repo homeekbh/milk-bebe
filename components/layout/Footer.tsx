@@ -55,6 +55,10 @@ export default function Footer() {
               style={{ padding: "8px 16px", borderRadius: 99, border: "1px solid rgba(242,237,230,0.12)", color: "rgba(242,237,230,0.5)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
               Instagram
             </a>
+            <a href="https://www.facebook.com/profile.php?id=61589971614795" target="_blank" rel="noopener noreferrer"
+              style={{ padding: "8px 16px", borderRadius: 99, border: "1px solid rgba(242,237,230,0.12)", color: "rgba(242,237,230,0.5)", fontSize: 12, fontWeight: 700, textDecoration: "none" }}>
+              Facebook
+            </a>
           </div>
         </div>
 

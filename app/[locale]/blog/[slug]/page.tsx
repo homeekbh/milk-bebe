@@ -68,6 +68,23 @@ function deBrand(s: string): string {
   return s.replace(/\s*[|—-]?\s*M!LK\s*[|—-]?\s*/gi, " ").replace(/\s+/g, " ").trim();
 }
 
+// Extrait la FAQ markdown d'un article ("## Questions fréquentes" suivi de
+// paragraphes "**Question ?** Réponse") pour émettre un FAQPage JSON-LD réutilisable.
+// Les liens markdown du texte de réponse sont remplacés par leur libellé.
+function extractFaq(md: string): { q: string; a: string }[] {
+  const m = md.match(/##\s*Questions fréquentes\s*([\s\S]*?)(?:\n##\s|$)/i);
+  if (!m) return [];
+  const out: { q: string; a: string }[] = [];
+  const re = /\*\*(.+?)\*\*[ \t]*([^\n]*)/g;
+  let mm: RegExpExecArray | null;
+  while ((mm = re.exec(m[1])) !== null) {
+    const q = mm[1].trim();
+    const a = mm[2].replace(/\[([^\]]+)\]\([^)]+\)/g, "$1").trim();
+    if (q && a) out.push({ q, a });
+  }
+  return out;
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -132,9 +149,21 @@ export default async function BlogArticlePage({
 
   const relatedCat = relatedCategory(post);
 
+  // FAQPage JSON-LD si l'article contient une section "## Questions fréquentes".
+  const faqItems = extractFaq(post.content || "");
+  const faqLd = faqItems.length > 0 ? {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map(f => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  } : null;
+
   return (
     <div style={{ background: C.light, minHeight: "100vh" }}>
-      <JsonLd data={[blogPostingLd, breadcrumbLd]} />
+      <JsonLd data={faqLd ? [blogPostingLd, breadcrumbLd, faqLd] : [blogPostingLd, breadcrumbLd]} />
       <style>{`
         .blog-prose { font-size:clamp(16px,1.3vw,18px); line-height:1.8; color:rgba(26,20,16,0.82); }
         .blog-prose h2 { font-size:clamp(22px,2.6vw,30px); font-weight:950; letter-spacing:-0.8px; color:${C.dark}; margin:38px 0 14px; line-height:1.2; }

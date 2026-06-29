@@ -8,7 +8,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title:       "Politique de confidentialité — M!LK",
+  title:       "Politique de confidentialité",
   description: "Comment M!LK collecte et protège vos données personnelles conformément au RGPD.",
   openGraph: {
     title:       "Politique de confidentialité — M!LK",

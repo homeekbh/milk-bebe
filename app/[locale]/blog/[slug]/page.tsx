@@ -62,6 +62,12 @@ function fmtDate(iso: string | null | undefined, locale: string): string {
   } catch { return ""; }
 }
 
+// Retire un suffixe/marque "M!LK" déjà présent dans un title : le template
+// "%s | M!LK" du layout racine l'ajoute une seule fois → évite "… | M!LK | M!LK".
+function deBrand(s: string): string {
+  return s.replace(/\s*[|—-]?\s*M!LK\s*[|—-]?\s*/gi, " ").replace(/\s+/g, " ").trim();
+}
+
 export async function generateMetadata({
   params,
 }: {
@@ -69,9 +75,9 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale, slug } = await params;
   const post = await getPost(slug);
-  if (!post) return { title: "Journal M!LK" };
+  if (!post) return { title: "Journal" };
   return {
-    title: post.seo_title || post.title,
+    title: deBrand(post.seo_title || post.title),
     description: post.seo_description || post.excerpt || undefined,
     alternates: getAlternates(locale, `/blog/${slug}`),
     openGraph: post.image_url ? { images: [{ url: post.image_url }], type: "article" } : undefined,
@@ -158,7 +164,10 @@ export default async function BlogArticlePage({
         )}
         <h1 style={{ margin: "0 0 14px", fontSize: "clamp(28px,4.5vw,46px)", fontWeight: 950, letterSpacing: -1.6, color: C.dark, lineHeight: 1.05 }}>{post.title}</h1>
         <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", fontWeight: 600, marginBottom: 28 }}>
-          {t("by")} {post.author ?? "Erika"} · {fmtDate(post.published_at, locale)}
+          {t("by")} {post.author ?? "Erika"}
+          {post.published_at && (
+            <> · <time dateTime={post.published_at}>{fmtDate(post.published_at, locale)}</time></>
+          )}
         </div>
 
         {post.image_url && (

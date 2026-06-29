@@ -62,7 +62,7 @@ export async function generateMetadata(
 
   if (!product) {
     return {
-      title:       "Produit — M!LK",
+      title:       "Produit",
       description: "Essentiels bébé bambou OEKO-TEX certifiés pour nourrissons 0-6 mois.",
     };
   }

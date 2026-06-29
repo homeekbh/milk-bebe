@@ -10,7 +10,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title:       "Livraison & Retours — M!LK",
+  title:       "Livraison & Retours",
   description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   openGraph: {
     title:       "Livraison & Retours — M!LK",

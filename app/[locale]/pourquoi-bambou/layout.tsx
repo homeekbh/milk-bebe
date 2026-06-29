@@ -10,7 +10,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title: "Pourquoi le bambou pour bébé — Bienfaits, certification OEKO-TEX | M!LK",
+  title: "Pourquoi le bambou pour bébé — Bienfaits, certification OEKO-TEX",
   description:
     "Pourquoi le bambou est meilleur que le coton pour les nourrissons : 3× plus doux, thermorégulateur naturel, antibactérien, certifié OEKO-TEX Standard 100. Découvrez les bienfaits du bambou pour la peau sensible de votre bébé 0-6 mois.",
   keywords: [

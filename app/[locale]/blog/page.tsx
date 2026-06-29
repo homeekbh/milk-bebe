@@ -23,7 +23,9 @@ export async function generateMetadata({
   const { locale } = await params;
   const t = await getTranslations({ locale, namespace: "blog" });
   return {
-    title: t("title"),
+    // Le H1 de la page garde "Journal M!LK" (copie Erika) ; le <title> retire la
+    // marque pour ne pas la doubler avec le template "%s | M!LK" du layout.
+    title: t("title").replace(/\s*M!LK\s*/gi, " ").trim(),
     description: t("subtitle"),
     alternates: getAlternates(locale, "/blog"),
   };

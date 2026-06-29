@@ -9,7 +9,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title:       "Mentions légales — M!LK",
+  title:       "Mentions légales",
   description: "Mentions légales de milkbebe.fr — EKBH SAS, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
   openGraph: {
     title:       "Mentions légales — M!LK",

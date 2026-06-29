@@ -11,7 +11,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title:       "Qui sommes-nous | M!LK — La fondatrice",
+  title:       "Qui sommes-nous — La fondatrice",
   description: "M!LK est une marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100, fondée par Erika, maman de deux garçons. Découvrez l'histoire et la vision.",
   keywords: [
     "M!LK fondatrice",

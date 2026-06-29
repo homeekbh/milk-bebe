@@ -8,7 +8,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-    title:       "Contact — M!LK",
+    title:       "Contact",
     description: "Contactez l'équipe M!LK pour toute question sur nos produits, commandes ou livraisons. Réponse sous 24h.",
     openGraph: {
       title:       "Contact — M!LK",

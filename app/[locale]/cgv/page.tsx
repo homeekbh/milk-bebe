@@ -9,7 +9,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title:       "Conditions Générales de Vente — M!LK",
+  title:       "Conditions Générales de Vente",
   description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   openGraph: {
     title:       "Conditions Générales de Vente — M!LK",

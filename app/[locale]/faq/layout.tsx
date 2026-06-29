@@ -8,7 +8,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title: "FAQ — Questions fréquentes | M!LK",
+  title: "FAQ — Questions fréquentes",
   description: "Toutes les réponses sur les produits M!LK : bambou OEKO-TEX, livraison, retours, tailles, paiement. Essentiels bébé bambou 0-6 mois.",
   alternates: getAlternates(locale, "/faq"),
   openGraph: {

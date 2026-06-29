@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
   const pack = await getPack(slug);
   if (!pack) return { title: "Pack introuvable | M!LK" };
   return {
-    title: `${pack.title} | Packs M!LK`,
+    title: `${pack.title} | Packs`,
     description: pack.description ?? `Le coffret ${pack.title} — essentiels bébé bambou OEKO-TEX M!LK.`,
     alternates: getAlternates(locale, `/packs/${pack.slug}`),
     openGraph: {

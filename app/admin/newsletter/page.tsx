@@ -104,6 +104,10 @@ export default function NewsletterAdminPage() {
   const [linkCustomUrl, setLinkCustomUrl] = useState("");
   const [linkText,      setLinkText]      = useState("");
 
+  // Pré-remplissage depuis un article du Journal (articles PUBLIÉS).
+  const [articles,      setArticles]      = useState<{ id: string; slug: string; title: string; excerpt: string | null; image_url: string | null }[]>([]);
+  const [articleChoice, setArticleChoice] = useState("");
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showToast = (msg: string, ok = true) => {
@@ -119,6 +123,18 @@ export default function NewsletterAdminPage() {
       .then(r => r.ok ? r.json() : [])
       .then((data: any) => {
         if (Array.isArray(data)) setCategories(data.map((c: any) => ({ slug: c.slug, label: c.label ?? c.slug })));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Articles publiés (pour le pré-remplissage) — best-effort
+  useEffect(() => {
+    adminFetch("/api/admin/blog")
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any) => {
+        const list = Array.isArray(data) ? data : (data?.posts ?? []);
+        setArticles(list.filter((a: any) => a.status === "published")
+          .map((a: any) => ({ id: a.id, slug: a.slug, title: a.title, excerpt: a.excerpt ?? null, image_url: a.image_url ?? null })));
       })
       .catch(() => {});
   }, []);
@@ -207,6 +223,44 @@ export default function NewsletterAdminPage() {
     setLinkText("");
   }
 
+  // Pré-remplit le composer depuis un article publié (sujet + aperçu + contenu
+  // selon le mode actif). RESTE modifiable par Erika — on remplit, on ne verrouille pas.
+  function prefillFromArticle(slug: string) {
+    const a = articles.find(x => x.slug === slug);
+    if (!a) return;
+    const url = `https://www.milkbebe.fr/fr/blog/${a.slug}`;
+    setSubject(a.title);
+    setPreviewText(a.excerpt ?? "");
+    if (mode === "template") {
+      const imgBlock = a.image_url
+        ? `<img src="${a.image_url}" alt="${a.title}" style="width:100%;border-radius:12px;margin:0 0 24px;display:block;">`
+        : "";
+      setHtmlContent(`<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:0;background:#1a1410;font-family:sans-serif;">
+  <div style="max-width:600px;margin:0 auto;background:#1a1410;padding:40px 32px;">
+    <div style="font-size:28px;font-weight:900;color:#f2ede6;letter-spacing:-1px;margin-bottom:32px;">M!LK</div>
+    ${imgBlock}
+    <h1 style="color:#f2ede6;font-size:24px;font-weight:900;margin:0 0 16px;">${a.title}</h1>
+    <p style="color:rgba(242,237,230,0.75);font-size:16px;line-height:1.7;margin:0 0 24px;">${a.excerpt ?? ""}</p>
+    <a href="${url}" style="display:inline-block;background:#c49a4a;color:#1a1410;font-weight:900;font-size:15px;padding:14px 28px;border-radius:10px;text-decoration:none;">Lire l'article →</a>
+    <div style="margin-top:48px;padding-top:24px;border-top:1px solid rgba(242,237,230,0.1);font-size:12px;color:rgba(242,237,230,0.35);">
+      M!LK — Essentiels bébé bambou OEKO-TEX · <a href="{{UNSUB_LINK}}" style="color:rgba(242,237,230,0.35);">Se désabonner</a>
+    </div>
+  </div>
+</body>
+</html>`);
+    } else {
+      // Mode simple = texte pur (titre via le sujet + extrait + lien), pas de <img>.
+      const parts: string[] = [];
+      if (a.excerpt)   parts.push(a.excerpt);
+      parts.push(`Lire l'article → ${url}`);
+      setSimpleText(parts.join("\n\n"));
+    }
+    showToast("Article inséré — modifie librement avant l'envoi", true);
+  }
+
   async function handleSend() {
     const contentEmpty = mode === "simple" ? !simpleText.trim() : !htmlContent.trim();
     if (!subject.trim() || contentEmpty) {
@@ -283,6 +337,22 @@ export default function NewsletterAdminPage() {
         </div>
 
         <div style={{ display: "grid", gap: 16 }}>
+          {/* 0. Pré-remplir depuis un article du Journal */}
+          {articles.length > 0 && (
+            <div style={{ padding: 16, borderRadius: 12, background: "#faf8f4", border: "1px solid rgba(0,0,0,0.06)" }}>
+              <label style={LBL}>📰 Pré-remplir depuis un article du Journal</label>
+              <select value={articleChoice}
+                onChange={e => { setArticleChoice(e.target.value); if (e.target.value) prefillFromArticle(e.target.value); }}
+                style={{ ...INP, cursor: "pointer" }}>
+                <option value="">— Choisir un article publié —</option>
+                {articles.map(a => <option key={a.id} value={a.slug}>{a.title}</option>)}
+              </select>
+              <div style={{ marginTop: 6, fontSize: 12, color: "rgba(26,20,16,0.45)" }}>
+                Remplit le sujet, l&apos;aperçu et le contenu ({mode === "template" ? "template HTML" : "message simple"}). Tout reste modifiable avant l&apos;envoi.
+              </div>
+            </div>
+          )}
+
           {/* 1. Sujet */}
           <div>
             <label style={LBL}>Sujet de l&apos;email *</label>

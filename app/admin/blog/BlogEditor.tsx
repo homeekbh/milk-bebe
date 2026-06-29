@@ -63,6 +63,26 @@ export default function BlogEditor() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [uploading, setUploading] = useState(false);
+
+  // Upload image article → Storage (bucket product-images/blog) → remplit image_url.
+  // Réutilise le mécanisme éprouvé (magic-bytes, 5 Mo, JPG/PNG/WEBP) côté serveur.
+  async function handleImageUpload(file: File | null) {
+    if (!file) return;
+    setUploading(true); setError("");
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      const res  = await adminFetch("/api/admin/blog/upload", { method: "POST", body: fd });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.url) set("image_url", data.url);
+      else setError(data.error || "Upload échoué");
+    } catch {
+      setError("Upload échoué (réseau)");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   function set(k: string, v: string) {
     setForm(f => {
@@ -181,8 +201,16 @@ export default function BlogEditor() {
             </div>
           </div>
           <div style={{ display: "grid", gap: 6 }}>
-            <label style={LS}>Image principale (URL)</label>
-            <input value={form.image_url} onChange={e => set("image_url", e.target.value)} placeholder="https://…" style={IS} />
+            <label style={LS}>Image principale</label>
+            <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
+              <input value={form.image_url} onChange={e => set("image_url", e.target.value)} placeholder="https://… ou uploade une image →" style={{ ...IS, flex: 1, minWidth: 220 }} />
+              <label htmlFor="blog-img" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "12px 18px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.1)", background: "#faf8f4", fontSize: 14, fontWeight: 800, color: "#1a1410", cursor: uploading ? "default" : "pointer", opacity: uploading ? 0.6 : 1, whiteSpace: "nowrap" }}>
+                {uploading ? "Upload…" : "📎 Upload"}
+              </label>
+              <input id="blog-img" type="file" accept="image/jpeg,image/png,image/webp" disabled={uploading}
+                onChange={e => { handleImageUpload(e.target.files?.[0] ?? null); e.target.value = ""; }}
+                style={{ display: "none" }} />
+            </div>
             {form.image_url && <img src={form.image_url} alt="" style={{ width: 200, height: 120, objectFit: "cover", borderRadius: 10, border: "1px solid rgba(0,0,0,0.1)" }} onError={e => { (e.currentTarget as HTMLImageElement).style.display = "none"; }} />}
           </div>
           <div style={{ display: "grid", gap: 6 }}>

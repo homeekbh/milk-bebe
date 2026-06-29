@@ -235,7 +235,9 @@ function Topbar({ freeShipThreshold = 60 }: { freeShipThreshold?: number }) {
       aria-hidden={hidden}
       style={{
         position:   "fixed",
-        top:        0,
+        // Sous le bandeau promo mobile (--milk-promo-h, 0 sur desktop) → s'empile
+        // en dessous quand le promo est visible ; inchangé sur desktop.
+        top:        "var(--milk-promo-h, 0px)",
         left:       0,
         width:      "100%",
         height:     TOPBAR_H,

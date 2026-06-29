@@ -31,6 +31,16 @@ export default function PromoSticker() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
+  // Hauteur du bandeau promo mobile exposée en variable CSS globale. Le ticker
+  // (Topbar homepage) et le header s'en servent pour s'empiler EN DESSOUS du
+  // promo. Posée uniquement quand la barre mobile est réellement affichée ;
+  // remise à 0 sinon (desktop, promo fermée/absente, admin) → desktop intact.
+  useEffect(() => {
+    const active = isMobile && !!promo && visible && !pathname.startsWith('/admin')
+    document.documentElement.style.setProperty('--milk-promo-h', active ? '32px' : '0px')
+    return () => { document.documentElement.style.setProperty('--milk-promo-h', '0px') }
+  }, [isMobile, promo, visible, pathname])
+
   // Jamais sur l'admin
   if (!promo || !visible || pathname.startsWith('/admin')) return null
 
@@ -83,11 +93,10 @@ export default function PromoSticker() {
     >×</button>
   )
 
-  // ── MOBILE (≤ 768px) : barre horizontale fine, fixée EN HAUT sous le header ──
-  // (avant : collée en bas → masquait la barre Safari iOS). Le header fait 68px
-  // de haut et descend de var(--milk-topbar-h) (bandeau d'annonce homepage) ; on
-  // colle donc le promo à top = var(--milk-topbar-h) + 68px. z-index 9998 < header
-  // (9999) → le header reste au-dessus.
+  // ── MOBILE (≤ 768px) : barre horizontale fine, fixée TOUT EN HAUT ──
+  // top:0, au-dessus de TOUT (z-index 10001 > ticker 10000 > header 9999). Le
+  // promo pose --milk-promo-h:32px → le ticker (Topbar) et le header se calent
+  // en dessous. Barre Safari iOS libre (plus de fixed bottom).
   if (isMobile) {
     // Homepage = hero plein écran sous un header transparent → pas de spacer
     // (sinon gap disgracieux au-dessus du hero).
@@ -106,18 +115,19 @@ export default function PromoSticker() {
         onClick={copy}
         style={{
           position: 'fixed',
-          top: 'calc(var(--milk-topbar-h, 0px) + 68px)',
+          top: 0,
           left: 0,
           right: 0,
           width: '100%',
           borderRadius: 0,
-          padding: '6px 12px',
+          padding: '4px 12px',
+          maxHeight: '32px',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: '10px',
-          zIndex: 9998,
+          zIndex: 10001,
           background: '#dc2626',
           color: '#fff',
           cursor: 'pointer',

@@ -39,7 +39,7 @@ const CATEGORY_KEYWORDS: Record<string, string[]> = {
 // publié, et les régénère toutes les heures (ISR). Le contenu visible reste
 // hydraté côté client (page.tsx = "use client"), mais les signaux SEO réels
 // (meta, OG, Product schema) sont servis depuis le cache statique.
-export const revalidate = 3600;
+export const revalidate = 900;
 
 export async function generateStaticParams() {
   const { data } = await supabaseServer

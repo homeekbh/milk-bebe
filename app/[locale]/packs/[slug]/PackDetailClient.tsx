@@ -45,6 +45,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
   const firstAvail = sizes.find(s => s.available)?.size ?? "";
   const [selectedSize, setSelectedSize] = useState(firstAvail);
   const [busy, setBusy] = useState(false);
+  const [added, setAdded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
@@ -89,7 +90,10 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
         items: prods.map(p => p.id),
       });
       localStorage.setItem("milk_pack_cart", JSON.stringify(arr));
+      // Feedback bouton vert "✓ Ajouté au panier !" — même mécanisme que la fiche
+      // produit (vert #2d6a2d, 2500ms). On conserve aussi le toast.
       showToast("Ajouté au panier 🎁");
+      setAdded(true); setTimeout(() => setAdded(false), 2500);
     } catch {}
   }
 
@@ -230,8 +234,8 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
                 {busy ? "Redirection..." : "Acheter ce pack →"}
               </button>
               <button onClick={addToCartLocal} disabled={!canBuy}
-                style={{ padding: "14px 28px", borderRadius: 14, background: C.dark, color: C.cream, fontWeight: 900, fontSize: 15, border: "none", cursor: !canBuy ? "not-allowed" : "pointer", opacity: !canBuy ? 0.5 : 1 }}>
-                🛒 Ajouter au panier
+                style={{ padding: "14px 28px", borderRadius: 14, background: added ? "#2d6a2d" : C.dark, color: added ? "#fff" : C.cream, fontWeight: 900, fontSize: 15, border: "none", cursor: !canBuy ? "not-allowed" : "pointer", opacity: !canBuy ? 0.5 : 1, transition: "all 0.2s" }}>
+                {added ? "✓ Ajouté au panier !" : "🛒 Ajouter au panier"}
               </button>
               <button onClick={toggleFav}
                 style={{ padding: "13px 24px", borderRadius: 14, border: `1.5px solid ${fav ? "rgba(220,38,38,0.3)" : "rgba(26,20,16,0.15)"}`, background: fav ? "rgba(220,38,38,0.05)" : "transparent", color: fav ? "#dc2626" : "rgba(26,20,16,0.55)", fontWeight: 700, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>

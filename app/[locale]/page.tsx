@@ -45,7 +45,10 @@ export async function generateMetadata({
   openGraph: {
     type:      "website",
     locale:    "fr_FR",
-    url:       BASE_URL,
+    // Auto-référent localisé (= canonical) pour casser la boucle og:url racine →
+    // 307 → /fr signalée par le Débogueur Facebook. La racine n'est jamais l'URL
+    // canonique d'une page (localePrefix:'always').
+    url:       `${BASE_URL}/${locale}`,
     siteName:  "M!LK",
     title:     "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois",
     description:

@@ -37,7 +37,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     ...expand("",                           "daily",   1.0),
     ...expand("/produits",                  "daily",   0.9),
+    ...expand("/packs",                     "weekly",  0.7),
     ...expand("/blog",                      "weekly",  0.7),
+    ...expand("/guide-des-tailles",         "monthly", 0.7),
+    ...expand("/vetements-bebe-peau-sensible", "monthly", 0.7),
     ...expand("/qui-sommes-nous",           "monthly", 0.6),
     ...expand("/pourquoi-bambou",           "monthly", 0.6),
     ...expand("/faq",                       "monthly", 0.6),

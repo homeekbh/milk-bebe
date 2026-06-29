@@ -36,7 +36,7 @@ Régurgitations, fuites : rince à l''eau froide vite fait, puis lavage normal. 
 
 30°, pas d''assouplissant, séchage doux. C''est tout.
 
-Entre les régurgitations et les fuites, on en change souvent : mieux vaut [prévoir plusieurs bodies](/categorie/bodies).',
+Entre les régurgitations et les fuites, on en change souvent : mieux vaut [prévoir plusieurs bodies](/categorie/bodies). Pas sûr de la taille ? Jette un œil au [guide des tailles](/guide-des-tailles).',
   'Erika', 'Bambou', 'published', now() - interval '0 days',
   'Laver le bambou de bébé : le guide simple',
   'Le bambou s''entretient facilement, mais quelques gestes le gardent doux longtemps. Température, séchage, ce qu''il faut éviter : le guide M!LK.'
@@ -86,7 +86,7 @@ Privilégie des matières résistantes au lavage répété (le bambou tient bien
 
 On t''envoie un petit rappel par email au bon moment pour la taille suivante — pile quand bébé est sur le point d''en avoir besoin.
 
-Pour aller plus loin : parcours [toute la collection](/produits).',
+Pour aller plus loin : consulte le [guide des tailles](/guide-des-tailles) ou parcours [toute la collection](/produits).',
   'Erika', 'Conseils', 'published', now() - interval '2 days',
   'Bébé grandit : quand passer à la taille suivante',
   'Bébé semble à l''étroit ? Voici les signes qui montrent qu''il est temps de passer à la taille au-dessus, et comment anticiper sans gaspiller.'

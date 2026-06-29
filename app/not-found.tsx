@@ -6,6 +6,7 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "Page introuvable | M!LK",
   description: "Cette page n'existe pas. Découvrez la collection M!LK — vêtements bébé en bambou premium.",
+  robots: { index: false, follow: true },
 };
 
 export default function NotFound() {

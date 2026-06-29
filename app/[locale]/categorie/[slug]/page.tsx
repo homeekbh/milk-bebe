@@ -212,7 +212,7 @@ async function getAllProducts() {
 }
 
 export default async function CategoriePage({ params }: Props) {
-  const { slug } = await params;
+  const { slug, locale } = await params;
 
   // Charge tous les produits — ProduitsGrid gère le filtre par catégorie côté client
   const products = await getAllProducts();
@@ -222,7 +222,7 @@ export default async function CategoriePage({ params }: Props) {
   if (!hasCategory) notFound();
 
   const meta = getMeta(slug);
-  const url  = `${BASE}/categorie/${slug}`;
+  const url  = `${BASE}/${locale}/categorie/${slug}`;
 
   // Produits de cette catégorie pour ItemList
   const inCat = products.filter(p => p.category_slug === slug);
@@ -233,14 +233,14 @@ export default async function CategoriePage({ params }: Props) {
     name:         meta.seoTitle,
     description:  meta.seoDesc,
     url,
-    isPartOf:     { "@type": "WebSite", name: "M!LK", url: BASE },
+    isPartOf:     { "@type": "WebSite", name: "M!LK", url: `${BASE}/${locale}` },
     mainEntity: {
       "@type":           "ItemList",
       numberOfItems:     inCat.length,
       itemListElement:   inCat.slice(0, 30).map((p, i) => ({
         "@type":   "ListItem",
         position:  i + 1,
-        url:       `${BASE}/produits/${p.slug}`,
+        url:       `${BASE}/${locale}/produits/${p.slug}`,
         name:      p.name,
       })),
     },
@@ -250,15 +250,82 @@ export default async function CategoriePage({ params }: Props) {
     "@context": "https://schema.org",
     "@type":    "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Accueil",   item: BASE },
-      { "@type": "ListItem", position: 2, name: "Produits",  item: `${BASE}/produits` },
+      { "@type": "ListItem", position: 1, name: "Accueil",   item: `${BASE}/${locale}` },
+      { "@type": "ListItem", position: 2, name: "Produits",  item: `${BASE}/${locale}/produits` },
       { "@type": "ListItem", position: 3, name: meta.title,  item: url },
     ],
   };
 
+  // ── A2 — aggregateRating par produit (UNIQUEMENT avis approuvés réels) ──────
+  // Nœuds Product additionnels pour les produits de la catégorie qui ont au
+  // moins 1 avis approuvé. Règle stricte : 0 avis ⇒ aucun nœud (jamais de
+  // rating fictif). Prix/availability répliquent la logique de la fiche.
+  let ratingNodes: object[] = [];
+  try {
+    const ids = inCat.map(p => p.id);
+    if (ids.length) {
+      const { data: rv } = await supabaseServer
+        .from("reviews")
+        .select("product_id, rating")
+        .eq("approved", true)
+        .in("product_id", ids);
+
+      const byProd = new Map<string, number[]>();
+      for (const r of rv ?? []) {
+        const arr = byProd.get(r.product_id) ?? [];
+        arr.push(Number(r.rating ?? 0));
+        byProd.set(r.product_id, arr);
+      }
+
+      const todayStr = new Date().toISOString().slice(0, 10);
+      ratingNodes = inCat.flatMap((p) => {
+        const ratings = byProd.get(p.id);
+        if (!ratings || ratings.length === 0) return [];
+        const avg = (ratings.reduce((s, x) => s + x, 0) / ratings.length).toFixed(1);
+
+        const promo = p.promo_price != null ? Number(p.promo_price) : null;
+        const ps = p.promo_start ? String(p.promo_start).slice(0, 10) : null;
+        const pe = p.promo_end ? String(p.promo_end).slice(0, 10) : null;
+        const promoActive = promo != null && (!ps || todayStr >= ps) && (!pe || todayStr <= pe);
+        const price = promoActive ? (promo as number) : Number(p.price_ttc);
+        const sizeVals = p.sizes_stock && typeof p.sizes_stock === "object"
+          ? Object.values(p.sizes_stock as Record<string, unknown>).map((v) => Number(v) || 0)
+          : [];
+        const inStock = Number(p.stock ?? 0) > 0 || sizeVals.some((v) => v > 0);
+        const pUrl = `${BASE}/${locale}/produits/${p.slug}`;
+
+        return [{
+          "@context": "https://schema.org",
+          "@type":    "Product",
+          name:       p.name,
+          url:        pUrl,
+          ...(p.image_url ? { image: [p.image_url] } : {}),
+          brand:      { "@type": "Brand", name: "M!LK" },
+          sku:        p.slug,
+          aggregateRating: {
+            "@type":     "AggregateRating",
+            ratingValue: avg,
+            reviewCount: ratings.length,
+            bestRating:  5,
+            worstRating: 1,
+          },
+          offers: {
+            "@type":        "Offer",
+            price:          Number.isFinite(price) ? price.toFixed(2) : "0.00",
+            priceCurrency:  "EUR",
+            availability:   inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+            url:            pUrl,
+          },
+        }];
+      });
+    }
+  } catch {
+    ratingNodes = [];
+  }
+
   return (
     <>
-      <JsonLd data={[collectionLd, breadcrumbLd]} />
+      <JsonLd data={[collectionLd, breadcrumbLd, ...ratingNodes]} />
       <ViewItemListTracker
         listName={meta.title}
         items={inCat.map(p => ({

@@ -87,16 +87,9 @@ export async function generateMetadata(
     "bambou OEKO-TEX", "M!LK", "bébé 0-6 mois",
   ];
 
-  const breadcrumbLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Accueil",     item: BASE },
-      { "@type": "ListItem", position: 2, name: "Produits",    item: `${BASE}/produits` },
-      { "@type": "ListItem", position: 3, name: product.name,  item: url },
-    ],
-  };
-
+  // NB : le BreadcrumbList JSON-LD est désormais émis comme VRAI <script> via
+  // getBreadcrumbLd()/<JsonLd> dans le layout (avant : `other:{script:breadcrumb}`
+  // → rendu en <meta name="script:breadcrumb">, non reconnu par Google).
   return {
     title,
     description,
@@ -115,17 +108,14 @@ export async function generateMetadata(
       images:      product.image_url ? [product.image_url] : [],
     },
     alternates: getAlternates(locale, `/produits/${product.slug}`),
-    other: {
-      "script:breadcrumb": JSON.stringify(breadcrumbLd),
-    },
   };
 }
 
 // ── JSON-LD Product schema ─────────────────────────────────────────────────
-async function getProductJsonLd(slug: string) {
+async function getProductJsonLd(slug: string, locale: string) {
   const { data: product } = await supabaseServer
     .from("products")
-    .select("id, name, slug, description, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, images")
+    .select("id, name, slug, description, price_ttc, promo_price, promo_start, promo_end, stock, sizes_stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8")
     .eq("slug", slug)
     .single();
   if (!product) return null;
@@ -136,7 +126,11 @@ async function getProductJsonLd(slug: string) {
   const promoPrice   = product.promo_price != null ? Number(product.promo_price) : null;
   const promoStart   = product.promo_start ? String(product.promo_start).slice(0, 10) : null;
   const promoEnd     = product.promo_end   ? String(product.promo_end).slice(0, 10)   : null;
-  const inStock      = stock > 0;
+  // InStock si le stock agrégé OU au moins une taille (sizes_stock) est > 0.
+  const sizeStockVals = product.sizes_stock && typeof product.sizes_stock === "object"
+    ? Object.values(product.sizes_stock as Record<string, unknown>).map((v) => Number(v) || 0)
+    : [];
+  const inStock      = stock > 0 || sizeStockVals.some((v) => v > 0);
 
   // Prix actif (promo si fenêtre valide, sinon prix normal)
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -161,12 +155,17 @@ async function getProductJsonLd(slug: string) {
     worstRating:  1,
   } : null;
 
-  const url = `${BASE}/produits/${product.slug}`;
+  const url = `${BASE}/${locale}/produits/${product.slug}`;
 
-  // Images : tableau s'il existe, sinon fallback image_url
-  const imageList = Array.isArray(product.images) && product.images.length > 0
-    ? product.images
-    : (product.image_url ? [product.image_url] : []);
+  // Images : image principale + secondaires (image_url_2..8) non nulles.
+  // (Avant : sélectionnait une colonne `images` INEXISTANTE → la requête
+  //  échouait silencieusement → getProductJsonLd renvoyait null → AUCUN
+  //  Product schema n'était émis. Bug pré-existant corrigé ici.)
+  const imageList = [
+    product.image_url,
+    product.image_url_2, product.image_url_3, product.image_url_4, product.image_url_5,
+    product.image_url_6, product.image_url_7, product.image_url_8,
+  ].filter(Boolean);
 
   return {
     "@context":    "https://schema.org",
@@ -215,13 +214,25 @@ export default async function ProductSlugLayout({
   params,
 }: {
   children: React.ReactNode;
-  params:   Promise<{ slug: string }>;
+  params:   Promise<{ slug: string; locale: string }>;
 }) {
-  const { slug } = await params;
-  const productLd = await getProductJsonLd(slug);
+  const { slug, locale } = await params;
+  const productLd = await getProductJsonLd(slug, locale);
+
+  // BreadcrumbList en VRAI JSON-LD (URLs locale-préfixées, cohérentes).
+  const breadcrumbLd = productLd ? {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil",  item: `${BASE}/${locale}` },
+      { "@type": "ListItem", position: 2, name: "Produits", item: `${BASE}/${locale}/produits` },
+      { "@type": "ListItem", position: 3, name: (productLd as { name: string }).name, item: `${BASE}/${locale}/produits/${slug}` },
+    ],
+  } : null;
+
   return (
     <>
-      {productLd && <JsonLd data={productLd} />}
+      {productLd && <JsonLd data={breadcrumbLd ? [productLd, breadcrumbLd] : productLd} />}
       {children}
     </>
   );

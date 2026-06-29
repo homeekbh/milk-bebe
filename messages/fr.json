@@ -28,7 +28,9 @@
     "recent": "Articles récents",
     "back": "← Retour au journal",
     "ig_title": "Suivez-nous sur Instagram",
-    "ig_handle": "@milkbebe.fr"
+    "ig_handle": "@milkbebe.fr",
+    "related_title": "Produits liés",
+    "related_cta": "Découvrir la collection"
   },
   "home": {
     "ticker1": "✦ Bambou certifié OEKO-TEX",

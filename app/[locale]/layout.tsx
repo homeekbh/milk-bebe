@@ -46,7 +46,7 @@ export async function generateMetadata({
 
   title: {
     default:  "M!LK — Bodies, Pyjamas, Gigoteuses & Langes nourrisson bambou | OEKO-TEX | 0-6 mois",
-    template: "%s | M!LK — Essentiels bébé bambou OEKO-TEX",
+    template: "%s | M!LK",
   },
 
   description:

@@ -5,17 +5,33 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { supabaseServer } from "@/lib/server/supabase";
 import { getAlternates } from "@/i18n/seo";
+import { JsonLd } from "@/components/seo/JsonLd";
 import BeholdWidget from "@/components/blog/BeholdWidget";
 
 export const revalidate = 60;
+
+const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", cream: "#f2ede6", taupe: "#e9e1d4" };
 
 type Post = {
   id: string; slug: string; title: string; excerpt?: string | null; content?: string | null;
   image_url?: string | null; author?: string | null; published_at?: string | null;
+  updated_at?: string | null;
   category?: string | null; seo_title?: string | null; seo_description?: string | null;
 };
+
+// Mappe un article vers la catégorie produit pertinente (maillage interne).
+// Heuristique par mots-clés du slug + catégorie de l'article. null ⇒ /produits.
+function relatedCategory(post: Post): string | null {
+  const s = `${post.slug} ${post.category ?? ""}`.toLowerCase();
+  if (s.includes("pyjama")) return "pyjamas";
+  if (s.includes("body")) return "bodies";
+  if (s.includes("gigoteuse") || s.includes("turbulette")) return "gigoteuses";
+  if (s.includes("lange") || s.includes("emmaillot") || s.includes("swaddle")) return "langes";
+  if (s.includes("bonnet") || s.includes("bandeau")) return "accessoires";
+  return null;
+}
 
 async function getPost(slug: string): Promise<Post | null> {
   try {
@@ -79,8 +95,40 @@ export default async function BlogArticlePage({
     marked.parse(post.content || "", { breaks: true, gfm: true }),
   ]);
 
+  const canonical = `${BASE}/${locale}/blog/${post.slug}`;
+  const blogPostingLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    headline: (post.seo_title || post.title || "").slice(0, 110),
+    ...(post.image_url ? { image: [post.image_url] } : {}),
+    datePublished: post.published_at || undefined,
+    dateModified: post.updated_at || post.published_at || undefined,
+    author: { "@type": "Organization", name: post.author || "M!LK", url: `${BASE}/${locale}` },
+    publisher: {
+      "@type": "Organization",
+      name: "M!LK",
+      logo: { "@type": "ImageObject", url: `${BASE}/logo-milk-white.png`, width: "193", height: "113" },
+    },
+    description: post.seo_description || post.excerpt || undefined,
+    mainEntityOfPage: { "@type": "WebPage", "@id": canonical },
+    url: canonical,
+    inLanguage: locale,
+  };
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: t("breadcrumb_home"), item: `${BASE}/${locale}` },
+      { "@type": "ListItem", position: 2, name: t("breadcrumb_blog"), item: `${BASE}/${locale}/blog` },
+      { "@type": "ListItem", position: 3, name: post.title, item: canonical },
+    ],
+  };
+
+  const relatedCat = relatedCategory(post);
+
   return (
     <div style={{ background: C.light, minHeight: "100vh" }}>
+      <JsonLd data={[blogPostingLd, breadcrumbLd]} />
       <style>{`
         .blog-prose { font-size:clamp(16px,1.3vw,18px); line-height:1.8; color:rgba(26,20,16,0.82); }
         .blog-prose h2 { font-size:clamp(22px,2.6vw,30px); font-weight:950; letter-spacing:-0.8px; color:${C.dark}; margin:38px 0 14px; line-height:1.2; }
@@ -127,6 +175,18 @@ export default async function BlogArticlePage({
           <Link href="/blog" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 12, background: C.dark, color: C.cream, fontWeight: 900, fontSize: 14, textDecoration: "none" }}>{t("back")}</Link>
         </div>
       </article>
+
+      {/* Produits liés (maillage interne) — structure : lien vers la catégorie
+          produit pertinente. Labels via i18n (à valider/ajuster par Erika). */}
+      <div style={{ maxWidth: 760, margin: "0 auto", padding: "8px 4vw 0" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16, flexWrap: "wrap", padding: "22px 24px", borderRadius: 16, background: C.cream, border: "1px solid rgba(26,20,16,0.1)" }}>
+          <span style={{ fontSize: "clamp(16px,2vw,20px)", fontWeight: 950, letterSpacing: -0.5, color: C.dark }}>{t("related_title")}</span>
+          <Link href={relatedCat ? `/categorie/${relatedCat}` : "/produits"}
+            style={{ display: "inline-block", padding: "12px 24px", borderRadius: 12, background: C.amber, color: C.dark, fontWeight: 900, fontSize: 14, textDecoration: "none", whiteSpace: "nowrap" }}>
+            {t("related_cta")}
+          </Link>
+        </div>
+      </div>
 
       {/* Articles récents */}
       {recent.length > 0 && (

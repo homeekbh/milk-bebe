@@ -83,30 +83,35 @@ export default function PromoSticker() {
     >×</button>
   )
 
-  // ── MOBILE (≤ 768px) : barre horizontale pleine largeur collée en bas ──
+  // ── MOBILE (≤ 768px) : barre horizontale fine, fixée EN HAUT sous le header ──
+  // (avant : collée en bas → masquait la barre Safari iOS). Le header fait 68px
+  // de haut et descend de var(--milk-topbar-h) (bandeau d'annonce homepage) ; on
+  // colle donc le promo à top = var(--milk-topbar-h) + 68px. z-index 9998 < header
+  // (9999) → le header reste au-dessus.
   if (isMobile) {
+    // Homepage = hero plein écran sous un header transparent → pas de spacer
+    // (sinon gap disgracieux au-dessus du hero).
+    const isHome = pathname === '/' || /^\/(fr|en)$/.test(pathname)
     return (
       <>
-        {/* Spacer en flux normal : réserve la hauteur du bandeau (36px + safe
-            area) pour que le bas du contenu de page ne soit jamais masqué. */}
-        <div aria-hidden style={{ height: 'calc(36px + env(safe-area-inset-bottom, 0px))' }} />
+        {/* Dégagement du contenu : PromoSticker est monté en fin de <body>, donc
+            un spacer local n'atteint pas le haut de page. On pousse <main> via une
+            règle globale scoped mobile. Le header fixe est déjà dégagé par le
+            padding-top propre à chaque page → on n'ajoute QUE la hauteur du
+            bandeau (~40px). Exclu sur la homepage (hero plein écran). */}
+        {!isHome && (
+          <style>{`@media (max-width:768px){ main { padding-top: 40px } }`}</style>
+        )}
       <div
         onClick={copy}
         style={{
           position: 'fixed',
-          bottom: 0,
+          top: 'calc(var(--milk-topbar-h, 0px) + 68px)',
           left: 0,
           right: 0,
           width: '100%',
           borderRadius: 0,
-          // Bandeau très fin + safe area iOS : le contenu reste au-dessus de la
-          // barre Safari / home indicator via env(safe-area-inset-bottom). Le
-          // fond rouge va jusqu'au bord, le texte est remonté au-dessus.
-          paddingTop: '5px',
-          paddingRight: '12px',
-          paddingLeft: '12px',
-          paddingBottom: 'calc(5px + env(safe-area-inset-bottom, 0px))',
-          maxHeight: 'calc(36px + env(safe-area-inset-bottom, 0px))',
+          padding: '6px 12px',
           display: 'flex',
           flexDirection: 'row',
           alignItems: 'center',

@@ -37,6 +37,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticPages: MetadataRoute.Sitemap = [
     ...expand("",                           "daily",   1.0),
     ...expand("/produits",                  "daily",   0.9),
+    ...expand("/blog",                      "weekly",  0.7),
     ...expand("/qui-sommes-nous",           "monthly", 0.6),
     ...expand("/pourquoi-bambou",           "monthly", 0.6),
     ...expand("/faq",                       "monthly", 0.6),
@@ -76,5 +77,26 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // fallback : pages statiques uniquement
   }
 
-  return [...staticPages, ...dynamicPages];
+  // Articles de blog publiés — try/catch séparé : si la table blog_posts
+  // n'existe pas encore (seed non exécuté), les produits restent dans le sitemap.
+  let blogPages: MetadataRoute.Sitemap = [];
+  try {
+    const { data: posts } = await supabaseServer
+      .from("blog_posts")
+      .select("slug, updated_at, published_at")
+      .eq("status", "published");
+
+    blogPages = (posts ?? []).flatMap((p) =>
+      expand(
+        `/blog/${p.slug}`,
+        "monthly",
+        0.6,
+        p.updated_at ? new Date(p.updated_at) : (p.published_at ? new Date(p.published_at) : now),
+      ),
+    );
+  } catch {
+    // table absente / erreur : pas d'articles dans le sitemap
+  }
+
+  return [...staticPages, ...dynamicPages, ...blogPages];
 }

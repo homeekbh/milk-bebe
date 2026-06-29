@@ -205,9 +205,9 @@ const jsonLd = {
       url:     BASE_URL,
       logo: {
         "@type":       "ImageObject",
-        url:           `${BASE_URL}/images/home/milk_banner_artisan.jpg`,
-        width:         "200",
-        height:        "200",
+        url:           `${BASE_URL}/logo-milk-white.png`,
+        width:         "193",
+        height:        "113",
       },
       description: "Marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100 pour nourrissons 0-6 mois.",
       sameAs: [

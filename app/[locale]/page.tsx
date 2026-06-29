@@ -13,7 +13,13 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { locale } = await params;
   return {
-  title: "M!LK — Bodies, Pyjamas, Gigoteuses & Langes nourrisson bambou | OEKO-TEX | 0-6 mois",
+  // `absolute` → contourne le title.template du layout racine (sinon « | M!LK »
+  // serait dupliqué). Title court et lisible, localisé FR/EN.
+  title: {
+    absolute: locale === "en"
+      ? "Baby Bamboo Bodysuits & Pyjamas OEKO-TEX | M!LK"
+      : "Bodies & Pyjamas bébé bambou OEKO-TEX | M!LK",
+  },
   description:
     "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX Standard 100. 3× plus doux que le coton, thermorégulateur, antibactérien. Idéal peaux sensibles, eczéma. Cadeau naissance parfait. Livraison offerte dès 60€. Marque française.",
   keywords: [

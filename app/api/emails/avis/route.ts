@@ -14,6 +14,15 @@ export async function GET(req: Request) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
+  // 🔴 KILL-SWITCH TEMPORAIRE (incident /fr/avis « Chargement » infini, juillet 2026).
+  // Tant que AVIS_EMAILS_PAUSED === "1" dans les variables d'env Vercel, le cron
+  // NE PART PAS (évite de brûler d'autres clientes avant retest mobile du fix).
+  // À RETIRER (ou passer la variable à "0") une fois le fix déployé ET retesté sur
+  // mobile réel. Contrôlable depuis le dashboard Vercel sans redéploiement.
+  if (process.env.AVIS_EMAILS_PAUSED === "1") {
+    return Response.json({ ok: true, paused: true, sent: 0 });
+  }
+
   const now   = new Date();
   const j7min = new Date(now.getTime() - 8  * 24 * 60 * 60 * 1000); // J-8
   const j7max = new Date(now.getTime() - 7  * 24 * 60 * 60 * 1000); // J-7

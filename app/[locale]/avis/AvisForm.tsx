@@ -131,9 +131,19 @@ export default function AvisForm({
   }
 
   if (loading) {
+    // Cet état est rendu en SSR (l'île est server-rendered au premier chargement) :
+    // même si le JS ne s'hydrate JAMAIS (webview mail restreinte, etc.), la cliente
+    // voit le message + un lien de contact — jamais un écran mort « Chargement ».
     return (
-      <div style={{ padding: "48px 24px", textAlign: "center", color: C.muted }}>
-        Vérification du lien…
+      <div style={{ padding: "40px 24px", textAlign: "center", color: C.muted }}>
+        <div style={{ marginBottom: 12 }}>Vérification du lien…</div>
+        <p style={{ fontSize: 13, lineHeight: 1.7, margin: 0 }}>
+          Si le formulaire ne s'affiche pas après quelques secondes, recharge la page
+          ou écris-nous à{" "}
+          <a href="mailto:contact@milkbebe.fr" style={{ color: C.amber, fontWeight: 700, textDecoration: "underline" }}>
+            contact@milkbebe.fr
+          </a>.
+        </p>
       </div>
     );
   }

@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
   <p style="color:rgba(242,237,230,0.6);font-size:15px;line-height:1.7;margin:0 0 24px">
     On te préviendra dès que <strong style="color:#f2ede6">${product_name}${tailleLabel}</strong> sera de nouveau disponible.
   </p>
-  <a href="${BASE}/produits/${product_slug ?? ""}"
+  <a href="${BASE}/fr/produits/${product_slug ?? ""}"
     style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
     Voir le produit →
   </a>

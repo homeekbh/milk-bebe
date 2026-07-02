@@ -44,7 +44,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
     categorySlug === "gigoteuses" ? "Gigoteuses" :
     "Collection";
 
-  const categoryUrl = `${BASE}/categorie/${categorySlug}`;
+  const categoryUrl = `${BASE}/fr/categorie/${categorySlug}`;
 
   const ageBebe =
     tailleActuelle === "Nouveau-né" ? "environ 1 mois et demi" :
@@ -113,7 +113,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
   <div style="text-align:center;padding:20px 0">
     <p style="color:rgba(242,237,230,0.2);font-size:12px;margin:0">
       M!LK — Des essentiels bébé. Sans le superflu.<br>
-      <a href="${BASE}/politique-confidentialite" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+      <a href="${BASE}/fr/politique-confidentialite" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
     </p>
   </div>
 

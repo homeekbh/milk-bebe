@@ -93,7 +93,7 @@ function buildHtml(opts: {
       <table style="width:100%;border-collapse:collapse">${itemsList}</table>
     </div>` : ""}
     <div style="text-align:center;margin-bottom:32px">
-      <a href="${BASE}/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 36px;border-radius:14px;font-weight:900;font-size:16px;text-decoration:none">
+      <a href="${BASE}/fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 36px;border-radius:14px;font-weight:900;font-size:16px;text-decoration:none">
         Découvrir la collection →
       </a>
     </div>

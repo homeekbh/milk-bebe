@@ -128,8 +128,8 @@ function buildHtml(opts: {
     <div style="text-align:center;color:rgba(242,237,230,0.2);font-size:12px;line-height:1.8">
       <p style="margin:0">M!LK — Essentiels bébé en bambou premium</p>
       <p style="margin:4px 0 0">
-        <a href="${BASE}/cgv" style="color:rgba(242,237,230,0.3)">CGV</a> ·
-        <a href="${BASE}/livraison" style="color:rgba(242,237,230,0.3)">Livraison & Retours</a>
+        <a href="${BASE}/fr/cgv" style="color:rgba(242,237,230,0.3)">CGV</a> ·
+        <a href="${BASE}/fr/livraison" style="color:rgba(242,237,230,0.3)">Livraison & Retours</a>
       </p>
     </div>
   </div>

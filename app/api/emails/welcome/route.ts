@@ -78,7 +78,7 @@ function welcomeTemplate(prenom: string): string {
       Bodies, pyjamas, gigoteuses, langes et accessoires<br>
       pour les 0 à 6 mois.
     </div>
-    <a href="${BASE}/produits" style="display:inline-block;background:#c49a4a;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
+    <a href="${BASE}/fr/produits" style="display:inline-block;background:#c49a4a;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
       Voir les produits →
     </a>
   </div>
@@ -102,7 +102,7 @@ function welcomeTemplate(prenom: string): string {
   <!-- Footer -->
   <div style="text-align:center;padding:24px 20px;color:rgba(242,237,230,0.25);font-size:12px;line-height:1.7">
     M!LK — Essentiels bébé bambou OEKO-TEX<br>
-    <a href="${BASE}" style="color:rgba(242,237,230,0.4);text-decoration:none">milkbebe.fr</a> · contact@milkbebe.fr
+    <a href="${BASE}/fr" style="color:rgba(242,237,230,0.4);text-decoration:none">milkbebe.fr</a> · contact@milkbebe.fr
   </div>
 
 </div>

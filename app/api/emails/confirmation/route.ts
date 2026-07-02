@@ -109,7 +109,7 @@ function emailConfirmation(
   </div>
 
   <div style="text-align:center;margin-bottom:32px">
-    <a href="${BASE}/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 40px;border-radius:14px;font-weight:900;font-size:15px;text-decoration:none">
+    <a href="${BASE}/fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 40px;border-radius:14px;font-weight:900;font-size:15px;text-decoration:none">
       Continuer mes achats →
     </a>
   </div>
@@ -124,7 +124,7 @@ function emailConfirmation(
 
   <div style="text-align:center;color:rgba(242,237,230,0.2);font-size:11px;line-height:1.8">
     <p style="margin:0">M!LK — Essentiels bébé en bambou premium</p>
-    <p style="margin:4px 0 0">contact@milkbebe.fr · <a href="${BASE}/livraison" style="color:rgba(242,237,230,0.2);text-decoration:none">Livraison & retours</a></p>
+    <p style="margin:4px 0 0">contact@milkbebe.fr · <a href="${BASE}/fr/livraison" style="color:rgba(242,237,230,0.2);text-decoration:none">Livraison & retours</a></p>
   </div>
 
 </div>

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const token = req.nextUrl.searchParams.get("token");
 
   if (!token) {
-    return NextResponse.redirect(new URL("/desabonnement?status=invalid", BASE));
+    return NextResponse.redirect(new URL("/fr/desabonnement?status=invalid", BASE));
   }
 
   // .eq("active", true) : si déjà désabonné, 0 ligne mise à jour → data null → invalid.
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (error || !data) {
-    return NextResponse.redirect(new URL("/desabonnement?status=invalid", BASE));
+    return NextResponse.redirect(new URL("/fr/desabonnement?status=invalid", BASE));
   }
 
-  return NextResponse.redirect(new URL("/desabonnement?status=ok", BASE));
+  return NextResponse.redirect(new URL("/fr/desabonnement?status=ok", BASE));
 }

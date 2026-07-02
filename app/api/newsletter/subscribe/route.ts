@@ -69,10 +69,10 @@ export async function POST(req: Request) {
     <div style="font-size:28px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${promo_code}</div>
     <div style="font-size:13px;color:rgba(242,237,230,0.4);margin-top:8px">À utiliser sur milkbebe.fr</div>
   </div>
-  <a href="${BASE}/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:28px">
+  <a href="${BASE}/fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:28px">
     Utiliser mon code →
   </a>` : `
-  <a href="${BASE}/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:28px">
+  <a href="${BASE}/fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:28px">
     Découvrir la collection →
   </a>`}
   <div style="font-size:11px;color:rgba(242,237,230,0.2);line-height:1.8">

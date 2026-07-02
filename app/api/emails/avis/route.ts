@@ -62,7 +62,7 @@ export async function GET(req: Request) {
       .maybeSingle();
     const unsubUrl = sub?.unsubscribe_token
       ? `${BASE}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`
-      : `${BASE}/contact`;
+      : `${BASE}/fr/contact`;
 
     // Construire les liens d'avis vers /avis (form tokenisé via order_id+email)
     const emailParam = encodeURIComponent(order.customer_email);
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     const productLinks = items.slice(0, 3).map((item: any) => {
       const pid = item.product_id ?? item.id ?? "";
       const pidParam = pid ? `&product_id=${encodeURIComponent(pid)}` : "";
-      return `<a href="${BASE}/avis?order_id=${orderParam}&email=${emailParam}${pidParam}"
+      return `<a href="${BASE}/fr/avis?order_id=${orderParam}&email=${emailParam}${pidParam}"
         style="display:block;padding:12px 16px;margin-bottom:8px;background:#f5f0e8;border-radius:10px;text-decoration:none;color:#1a1410;font-weight:700;font-size:14px">
         ⭐ Donner mon avis sur ${item.name}
       </a>`;

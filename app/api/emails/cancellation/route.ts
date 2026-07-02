@@ -46,7 +46,7 @@ function buildHtml(opts: { prenom?: string; order_number?: string; custom_messag
       <div style="color:#f2ede6;font-size:15px;line-height:1.7;white-space:pre-wrap">${escapeHtml(custom_message)}</div>
     </div>` : ""}
     <div style="text-align:center;margin-bottom:32px">
-      <a href="${BASE}/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
+      <a href="${BASE}/fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
         Voir la collection M!LK →
       </a>
     </div>

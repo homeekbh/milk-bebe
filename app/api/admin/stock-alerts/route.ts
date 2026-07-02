@@ -82,7 +82,7 @@ export async function GET(req: NextRequest) {
     <div style="font-size:17px;font-weight:900;color:#f2ede6">${product.name}${tailleLabel}</div>
     <div style="font-size:13px;color:#c49a4a;margin-top:6px;font-weight:700">Est de nouveau disponible !</div>
   </div>
-  <a href="${BASE}/produits/${product.slug ?? ""}"
+  <a href="${BASE}/fr/produits/${product.slug ?? ""}"
     style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 36px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none">
     Commander maintenant →
   </a>

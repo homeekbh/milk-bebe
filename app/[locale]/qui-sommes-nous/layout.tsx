@@ -30,7 +30,7 @@ export async function generateMetadata({
     locale:      "fr_FR",
     type:        "website",
     images: [{
-      url:    `${BASE}/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
+      url:    `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
       width:  1200,
       height: 630,
       alt:    "Erika et ses garçons — fondatrice de M!LK",

@@ -44,35 +44,47 @@ export async function generateMetadata({
   };
 }
 
-const personLd = {
-  "@context":   "https://schema.org",
-  "@type":      "Person",
-  name:         "Erika",
-  jobTitle:     "Fondatrice",
-  worksFor:     { "@type": "Organization", name: "M!LK", url: BASE },
-  description:  "Maman de deux garçons, fondatrice de M!LK — marque française d'essentiels bébé en bambou certifié OEKO-TEX.",
-  image:        `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
-};
+export default async function QuiSommesNousLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: Promise<{ locale: string }>;
+}) {
+  const { locale } = await params;
+  const loc = locale === "en" ? "en" : "fr";
 
-const aboutPageLd = {
-  "@context":   "https://schema.org",
-  "@type":      "AboutPage",
-  name:         "Qui sommes-nous — M!LK",
-  url:          `${BASE}/qui-sommes-nous`,
-  mainEntity:   { "@id": `${BASE}/#organization` },
-  about:        { "@type": "Organization", name: "M!LK", url: BASE },
-};
+  // URLs structurées en /{loc} DIRECT (zéro 307). L'Organization est référencée
+  // par son @id (identifiant du nœud défini dans le layout racine) — un @id n'est
+  // pas crawlé, donc pas de redirection, et ça consolide l'entité (1 seule Org).
+  const personLd = {
+    "@context":   "https://schema.org",
+    "@type":      "Person",
+    name:         "Erika",
+    jobTitle:     "Fondatrice",
+    worksFor:     { "@id": `${BASE}/#organization` },
+    description:  "Maman de deux garçons, fondatrice de M!LK — marque française d'essentiels bébé en bambou certifié OEKO-TEX.",
+    image:        `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
+  };
 
-const breadcrumbLd = {
-  "@context": "https://schema.org",
-  "@type":    "BreadcrumbList",
-  itemListElement: [
-    { "@type": "ListItem", position: 1, name: "Accueil",          item: BASE },
-    { "@type": "ListItem", position: 2, name: "Qui sommes-nous",  item: `${BASE}/qui-sommes-nous` },
-  ],
-};
+  const aboutPageLd = {
+    "@context":   "https://schema.org",
+    "@type":      "AboutPage",
+    name:         "Qui sommes-nous — M!LK",
+    url:          `${BASE}/${loc}/qui-sommes-nous`,
+    mainEntity:   { "@id": `${BASE}/#organization` },
+    about:        { "@id": `${BASE}/#organization` },
+  };
 
-export default function QuiSommesNousLayout({ children }: { children: React.ReactNode }) {
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type":    "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Accueil",          item: `${BASE}/${loc}` },
+      { "@type": "ListItem", position: 2, name: "Qui sommes-nous",  item: `${BASE}/${loc}/qui-sommes-nous` },
+    ],
+  };
+
   return (
     <>
       <JsonLd data={[personLd, aboutPageLd, breadcrumbLd]} />

@@ -112,7 +112,7 @@ export async function GET() {
     const items: string[] = [];
 
     for (const p of products) {
-      const link      = `${BASE}/produits/${p.slug}`;
+      const link      = `${BASE}/fr/produits/${p.slug}`;
       const desc      = cleanDesc(p.description);
       const price     = money(p.price_ttc);
       const promoOn   = isPromoActive(p);
@@ -167,7 +167,7 @@ export async function GET() {
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
   <channel>
     <title>M!LK — Essentiels bébé bambou OEKO-TEX</title>
-    <link>${BASE}</link>
+    <link>${BASE}/fr</link>
     <description>Bodies, Pyjamas, Gigoteuses et Langes nourrisson bambou certifié OEKO-TEX</description>
 ${items.join("\n")}
   </channel>
@@ -181,7 +181,7 @@ ${items.join("\n")}
       },
     });
   } catch (e: any) {
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n    <title>M!LK</title>\n    <link>${BASE}</link>\n    <description>Flux temporairement indisponible</description>\n  </channel>\n</rss>`;
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n    <title>M!LK</title>\n    <link>${BASE}/fr</link>\n    <description>Flux temporairement indisponible</description>\n  </channel>\n</rss>`;
     return new Response(xml, { status: 200, headers: { "Content-Type": "application/xml; charset=utf-8" } });
   }
 }

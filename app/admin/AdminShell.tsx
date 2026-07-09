@@ -376,7 +376,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking,  setChecking]  = useState(true);
   const [showCal,   setShowCal]   = useState(false);
   const [badges,    setBadges]    = useState<{ reviewsPending: number; commandesPending: number }>({ reviewsPending: 0, commandesPending: 0 });
-  const headerRef = useRef<HTMLElement | null>(null);
+  const headerRoRef = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 900);
@@ -385,19 +385,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => window.removeEventListener("resize", check);
   }, []);
 
-  // Mesure la hauteur RÉELLE du header (variable selon wrap/mobile) et l'expose en
-  // variable CSS --admin-header-h. Les barres sticky des pages (ex. sélecteur de
-  // période de /admin/analytics, top: var(--admin-header-h)) se collent pile
-  // dessous, sans trou ni chevauchement, quelle que soit la taille d'écran.
-  useEffect(() => {
-    const el = headerRef.current;
+  // Mesure la hauteur RÉELLE du header et l'expose en variable CSS --admin-header-h,
+  // que la barre période sticky de /admin/analytics lit (top: var(--admin-header-h)).
+  // ⚠️ Callback ref (pas un useEffect à deps []) : il se déclenche au MONTAGE RÉEL
+  // du <header>, donc APRÈS l'auth (checking→false). Un useEffect [] tournait pendant
+  // le spinner (header absent → headerRef null → sortie) et ne se relançait jamais →
+  // --admin-header-h restait vide → la barre retombait sur le fallback 78px alors que
+  // le header fait ~134px (contenu wrappé) → barre cachée derrière le header. Le
+  // ResizeObserver recalcule si la hauteur change (resize fenêtre, wrap 1↔2 lignes).
+  const setHeaderRef = useCallback((el: HTMLElement | null) => {
+    headerRoRef.current?.disconnect();
+    headerRoRef.current = null;
     if (!el) return;
     const setVar = () => document.documentElement.style.setProperty("--admin-header-h", `${el.offsetHeight}px`);
     setVar();
     const ro = new ResizeObserver(setVar);
     ro.observe(el);
-    window.addEventListener("resize", setVar);
-    return () => { ro.disconnect(); window.removeEventListener("resize", setVar); };
+    headerRoRef.current = ro;
   }, []);
 
   useEffect(() => {
@@ -554,7 +558,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div style={{ flex: 1, marginLeft: mobile ? 0 : 220, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
         {/* ── HEADER avec horloges ── */}
-        <header ref={headerRef} style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(26,20,16,0.1)", padding: "0 20px", minHeight: 78, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <header ref={setHeaderRef} style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(26,20,16,0.1)", padding: "0 20px", minHeight: 78, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
 
           {/* Bouton menu mobile */}
           {mobile && (

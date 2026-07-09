@@ -10,7 +10,7 @@ import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
 import ShareButtons                    from "@/components/shared/ShareButtons";
-import { trackViewItem, metaViewContent } from "@/lib/analytics";
+import { trackViewItem, metaViewContent, trackAddToCart, metaAddToCart, metaInitiateCheckout } from "@/lib/analytics";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -337,6 +337,13 @@ function ApplePayButton({ product, taille, couleur, qty, promo }: {
       }
 
       pr.on("paymentmethod", async (ev: any) => {
+        // Express (Apple/Google Pay) = achat direct sans passer par le panier. On
+        // émet quand même add_to_cart (interne + Pixel AddToCart) pour que le tunnel
+        // les compte, + InitiateCheckout (Pixel) pour le retargeting. Une seule fois.
+        const exValue = Number(price ?? 0) * Number(qty ?? 1);
+        trackAddToCart({ id: String(product.id), name, price: Number(price ?? 0), category: product.category_slug || "", variant: taille || couleur || undefined, quantity: qty });
+        metaAddToCart({ id: String(product.id), name, price: Number(price ?? 0), quantity: qty });
+        metaInitiateCheckout(exValue, qty);
         // Créer session Stripe depuis le backend
         const res = await fetch("/api/checkout/create-session", {
           method:  "POST",

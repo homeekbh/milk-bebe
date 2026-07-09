@@ -21,6 +21,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
 }
 
 import { useEffect, useState, useMemo, useCallback } from "react";
+import WorldVisitorsMap from "@/components/admin/WorldVisitorsMap";
 
 type PeriodKey = "7" | "30" | "90" | "all";
 
@@ -122,26 +123,35 @@ function Card({ children, title, lexique }: { children: React.ReactNode; title: 
   );
 }
 
-function BarChart({ data, height = 150 }: { data: { label: string; value: number }[]; height?: number }) {
+function BarChart({ data, height = 160, unit = "" }: { data: { label: string; value: number }[]; height?: number; unit?: string }) {
+  const [hi, setHi] = useState<number | null>(null);
   if (!data.length) return <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 30 }}>Aucune donnée</div>;
   const max = Math.max(...data.map(d => d.value), 1);
+  const TOP = 16; // marge haute pour afficher les valeurs au-dessus des barres
+  const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
+  const showValues = data.length <= 16; // au-delà, valeurs seulement au survol (lisibilité)
   return (
     <div style={{ overflowX: "auto" }}>
-      <svg viewBox={`0 0 600 ${height + 30}`} style={{ width: "100%", minWidth: 280 }}>
+      <svg viewBox={`0 0 600 ${height + TOP + 26}`} style={{ width: "100%", minWidth: 280 }}>
         {[0.25, 0.5, 0.75, 1].map(t => (
-          <line key={t} x1={20} x2={590} y1={height - height * t} y2={height - height * t} stroke={C.faint} strokeWidth={1} />
+          <line key={t} x1={20} x2={590} y1={TOP + height - height * t} y2={TOP + height - height * t} stroke={C.faint} strokeWidth={1} />
         ))}
         {data.map((d, i) => {
           const w = Math.max(4, (560 / data.length) - 4);
           const gap = (560 - w * data.length) / (data.length + 1);
           const x = 20 + gap + i * (w + gap);
           const h = (d.value / max) * height;
+          const active = hi === i;
           return (
-            <g key={i}>
-              <rect x={x} y={height - h} width={w} height={h} rx={3} fill={C.amber} opacity={0.85} />
-              {(data.length <= 14 || i % Math.ceil(data.length / 14) === 0) && (
-                <text x={x + w / 2} y={height + 20} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
+            <g key={i} onMouseEnter={() => setHi(i)} onMouseLeave={() => setHi(null)}>
+              <rect x={x} y={TOP + height - h} width={w} height={h} rx={3} fill={C.amber} opacity={active ? 1 : 0.82} />
+              {(showValues || active) && d.value > 0 && (
+                <text x={x + w / 2} y={TOP + height - h - 4} fill={active ? C.warm : C.muted} fontSize={active ? 11 : 9} fontWeight={active ? 800 : 600} textAnchor="middle" fontFamily="system-ui">{fmt(d.value)}{unit}</text>
               )}
+              {(data.length <= 14 || i % Math.ceil(data.length / 14) === 0) && (
+                <text x={x + w / 2} y={TOP + height + 18} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
+              )}
+              <title>{d.label}: {d.value}{unit}</title>
             </g>
           );
         })}
@@ -159,6 +169,7 @@ function MiniBar({ value, max, color = C.amber }: { value: number; max: number; 
 }
 
 function DonutChart({ data }: { data: { label: string; value: number; color: string }[] }) {
+  const [hi, setHi] = useState<number | null>(null);
   const total = data.reduce((s, d) => s + d.value, 0);
   if (!total) return <div style={{ color: C.muted, fontSize: 13, padding: "16px 0" }}>Aucune donnée</div>;
   const r = 55; const cx = 75; const cy = 75; let offset = -Math.PI / 2;
@@ -169,19 +180,28 @@ function DonutChart({ data }: { data: { label: string; value: number; color: str
     const s = { ...d, path: `M ${cx} ${cy} L ${x1} ${y1} A ${r} ${r} 0 ${angle > Math.PI ? 1 : 0} 1 ${x2} ${y2} Z` };
     offset += angle; return s;
   });
+  const centerVal = hi != null ? String(slices[hi].value) : String(total);
+  const centerSub = hi != null ? slices[hi].label : "total";
   return (
     <div style={{ display: "flex", gap: 20, alignItems: "center", flexWrap: "wrap" }}>
-      <svg viewBox="0 0 150 150" style={{ width: 100, flexShrink: 0 }}>
-        {slices.map((s, i) => <path key={i} d={s.path} fill={s.color} opacity={0.85} />)}
+      <svg viewBox="0 0 150 150" style={{ width: 116, flexShrink: 0 }}>
+        {slices.map((s, i) => (
+          <path key={i} d={s.path} fill={s.color} opacity={hi == null || hi === i ? 0.9 : 0.32}
+            onMouseEnter={() => setHi(i)} onMouseLeave={() => setHi(null)} style={{ cursor: "pointer", transition: "opacity 0.12s" }}>
+            <title>{s.label}: {s.value} ({((s.value / total) * 100).toFixed(0)}%)</title>
+          </path>
+        ))}
         <circle cx={cx} cy={cy} r={34} fill={C.card} />
-        <text x={cx} y={cy + 4} fill={C.warm} fontSize={10} textAnchor="middle" fontFamily="system-ui" fontWeight="bold">{total}</text>
+        <text x={cx} y={cy - 1} fill={C.warm} fontSize={13} textAnchor="middle" fontFamily="system-ui" fontWeight="bold">{centerVal}</text>
+        <text x={cx} y={cy + 12} fill={C.muted} fontSize={7} textAnchor="middle" fontFamily="system-ui">{centerSub}</text>
       </svg>
       <div style={{ display: "grid", gap: 7, flex: 1 }}>
         {slices.map((s, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <div key={i} onMouseEnter={() => setHi(i)} onMouseLeave={() => setHi(null)}
+            style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", opacity: hi == null || hi === i ? 1 : 0.5, transition: "opacity 0.12s" }}>
             <div style={{ width: 8, height: 8, borderRadius: 2, background: s.color, flexShrink: 0 }} />
             <span style={{ fontSize: 12, color: C.muted, flex: 1 }}>{s.label}</span>
-            <span style={{ fontSize: 12, fontWeight: 800, color: C.warm }}>{((s.value / total) * 100).toFixed(0)}%</span>
+            <span style={{ fontSize: 12, fontWeight: 800, color: C.warm }}>{s.value} · {((s.value / total) * 100).toFixed(0)}%</span>
           </div>
         ))}
       </div>
@@ -246,6 +266,8 @@ function HBars({ data, color = C.amber }: { data: { label: string; value: number
 // ─── Section Trafic & Comportement Visiteurs ────────────────────────────────────
 function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
   const [showAllPages, setShowAllPages] = useState(false);
+  const [showAllCountries, setShowAllCountries] = useState(false);
+  const [showAllCities, setShowAllCities] = useState(false);
 
   if (!pv) {
     return (
@@ -395,30 +417,47 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
         </Card>
       </div>
 
-      {/* BLOC 7 — Géographie */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+      {/* BLOC 7 — Géographie (Top pays / Top villes) */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
         <Card title="🌍 Top pays">
           {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
             <div style={{ display: "grid", gap: 8 }}>
-              {pv.by_country.slice(0, 8).map((c: any) => (
+              {(showAllCountries ? pv.by_country : pv.by_country.slice(0, 10)).map((c: any) => (
                 <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                   <span style={{ color: C.warm }}>{c.country}</span><span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
                 </div>
               ))}
+              {pv.by_country.length > 10 && (
+                <button onClick={() => setShowAllCountries(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
+                  {showAllCountries ? "Réduire" : `Voir tout (${pv.by_country.length})`}
+                </button>
+              )}
             </div>
           )}
         </Card>
         <Card title="🏙️ Top villes">
           {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
             <div style={{ display: "grid", gap: 8 }}>
-              {pv.by_city.slice(0, 8).map((c: any, i: number) => (
+              {(showAllCities ? pv.by_city : pv.by_city.slice(0, 10)).map((c: any, i: number) => (
                 <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
                   <span style={{ color: C.warm }}>{c.city}{c.region ? <span style={{ color: C.muted }}> · {c.region}</span> : null}</span>
                   <span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
                 </div>
               ))}
+              {pv.by_city.length > 10 && (
+                <button onClick={() => setShowAllCities(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
+                  {showAllCities ? "Réduire" : `Voir tout (${pv.by_city.length})`}
+                </button>
+              )}
             </div>
           )}
+        </Card>
+      </div>
+
+      {/* BLOC 7b — Carte monde des visiteurs (choroplèthe pays + points villes) */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="🗺️ Carte des visiteurs">
+          <WorldVisitorsMap countries={pv.by_country ?? []} cities={pv.by_city ?? []} />
         </Card>
       </div>
 

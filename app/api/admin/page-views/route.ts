@@ -192,7 +192,7 @@ export async function GET(req: NextRequest) {
 
     // ── Géographie ──────────────────────────────────────────────────────────
     const countryMap = new Map<string, Set<string>>();
-    const cityMap = new Map<string, { city: string; region: string; sessions: Set<string> }>();
+    const cityMap = new Map<string, { city: string; region: string; sessions: Set<string>; lats: number[]; lngs: number[] }>();
     rows.forEach(r => {
       if (r.country) {
         if (!countryMap.has(r.country)) countryMap.set(r.country, new Set());
@@ -200,12 +200,24 @@ export async function GET(req: NextRequest) {
       }
       if (r.city) {
         const key = `${r.city}|${r.region ?? ""}`;
-        if (!cityMap.has(key)) cityMap.set(key, { city: r.city, region: r.region ?? "", sessions: new Set() });
-        if (r.session_id) cityMap.get(key)!.sessions.add(r.session_id);
+        if (!cityMap.has(key)) cityMap.set(key, { city: r.city, region: r.region ?? "", sessions: new Set(), lats: [], lngs: [] });
+        const e = cityMap.get(key)!;
+        if (r.session_id) e.sessions.add(r.session_id);
+        // Moyenne lat/lng par ville — on ignore les lignes sans coordonnées.
+        if (r.latitude != null && r.longitude != null) {
+          const la = Number(r.latitude), lo = Number(r.longitude);
+          if (Number.isFinite(la) && Number.isFinite(lo)) { e.lats.push(la); e.lngs.push(lo); }
+        }
       }
     });
-    const by_country = [...countryMap.entries()].map(([country, set]) => ({ country, sessions: set.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 15);
-    const by_city = [...cityMap.values()].map(c => ({ city: c.city, region: c.region, sessions: c.sessions.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 15);
+    const by_country = [...countryMap.entries()].map(([country, set]) => ({ country, sessions: set.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
+    const by_city = [...cityMap.values()].map(c => ({
+      city: c.city,
+      region: c.region,
+      sessions: c.sessions.size,
+      lat: c.lats.length ? mean(c.lats) : null,
+      lng: c.lngs.length ? mean(c.lngs) : null,
+    })).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
 
     // ── Appareils ───────────────────────────────────────────────────────────
     const bucketSessions = (key: (r: any) => string | null) => {

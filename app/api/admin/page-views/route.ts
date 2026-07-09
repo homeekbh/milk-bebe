@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, fetchAllPaged } from "@/lib/analytics-server";
+import { normalizePeriod, periodRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -32,23 +32,51 @@ function channelOf(r: any): string {
   return "Referral";
 }
 
+// Heuristique bots (page_views n'a pas encore de user_agent garanti → on tolère
+// son absence : r.user_agent undefined → on retombe sur l'engagement). Bot si :
+// user-agent crawler connu, OU session 100% sans engagement (rebond + scroll 0 +
+// temps ~0 sur TOUTES ses vues).
+const CRAWLER_RE = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i;
+function botSessionIds(rows: any[]): Set<string> {
+  const bySess = new Map<string, any[]>();
+  for (const r of rows) { const s = r.session_id; if (!s) continue; if (!bySess.has(s)) bySess.set(s, []); bySess.get(s)!.push(r); }
+  const bots = new Set<string>();
+  for (const [sid, rs] of bySess) {
+    const uaBot = rs.some(r => r.user_agent && CRAWLER_RE.test(String(r.user_agent)));
+    const noEngagement = rs.every(r =>
+      (r.time_on_page == null || Number(r.time_on_page) <= 0) &&
+      (r.scroll_depth == null || Number(r.scroll_depth) === 0) &&
+      !!r.is_bounce
+    );
+    if (uaBot || noEngagement) bots.add(sid);
+  }
+  return bots;
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
 
   try {
-    const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
-    const { from, to } = periodRange(period);
+    const sp = new URL(req.url).searchParams;
+    const period = normalizePeriod(sp.get("period"));
+    const excludeBots = sp.get("bots") === "exclude";
+    const { from, fromPrev, to } = periodRange(period);
 
     // ⚠️ Pagination obligatoire : PostgREST plafonne à 1000 lignes/requête, donc
     // .limit(200000) était ignoré → seules les 1000 plus ANCIENNES lignes
     // revenaient (jours récents à 0, KPIs sous-comptés dès >1000 lignes / 30j+).
-    const rows = await fetchAllPaged<any>((rf, rt) => supabaseServer
+    let rows = await fetchAllPaged<any>((rf, rt) => supabaseServer
       .from("page_views")
       .select("*")
       .gte("viewed_at", from).lte("viewed_at", to)
       .order("viewed_at", { ascending: true })
       .range(rf, rt));
+
+    // ── Filtrage bots (heuristique) si le toggle est actif ───────────────────
+    const botSet = excludeBots ? botSessionIds(rows) : new Set<string>();
+    const bots_excluded = botSet.size;
+    if (excludeBots) rows = rows.filter(r => !r.session_id || !botSet.has(r.session_id));
 
     // ── KPIs ────────────────────────────────────────────────────────────────
     const sessions = new Set<string>();
@@ -264,6 +292,68 @@ export async function GET(req: NextRequest) {
     const newCount = newVisitors.size;
     const returningCount = [...visitors].filter(v => !newVisitors.has(v)).length;
 
+    // ── Tunnel de conversion (#1) ────────────────────────────────────────────
+    // Sessions → Vue produit (view_item) → Ajout panier (add_to_cart) → Checkout
+    // (proxy = sessions ayant vu /checkout ou /panier) → Achat (commandes valides).
+    const events = await fetchAllPaged<any>((rf, rt) => supabaseServer
+      .from("analytics_events").select("event_type, session_id")
+      .gte("created_at", from).lte("created_at", to)
+      .order("created_at", { ascending: true }).range(rf, rt));
+    const viewSess = new Set<string>(), cartSess = new Set<string>();
+    events.forEach(e => {
+      if (!e.session_id || (excludeBots && botSet.has(e.session_id))) return;
+      if (e.event_type === "view_item")   viewSess.add(e.session_id);
+      if (e.event_type === "add_to_cart") cartSess.add(e.session_id);
+    });
+    const checkoutSess = new Set<string>();
+    rows.forEach(r => {
+      const p = String(r.page_path ?? "");
+      if (r.session_id && (p.includes("/checkout") || p.includes("/panier"))) checkoutSess.add(r.session_id);
+    });
+    const ordCur = await supabaseServer.from("orders").select("status, shipping_status")
+      .in("status", VALID_STATUSES).gte("created_at", from).lte("created_at", to).limit(100000);
+    const purchases = (ordCur.data ?? []).filter(isValidOrder).length;
+    const funnel = [
+      { key: "sessions",    label: "Sessions",     count: sessions.size,      estimated: false },
+      { key: "view_item",   label: "Vue produit",  count: viewSess.size,      estimated: false },
+      { key: "add_to_cart", label: "Ajout panier", count: cartSess.size,      estimated: false },
+      { key: "checkout",    label: "Checkout",     count: checkoutSess.size,  estimated: true  },
+      { key: "purchase",    label: "Achat",        count: purchases,          estimated: false },
+    ];
+
+    // ── Pages d'entrée (#3) ──────────────────────────────────────────────────
+    const entryMap = new Map<string, { sessions: Set<string>; bounce: Set<string> }>();
+    rows.forEach(r => {
+      const ep = r.entry_page; if (!ep || !r.session_id) return;
+      if (!entryMap.has(ep)) entryMap.set(ep, { sessions: new Set(), bounce: new Set() });
+      const e = entryMap.get(ep)!;
+      e.sessions.add(r.session_id);
+      if (r.is_bounce) e.bounce.add(r.session_id);
+    });
+    const entry_pages = [...entryMap.entries()].map(([entry_page, e]) => ({
+      entry_page,
+      sessions: e.sessions.size,
+      bounce_rate: e.sessions.size ? Math.round((e.bounce.size / e.sessions.size) * 100) : 0,
+    })).sort((a, b) => b.sessions - a.sessions).slice(0, 15);
+
+    // ── Comparaison N vs N-1 (#4) — deltas sur les KPIs trafic ───────────────
+    let deltas: { views: number; sessions: number; visitors: number; avg_time: number } | null = null;
+    if (period !== "all") {
+      let prevRows = await fetchAllPaged<any>((rf, rt) => supabaseServer
+        .from("page_views").select("session_id, visitor_id, time_on_page, scroll_depth, is_bounce, user_agent")
+        .gte("viewed_at", fromPrev).lt("viewed_at", from)
+        .order("viewed_at", { ascending: true }).range(rf, rt));
+      if (excludeBots) { const pb = botSessionIds(prevRows); prevRows = prevRows.filter(r => !r.session_id || !pb.has(r.session_id)); }
+      const pSess = new Set<string>(), pVis = new Set<string>(), pTimes: number[] = [];
+      prevRows.forEach(r => { if (r.session_id) pSess.add(r.session_id); if (r.visitor_id) pVis.add(r.visitor_id); if (r.time_on_page != null) pTimes.push(Number(r.time_on_page)); });
+      deltas = {
+        views:    pct(rows.length,   prevRows.length),
+        sessions: pct(sessions.size, pSess.size),
+        visitors: pct(visitors.size, pVis.size),
+        avg_time: pct(avg_time ?? 0, pTimes.length ? Math.round(mean(pTimes)) : 0),
+      };
+    }
+
     return Response.json({
       data: {
         total_views: rows.length,
@@ -290,6 +380,11 @@ export async function GET(req: NextRequest) {
         scroll_distribution,
         time_distribution,
         new_vs_returning: { new: newCount, returning: returningCount },
+        funnel,
+        entry_pages,
+        deltas,
+        bots_excluded,
+        bots_filter_active: excludeBots,
       },
       error: null,
     });

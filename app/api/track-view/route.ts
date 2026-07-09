@@ -31,6 +31,12 @@ export async function POST(req: NextRequest) {
     const os      = ua.os.name ?? null;
     const browser = ua.browser.name ?? null;
 
+    // user-agent brut + flag bot basique (crawlers connus). Colonnes OPTIONNELLES :
+    // tant que le SQL 011 n'est pas passé, l'insert retombe proprement sans ces
+    // champs (aucune perte des autres colonnes).
+    const user_agent = uaString ? uaString.slice(0, 500) : null;
+    const is_bot = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i.test(uaString);
+
     // ── Géolocalisation Vercel (sans IP tracking explicite) ─────────────────
     const h = req.headers;
     const country = h.get("x-vercel-ip-country") ?? null;
@@ -96,10 +102,12 @@ export async function POST(req: NextRequest) {
       is_new_visitor,
     };
 
-    const { error } = await supabaseServer.from("page_views").insert([row]);
+    // Insert à 3 niveaux : (1) complet + user_agent/is_bot ; (2) si ces colonnes
+    // n'existent pas encore (SQL 011 non exécuté) → complet SANS ces champs, pour
+    // ne perdre NI device NI géo ; (3) filet minimal historique.
+    let { error } = await supabaseServer.from("page_views").insert([{ ...row, user_agent, is_bot }]);
+    if (error) ({ error } = await supabaseServer.from("page_views").insert([row]));
     if (error) {
-      // Filet de sécurité : si une colonne manque (migration partielle), on
-      // retombe sur le coeur historique pour ne jamais perdre la vue.
       await supabaseServer.from("page_views").insert([{
         slug: page_path, name: b.page_title ?? null, category: b.category_slug ?? null,
         session_id: b.session_id ?? null, product_id: b.product_id ?? null,

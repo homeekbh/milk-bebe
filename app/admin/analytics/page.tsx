@@ -60,6 +60,8 @@ const LEXIQUE: Record<string, { icon: string; def: string }> = {
   "Canal":                 { icon: "📡", def: "Source de trafic regroupée : Direct, Recherche Google, Réseaux sociaux, Email, Référents…" },
   "Scroll depth":          { icon: "🖱️", def: "Jusqu'où le visiteur a fait défiler la page, en %. Mesure l'intérêt pour le contenu." },
   "Nouveaux visiteurs":    { icon: "✨", def: "Personnes qui n'avaient jamais visité le site auparavant (sur cet appareil)." },
+  "Tunnel de conversion":  { icon: "🔻", def: "Le parcours d'achat étape par étape (session → vue produit → ajout panier → checkout → achat) et où les visiteurs décrochent. L'étape « Checkout » est estimée via la page vue (/checkout ou /panier), pas un événement dédié." },
+  "Pages d'entrée":        { icon: "🛬", def: "Les pages par lesquelles les visiteurs ARRIVENT sur le site (landing pages). Un taux de rebond élevé sur une landing = page à optimiser (SEO / pub)." },
 };
 
 // ─── Composants ───────────────────────────────────────────────────────────────
@@ -361,6 +363,40 @@ function SessionsLineChart({ byDay }: { byDay: { date: string; views: number; se
   );
 }
 
+// ─── Tunnel de conversion (SVG maison) — barres décroissantes + % passage/perte ──
+function FunnelChart({ steps }: { steps: { key: string; label: string; count: number; estimated?: boolean }[] }) {
+  const top = steps[0]?.count || 0;
+  const max = Math.max(...steps.map(s => s.count), 1);
+  return (
+    <div style={{ display: "grid", gap: 10 }}>
+      {steps.map((s, i) => {
+        const wPct    = Math.max(2, (s.count / max) * 100);
+        const passTop = top > 0 ? (s.count / top) * 100 : 0;
+        const prev    = i > 0 ? steps[i - 1].count : null;
+        const loss    = prev != null && prev > 0 ? ((prev - s.count) / prev) * 100 : null;
+        return (
+          <div key={s.key}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 4, gap: 8, flexWrap: "wrap" }}>
+              <span style={{ color: C.warm, fontWeight: 700 }}>
+                {i + 1}. {s.label}{s.estimated ? <span style={{ color: C.muted, fontWeight: 500 }}> · estimé</span> : null}
+              </span>
+              <span style={{ color: C.muted }}>
+                <span style={{ color: C.amber, fontWeight: 800 }}>{s.count}</span> · {passTop.toFixed(1)}% des sessions
+              </span>
+            </div>
+            <div style={{ height: 26, background: C.faint, borderRadius: 8, overflow: "hidden" }}>
+              <div style={{ height: "100%", width: `${wPct}%`, background: `linear-gradient(90deg, ${C.amber}, rgba(196,154,74,0.55))`, borderRadius: 8, transition: "width 0.5s ease" }} />
+            </div>
+            {loss != null && loss > 0 && (
+              <div style={{ fontSize: 11, color: C.red, marginTop: 3, fontWeight: 700 }}>↓ −{loss.toFixed(1)}% de déperdition vs étape précédente</div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 // ─── Section Trafic & Comportement Visiteurs ────────────────────────────────────
 function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
   const [showAllPages, setShowAllPages] = useState(false);
@@ -398,18 +434,60 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
     <>
       <SectionTitle>📊 Trafic &amp; Comportement Visiteurs</SectionTitle>
 
+      {pv.bots_filter_active && (
+        <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(196,154,74,0.1)", border: `1px solid rgba(196,154,74,0.25)`, color: C.amber, fontSize: 12, fontWeight: 700 }}>
+          🤖 Filtre bots actif (heuristique) — {pv.bots_excluded} session(s) exclue(s). Filtre 100 % fiable dès que le user-agent sera capté (colonne page_views.user_agent).
+        </div>
+      )}
+
       {/* BLOC 1 — KPIs trafic */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue} />
-        <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} />
-        <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} />
+        <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={pv.deltas?.views} />
+        <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={pv.deltas?.sessions} />
+        <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={pv.deltas?.visitors} />
         <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)} color={C.green}
+                 delta={pv.deltas?.avg_time}
                  pending={pv.avg_time_on_page == null || pv.avg_time_on_page === 0}
                  title="Ces données se remplissent après les premières navigations complètes" />
         <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`}
                  pending={pv.bounce_rate == null || pv.bounce_rate === 0}
                  title="Ces données se remplissent après les premières navigations complètes" />
         <KpiCard label="Pages / session"   value={Number(pv.pages_per_session ?? 0).toFixed(1)} />
+      </div>
+
+      {/* BLOC 1b — Tunnel de conversion + Pages d'entrée */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="🔻 Tunnel de conversion" lexique="Tunnel de conversion">
+          {(pv.funnel ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Données insuffisantes sur la période.</div> : (
+            <>
+              <FunnelChart steps={pv.funnel} />
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
+                « Checkout » = étape <b>estimée</b> via page vue (<code>/checkout</code> ou <code>/panier</code>), pas un événement dédié. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative).
+              </div>
+            </>
+          )}
+        </Card>
+        <Card title="🛬 Pages d'entrée (landing)" lexique="Pages d'entrée">
+          {(pv.entry_pages ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune page d'entrée trackée.</div> : (
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                <thead><tr style={{ color: C.muted }}><th style={th}>Page d'entrée</th><th style={th}>Sessions</th><th style={th}>Rebond</th></tr></thead>
+                <tbody>
+                  {pv.entry_pages.map((e: any) => (
+                    <tr key={e.entry_page} style={{ borderTop: `1px solid ${C.faint}` }}>
+                      <td style={{ ...td, color: C.warm }}>{e.entry_page}</td>
+                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{e.sessions}</td>
+                      <td style={{ ...td, color: C.muted }}>{e.bounce_rate}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>
+                Conversion par landing non affichée : les commandes n'ont pas de session_id (impossible à relier à la page d'entrée de façon fiable).
+              </div>
+            </div>
+          )}
+        </Card>
       </div>
 
       {/* BLOC 2 — Vues par jour */}
@@ -662,6 +740,7 @@ export default function AdminStats() {
   const narrow = useIsNarrow();
 
   const [period, setPeriod] = useState<PeriodKey>("30");
+  const [excludeBots, setExcludeBots] = useState(false); // toggle « exclure les bots » (page-views uniquement)
 
   // Données server-side (chacune null tant que non chargée)
   const [kpis,         setKpis]         = useState<any>(null);
@@ -724,7 +803,7 @@ export default function AdminStats() {
         safeData(`/api/admin/analytics/retention${q}`),
         safeData(`/api/admin/analytics/geo${q}`),
         safeData(`/api/admin/analytics/stock-dormant`),
-        safeData(`/api/admin/page-views${q}`),
+        safeData(`/api/admin/page-views${q}&bots=${excludeBots ? "exclude" : "all"}`),
         safe(`/api/admin/commandes-data?fields=slim`),
         safe(`/api/admin/abandoned-carts`),
         safe(`/api/admin/newsletter`),
@@ -754,7 +833,7 @@ export default function AdminStats() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period]);
+  }, [period, excludeBots]);
 
   // Chargement initial + à chaque changement de période + auto-refresh 5 min.
   useEffect(() => {
@@ -872,6 +951,10 @@ export default function AdminStats() {
             Maj {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
           </span>
         )}
+        <button onClick={() => setExcludeBots(v => !v)} title="Exclure les sessions détectées comme bots (heuristique : rebond instantané + scroll 0 + crawlers connus). S'applique au trafic (page_views)."
+          style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${excludeBots ? C.amber : C.faint}`, background: excludeBots ? "rgba(196,154,74,0.15)" : C.card, color: excludeBots ? C.amber : C.muted, fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
+          {excludeBots ? "🤖 Bots exclus" : "🤖 Exclure bots"}
+        </button>
         <button onClick={load} disabled={refreshing} title="Rafraîchir maintenant"
           style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.faint}`, background: C.card, color: C.warm, fontWeight: 800, fontSize: 13, cursor: refreshing ? "wait" : "pointer", opacity: refreshing ? 0.6 : 1, whiteSpace: "nowrap" }}>
           {refreshing ? "⟳ …" : "⟳ Rafraîchir"}
@@ -900,7 +983,7 @@ export default function AdminStats() {
             <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}        color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} />
             <KpiCard label="Panier moyen"        value={eur(kpis.avg_basket, 2)}  delta={showDelta ? kpis.basket_delta_pct : undefined} />
             <KpiCard label="Clients uniques"     value={String(kpis.unique_customers)} sub={`${kpis.orders_count} commande(s)`} delta={showDelta ? kpis.orders_delta_pct : undefined} deltaLabel="commandes vs préc." />
-            <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} />
+            <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} delta={showDelta ? conversion?.conversion_delta_pct ?? undefined : undefined} />
           </>
         ) : <><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></>}
       </div>

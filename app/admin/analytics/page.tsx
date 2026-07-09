@@ -493,7 +493,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
     return (
       <>
         <SectionTitle>📊 Trafic &amp; Comportement Visiteurs</SectionTitle>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(180px,1fr))", marginBottom: 24 }}>
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px,1fr))", marginBottom: 24 }}>
           {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} h={110} />)}
         </div>
       </>
@@ -527,7 +527,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
       )}
 
       {/* BLOC 1 — KPIs trafic */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
         <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={pv.deltas?.views} />
         <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={pv.deltas?.sessions} />
         <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={pv.deltas?.visitors} />
@@ -1004,8 +1004,8 @@ export default function AdminStats() {
 
   if (loading && !kpis) {
     return (
-      <div style={{ padding: "36px 40px", background: C.bg, minHeight: "100vh" }}>
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(auto-fit, minmax(200px,1fr))" }}>
+      <div style={{ padding: narrow ? "20px 12px" : "36px 40px", background: C.bg, minHeight: "100vh" }}>
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px,1fr))" }}>
           {[0, 1, 2, 3].map(i => <Skeleton key={i} h={110} />)}
         </div>
       </div>
@@ -1031,7 +1031,9 @@ export default function AdminStats() {
           Le sticky ne marche que parce que globals.css utilise overflow-x:clip (pas hidden). */}
       <div style={{
         position: "sticky", top: "var(--admin-header-h, 78px)", zIndex: 30,
-        background: C.bg, margin: "0 -40px 24px", padding: "12px 40px",
+        // Marges négatives (bord-à-bord) SEULEMENT en desktop. En mobile on les
+        // retire : le padding conteneur change et un -40px déborderait à droite.
+        background: C.bg, margin: narrow ? "0 0 18px" : "0 -40px 24px", padding: narrow ? "10px 0" : "12px 40px",
         borderBottom: `1px solid ${C.faint}`, boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
         display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap",
       }}>
@@ -1066,7 +1068,7 @@ export default function AdminStats() {
 
       {/* ══ VENTES ══ */}
       <SectionTitle>Ventes</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {kpis ? (
           <>
             <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}        color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} />
@@ -1113,7 +1115,7 @@ export default function AdminStats() {
 
       {/* ══ CLIENTS ══ */}
       <SectionTitle>Clients & acquisition</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {retention ? (
           <>
             <KpiCard label="Nouveaux clients"  value={String(retention.new_customers)}       sub="1re commande sur la période" color={C.purple} />

@@ -569,8 +569,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <SearchGlobal />
           </div>
 
-          {/* ── 4 HORLOGES (modifiables) ── */}
-          <ClocksBar />
+          {/* ── 4 HORLOGES (modifiables) — masquées < 700px (cf. globals.css) : sur
+                mobile elles empilaient un bloc 2×2 qui gonflait le header et cassait
+                le calage de la barre période sticky. ── */}
+          <div className="admin-clocks-wrap"><ClocksBar /></div>
 
           {/* ── BOUTON CALENDRIER ── */}
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>

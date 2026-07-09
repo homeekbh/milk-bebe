@@ -183,6 +183,12 @@ img[loading="lazy"] { content-visibility: auto; }
   }
 }
 
+/* ── Admin header : masquer les 4 horloges sous 700px (elles gonflaient le header
+   en bloc 2×2 et cassaient le calage de la barre période sticky). Desktop intact. ── */
+@media (max-width: 700px) {
+  .admin-clocks-wrap { display: none !important; }
+}
+
 /* ── Touch targets minimum 44px ── */
 @media (max-width: 768px) {
   button, a[role="button"] {

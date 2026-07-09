@@ -45,7 +45,9 @@ html, body {
   background: var(--milk-bg);
   color: var(--milk-text);
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
-  overflow-x: hidden;
+  /* clip (et non hidden) : empêche le scroll horizontal SANS créer de conteneur
+     de scroll parasite — sinon position:sticky est cassé sur toute la page. */
+  overflow-x: clip;
 }
 
 * { box-sizing: border-box; }
@@ -270,7 +272,9 @@ img[loading="lazy"] { content-visibility: auto; }
 
 /* ── 1. Overflow global — AUCUN débordement possible ── */
 html, body {
-  overflow-x: hidden !important;
+  /* clip et non hidden : hidden calcule overflow-y:auto → body devient un
+     conteneur de scroll et casse position:sticky (header admin + barres). */
+  overflow-x: clip !important;
   max-width: 100% !important;
   width: 100% !important;
 }

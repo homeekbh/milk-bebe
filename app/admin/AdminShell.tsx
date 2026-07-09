@@ -3,7 +3,7 @@ import React from "react";
 
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabase-client";
 import SearchGlobal from "@/components/admin/SearchGlobal";
 import { MilkLogo } from "@/components/shared/MilkLogo";
@@ -376,12 +376,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [checking,  setChecking]  = useState(true);
   const [showCal,   setShowCal]   = useState(false);
   const [badges,    setBadges]    = useState<{ reviewsPending: number; commandesPending: number }>({ reviewsPending: 0, commandesPending: 0 });
+  const headerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
     const check = () => setMobile(window.innerWidth < 900);
     check();
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
+  }, []);
+
+  // Mesure la hauteur RÉELLE du header (variable selon wrap/mobile) et l'expose en
+  // variable CSS --admin-header-h. Les barres sticky des pages (ex. sélecteur de
+  // période de /admin/analytics, top: var(--admin-header-h)) se collent pile
+  // dessous, sans trou ni chevauchement, quelle que soit la taille d'écran.
+  useEffect(() => {
+    const el = headerRef.current;
+    if (!el) return;
+    const setVar = () => document.documentElement.style.setProperty("--admin-header-h", `${el.offsetHeight}px`);
+    setVar();
+    const ro = new ResizeObserver(setVar);
+    ro.observe(el);
+    window.addEventListener("resize", setVar);
+    return () => { ro.disconnect(); window.removeEventListener("resize", setVar); };
   }, []);
 
   useEffect(() => {
@@ -538,7 +554,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div style={{ flex: 1, marginLeft: mobile ? 0 : 220, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
         {/* ── HEADER avec horloges ── */}
-        <header style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(26,20,16,0.1)", padding: "0 20px", minHeight: 78, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+        <header ref={headerRef} style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(26,20,16,0.1)", padding: "0 20px", minHeight: 78, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
 
           {/* Bouton menu mobile */}
           {mobile && (

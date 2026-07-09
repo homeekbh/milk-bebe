@@ -856,11 +856,13 @@ export default function AdminStats() {
       </div>
 
       {/* ── BARRE STICKY : contrôles + sélecteur de période (une seule période/page) ──
-          top: 78 = juste sous le header admin (sticky, minHeight 78). Fond opaque
-          #0d0b09 + marges négatives pour couvrir toute la largeur (rien ne défile
-          visible dessous). flexWrap → ne casse pas le mobile. */}
+          top = --admin-header-h (hauteur réelle du header admin, mesurée par
+          AdminShell) → calage pile dessous sans trou ni chevauchement, même quand
+          le header wrappe sur mobile. Fond opaque #0d0b09 + marges négatives pour
+          couvrir toute la largeur (rien ne défile visible dessous). flexWrap → mobile OK.
+          Le sticky ne marche que parce que globals.css utilise overflow-x:clip (pas hidden). */}
       <div style={{
-        position: "sticky", top: 78, zIndex: 30,
+        position: "sticky", top: "var(--admin-header-h, 78px)", zIndex: 30,
         background: C.bg, margin: "0 -40px 24px", padding: "12px 40px",
         borderBottom: `1px solid ${C.faint}`, boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
         display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap",

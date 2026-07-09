@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
+import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 
 /* Affiche les packs ajoutés au panier (localStorage milk_pack_cart). Indépendant
    du panier produit (CartContext) : les packs se finalisent via leur propre
@@ -39,6 +40,14 @@ export default function PackCartSection() {
 
   async function buy(p: PackCartItem, idx: number) {
     setBusyIdx(idx);
+    // begin_checkout (interne + GA4) + InitiateCheckout (Pixel) au clic « Commander »
+    // du pack. Flux distinct du panier produit (chaque pack = sa propre session
+    // Stripe) → une seule émission par pack, pas de double avec l'express.
+    trackBeginCheckout(
+      [{ id: p.pack_id, name: p.title, price: p.price, quantity: 1, category: "pack", variant: p.size ?? undefined, slug: p.slug }],
+      p.price,
+    );
+    metaInitiateCheckout(p.price, 1);
     try {
       const res = await fetch("/api/checkout/create-pack-session", {
         method: "POST",

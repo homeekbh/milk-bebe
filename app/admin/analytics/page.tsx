@@ -363,6 +363,92 @@ function SessionsLineChart({ byDay }: { byDay: { date: string; views: number; se
   );
 }
 
+// ─── Nouveaux vs récurrents dans le temps (2 séries, SVG maison) + jour/mois ──────
+function NewVsReturningChart({ byDay }: { byDay: { date: string; new: number; returning: number }[] }) {
+  const [gran, setGran] = useState<"day" | "month">("day");
+  const [hi, setHi]     = useState<number | null>(null);
+
+  const data = useMemo(() => {
+    const src = Array.isArray(byDay) ? byDay : [];
+    if (gran === "month") {
+      const m = new Map<string, { n: number; r: number }>();
+      for (const d of src) {
+        const key = String(d.date).slice(0, 7);
+        const e = m.get(key) ?? { n: 0, r: 0 };
+        e.n += Number(d.new) || 0; e.r += Number(d.returning) || 0;
+        m.set(key, e);
+      }
+      return [...m.entries()].map(([ym, e]) => {
+        const [yy, mm] = ym.split("-");
+        return { key: ym, label: `${MONTHS_FR[Number(mm) - 1] ?? mm} ${yy.slice(2)}`, nw: e.n, rt: e.r };
+      });
+    }
+    return src.map(d => ({ key: String(d.date), label: String(d.date).slice(5), nw: Number(d.new) || 0, rt: Number(d.returning) || 0 }));
+  }, [byDay, gran]);
+
+  const VBW = 600, VBH = 200, TOP = 16, BOT = 28, PADX = 10;
+  const innerW = VBW - PADX * 2, innerH = VBH - TOP - BOT;
+  const max = Math.max(...data.map(d => Math.max(d.nw, d.rt)), 1);
+  const n = data.length;
+  const px = (i: number) => (n <= 1 ? PADX + innerW / 2 : PADX + (i / (n - 1)) * innerW);
+  const py = (v: number) => TOP + innerH - (v / max) * innerH;
+  const lineOf = (sel: (d: { nw: number; rt: number }) => number) => data.map((d, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(sel(d)).toFixed(1)}`).join(" ");
+  const labelEvery = Math.max(1, Math.ceil(n / 12));
+  const hv = hi != null ? data[hi] : null;
+
+  return (
+    <div>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 14, fontSize: 12 }}>
+          <span style={{ color: C.muted }}><span style={{ display: "inline-block", width: 12, height: 3, background: C.amber, borderRadius: 2, marginRight: 5, verticalAlign: "middle" }} />Nouveaux</span>
+          <span style={{ color: C.muted }}><span style={{ display: "inline-block", width: 12, height: 3, background: C.green, borderRadius: 2, marginRight: 5, verticalAlign: "middle" }} />Récurrents</span>
+        </div>
+        <div style={{ display: "flex", gap: 4, background: "#0d0b09", borderRadius: 9, padding: 3, border: `1px solid ${C.faint}` }}>
+          {(["day", "month"] as const).map(g => (
+            <button key={g} onClick={() => { setGran(g); setHi(null); }}
+              style={{ padding: "5px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 800, background: gran === g ? C.amber : "transparent", color: gran === g ? "#1a1410" : C.muted }}>
+              {g === "day" ? "Jour" : "Mois"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {n === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 30 }}>Aucune donnée</div>
+      ) : (
+        <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
+          <svg viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: "100%", minWidth: 320, display: "block" }} onMouseLeave={() => setHi(null)}>
+            {[0, 0.25, 0.5, 0.75, 1].map(t => (
+              <line key={t} x1={PADX} x2={VBW - PADX} y1={TOP + innerH - innerH * t} y2={TOP + innerH - innerH * t} stroke={C.faint} strokeWidth={1} />
+            ))}
+            <path d={lineOf(d => d.rt)} fill="none" stroke={C.green} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            <path d={lineOf(d => d.nw)} fill="none" stroke={C.amber} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            {data.map((d, i) => (
+              <g key={d.key}>
+                <rect x={px(i) - Math.max(6, innerW / n / 2)} y={TOP} width={Math.max(12, innerW / n)} height={innerH} fill="transparent" onMouseEnter={() => setHi(i)} style={{ cursor: "pointer" }} />
+                <circle cx={px(i)} cy={py(d.rt)} r={hi === i ? 4 : 2.4} fill={C.green} />
+                <circle cx={px(i)} cy={py(d.nw)} r={hi === i ? 4 : 2.4} fill={C.amber} />
+                {(i % labelEvery === 0 || i === n - 1) && (
+                  <text x={px(i)} y={VBH - 8} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
+                )}
+                <title>{d.label} — Nouveaux {d.nw} · Récurrents {d.rt}</title>
+              </g>
+            ))}
+            {hv && (
+              <g pointerEvents="none">
+                <line x1={px(hi!)} x2={px(hi!)} y1={TOP} y2={TOP + innerH} stroke="rgba(196,154,74,0.35)" strokeWidth={1} />
+                <rect x={Math.min(Math.max(px(hi!), 62), VBW - 62) - 60} y={4} width={120} height={34} rx={5} fill="#0d0b09" opacity={0.95} />
+                <text x={Math.min(Math.max(px(hi!), 62), VBW - 62)} y={16} fill={C.warm} fontSize={10} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{hv.label}</text>
+                <text x={Math.min(Math.max(px(hi!), 62), VBW - 62)} y={30} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">Nouv. {hv.nw} · Réc. {hv.rt}</text>
+              </g>
+            )}
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tunnel de conversion (SVG maison) — barres décroissantes + % passage/perte ──
 function FunnelChart({ steps }: { steps: { key: string; label: string; count: number; estimated?: boolean }[] }) {
   const top = steps[0]?.count || 0;
@@ -462,7 +548,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
             <>
               <FunnelChart steps={pv.funnel} />
               <div style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
-                « Checkout » = étape <b>estimée</b> via page vue (<code>/checkout</code> ou <code>/panier</code>), pas un événement dédié. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative).
+                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
               </div>
             </>
           )}
@@ -689,13 +775,16 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
         </Card>
       </div>
 
-      {/* BLOC 10 — Nouveaux vs récurrents */}
-      <div style={{ marginBottom: 24 }}>
+      {/* BLOC 10 — Nouveaux vs récurrents (agrégat + évolution) */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1.4fr", gap: 16, marginBottom: 24 }}>
         <Card title="✨ Nouveaux vs récurrents" lexique="Nouveaux visiteurs">
           <DonutChart data={nvrDonut} />
           <div style={{ fontSize: 13, color: C.muted, marginTop: 10 }}>
             <span style={{ color: C.amber, fontWeight: 900, fontSize: 20 }}>{pctNew}%</span> de nouveaux visiteurs
           </div>
+        </Card>
+        <Card title="📈 Nouveaux vs récurrents dans le temps" lexique="Nouveaux visiteurs">
+          <NewVsReturningChart byDay={pv.new_returning_by_day ?? []} />
         </Card>
       </div>
 

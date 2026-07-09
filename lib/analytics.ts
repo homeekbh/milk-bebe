@@ -167,6 +167,15 @@ export function trackBeginCheckout(items: CartItem[], value: number, coupon?: st
     ...(coupon ? { coupon } : {}),
     items:    (items ?? []).map(toGa4Item),
   });
+  // Event interne (source de vérité DB) → alimente l'étape « Checkout » du tunnel.
+  logInternalEvent({
+    event_type: "begin_checkout",
+    value:      Number(value ?? 0),
+    metadata:   {
+      num_items: (items ?? []).reduce((a, it) => a + Number(it.quantity ?? 1), 0),
+      coupon:    coupon ?? null,
+    },
+  });
 }
 
 export function trackPurchase(order: { id: string; value: number; tax: number; shipping: number; coupon?: string; items: CartItem[] }): void {

@@ -155,6 +155,22 @@ export async function GET(req: NextRequest) {
     });
     const by_day = [...dayMap.entries()].map(([date, e]) => ({ date, views: e.views, sessions: e.sessions.size }));
 
+    // ── Nouveaux vs récurrents par jour (mêmes jours continus que by_day) ────
+    // « nouveau » ce jour = visiteur avec is_new_visitor=true ce jour-là ;
+    // « récurrent » = visiteur actif ce jour-là mais déjà connu (pas nouveau).
+    const nvrDayMap = new Map<string, { newV: Set<string>; allV: Set<string> }>();
+    for (const [date] of dayMap) nvrDayMap.set(date, { newV: new Set(), allV: new Set() });
+    rows.forEach(r => {
+      if (!r.visitor_id) return;
+      const e = nvrDayMap.get(new Date(r.viewed_at).toISOString().slice(0, 10));
+      if (!e) return;
+      e.allV.add(r.visitor_id);
+      if (r.is_new_visitor === true) e.newV.add(r.visitor_id);
+    });
+    const new_returning_by_day = [...nvrDayMap.entries()].map(([date, e]) => ({
+      date, new: e.newV.size, returning: Math.max(0, e.allV.size - e.newV.size),
+    }));
+
     // ── Par heure (0-23) & jour de semaine (0=lundi), en heure de Paris ──────
     const hourArr = Array.from({ length: 24 }, () => 0);
     const wdArr   = Array.from({ length: 7 }, () => 0);
@@ -294,21 +310,18 @@ export async function GET(req: NextRequest) {
 
     // ── Tunnel de conversion (#1) ────────────────────────────────────────────
     // Sessions → Vue produit (view_item) → Ajout panier (add_to_cart) → Checkout
-    // (proxy = sessions ayant vu /checkout ou /panier) → Achat (commandes valides).
+    // (event begin_checkout dédié, émis au clic « Passer au paiement » panier non
+    // vide) → Achat (commandes valides). Fini le proxy /panier qui sur-comptait.
     const events = await fetchAllPaged<any>((rf, rt) => supabaseServer
       .from("analytics_events").select("event_type, session_id")
       .gte("created_at", from).lte("created_at", to)
       .order("created_at", { ascending: true }).range(rf, rt));
-    const viewSess = new Set<string>(), cartSess = new Set<string>();
+    const viewSess = new Set<string>(), cartSess = new Set<string>(), checkoutSess = new Set<string>();
     events.forEach(e => {
       if (!e.session_id || (excludeBots && botSet.has(e.session_id))) return;
-      if (e.event_type === "view_item")   viewSess.add(e.session_id);
-      if (e.event_type === "add_to_cart") cartSess.add(e.session_id);
-    });
-    const checkoutSess = new Set<string>();
-    rows.forEach(r => {
-      const p = String(r.page_path ?? "");
-      if (r.session_id && (p.includes("/checkout") || p.includes("/panier"))) checkoutSess.add(r.session_id);
+      if (e.event_type === "view_item")      viewSess.add(e.session_id);
+      if (e.event_type === "add_to_cart")    cartSess.add(e.session_id);
+      if (e.event_type === "begin_checkout") checkoutSess.add(e.session_id);
     });
     const ordCur = await supabaseServer.from("orders").select("status, shipping_status")
       .in("status", VALID_STATUSES).gte("created_at", from).lte("created_at", to).limit(100000);
@@ -317,7 +330,7 @@ export async function GET(req: NextRequest) {
       { key: "sessions",    label: "Sessions",     count: sessions.size,      estimated: false },
       { key: "view_item",   label: "Vue produit",  count: viewSess.size,      estimated: false },
       { key: "add_to_cart", label: "Ajout panier", count: cartSess.size,      estimated: false },
-      { key: "checkout",    label: "Checkout",     count: checkoutSess.size,  estimated: true  },
+      { key: "checkout",    label: "Checkout",     count: checkoutSess.size,  estimated: false },
       { key: "purchase",    label: "Achat",        count: purchases,          estimated: false },
     ];
 
@@ -380,6 +393,7 @@ export async function GET(req: NextRequest) {
         scroll_distribution,
         time_distribution,
         new_vs_returning: { new: newCount, returning: returningCount },
+        new_returning_by_day,
         funnel,
         entry_pages,
         deltas,

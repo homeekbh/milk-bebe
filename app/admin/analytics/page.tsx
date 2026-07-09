@@ -232,6 +232,17 @@ const CHANNEL_COLORS: Record<string, string> = {
   "Direct": "#c49a4a", "Organic Search": "#4ade80", "Paid Search": "#60a5fa",
   "Organic Social": "#f472b6", "Paid Social": "#a78bfa", "Email": "#fb923c", "Referral": "#94a3b8",
 };
+// Libellés FR — affichage UNIQUEMENT (section « Sources de trafic »). La valeur
+// brute (clé anglaise) reste inchangée en interne (top_campaigns, by_source, couleurs).
+const CHANNEL_LABELS_FR: Record<string, string> = {
+  "Direct":         "Direct",
+  "Organic Search": "Recherche organique",
+  "Paid Search":    "Recherche payante",
+  "Organic Social": "Social organique",
+  "Paid Social":    "Social payant",
+  "Email":          "Email",
+  "Referral":       "Site référent",
+};
 const WEEKDAYS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const DEVICE_ICON: Record<string, string> = { mobile: "📱", tablet: "💻", desktop: "🖥" };
 
@@ -263,6 +274,93 @@ function HBars({ data, color = C.amber }: { data: { label: string; value: number
   );
 }
 
+// ─── Courbe temporelle des sessions (SVG pur) + sélecteur jour / mois ───────────
+const MONTHS_FR = ["janv", "févr", "mars", "avr", "mai", "juin", "juil", "août", "sept", "oct", "nov", "déc"];
+function SessionsLineChart({ byDay }: { byDay: { date: string; views: number; sessions: number }[] }) {
+  const [gran, setGran] = useState<"day" | "month">("day");
+  const [hi, setHi]     = useState<number | null>(null);
+
+  const data = useMemo(() => {
+    const src = Array.isArray(byDay) ? byDay : [];
+    if (gran === "month") {
+      const m = new Map<string, number>();
+      for (const d of src) {
+        const key = String(d.date).slice(0, 7); // YYYY-MM
+        m.set(key, (m.get(key) ?? 0) + (Number(d.sessions) || 0));
+      }
+      return [...m.entries()].map(([ym, v]) => {
+        const [yy, mm] = ym.split("-");
+        return { key: ym, label: `${MONTHS_FR[Number(mm) - 1] ?? mm} ${yy.slice(2)}`, value: v };
+      });
+    }
+    return src.map(d => ({ key: String(d.date), label: String(d.date).slice(5), value: Number(d.sessions) || 0 }));
+  }, [byDay, gran]);
+
+  const VBW = 600, VBH = 200, TOP = 16, BOT = 28, PADX = 10;
+  const innerW = VBW - PADX * 2, innerH = VBH - TOP - BOT;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const n = data.length;
+  const px = (i: number) => (n <= 1 ? PADX + innerW / 2 : PADX + (i / (n - 1)) * innerW);
+  const py = (v: number) => TOP + innerH - (v / max) * innerH;
+  const line = data.map((d, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(d.value).toFixed(1)}`).join(" ");
+  const area = n > 0 ? `${line} L ${px(n - 1).toFixed(1)} ${(TOP + innerH).toFixed(1)} L ${px(0).toFixed(1)} ${(TOP + innerH).toFixed(1)} Z` : "";
+  const labelEvery = Math.max(1, Math.ceil(n / 12));
+  const hovered = hi != null ? data[hi] : null;
+
+  return (
+    <div>
+      {/* Sélecteur jour / mois — au-dessus de la courbe */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
+        <div style={{ display: "flex", gap: 4, background: "#0d0b09", borderRadius: 9, padding: 3, border: `1px solid ${C.faint}` }}>
+          {(["day", "month"] as const).map(g => (
+            <button key={g} onClick={() => { setGran(g); setHi(null); }}
+              style={{ padding: "5px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 800,
+                       background: gran === g ? C.amber : "transparent", color: gran === g ? "#1a1410" : C.muted }}>
+              {g === "day" ? "Jour" : "Mois"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {n === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 30 }}>Aucune donnée</div>
+      ) : (
+        <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
+          <svg viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: "100%", minWidth: 320, display: "block" }} onMouseLeave={() => setHi(null)}>
+            {[0, 0.25, 0.5, 0.75, 1].map(t => (
+              <line key={t} x1={PADX} x2={VBW - PADX} y1={TOP + innerH - innerH * t} y2={TOP + innerH - innerH * t} stroke={C.faint} strokeWidth={1} />
+            ))}
+            <path d={area} fill="rgba(196,154,74,0.12)" stroke="none" />
+            <path d={line} fill="none" stroke={C.amber} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            {data.map((d, i) => {
+              const active = hi === i;
+              return (
+                <g key={d.key}>
+                  <rect x={px(i) - Math.max(6, innerW / n / 2)} y={TOP} width={Math.max(12, innerW / n)} height={innerH}
+                        fill="transparent" onMouseEnter={() => setHi(i)} style={{ cursor: "pointer" }} />
+                  <circle cx={px(i)} cy={py(d.value)} r={active ? 4.5 : 2.6} fill={C.amber} stroke="#161210" strokeWidth={active ? 1.5 : 0} />
+                  {(i % labelEvery === 0 || i === n - 1) && (
+                    <text x={px(i)} y={VBH - 8} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
+                  )}
+                  <title>{d.label} : {d.value} sessions</title>
+                </g>
+              );
+            })}
+            {hovered && (
+              <g pointerEvents="none">
+                <line x1={px(hi!)} x2={px(hi!)} y1={TOP} y2={TOP + innerH} stroke="rgba(196,154,74,0.35)" strokeWidth={1} />
+                <rect x={Math.min(Math.max(px(hi!), 46), VBW - 46) - 44} y={Math.max(py(hovered.value) - 34, 2)} width={88} height={26} rx={5} fill="#0d0b09" opacity={0.95} />
+                <text x={Math.min(Math.max(px(hi!), 46), VBW - 46)} y={Math.max(py(hovered.value) - 34, 2) + 11} fill={C.warm} fontSize={11} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{hovered.value} sessions</text>
+                <text x={Math.min(Math.max(px(hi!), 46), VBW - 46)} y={Math.max(py(hovered.value) - 34, 2) + 21} fill={C.muted} fontSize={8} textAnchor="middle" fontFamily="system-ui">{hovered.label}</text>
+              </g>
+            )}
+          </svg>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Section Trafic & Comportement Visiteurs ────────────────────────────────────
 function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
   const [showAllPages, setShowAllPages] = useState(false);
@@ -283,7 +381,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
   const th = { padding: "8px 10px", fontWeight: 700, textAlign: "left" as const };
   const td = { padding: "9px 10px" };
 
-  const channelDonut = (pv.by_channel ?? []).map((c: any) => ({ label: c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
+  const channelDonut = (pv.by_channel ?? []).map((c: any) => ({ label: CHANNEL_LABELS_FR[c.channel] ?? c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
 
   const nvr      = pv.new_vs_returning ?? { new: 0, returning: 0 };
   const nvrTotal = (nvr.new ?? 0) + (nvr.returning ?? 0);
@@ -324,6 +422,13 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
         </Card>
       </div>
 
+      {/* BLOC 2b — Évolution des sessions (courbe + sélecteur jour/mois) */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="📉 Évolution des sessions" lexique="Sessions uniques">
+          <SessionsLineChart byDay={pv.by_day ?? []} />
+        </Card>
+      </div>
+
       {/* BLOC 3 — Sources de trafic */}
       <div style={{ marginBottom: 24 }}>
         <Card title="📡 Sources de trafic" lexique="Canal">
@@ -334,7 +439,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
               <tbody>
                 {pv.by_channel.map((c: any) => (
                   <tr key={c.channel} style={{ borderTop: `1px solid ${C.faint}` }}>
-                    <td style={td}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: CHANNEL_COLORS[c.channel] ?? "#94a3b8", marginRight: 8 }} />{c.channel}</td>
+                    <td style={td}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: CHANNEL_COLORS[c.channel] ?? "#94a3b8", marginRight: 8 }} />{CHANNEL_LABELS_FR[c.channel] ?? c.channel}</td>
                     <td style={{ ...td, color: C.warm, fontWeight: 700 }}>{c.sessions}</td>
                     <td style={{ ...td, color: C.muted }}>{c.pct}%</td>
                   </tr>
@@ -742,32 +847,40 @@ export default function AdminStats() {
   return (
     <div style={{ padding: "36px 40px", background: C.bg, minHeight: "100vh" }}>
 
-      {/* ── EN-TÊTE ── */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 32, flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: -1, color: C.warm }}>Statistiques</h1>
-          <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
-            Tableau de bord complet M!LK · données {periodLabel}
-          </div>
+      {/* ── EN-TÊTE (titre — défile normalement) ── */}
+      <div style={{ marginBottom: 16 }}>
+        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: -1, color: C.warm }}>Statistiques</h1>
+        <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
+          Tableau de bord complet M!LK · données {periodLabel}
         </div>
-        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          {lastUpdated && (
-            <span style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap" }}>
-              Maj {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-            </span>
-          )}
-          <button onClick={load} disabled={refreshing} title="Rafraîchir maintenant"
-            style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.faint}`, background: C.card, color: C.warm, fontWeight: 800, fontSize: 13, cursor: refreshing ? "wait" : "pointer", opacity: refreshing ? 0.6 : 1, whiteSpace: "nowrap" }}>
-            {refreshing ? "⟳ …" : "⟳ Rafraîchir"}
-          </button>
-          <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${C.faint}` }}>
-            {PERIODS.map(p => (
-              <button key={p.key} onClick={() => setPeriod(p.key)}
-                style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", background: period === p.key ? C.warm : "transparent", color: period === p.key ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
-                {p.label}
-              </button>
-            ))}
-          </div>
+      </div>
+
+      {/* ── BARRE STICKY : contrôles + sélecteur de période (une seule période/page) ──
+          top: 78 = juste sous le header admin (sticky, minHeight 78). Fond opaque
+          #0d0b09 + marges négatives pour couvrir toute la largeur (rien ne défile
+          visible dessous). flexWrap → ne casse pas le mobile. */}
+      <div style={{
+        position: "sticky", top: 78, zIndex: 30,
+        background: C.bg, margin: "0 -40px 24px", padding: "12px 40px",
+        borderBottom: `1px solid ${C.faint}`, boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
+        display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap",
+      }}>
+        {lastUpdated && (
+          <span style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", marginRight: "auto" }}>
+            Maj {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
+          </span>
+        )}
+        <button onClick={load} disabled={refreshing} title="Rafraîchir maintenant"
+          style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.faint}`, background: C.card, color: C.warm, fontWeight: 800, fontSize: 13, cursor: refreshing ? "wait" : "pointer", opacity: refreshing ? 0.6 : 1, whiteSpace: "nowrap" }}>
+          {refreshing ? "⟳ …" : "⟳ Rafraîchir"}
+        </button>
+        <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${C.faint}` }}>
+          {PERIODS.map(p => (
+            <button key={p.key} onClick={() => setPeriod(p.key)}
+              style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", background: period === p.key ? C.warm : "transparent", color: period === p.key ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
+              {p.label}
+            </button>
+          ))}
         </div>
       </div>
 

@@ -379,10 +379,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const headerRoRef = useRef<ResizeObserver | null>(null);
 
   useEffect(() => {
-    const check = () => setMobile(window.innerWidth < 900);
+    // Mobile si petit en largeur (<900) OU téléphone en paysage (hauteur ≤ 500 +
+    // large > haut) — sinon un iPhone Pro Max paysage (~932px) garderait la sidebar
+    // desktop. Tablettes/desktop (hauteur > 500) non affectés.
+    const check = () => setMobile(window.innerWidth < 900 || (window.innerHeight <= 500 && window.innerWidth > window.innerHeight));
     check();
     window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => { window.removeEventListener("resize", check); window.removeEventListener("orientationchange", check); };
   }, []);
 
   // Mesure la hauteur RÉELLE du header et l'expose en variable CSS --admin-header-h,

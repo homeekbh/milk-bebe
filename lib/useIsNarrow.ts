@@ -16,10 +16,17 @@ import { useEffect, useState } from "react";
 export function useIsNarrow(maxWidth = 640): boolean {
   const [narrow, setNarrow] = useState(false);
   useEffect(() => {
-    const check = () => setNarrow(window.innerWidth <= maxWidth);
+    const check = () => {
+      const w = window.innerWidth, h = window.innerHeight;
+      // Mobile si : petit en LARGEUR, OU téléphone en PAYSAGE (hauteur ≤ 500px et
+      // large > haut). Un iPhone paysage (~844×390) dépasse 640px de large mais
+      // reste « mobile ». Tablettes/desktop (hauts en hauteur) non affectés.
+      setNarrow(w <= maxWidth || (h <= 500 && w > h));
+    };
     check();
     window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
+    return () => { window.removeEventListener("resize", check); window.removeEventListener("orientationchange", check); };
   }, [maxWidth]);
   return narrow;
 }

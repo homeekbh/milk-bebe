@@ -183,9 +183,10 @@ img[loading="lazy"] { content-visibility: auto; }
   }
 }
 
-/* ── Admin header : masquer les 4 horloges sous 700px (elles gonflaient le header
-   en bloc 2×2 et cassaient le calage de la barre période sticky). Desktop intact. ── */
-@media (max-width: 700px) {
+/* ── Admin header : masquer les 4 horloges sous 700px de large OU en paysage
+   téléphone (hauteur ≤ 500px) — elles gonflaient le header en bloc 2×2 et cassaient
+   le calage de la barre période sticky. Tablettes/desktop (hauts) intacts. ── */
+@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
   .admin-clocks-wrap { display: none !important; }
 }
 

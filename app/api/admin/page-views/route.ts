@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange } from "@/lib/analytics-server";
+import { normalizePeriod, periodRange, fetchAllPaged } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -40,15 +40,15 @@ export async function GET(req: NextRequest) {
     const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
     const { from, to } = periodRange(period);
 
-    const { data, error } = await supabaseServer
+    // ⚠️ Pagination obligatoire : PostgREST plafonne à 1000 lignes/requête, donc
+    // .limit(200000) était ignoré → seules les 1000 plus ANCIENNES lignes
+    // revenaient (jours récents à 0, KPIs sous-comptés dès >1000 lignes / 30j+).
+    const rows = await fetchAllPaged<any>((rf, rt) => supabaseServer
       .from("page_views")
       .select("*")
       .gte("viewed_at", from).lte("viewed_at", to)
       .order("viewed_at", { ascending: true })
-      .limit(200000);
-    if (error) return Response.json({ data: null, error: error.message });
-
-    const rows = data ?? [];
+      .range(rf, rt));
 
     // ── KPIs ────────────────────────────────────────────────────────────────
     const sessions = new Set<string>();

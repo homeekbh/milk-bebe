@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, isValidOrder, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
+import { normalizePeriod, periodRange, isValidOrder, VALID_STATUSES, fetchAllPaged, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -17,16 +17,17 @@ export async function GET(req: NextRequest) {
     const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
     const { from, to } = periodRange(period);
 
-    const [pv, ords] = await Promise.all([
-      supabaseServer.from("page_views").select("session_id")
-        .gte("viewed_at", from).lte("viewed_at", to).limit(200000),
+    // page_views paginé (cap PostgREST 1000/req → sinon sessions sous-comptées
+    // sur >1000 lignes → taux de conversion artificiellement gonflé).
+    const [rows, ords] = await Promise.all([
+      fetchAllPaged<{ session_id: string | null }>((rf, rt) => supabaseServer
+        .from("page_views").select("session_id")
+        .gte("viewed_at", from).lte("viewed_at", to)
+        .order("viewed_at", { ascending: true }).range(rf, rt)),
       supabaseServer.from("orders").select("status, shipping_status")
         .in("status", VALID_STATUSES).gte("created_at", from).lte("created_at", to).limit(100000),
     ]);
-    if (pv.error)   return fail(pv.error.message);
     if (ords.error) return fail(ords.error.message);
-
-    const rows     = pv.data ?? [];
     const distinct = new Set(rows.map((r: any) => r.session_id).filter(Boolean)).size;
     // Fallback : si aucune session_id renseignée, on retombe sur le nb de vues.
     const sessions  = distinct > 0 ? distinct : rows.length;

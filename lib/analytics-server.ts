@@ -53,6 +53,28 @@ export function netRatio(o: { amount_total?: number | null }): number {
   return getNetAmount(o as any) / total;
 }
 
+/**
+ * Récupère TOUTES les lignes en paginant via .range() — contourne le plafond
+ * PostgREST de 1000 lignes par requête. Sans ça, `.limit(200000)` est ignoré :
+ * seules 1000 lignes (les plus anciennes si order asc) reviennent → agrégats
+ * tronqués (jours récents à 0, KPIs sous-comptés). makeQuery doit construire une
+ * requête FRAÎCHE par page (une requête Supabase déjà await n'est pas réutilisable).
+ */
+export async function fetchAllPaged<T = any>(
+  makeQuery: (rangeFrom: number, rangeTo: number) => PromiseLike<{ data: T[] | null; error: any }>,
+  pageSize = 1000,
+): Promise<T[]> {
+  const all: T[] = [];
+  for (let i = 0; i < 1000; i++) { // garde-fou 1000 pages
+    const { data, error } = await makeQuery(i * pageSize, (i + 1) * pageSize - 1);
+    if (error) throw new Error(error.message);
+    const rows = data ?? [];
+    all.push(...rows);
+    if (rows.length < pageSize) break;
+  }
+  return all;
+}
+
 /** Réponse standardisée OK. */
 export function ok(data: any) {
   return Response.json({ data, error: null });

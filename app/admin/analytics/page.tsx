@@ -562,7 +562,7 @@ function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
       {/* BLOC 7b — Carte monde des visiteurs (choroplèthe pays + points villes) */}
       <div style={{ marginBottom: 24 }}>
         <Card title="🗺️ Carte des visiteurs">
-          <WorldVisitorsMap countries={pv.by_country ?? []} cities={pv.by_city ?? []} />
+          <WorldVisitorsMap cities={pv.by_city ?? []} />
         </Card>
       </div>
 

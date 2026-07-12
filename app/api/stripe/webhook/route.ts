@@ -334,6 +334,79 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   }
 }
 
+// ── checkout.session.expired — filet de sécurité paniers abandonnés ──────────
+// Une Checkout Session non payée expire (24h par défaut, ou expiration manuelle).
+// Cet événement capture les abandons APRÈS redirection Stripe — y compris quand le
+// client a saisi son email DANS l'UI Stripe (Apple Pay / Google Pay), cas où le
+// champ email du site (/panier → useEffect → /api/cart/save) n'est jamais rempli.
+// Complète (ne remplace pas) la capture précoce côté site. Upsert sur `email`
+// (jamais un insert brut) → pas de doublon avec une capture déjà faite, et on
+// réutilise le MÊME schéma abandoned_carts que /api/cart/save → la séquence de
+// relance (/api/emails/relance) fonctionne à l'identique quelle que soit la source.
+async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
+  // Sécurité : ne rien faire si la session a en réalité été payée.
+  if (session.payment_status === "paid") return;
+
+  const email = (session.customer_details?.email ?? session.customer_email ?? "").toString().trim();
+  if (!email) return; // aucun email capté (ni site, ni UI Stripe) → rien à relancer
+
+  // Reconstituer le panier depuis le draft pending_orders (metadata.pending_order_id).
+  let items: Array<{ id: string | null; name: string; price: number; quantity: number }> = [];
+  let total = 0;
+  const pendingId = session.metadata?.pending_order_id;
+
+  if (pendingId) {
+    const { data: draft } = await supabaseServer
+      .from("pending_orders").select("products, packs, status").eq("id", pendingId).maybeSingle();
+    // Draft déjà consommé = commande payée → ne PAS créer d'abandon (double sécurité).
+    if (draft?.status === "consumed") return;
+    const products: any[] = Array.isArray(draft?.products) ? draft!.products : [];
+    const packs:    any[] = Array.isArray(draft?.packs)    ? draft!.packs    : [];
+    items = [
+      ...products.map((p: any) => ({ id: p.id, name: p.name, price: Number(p.price) || 0, quantity: Number(p.quantity) || 1 })),
+      ...packs.map((pk: any) => ({ id: `pack:${pk.pack_id}`, name: `${pk.title}${pk.size ? ` — ${pk.size}` : ""}`, price: Number(pk.price) || 0, quantity: Number(pk.quantity) || 1 })),
+    ];
+    total = items.reduce((s, i) => s + i.price * i.quantity, 0);
+  }
+
+  // Fallback (pas de draft exploitable, ex. ancienne session pack) : line_items Stripe.
+  if (items.length === 0) {
+    try {
+      const li = await stripe.checkout.sessions.listLineItems(session.id, { limit: 100 });
+      items = (li.data ?? []).map(l => ({ id: null, name: l.description ?? "Article", price: (l.price?.unit_amount ?? 0) / 100, quantity: l.quantity ?? 1 }));
+    } catch {}
+    total = (session.amount_total ?? 0) / 100;
+  }
+  if (items.length === 0) return; // rien à relancer
+
+  const emailClean = email.toLowerCase();
+  const prenom = session.customer_details?.name?.split(" ")[0] || email.split("@")[0];
+
+  // Mirror /api/cart/save : préserver relance_1/2/3 et ne JAMAIS ressusciter un
+  // panier déjà converti (le client a payé via une autre session).
+  const { data: existing } = await supabaseServer
+    .from("abandoned_carts")
+    .select("id, converted, relance_1, relance_2, relance_3")
+    .eq("email", emailClean)
+    .maybeSingle();
+  if (existing?.converted) return;
+
+  const { error } = await supabaseServer
+    .from("abandoned_carts")
+    .upsert({
+      email:      emailClean,
+      prenom,
+      items,
+      total,
+      converted:  false,
+      updated_at: new Date().toISOString(),
+      relance_1:  existing?.relance_1 ?? false,
+      relance_2:  existing?.relance_2 ?? false,
+      relance_3:  existing?.relance_3 ?? false,
+    }, { onConflict: "email", ignoreDuplicates: false });
+  if (error) process.env.NODE_ENV !== "production" && console.error("[webhook] abandoned_carts (expired) upsert:", error.message);
+}
+
 export async function POST(req: Request) {
   const body        = await req.text();
   const headersList = await headers();
@@ -966,6 +1039,19 @@ export async function POST(req: Request) {
       }
     } catch (err: any) {
       process.env.NODE_ENV !== "production" && console.error("❌ charge.refunded handler:", err.message);
+    }
+  }
+
+  // ── checkout.session.expired — capture des paniers abandonnés post-Stripe ────
+  // Filet de sécurité : attrape les abandons où l'email n'a été saisi que dans
+  // l'UI Stripe (Apple Pay / Google Pay), jamais dans le champ email du site.
+  if (event.type === "checkout.session.expired") {
+    const session = event.data.object as Stripe.Checkout.Session;
+    try {
+      await handleCheckoutExpired(session);
+    } catch (err: any) {
+      // On ne renvoie pas 500 — l'événement est ack (évite les retries Stripe inutiles).
+      process.env.NODE_ENV !== "production" && console.error("❌ checkout.session.expired handler:", err.message);
     }
   }
 

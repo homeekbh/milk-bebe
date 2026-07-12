@@ -50,6 +50,22 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     }
   }, [items, hydrated]);
 
+  // ✅ Sync entre onglets : un ajout/retrait/vidage du panier dans un AUTRE onglet
+  // met à jour le panier ici (et donc l'icône panier animée du Header) sans reload.
+  // Même esprit que le compteur packs du Header (milk-pack-cart-changed + storage),
+  // répliqué ici pour le panier produits (clé milk_cart_v2). La garde d'égalité
+  // (retourne prev si identique) évite tout ping-pong de re-persistance entre onglets.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      if (e.key !== "milk_cart_v2") return;
+      let next: CartItem[] = [];
+      try { next = e.newValue ? JSON.parse(e.newValue) : []; } catch { next = []; }
+      setItems(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+    };
+    window.addEventListener("storage", onStorage);
+    return () => window.removeEventListener("storage", onStorage);
+  }, []);
+
   // Clé unique = id + taille + couleur (pour distinguer 0-3 mois vs 3-6 mois)
   function cartKey(item: { id: string; taille?: string; couleur?: string }) {
     return `${item.id}__${item.taille ?? ""}__${item.couleur ?? ""}`;

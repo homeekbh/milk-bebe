@@ -2,7 +2,7 @@
 
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
@@ -80,6 +80,11 @@ export default function CartPage() {
   // Format français : 10 chiffres minimum (06/07/+33...).
   const [customerPhone,   setCustomerPhone]   = useState("");
   const [phoneError,      setPhoneError]      = useState("");
+  // Parcours en 2 étapes : 1 = compte + téléphone, 2 = choix de livraison + paiement.
+  // Toutes les données (email, téléphone, promo, livraison) restent en state → aucun
+  // reset au changement d'étape. deliveryRef : cible du scroll fluide vers l'étape 2.
+  const [step, setStep] = useState<1 | 2>(1);
+  const deliveryRef = useRef<HTMLDivElement>(null);
   // Modale isolée pour la sélection du point relais / locker.
   // Évite que le widget de recherche perturbe le layout principal
   // (et corrige le crash "Application error" observé en inline).
@@ -373,10 +378,18 @@ export default function CartPage() {
     false;
 
   // Email requis pour payer : connecté (user.email connu) OU invité avec email valide.
-  const emailReady = !!user || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
-  // Gating unique du bouton paiement : livraison complète + email valide + panier non
-  // vide (items OU packs — un pack seul compte, items.length seul ratait ce cas).
-  const canPay     = deliveryReady && emailReady && (items.length + packs.length) > 0;
+  const emailReady   = !!user || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
+  const cartNonEmpty = (items.length + packs.length) > 0; // items OU packs (pack seul compte)
+  // Étape 1 (compte + téléphone) prête → active le bouton « Passer au paiement » qui
+  // révèle l'étape 2 (livraison). NE crée PAS de session Stripe.
+  const step1Ready    = emailReady && phoneOk && cartNonEmpty;
+  // Paiement final (étape 2) : étape 1 OK + livraison complète (deliveryReady inclut phoneOk).
+  const finalPayReady = step1Ready && deliveryReady;
+
+  // Passage à l'étape 2 → scroll fluide vers le bloc livraison qui vient d'apparaître.
+  useEffect(() => {
+    if (step === 2) deliveryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [step]);
 
   // Sauvegarde panier abandonné — connecté (user.email) OU invité (guestEmail valide).
   // Sans email exploitable, la quasi-totalité des visiteurs (achat invité) n'était
@@ -689,6 +702,9 @@ export default function CartPage() {
                   </div>
                 </div>
 
+                {/* ══ ÉTAPE 2 : choix de livraison + confirmation (révélée au clic étape 1) ══ */}
+                {step === 2 && (
+                <div ref={deliveryRef}>
                 {/* ── MODE DE LIVRAISON ── 2 transporteurs × 5 options ───── */}
                 <div style={{ marginBottom: 20 }}>
                   <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
@@ -838,10 +854,34 @@ export default function CartPage() {
                       </div>
                     </div>
                   )}
+                </div>{/* fin « Mode de livraison » */}
 
-                  {/* Choix compte / invité — rapproché du bouton de paiement pour que
-                      l'erreur email (guestError) reste visible au clic, y compris mobile.
-                      « Créer un compte » mis en avant (recommandé), invité toujours possible. */}
+                {checkoutError && (
+                  <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+                    ⚠ {checkoutError}
+                  </div>
+                )}
+                {!deliveryReady && deliveryType && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
+                    Veuillez compléter votre choix de livraison
+                  </div>
+                )}
+                <button onClick={handleCheckout} disabled={loading || !finalPayReady}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || !finalPayReady) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || !finalPayReady) ? "not-allowed" : "pointer", marginBottom: 10 }}>
+                  {loading ? "Redirection..." : "Confirmer et payer →"}
+                </button>
+                <button onClick={() => { setCheckoutError(""); setStep(1); }}
+                  style={{ width: "100%", padding: "11px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }}>
+                  ← Modifier mes informations
+                </button>
+                </div>
+                )}{/* fin étape 2 */}
+
+                {/* ══ ÉTAPE 1 : compte + téléphone ══ */}
+                {step === 1 && (
+                <>
+                  {/* Choix compte / invité — « Créer un compte » mis en avant (recommandé),
+                      paiement invité toujours possible. Au-dessus du bouton de l'étape 1. */}
                   {!user && (
                     <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)", marginBottom: 10 }}>
                       {/* Option recommandée : créer un compte (amber + pulse doux) */}
@@ -886,57 +926,55 @@ export default function CartPage() {
                     </div>
                   )}
 
-                  {/* Téléphone — obligatoire pour TOUS les modes de livraison.
-                      Sendcloud exige phone_number sur to_address pour générer
-                      l'étiquette ; sans téléphone l'étiquette est refusée. */}
-                  {carrier && deliveryType && (
-                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 6, marginBottom: 10 }}>
-                      <label style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
-                        📞 Numéro de téléphone <span style={{ color: "#b91c1c" }}>*</span>
-                      </label>
-                      <input
-                        type="tel"
-                        inputMode="tel"
-                        autoComplete="tel"
-                        placeholder="Ex : 06 12 34 56 78"
-                        value={customerPhone}
-                        onChange={e => { setCustomerPhone(e.target.value); setPhoneError(""); }}
-                        onBlur={() => {
-                          if (customerPhone && !isValidPhone(customerPhone)) {
-                            setPhoneError("Format invalide (10 chiffres, ex : 06 12 34 56 78 ou +33 6 12 34 56 78)");
-                          }
-                        }}
-                        style={{ padding: "10px 12px", borderRadius: 8, border: phoneError ? "1.5px solid #b91c1c" : "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }}
-                      />
-                      {phoneError && (
-                        <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>⚠ {phoneError}</div>
-                      )}
-                      <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", lineHeight: 1.5 }}>
-                        Utilisé par le transporteur pour vous prévenir en cas de problème de livraison.
-                      </div>
+                  {/* Téléphone — obligatoire (Sendcloud exige phone_number). En étape 1,
+                      affiché sans condition transporteur (collecté avant la livraison). */}
+                  <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 6, marginBottom: 10 }}>
+                    <label style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
+                      📞 Numéro de téléphone <span style={{ color: "#b91c1c" }}>*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      inputMode="tel"
+                      autoComplete="tel"
+                      placeholder="Ex : 06 12 34 56 78"
+                      value={customerPhone}
+                      onChange={e => { setCustomerPhone(e.target.value); setPhoneError(""); }}
+                      onBlur={() => {
+                        if (customerPhone && !isValidPhone(customerPhone)) {
+                          setPhoneError("Format invalide (10 chiffres, ex : 06 12 34 56 78 ou +33 6 12 34 56 78)");
+                        }
+                      }}
+                      style={{ padding: "10px 12px", borderRadius: 8, border: phoneError ? "1.5px solid #b91c1c" : "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }}
+                    />
+                    {phoneError && (
+                      <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>⚠ {phoneError}</div>
+                    )}
+                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", lineHeight: 1.5 }}>
+                      Utilisé par le transporteur pour vous prévenir en cas de problème de livraison.
+                    </div>
+                  </div>
+
+                  {checkoutError && (
+                    <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
+                      ⚠ {checkoutError}
                     </div>
                   )}
-                </div>
-
-                {checkoutError && (
-                  <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
-                    ⚠ {checkoutError}
-                  </div>
-                )}
-                {!deliveryReady && deliveryType && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                    Veuillez compléter votre choix de livraison
-                  </div>
-                )}
-                {!emailReady && (items.length + packs.length) > 0 && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                    Saisis ton email ci-dessus pour activer le paiement.
-                  </div>
-                )}
-                <button onClick={handleCheckout} disabled={loading || !canPay}
-                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || !canPay) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || !canPay) ? "not-allowed" : "pointer", marginBottom: 12 }}>
-                  {loading ? "Redirection..." : "Passer au paiement →"}
-                </button>
+                  {!emailReady && cartNonEmpty && (
+                    <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
+                      Saisis ton email ci-dessus pour continuer.
+                    </div>
+                  )}
+                  {emailReady && !phoneOk && cartNonEmpty && (
+                    <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
+                      Saisis un numéro de téléphone valide pour continuer.
+                    </div>
+                  )}
+                  <button onClick={() => { setCheckoutError(""); setStep(2); }} disabled={!step1Ready}
+                    style={{ width: "100%", padding: "16px", borderRadius: 14, background: !step1Ready ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: !step1Ready ? "not-allowed" : "pointer", marginBottom: 12 }}>
+                    Passer au paiement →
+                  </button>
+                </>
+                )}{/* fin étape 1 */}
 
                 <button onClick={handleClearCart}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>

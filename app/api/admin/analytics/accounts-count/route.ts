@@ -1,0 +1,50 @@
+import { supabaseServer } from "@/lib/server/supabase";
+import { requireAdmin }   from "@/lib/admin-auth";
+import { normalizePeriod, periodRange, pct, ok, fail } from "@/lib/analytics-server";
+import type { NextRequest } from "next/server";
+
+export const dynamic = "force-dynamic";
+
+/**
+ * Nombre de COMPTES Supabase Auth créés (inscriptions) sur la période sélectionnée,
+ * avec delta vs période précédente de même durée.
+ *
+ * ⚠️ À ne pas confondre avec /api/admin/clients-count, qui compte les adresses email
+ * DISTINCTES ayant COMMANDÉ (table orders) — deux métriques différentes, on garde
+ * les deux. Ici on lit auth.users via l'API Admin GoTrue (service role) : aucune
+ * table applicative, donc aucune politique RLS ni SQL requis.
+ */
+export async function GET(req: NextRequest) {
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+  try {
+    const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
+    const { from, fromPrev } = periodRange(period);
+    const fromMs     = new Date(from).getTime();
+    const fromPrevMs = new Date(fromPrev).getTime();
+
+    // Pagination complète des comptes Auth. perPage 1000 = plafond GoTrue par défaut ;
+    // on s'arrête dès qu'une page renvoie moins que perPage (dernière page).
+    const createdAts: number[] = [];
+    const perPage = 1000;
+    for (let page = 1; page <= 1000; page++) {          // garde-fou 1000 pages
+      const { data, error } = await supabaseServer.auth.admin.listUsers({ page, perPage });
+      if (error) return fail(error.message);
+      const users = data?.users ?? [];
+      for (const u of users) {
+        if (u.created_at) createdAts.push(new Date(u.created_at).getTime());
+      }
+      if (users.length < perPage) break;
+    }
+
+    const count      = createdAts.filter(t => t >= fromMs).length;
+    const prev_count = period === "all"
+      ? 0
+      : createdAts.filter(t => t >= fromPrevMs && t < fromMs).length;
+    const delta_pct  = period === "all" ? 0 : pct(count, prev_count);
+
+    return ok({ count, prev_count, delta_pct, total: createdAts.length });
+  } catch (e: any) {
+    return fail(e?.message ?? "Erreur interne");
+  }
+}

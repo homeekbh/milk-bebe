@@ -38,6 +38,7 @@ const LEXIQUE: Record<string, { icon: string; def: string }> = {
   "Panier moyen":          { icon: "🛒", def: "Montant moyen dépensé par commande. Formule : CA ÷ nb commandes. Plus il est élevé, mieux c'est." },
   "Taux de conversion":    { icon: "🎯", def: "% de sessions qui aboutissent à une commande, sur la MÊME période. La moyenne e-commerce est 1–3%." },
   "Clients uniques":       { icon: "👤", def: "Nombre d'adresses email distinctes ayant commandé sur la période. Un client qui commande 2× compte pour 1." },
+  "Comptes créés":         { icon: "🆕", def: "Nombre de comptes créés (inscriptions Supabase Auth) sur la période. Différent des « Clients uniques » : ici on compte les inscriptions, pas les acheteurs — un inscrit peut ne jamais commander." },
   "Taux de fidélité":      { icon: "🔁", def: "% de clients actifs sur la période qui avaient déjà commandé avant. Un client fidèle coûte 5× moins cher à garder qu'à acquérir." },
   "Nouveaux clients":      { icon: "✨", def: "Clients dont la toute première commande tombe dans la période sélectionnée. Mesure l'acquisition." },
   "Codes promos":          { icon: "🏷️", def: "Performance des codes promo : utilisations, CA généré et remises accordées. Mesure l'efficacité des campagnes." },
@@ -842,6 +843,7 @@ export default function AdminStats() {
   const [geo,          setGeo]          = useState<any>(null);
   const [stockDormant, setStockDormant] = useState<any>(null);
   const [pageViews,    setPageViews]    = useState<any>(null);
+  const [accounts,     setAccounts]     = useState<any>(null);
 
   // Données client-side conservées
   const [slimOrders,     setSlimOrders]     = useState<any[]>([]);
@@ -880,7 +882,7 @@ export default function AdminStats() {
     const q = `?period=${period}`;
     try {
       const [
-        kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD,
+        kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD, accD,
         slim, carts, news, revs, alerts,
       ] = await Promise.all([
         safeData(`/api/admin/analytics/kpis${q}`),
@@ -893,6 +895,7 @@ export default function AdminStats() {
         safeData(`/api/admin/analytics/geo${q}`),
         safeData(`/api/admin/analytics/stock-dormant`),
         safeData(`/api/admin/page-views${q}&bots=${excludeBots ? "exclude" : "all"}`),
+        safeData(`/api/admin/analytics/accounts-count${q}`),
         safe(`/api/admin/commandes-data?fields=slim`),
         safe(`/api/admin/abandoned-carts`),
         safe(`/api/admin/newsletter`),
@@ -902,7 +905,7 @@ export default function AdminStats() {
 
       setKpis(kpisD); setRevenueChart(revD); setTopProducts(topPD); setTopCustomers(topCD);
       setConversion(convD); setPromos(promoD); setRetention(retD); setGeo(geoD); setStockDormant(dormantD);
-      setPageViews(pvD);
+      setPageViews(pvD); setAccounts(accD);
 
       if (Array.isArray(slim)) setSlimOrders(slim); else if (slim != null) failed.add("commandes-data");
       if (carts?.carts && Array.isArray(carts.carts)) setAbandonedCarts(carts.carts);
@@ -1116,6 +1119,9 @@ export default function AdminStats() {
       {/* ══ CLIENTS ══ */}
       <SectionTitle>Clients & acquisition</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
+        {accounts
+          ? <KpiCard label="Comptes créés" value={String(accounts.count ?? 0)} sub="inscriptions sur la période" color={C.blue} delta={showDelta ? accounts.delta_pct : undefined} />
+          : <Skeleton h={110} />}
         {retention ? (
           <>
             <KpiCard label="Nouveaux clients"  value={String(retention.new_customers)}       sub="1re commande sur la période" color={C.purple} />

@@ -37,7 +37,7 @@ function extractTaille(itemName: string): string | null {
   return last;
 }
 
-function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: string, categorySlug: string): string {
+function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: string, categorySlug: string, email: string): string {
   const categoryLabel =
     categorySlug === "bodies"     ? "Bodies" :
     categorySlug === "pyjamas"    ? "Pyjamas" :
@@ -113,7 +113,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
   <div style="text-align:center;padding:20px 0">
     <p style="color:rgba(242,237,230,0.2);font-size:12px;margin:0">
       M!LK — Des essentiels bébé. Sans le superflu.<br>
-      <a href="${BASE}/fr/politique-confidentialite" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+      <a href="${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
     </p>
   </div>
 
@@ -170,7 +170,7 @@ export async function GET(req: Request) {
         from:    "M!LK <contact@milkbebe.fr>",
         to:      order.customer_email,
         subject: `${prenom ? `${prenom}, bébé` : "Bébé"} est prêt pour la taille ${tailleSuivante} ? 👶`,
-        html:    emailHtml(prenom, tailleActuelle, tailleSuivante, categorySlug),
+        html:    emailHtml(prenom, tailleActuelle, tailleSuivante, categorySlug, order.customer_email ?? ""),
       });
 
       if (!emailError) {

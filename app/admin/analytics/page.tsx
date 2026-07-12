@@ -485,344 +485,108 @@ function FunnelChart({ steps }: { steps: { key: string; label: string; count: nu
   );
 }
 
-// ─── Section Trafic & Comportement Visiteurs ────────────────────────────────────
-function TrafficSection({ pv, narrow }: { pv: any; narrow: boolean }) {
-  const [showAllPages, setShowAllPages] = useState(false);
-  const [showAllCountries, setShowAllCountries] = useState(false);
-  const [showAllCities, setShowAllCities] = useState(false);
-
-  if (!pv) {
-    return (
-      <>
-        <SectionTitle>📊 Trafic &amp; Comportement Visiteurs</SectionTitle>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px,1fr))", marginBottom: 24 }}>
-          {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} h={110} />)}
-        </div>
-      </>
-    );
-  }
-
-  const th = { padding: "8px 10px", fontWeight: 700, textAlign: "left" as const };
-  const td = { padding: "9px 10px" };
-
-  const channelDonut = (pv.by_channel ?? []).map((c: any) => ({ label: CHANNEL_LABELS_FR[c.channel] ?? c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
-
-  const nvr      = pv.new_vs_returning ?? { new: 0, returning: 0 };
-  const nvrTotal = (nvr.new ?? 0) + (nvr.returning ?? 0);
-  const pctNew   = nvrTotal > 0 ? Math.round((nvr.new / nvrTotal) * 100) : 0;
-  const nvrDonut = [
-    { label: "Nouveaux",  value: nvr.new,       color: C.amber },
-    { label: "Récurrents", value: nvr.returning, color: C.green },
-  ].filter(d => d.value > 0);
-
-  const allPages   = pv.top_pages ?? [];
-  const pagesShown = showAllPages ? allPages : allPages.slice(0, 10);
-
+// ─── Courbe générique (1 série, SVG maison) — pour les évolutions temporelles ───
+function LineChart({ data, color = C.amber, unit = "", height = 200 }: { data: { label: string; value: number }[]; color?: string; unit?: string; height?: number }) {
+  const [hi, setHi] = useState<number | null>(null);
+  const n = data.length;
+  if (n === 0) return <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 30 }}>Aucune donnée</div>;
+  const VBW = 600, VBH = height, TOP = 16, BOT = 28, PADX = 10;
+  const innerW = VBW - PADX * 2, innerH = VBH - TOP - BOT;
+  const max = Math.max(...data.map(d => d.value), 1);
+  const px = (i: number) => (n <= 1 ? PADX + innerW / 2 : PADX + (i / (n - 1)) * innerW);
+  const py = (v: number) => TOP + innerH - (v / max) * innerH;
+  const line = data.map((d, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(d.value).toFixed(1)}`).join(" ");
+  const area = `${line} L ${px(n - 1).toFixed(1)} ${(TOP + innerH).toFixed(1)} L ${px(0).toFixed(1)} ${(TOP + innerH).toFixed(1)} Z`;
+  const labelEvery = Math.max(1, Math.ceil(n / 12));
+  const hv = hi != null ? data[hi] : null;
+  const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
   return (
-    <>
-      <SectionTitle>📊 Trafic &amp; Comportement Visiteurs</SectionTitle>
+    <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
+      <svg viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: "100%", minWidth: 320, display: "block" }} onMouseLeave={() => setHi(null)}>
+        {[0, 0.25, 0.5, 0.75, 1].map(t => (
+          <line key={t} x1={PADX} x2={VBW - PADX} y1={TOP + innerH - innerH * t} y2={TOP + innerH - innerH * t} stroke={C.faint} strokeWidth={1} />
+        ))}
+        <path d={area} fill={color} fillOpacity={0.12} stroke="none" />
+        <path d={line} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+        {data.map((d, i) => {
+          const active = hi === i;
+          return (
+            <g key={i}>
+              <rect x={px(i) - Math.max(6, innerW / n / 2)} y={TOP} width={Math.max(12, innerW / n)} height={innerH} fill="transparent" onMouseEnter={() => setHi(i)} style={{ cursor: "pointer" }} />
+              <circle cx={px(i)} cy={py(d.value)} r={active ? 4.5 : 2.6} fill={color} stroke="#161210" strokeWidth={active ? 1.5 : 0} />
+              {(i % labelEvery === 0 || i === n - 1) && (
+                <text x={px(i)} y={VBH - 8} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
+              )}
+              <title>{d.label} : {d.value}{unit}</title>
+            </g>
+          );
+        })}
+        {hv && (
+          <g pointerEvents="none">
+            <line x1={px(hi!)} x2={px(hi!)} y1={TOP} y2={TOP + innerH} stroke="rgba(196,154,74,0.35)" strokeWidth={1} />
+            <rect x={Math.min(Math.max(px(hi!), 46), VBW - 46) - 44} y={Math.max(py(hv.value) - 34, 2)} width={88} height={26} rx={5} fill="#0d0b09" opacity={0.95} />
+            <text x={Math.min(Math.max(px(hi!), 46), VBW - 46)} y={Math.max(py(hv.value) - 34, 2) + 11} fill={C.warm} fontSize={11} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{fmt(hv.value)}{unit}</text>
+            <text x={Math.min(Math.max(px(hi!), 46), VBW - 46)} y={Math.max(py(hv.value) - 34, 2) + 21} fill={C.muted} fontSize={8} textAnchor="middle" fontFamily="system-ui">{hv.label}</text>
+          </g>
+        )}
+      </svg>
+    </div>
+  );
+}
 
-      {pv.bots_filter_active && (
-        <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(196,154,74,0.1)", border: `1px solid rgba(196,154,74,0.25)`, color: C.amber, fontSize: 12, fontWeight: 700 }}>
-          🤖 Filtre bots actif (heuristique) — {pv.bots_excluded} session(s) exclue(s). Filtre 100 % fiable dès que le user-agent sera capté (colonne page_views.user_agent).
+// ─── Heatmap trafic : jour (lignes) × heure (colonnes), couleur = canal dominant ──
+function TrafficHeatmap({ cells }: { cells: { day: number; hour: number; sessions: number; channel: string | null }[] }) {
+  const [hv, setHv] = useState<{ day: number; hour: number; sessions: number; channel: string | null } | null>(null);
+  const max = Math.max(...cells.map(c => c.sessions), 1);
+  const grid = new Map<string, { sessions: number; channel: string | null }>();
+  cells.forEach(c => grid.set(`${c.day}-${c.hour}`, { sessions: c.sessions, channel: c.channel }));
+  const hours = Array.from({ length: 24 }, (_, h) => h);
+  const hasData = cells.some(c => c.sessions > 0);
+  if (!hasData) return <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 20 }}>Pas encore assez de trafic pour la heatmap.</div>;
+  const col = `26px repeat(24, minmax(0, 1fr))`;
+  return (
+    <div>
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: 560 }}>
+          <div style={{ display: "grid", gridTemplateColumns: col, gap: 2, marginBottom: 2 }}>
+            <div />
+            {hours.map(h => <div key={h} style={{ fontSize: 8, color: C.muted, textAlign: "center" }}>{h % 3 === 0 ? h : ""}</div>)}
+          </div>
+          {WEEKDAYS.map((wd, day) => (
+            <div key={day} style={{ display: "grid", gridTemplateColumns: col, gap: 2, marginBottom: 2 }}>
+              <div style={{ fontSize: 10, color: C.muted, display: "flex", alignItems: "center" }}>{wd}</div>
+              {hours.map(h => {
+                const cell = grid.get(`${day}-${h}`) ?? { sessions: 0, channel: null };
+                const base = cell.channel ? (CHANNEL_COLORS[cell.channel] ?? "#94a3b8") : C.faint;
+                const isHv = hv?.day === day && hv?.hour === h;
+                return (
+                  <div key={h}
+                    onMouseEnter={() => setHv({ day, hour: h, ...cell })}
+                    onMouseLeave={() => setHv(null)}
+                    title={`${wd} ${h}h — ${cell.sessions} session(s)${cell.channel ? ` · ${CHANNEL_LABELS_FR[cell.channel] ?? cell.channel}` : ""}`}
+                    style={{
+                      height: 15, borderRadius: 3, cursor: "default",
+                      background: cell.sessions > 0 ? base : "rgba(242,237,230,0.04)",
+                      opacity: cell.sessions > 0 ? 0.25 + 0.75 * (cell.sessions / max) : 1,
+                      outline: isHv ? `1.5px solid ${C.warm}` : "none",
+                    }} />
+                );
+              })}
+            </div>
+          ))}
         </div>
-      )}
-
-      {/* BLOC 1 — KPIs trafic */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-        <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={pv.deltas?.views} />
-        <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={pv.deltas?.sessions} />
-        <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={pv.deltas?.visitors} />
-        <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)} color={C.green}
-                 delta={pv.deltas?.avg_time}
-                 pending={pv.avg_time_on_page == null || pv.avg_time_on_page === 0}
-                 title="Ces données se remplissent après les premières navigations complètes" />
-        <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`}
-                 pending={pv.bounce_rate == null || pv.bounce_rate === 0}
-                 title="Ces données se remplissent après les premières navigations complètes" />
-        <KpiCard label="Pages / session"   value={Number(pv.pages_per_session ?? 0).toFixed(1)} />
       </div>
-
-      {/* BLOC 1b — Tunnel de conversion + Pages d'entrée */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="🔻 Tunnel de conversion" lexique="Tunnel de conversion">
-          {(pv.funnel ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Données insuffisantes sur la période.</div> : (
-            <>
-              <FunnelChart steps={pv.funnel} />
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
-                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
-              </div>
-            </>
-          )}
-        </Card>
-        <Card title="🛬 Pages d'entrée (landing)" lexique="Pages d'entrée">
-          {(pv.entry_pages ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune page d'entrée trackée.</div> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr style={{ color: C.muted }}><th style={th}>Page d'entrée</th><th style={th}>Sessions</th><th style={th}>Rebond</th></tr></thead>
-                <tbody>
-                  {pv.entry_pages.map((e: any) => (
-                    <tr key={e.entry_page} style={{ borderTop: `1px solid ${C.faint}` }}>
-                      <td style={{ ...td, color: C.warm }}>{e.entry_page}</td>
-                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{e.sessions}</td>
-                      <td style={{ ...td, color: C.muted }}>{e.bounce_rate}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div style={{ fontSize: 11, color: C.muted, marginTop: 10 }}>
-                Conversion par landing non affichée : les commandes n'ont pas de session_id (impossible à relier à la page d'entrée de façon fiable).
-              </div>
-            </div>
-          )}
-        </Card>
+      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginTop: 12 }}>
+        {Object.entries(CHANNEL_LABELS_FR).map(([ch, label]) => (
+          <span key={ch} style={{ display: "inline-flex", alignItems: "center", gap: 5, fontSize: 11, color: C.muted }}>
+            <span style={{ width: 10, height: 10, borderRadius: 2, background: CHANNEL_COLORS[ch] ?? "#94a3b8" }} />{label}
+          </span>
+        ))}
       </div>
-
-      {/* BLOC 2 — Vues par jour */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="📈 Vues par jour" lexique="Vues totales">
-          <BarChart data={(pv.by_day ?? []).map((d: any) => ({ label: String(d.date).slice(5), value: d.views }))} />
-          <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
-            Sessions uniques sur la période : <span style={{ color: C.warm, fontWeight: 700 }}>{pv.unique_sessions ?? 0}</span>
-          </div>
-        </Card>
+      <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
+        Couleur = canal dominant du créneau · intensité = volume de sessions (heure de Paris). Survolez une case pour le détail.
       </div>
-
-      {/* BLOC 2b — Évolution des sessions (courbe + sélecteur jour/mois) */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="📉 Évolution des sessions" lexique="Sessions uniques">
-          <SessionsLineChart byDay={pv.by_day ?? []} />
-        </Card>
-      </div>
-
-      {/* BLOC 3 — Sources de trafic */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="📡 Sources de trafic" lexique="Canal">
-          <DonutChart data={channelDonut} />
-          {(pv.by_channel ?? []).length > 0 && (
-            <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 14 }}>
-              <thead><tr style={{ color: C.muted }}><th style={th}>Canal</th><th style={th}>Sessions</th><th style={th}>%</th></tr></thead>
-              <tbody>
-                {pv.by_channel.map((c: any) => (
-                  <tr key={c.channel} style={{ borderTop: `1px solid ${C.faint}` }}>
-                    <td style={td}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: CHANNEL_COLORS[c.channel] ?? "#94a3b8", marginRight: 8 }} />{CHANNEL_LABELS_FR[c.channel] ?? c.channel}</td>
-                    <td style={{ ...td, color: C.warm, fontWeight: 700 }}>{c.sessions}</td>
-                    <td style={{ ...td, color: C.muted }}>{c.pct}%</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
-        </Card>
-      </div>
-
-      {/* BLOC 4 — Top pages */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="📄 Top pages vues">
-          {allPages.length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune vue trackée pour l'instant.</div> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr style={{ color: C.muted }}>
-                  <th style={th}>Page</th><th style={th}>Vues</th><th style={th}>Sessions</th><th style={th}>Durée</th><th style={th}>Scroll</th><th style={th}>Rebond</th>
-                </tr></thead>
-                <tbody>
-                  {pagesShown.map((p: any) => (
-                    <tr key={p.page_path} style={{ borderTop: `1px solid ${C.faint}` }}>
-                      <td style={{ ...td, color: C.warm }}>
-                        {String(p.page_path).startsWith("/produits/") && <span style={{ fontSize: 10, fontWeight: 800, color: "#000", background: C.amber, borderRadius: 5, padding: "1px 6px", marginRight: 6 }}>Produit</span>}
-                        {p.page_path}
-                      </td>
-                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{p.views}</td>
-                      <td style={{ ...td, color: C.muted }}>{p.unique_sessions}</td>
-                      <td style={{ ...td, color: C.muted }}>{fmtDur(p.avg_time)}</td>
-                      <td style={{ ...td, color: C.muted }}>{p.avg_scroll}%</td>
-                      <td style={{ ...td, color: C.muted }}>{p.bounce_rate}%</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              {allPages.length > 10 && (
-                <button onClick={() => setShowAllPages(v => !v)} style={{ marginTop: 12, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
-                  {showAllPages ? "Voir moins" : `Voir plus (${allPages.length - 10})`}
-                </button>
-              )}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* BLOC 5 — Produits les plus vus */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="🛍️ Produits les plus vus" lexique="Top produits">
-          {(pv.top_products_viewed ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune fiche produit vue.</div> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr style={{ color: C.muted }}><th style={th}>Produit</th><th style={th}>Vues</th><th style={th}>Sessions</th><th style={th}>Durée moy.</th></tr></thead>
-                <tbody>
-                  {pv.top_products_viewed.map((p: any) => (
-                    <tr key={p.page_path} style={{ borderTop: `1px solid ${C.faint}` }}>
-                      <td style={{ ...td, color: C.warm }}>{p.name}</td>
-                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{p.views}</td>
-                      <td style={{ ...td, color: C.muted }}>{p.unique_sessions}</td>
-                      <td style={{ ...td, color: C.muted }}>{fmtDur(p.avg_time)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* BLOC 6 — Comportement */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="🖱️ Profondeur de scroll" lexique="Scroll depth">
-          {(pv.scroll_distribution ?? []).every((d: any) => !d.count)
-            ? <BehaviorPlaceholder />
-            : <HBars data={pv.scroll_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />}
-        </Card>
-        <Card title="⏱️ Durée de visite" lexique="Durée moyenne">
-          {(pv.time_distribution ?? []).every((d: any) => !d.count)
-            ? <BehaviorPlaceholder />
-            : <HBars data={pv.time_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />}
-        </Card>
-      </div>
-
-      {/* BLOC 7 — Géographie (Top pays / Top villes) */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
-        <Card title="🌍 Top pays">
-          {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {(showAllCountries ? pv.by_country : pv.by_country.slice(0, 10)).map((c: any) => (
-                <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: C.warm }}>{c.country}</span><span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
-                </div>
-              ))}
-              {pv.by_country.length > 10 && (
-                <button onClick={() => setShowAllCountries(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
-                  {showAllCountries ? "Réduire" : `Voir tout (${pv.by_country.length})`}
-                </button>
-              )}
-            </div>
-          )}
-        </Card>
-        <Card title="🏙️ Top villes">
-          {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {(showAllCities ? pv.by_city : pv.by_city.slice(0, 10)).map((c: any, i: number) => (
-                <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: C.warm }}>{c.city}{c.region ? <span style={{ color: C.muted }}> · {c.region}</span> : null}</span>
-                  <span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
-                </div>
-              ))}
-              {pv.by_city.length > 10 && (
-                <button onClick={() => setShowAllCities(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
-                  {showAllCities ? "Réduire" : `Voir tout (${pv.by_city.length})`}
-                </button>
-              )}
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* BLOC 7b — Carte monde des visiteurs (choroplèthe pays + points villes) */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="🗺️ Carte des visiteurs">
-          <WorldVisitorsMap cities={pv.by_city ?? []} />
-        </Card>
-      </div>
-
-      {/* BLOC 8 — Appareils */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="📱 Appareils">
-          <div style={{ display: "grid", gap: 8 }}>
-            {(pv.by_device ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
-              pv.by_device.map((d: any) => (
-                <div key={d.device_type} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
-                  <span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
-                </div>
-              ))}
-          </div>
-        </Card>
-        <Card title="💿 Système">
-          <div style={{ display: "grid", gap: 8 }}>
-            {(pv.by_os ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
-              pv.by_os.map((d: any) => (
-                <div key={d.os} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
-                </div>
-              ))}
-          </div>
-        </Card>
-        <Card title="🌐 Navigateur">
-          <div style={{ display: "grid", gap: 8 }}>
-            {(pv.by_browser ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
-              pv.by_browser.map((d: any) => (
-                <div key={d.browser} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
-                </div>
-              ))}
-          </div>
-        </Card>
-      </div>
-
-      {/* BLOC 9 — Temporalité */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="🕐 Trafic par heure (heure Paris)">
-          <BarChart data={(pv.by_hour ?? []).map((h: any) => ({ label: h.hour % 4 === 0 ? `${h.hour}h` : "", value: h.views }))} height={120} />
-        </Card>
-        <Card title="📅 Trafic par jour">
-          <BarChart data={(pv.by_weekday ?? []).map((d: any) => ({ label: WEEKDAYS[d.day] ?? String(d.day), value: d.views }))} height={120} />
-        </Card>
-      </div>
-
-      {/* BLOC 10 — Nouveaux vs récurrents (agrégat + évolution) */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1.4fr", gap: 16, marginBottom: 24 }}>
-        <Card title="✨ Nouveaux vs récurrents" lexique="Nouveaux visiteurs">
-          <DonutChart data={nvrDonut} />
-          <div style={{ fontSize: 13, color: C.muted, marginTop: 10 }}>
-            <span style={{ color: C.amber, fontWeight: 900, fontSize: 20 }}>{pctNew}%</span> de nouveaux visiteurs
-          </div>
-        </Card>
-        <Card title="📈 Nouveaux vs récurrents dans le temps" lexique="Nouveaux visiteurs">
-          <NewVsReturningChart byDay={pv.new_returning_by_day ?? []} />
-        </Card>
-      </div>
-
-      {/* BLOC 11 — Référents & campagnes */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="🔗 Top référents">
-          {(pv.top_referrers ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucun référent externe.</div> : (
-            <div style={{ display: "grid", gap: 8 }}>
-              {pv.top_referrers.map((r: any) => (
-                <div key={r.domain} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                  <span style={{ color: C.warm }}>{r.domain}</span><span style={{ color: C.amber, fontWeight: 700 }}>{r.sessions}</span>
-                </div>
-              ))}
-            </div>
-          )}
-        </Card>
-        <Card title="🎯 Campagnes UTM">
-          {(pv.top_campaigns ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune campagne UTM trackée.</div> : (
-            <div style={{ overflowX: "auto" }}>
-              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                <thead><tr style={{ color: C.muted }}><th style={th}>Campagne</th><th style={th}>Source</th><th style={th}>Sessions</th></tr></thead>
-                <tbody>
-                  {pv.top_campaigns.map((c: any, i: number) => (
-                    <tr key={c.campaign + i} style={{ borderTop: `1px solid ${C.faint}` }}>
-                      <td style={{ ...td, color: C.warm }}>{c.campaign}</td>
-                      <td style={{ ...td, color: C.muted }}>{c.source}</td>
-                      <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{c.sessions}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </Card>
-      </div>
-    </>
+    </div>
   );
 }
 
@@ -846,6 +610,11 @@ export default function AdminStats() {
   const [pageViews,    setPageViews]    = useState<any>(null);
   const [accounts,     setAccounts]     = useState<any>(null);
   const [wishlist,     setWishlist]     = useState<any>(null);
+
+  // Expansion « voir plus » des tableaux trafic (ex-TrafficSection, désormais inline).
+  const [showAllPages,     setShowAllPages]     = useState(false);
+  const [showAllCountries, setShowAllCountries] = useState(false);
+  const [showAllCities,    setShowAllCities]    = useState(false);
 
   // Données client-side conservées
   const [slimOrders,     setSlimOrders]     = useState<any[]>([]);
@@ -1018,8 +787,23 @@ export default function AdminStats() {
     );
   }
 
+  // ── Dérivés trafic (ex-TrafficSection, désormais inline pour la réorg 5 sections) ──
+  const pv = pageViews;
+  const th = { padding: "8px 10px", fontWeight: 700, textAlign: "left" as const };
+  const td = { padding: "9px 10px" };
+  const channelDonut = (pv?.by_channel ?? []).map((c: any) => ({ label: CHANNEL_LABELS_FR[c.channel] ?? c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
+  const nvr      = pv?.new_vs_returning ?? { new: 0, returning: 0 };
+  const nvrTotal = (nvr.new ?? 0) + (nvr.returning ?? 0);
+  const pctNew   = nvrTotal > 0 ? Math.round((nvr.new / nvrTotal) * 100) : 0;
+  const nvrDonut = [
+    { label: "Nouveaux",   value: nvr.new,       color: C.amber },
+    { label: "Récurrents", value: nvr.returning, color: C.green },
+  ].filter(d => d.value > 0);
+  const allPages   = pv?.top_pages ?? [];
+  const pagesShown = showAllPages ? allPages : allPages.slice(0, 10);
+
   return (
-    <div style={{ padding: "36px 40px", background: C.bg, minHeight: "100vh" }}>
+    <div style={{ padding: narrow ? "20px 12px" : "36px 40px", background: C.bg, minHeight: "100vh" }}>
 
       {/* ── EN-TÊTE (titre — défile normalement) ── */}
       <div style={{ marginBottom: 16 }}>
@@ -1072,30 +856,255 @@ export default function AdminStats() {
         </div>
       )}
 
-      {/* ══ VENTES ══ */}
-      <SectionTitle>Ventes</SectionTitle>
+      {/* ══════════════ 1 · ACQUISITION ══════════════ */}
+      <SectionTitle>1 · Acquisition</SectionTitle>
+
+      {pv?.bots_filter_active && (
+        <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(196,154,74,0.1)", border: `1px solid rgba(196,154,74,0.25)`, color: C.amber, fontSize: 12, fontWeight: 700 }}>
+          🤖 Filtre bots actif (heuristique) — {pv.bots_excluded} session(s) exclue(s). Filtre 100 % fiable dès que le user-agent sera capté (colonne page_views.user_agent).
+        </div>
+      )}
+
+      {!pv ? (
+        <div style={{ display: "grid", gap: 12, gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px,1fr))", marginBottom: 24 }}>
+          {[0, 1, 2, 3, 4, 5].map(i => <Skeleton key={i} h={110} />)}
+        </div>
+      ) : (
+        <>
+          {/* KPIs trafic */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
+            <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={pv.deltas?.views} />
+            <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={pv.deltas?.sessions} />
+            <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={pv.deltas?.visitors} />
+            <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)} color={C.green}
+                     delta={pv.deltas?.avg_time}
+                     pending={pv.avg_time_on_page == null || pv.avg_time_on_page === 0}
+                     title="Ces données se remplissent après les premières navigations complètes" />
+            <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`}
+                     pending={pv.bounce_rate == null || pv.bounce_rate === 0}
+                     title="Ces données se remplissent après les premières navigations complètes" />
+            <KpiCard label="Pages / session"   value={Number(pv.pages_per_session ?? 0).toFixed(1)} />
+          </div>
+
+          {/* Sources de trafic + Campagnes UTM */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <Card title="📡 Sources de trafic" lexique="Canal">
+              <DonutChart data={channelDonut} />
+              {(pv.by_channel ?? []).length > 0 && (
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, marginTop: 14 }}>
+                  <thead><tr style={{ color: C.muted }}><th style={th}>Canal</th><th style={th}>Sessions</th><th style={th}>%</th></tr></thead>
+                  <tbody>
+                    {pv.by_channel.map((c: any) => (
+                      <tr key={c.channel} style={{ borderTop: `1px solid ${C.faint}` }}>
+                        <td style={td}><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: CHANNEL_COLORS[c.channel] ?? "#94a3b8", marginRight: 8 }} />{CHANNEL_LABELS_FR[c.channel] ?? c.channel}</td>
+                        <td style={{ ...td, color: C.warm, fontWeight: 700 }}>{c.sessions}</td>
+                        <td style={{ ...td, color: C.muted }}>{c.pct}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </Card>
+            <Card title="🎯 Campagnes UTM">
+              {(pv.top_campaigns ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune campagne UTM trackée.</div> : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ color: C.muted }}><th style={th}>Campagne</th><th style={th}>Source</th><th style={th}>Sessions</th></tr></thead>
+                    <tbody>
+                      {pv.top_campaigns.map((c: any, i: number) => (
+                        <tr key={c.campaign + i} style={{ borderTop: `1px solid ${C.faint}` }}>
+                          <td style={{ ...td, color: C.warm }}>{c.campaign}</td>
+                          <td style={{ ...td, color: C.muted }}>{c.source}</td>
+                          <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{c.sessions}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Pages d'entrée + Top référents */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <Card title="🛬 Pages d'entrée (landing)" lexique="Pages d'entrée">
+              {(pv.entry_pages ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune page d'entrée trackée.</div> : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ color: C.muted }}><th style={th}>Page d'entrée</th><th style={th}>Sessions</th><th style={th}>Rebond</th></tr></thead>
+                    <tbody>
+                      {pv.entry_pages.map((e: any) => (
+                        <tr key={e.entry_page} style={{ borderTop: `1px solid ${C.faint}` }}>
+                          <td style={{ ...td, color: C.warm }}>{e.entry_page}</td>
+                          <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{e.sessions}</td>
+                          <td style={{ ...td, color: C.muted }}>{e.bounce_rate}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Card>
+            <Card title="🔗 Top référents">
+              {(pv.top_referrers ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucun référent externe.</div> : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {pv.top_referrers.map((r: any) => (
+                    <div key={r.domain} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{r.domain}</span><span style={{ color: C.amber, fontWeight: 700 }}>{r.sessions}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Heatmap croisée : trafic par heure × jour, coloré par canal dominant */}
+          <div style={{ marginBottom: 24 }}>
+            <Card title="🗓️ Trafic par heure × jour (canal dominant)" lexique="Canal">
+              <TrafficHeatmap cells={pv.traffic_heatmap ?? []} />
+            </Card>
+          </div>
+
+          {/* Vues par jour (courbe) + Évolution des sessions */}
+          <div style={{ marginBottom: 24 }}>
+            <Card title="📈 Vues par jour" lexique="Vues totales">
+              <LineChart data={(pv.by_day ?? []).map((d: any) => ({ label: String(d.date).slice(5), value: d.views }))} color={C.blue} />
+              <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
+                Sessions uniques sur la période : <span style={{ color: C.warm, fontWeight: 700 }}>{pv.unique_sessions ?? 0}</span>
+              </div>
+            </Card>
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <Card title="📉 Évolution des sessions" lexique="Sessions uniques">
+              <SessionsLineChart byDay={pv.by_day ?? []} />
+            </Card>
+          </div>
+
+          {/* Trafic par heure / par jour — distributions (barres conservées) */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <Card title="🕐 Trafic par heure (heure Paris)">
+              <BarChart data={(pv.by_hour ?? []).map((h: any) => ({ label: h.hour % 4 === 0 ? `${h.hour}h` : "", value: h.views }))} height={120} />
+            </Card>
+            <Card title="📅 Trafic par jour">
+              <BarChart data={(pv.by_weekday ?? []).map((d: any) => ({ label: WEEKDAYS[d.day] ?? String(d.day), value: d.views }))} height={120} />
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* ══════════════ 2 · COMPORTEMENT ══════════════ */}
+      <SectionTitle>2 · Comportement</SectionTitle>
+
+      {/* Tunnel de conversion + Paniers abandonnés (les deux ensemble — même histoire) */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1.4fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="🔻 Tunnel de conversion" lexique="Tunnel de conversion">
+          {(pv?.funnel ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Données insuffisantes sur la période.</div> : (
+            <>
+              <FunnelChart steps={pv.funnel} />
+              <div style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
+                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
+              </div>
+            </>
+          )}
+        </Card>
+        <Card title="🛒 Paniers abandonnés" lexique="Paniers abandonnés">
+          <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 12 }}>
+            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.warm }}>{cartsStats.total}</div><div style={{ fontSize: 11, color: C.muted }}>paniers</div></div>
+            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.green }}>{cartsStats.converted}</div><div style={{ fontSize: 11, color: C.muted }}>récupérés</div></div>
+            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{cartsStats.recovery.toFixed(0)}%</div><div style={{ fontSize: 11, color: C.muted }}>taux de récupération</div></div>
+          </div>
+          <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
+            C'est ici que le tunnel décroche : panier rempli, pas de paiement. Séquence de relance email automatique 1h / 24h / 72h.
+          </div>
+        </Card>
+      </div>
+
+      {pv && (
+        <>
+          {/* Top pages vues */}
+          <div style={{ marginBottom: 24 }}>
+            <Card title="📄 Top pages vues">
+              {allPages.length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Aucune vue trackée pour l'instant.</div> : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ color: C.muted }}>
+                      <th style={th}>Page</th><th style={th}>Vues</th><th style={th}>Sessions</th><th style={th}>Durée</th><th style={th}>Scroll</th><th style={th}>Rebond</th>
+                    </tr></thead>
+                    <tbody>
+                      {pagesShown.map((p: any) => (
+                        <tr key={p.page_path} style={{ borderTop: `1px solid ${C.faint}` }}>
+                          <td style={{ ...td, color: C.warm }}>
+                            {String(p.page_path).startsWith("/produits/") && <span style={{ fontSize: 10, fontWeight: 800, color: "#000", background: C.amber, borderRadius: 5, padding: "1px 6px", marginRight: 6 }}>Produit</span>}
+                            {p.page_path}
+                          </td>
+                          <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{p.views}</td>
+                          <td style={{ ...td, color: C.muted }}>{p.unique_sessions}</td>
+                          <td style={{ ...td, color: C.muted }}>{fmtDur(p.avg_time)}</td>
+                          <td style={{ ...td, color: C.muted }}>{p.avg_scroll}%</td>
+                          <td style={{ ...td, color: C.muted }}>{p.bounce_rate}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  {allPages.length > 10 && (
+                    <button onClick={() => setShowAllPages(v => !v)} style={{ marginTop: 12, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+                      {showAllPages ? "Voir moins" : `Voir plus (${allPages.length - 10})`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Profondeur de scroll + Durée de visite (distributions — barres conservées) */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <Card title="🖱️ Profondeur de scroll" lexique="Scroll depth">
+              {(pv.scroll_distribution ?? []).every((d: any) => !d.count)
+                ? <BehaviorPlaceholder />
+                : <HBars data={pv.scroll_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />}
+            </Card>
+            <Card title="⏱️ Durée de visite" lexique="Durée moyenne">
+              {(pv.time_distribution ?? []).every((d: any) => !d.count)
+                ? <BehaviorPlaceholder />
+                : <HBars data={pv.time_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />}
+            </Card>
+          </div>
+
+          {/* Nouveaux vs récurrents (agrégat + évolution dans le temps) */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1.4fr", gap: 16, marginBottom: 24 }}>
+            <Card title="✨ Nouveaux vs récurrents" lexique="Nouveaux visiteurs">
+              <DonutChart data={nvrDonut} />
+              <div style={{ fontSize: 13, color: C.muted, marginTop: 10 }}>
+                <span style={{ color: C.amber, fontWeight: 900, fontSize: 20 }}>{pctNew}%</span> de nouveaux visiteurs
+              </div>
+            </Card>
+            <Card title="📈 Nouveaux vs récurrents dans le temps" lexique="Nouveaux visiteurs">
+              <NewVsReturningChart byDay={pv.new_returning_by_day ?? []} />
+            </Card>
+          </div>
+        </>
+      )}
+
+      {/* ══════════════ 3 · VENTES ══════════════ */}
+      <SectionTitle>3 · Ventes</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {kpis ? (
           <>
             <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}        color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} />
             <KpiCard label="Panier moyen"        value={eur(kpis.avg_basket, 2)}  delta={showDelta ? kpis.basket_delta_pct : undefined} />
-            <KpiCard label="Clients uniques"     value={String(kpis.unique_customers)} sub={`${kpis.orders_count} commande(s)`} delta={showDelta ? kpis.orders_delta_pct : undefined} deltaLabel="commandes vs préc." />
             <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} delta={showDelta ? conversion?.conversion_delta_pct ?? undefined : undefined} />
           </>
-        ) : <><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></>}
+        ) : <><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></>}
       </div>
 
-      {/* CA par jour */}
+      {/* CA par jour (courbe) */}
       <div style={{ marginBottom: 24 }}>
         <Card title={`📈 Chiffre d'affaires ${periodLabel}`} lexique="CA par jour">
-          {revenueChart ? <BarChart data={(revenueChart.points ?? []).map((p: any) => ({ label: p.label, value: p.revenue }))} /> : <Skeleton h={150} />}
+          {revenueChart ? <LineChart data={(revenueChart.points ?? []).map((p: any) => ({ label: p.label, value: p.revenue }))} color={C.amber} /> : <Skeleton h={150} />}
         </Card>
       </div>
 
-      {/* ══ TRAFIC & COMPORTEMENT VISITEURS ══ */}
-      <TrafficSection pv={pageViews} narrow={narrow} />
-
-      {/* Top produits + Statuts livraison */}
+      {/* Top produits + Statuts de livraison */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1.3fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="🏆 Top produits" lexique="Top produits">
           {!topProducts ? <Skeleton h={150} /> : (topProducts.products ?? []).length === 0 ? (
@@ -1119,11 +1128,64 @@ export default function AdminStats() {
         </Card>
       </div>
 
-      {/* ══ CLIENTS ══ */}
-      <SectionTitle>Clients & acquisition</SectionTitle>
+      {/* Performance des codes promo */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="🏷️ Performance des codes promo" lexique="Codes promos">
+          {!promos ? <Skeleton h={120} /> : (
+            <>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
+                <div style={{ padding: 14, borderRadius: 12, background: "rgba(196,154,74,0.06)", border: `1px solid ${C.faint}` }}>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>AVEC PROMO</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: C.amber }}>{eur(promos.with_promo?.revenue)}</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>{promos.with_promo?.count ?? 0} commande(s)</div>
+                </div>
+                <div style={{ padding: 14, borderRadius: 12, background: "rgba(242,237,230,0.04)", border: `1px solid ${C.faint}` }}>
+                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>SANS PROMO</div>
+                  <div style={{ fontSize: 18, fontWeight: 900, color: C.warm }}>{eur(promos.without_promo?.revenue)}</div>
+                  <div style={{ fontSize: 12, color: C.muted }}>{promos.without_promo?.count ?? 0} commande(s)</div>
+                </div>
+              </div>
+              {(promos.promos ?? []).length === 0 ? (
+                <div style={{ color: C.muted, fontSize: 13 }}>Aucun code promo utilisé sur la période.</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ color: C.muted, textAlign: "left" }}>
+                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Code</th>
+                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Utilisations</th>
+                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>CA généré</th>
+                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Panier moyen</th>
+                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Remises</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {promos.promos.map((p: any) => (
+                        <tr key={p.code} style={{ borderTop: `1px solid ${C.faint}` }}>
+                          <td style={{ padding: "10px 10px", color: C.warm, fontWeight: 800 }}>{p.code}</td>
+                          <td style={{ padding: "10px 10px", color: C.muted }}>{p.uses_count}</td>
+                          <td style={{ padding: "10px 10px", color: C.amber, fontWeight: 800 }}>{eur(p.revenue)}</td>
+                          <td style={{ padding: "10px 10px", color: C.muted }}>{eur(p.avg_basket, 2)}</td>
+                          <td style={{ padding: "10px 10px", color: C.red }}>−{eur(p.discount_total, 2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
+        </Card>
+      </div>
+
+      {/* ══════════════ 4 · CLIENTS & FIDÉLITÉ ══════════════ */}
+      <SectionTitle>4 · Clients &amp; fidélité</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {accounts
           ? <KpiCard label="Comptes créés" value={String(accounts.count ?? 0)} sub="inscriptions sur la période" color={C.blue} delta={showDelta ? accounts.delta_pct : undefined} />
+          : <Skeleton h={110} />}
+        {kpis
+          ? <KpiCard label="Clients uniques" value={String(kpis.unique_customers)} sub={`${kpis.orders_count} commande(s)`} delta={showDelta ? kpis.orders_delta_pct : undefined} deltaLabel="commandes vs préc." />
           : <Skeleton h={110} />}
         {retention ? (
           <>
@@ -1202,80 +1264,38 @@ export default function AdminStats() {
         </Card>
       </div>
 
-      {/* Géographie */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="🗺️ Top villes" lexique="Top villes">
-          {!geo ? <Skeleton h={120} /> : (geo.cities ?? []).length === 0 ? (
-            <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée géographique.</div>
-          ) : (
-            <div style={{ display: "grid", gap: 10 }}>
-              {geo.cities.map((v: any, i: number) => (
-                <div key={v.city + i}>
-                  <div style={{ display: "flex", justifyContent: "space-between" }}>
-                    <span style={{ fontSize: 13, color: C.warm }}>{v.city}</span>
-                    <span style={{ fontSize: 12, color: C.amber, fontWeight: 800 }}>{eur(v.revenue)} · {v.orders_count} cmd</span>
-                  </div>
-                  <MiniBar value={v.revenue} max={geo.cities[0]?.revenue ?? 1} />
-                </div>
-              ))}
-            </div>
-          )}
+      {/* Newsletter + Avis clients */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
+        <Card title="📧 Newsletter" lexique="Newsletter">
+          <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
+            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{newsletterTotal}</div><div style={{ fontSize: 11, color: C.muted }}>inscrits</div></div>
+            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.red }}>{newsletterDesab}</div><div style={{ fontSize: 11, color: C.muted }}>désabonnés</div></div>
+          </div>
+          {newsletterByMonth.length > 0 ? <LineChart data={newsletterByMonth} color={C.amber} height={140} /> : <div style={{ color: C.muted, fontSize: 13 }}>Pas encore d'inscrits.</div>}
         </Card>
-      </div>
-
-      {/* ══ PROMOS ══ */}
-      <SectionTitle>Codes promos</SectionTitle>
-      <div style={{ marginBottom: 24 }}>
-        <Card title="🏷️ Performance des codes promo" lexique="Codes promos">
-          {!promos ? <Skeleton h={120} /> : (
+        <Card title="⭐ Avis clients" lexique="Note moyenne">
+          {avgRating ? (
             <>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 16 }}>
-                <div style={{ padding: 14, borderRadius: 12, background: "rgba(196,154,74,0.06)", border: `1px solid ${C.faint}` }}>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>AVEC PROMO</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: C.amber }}>{eur(promos.with_promo?.revenue)}</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>{promos.with_promo?.count ?? 0} commande(s)</div>
-                </div>
-                <div style={{ padding: 14, borderRadius: 12, background: "rgba(242,237,230,0.04)", border: `1px solid ${C.faint}` }}>
-                  <div style={{ fontSize: 11, color: C.muted, fontWeight: 700 }}>SANS PROMO</div>
-                  <div style={{ fontSize: 18, fontWeight: 900, color: C.warm }}>{eur(promos.without_promo?.revenue)}</div>
-                  <div style={{ fontSize: 12, color: C.muted }}>{promos.without_promo?.count ?? 0} commande(s)</div>
-                </div>
+              <div style={{ fontSize: 30, fontWeight: 950, color: C.amber, marginBottom: 4 }}>{avgRating}<span style={{ fontSize: 16, color: C.muted }}> / 5</span></div>
+              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>{ratedReviews.length} avis noté(s)</div>
+              <div style={{ display: "grid", gap: 6 }}>
+                {ratingDistrib.map(r => (
+                  <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ fontSize: 12, color: C.muted, width: 28 }}>{r.label}</span>
+                    <div style={{ flex: 1 }}><MiniBar value={r.value} max={Math.max(...ratingDistrib.map(x => x.value), 1)} color={r.color} /></div>
+                    <span style={{ fontSize: 12, color: C.muted, width: 20, textAlign: "right" }}>{r.value}</span>
+                  </div>
+                ))}
               </div>
-              {(promos.promos ?? []).length === 0 ? (
-                <div style={{ color: C.muted, fontSize: 13 }}>Aucun code promo utilisé sur la période.</div>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead>
-                      <tr style={{ color: C.muted, textAlign: "left" }}>
-                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Code</th>
-                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Utilisations</th>
-                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>CA généré</th>
-                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Panier moyen</th>
-                        <th style={{ padding: "8px 10px", fontWeight: 700 }}>Remises</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {promos.promos.map((p: any) => (
-                        <tr key={p.code} style={{ borderTop: `1px solid ${C.faint}` }}>
-                          <td style={{ padding: "10px 10px", color: C.warm, fontWeight: 800 }}>{p.code}</td>
-                          <td style={{ padding: "10px 10px", color: C.muted }}>{p.uses_count}</td>
-                          <td style={{ padding: "10px 10px", color: C.amber, fontWeight: 800 }}>{eur(p.revenue)}</td>
-                          <td style={{ padding: "10px 10px", color: C.muted }}>{eur(p.avg_basket, 2)}</td>
-                          <td style={{ padding: "10px 10px", color: C.red }}>−{eur(p.discount_total, 2)}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
             </>
-          )}
+          ) : <div style={{ color: C.muted, fontSize: 13 }}>Aucun avis noté pour l'instant.</div>}
         </Card>
       </div>
 
-      {/* ══ STOCK ══ */}
-      <SectionTitle>Stock</SectionTitle>
+      {/* ══════════════ 5 · OPÉRATIONNEL ══════════════ */}
+      <SectionTitle>5 · Opérationnel</SectionTitle>
+
+      {/* Stock dormant + Réassort demandé */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="📦 Stock dormant (aucune vente depuis 30j)" lexique="Stock dormant">
           {!stockDormant ? <Skeleton h={120} /> : (stockDormant.products ?? []).length === 0 ? (
@@ -1309,45 +1329,109 @@ export default function AdminStats() {
         </Card>
       </div>
 
-      {/* ══ MARKETING ══ */}
-      <SectionTitle>Marketing & satisfaction</SectionTitle>
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-        <Card title="📧 Newsletter" lexique="Newsletter">
-          <div style={{ display: "flex", gap: 20, marginBottom: 12 }}>
-            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{newsletterTotal}</div><div style={{ fontSize: 11, color: C.muted }}>inscrits</div></div>
-            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.red }}>{newsletterDesab}</div><div style={{ fontSize: 11, color: C.muted }}>désabonnés</div></div>
-          </div>
-          {newsletterByMonth.length > 0 ? <BarChart data={newsletterByMonth} height={100} /> : <div style={{ color: C.muted, fontSize: 13 }}>Pas encore d'inscrits.</div>}
-        </Card>
-        <Card title="⭐ Avis clients" lexique="Note moyenne">
-          {avgRating ? (
-            <>
-              <div style={{ fontSize: 30, fontWeight: 950, color: C.amber, marginBottom: 4 }}>{avgRating}<span style={{ fontSize: 16, color: C.muted }}> / 5</span></div>
-              <div style={{ fontSize: 12, color: C.muted, marginBottom: 14 }}>{ratedReviews.length} avis noté(s)</div>
-              <div style={{ display: "grid", gap: 6 }}>
-                {ratingDistrib.map(r => (
-                  <div key={r.label} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span style={{ fontSize: 12, color: C.muted, width: 28 }}>{r.label}</span>
-                    <div style={{ flex: 1 }}><MiniBar value={r.value} max={Math.max(...ratingDistrib.map(x => x.value), 1)} color={r.color} /></div>
-                    <span style={{ fontSize: 12, color: C.muted, width: 20, textAlign: "right" }}>{r.value}</span>
+      {/* Top villes par chiffre d'affaires (commandes) */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="🗺️ Top villes (chiffre d'affaires)" lexique="Top villes">
+          {!geo ? <Skeleton h={120} /> : (geo.cities ?? []).length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée géographique.</div>
+          ) : (
+            <div style={{ display: "grid", gap: 10 }}>
+              {geo.cities.map((v: any, i: number) => (
+                <div key={v.city + i}>
+                  <div style={{ display: "flex", justifyContent: "space-between" }}>
+                    <span style={{ fontSize: 13, color: C.warm }}>{v.city}</span>
+                    <span style={{ fontSize: 12, color: C.amber, fontWeight: 800 }}>{eur(v.revenue)} · {v.orders_count} cmd</span>
                   </div>
-                ))}
-              </div>
-            </>
-          ) : <div style={{ color: C.muted, fontSize: 13 }}>Aucun avis noté pour l'instant.</div>}
+                  <MiniBar value={v.revenue} max={geo.cities[0]?.revenue ?? 1} />
+                </div>
+              ))}
+            </div>
+          )}
         </Card>
       </div>
 
-      {/* Paniers abandonnés */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="🛒 Paniers abandonnés" lexique="Paniers abandonnés">
-          <div style={{ display: "flex", gap: 28, flexWrap: "wrap" }}>
-            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.warm }}>{cartsStats.total}</div><div style={{ fontSize: 11, color: C.muted }}>paniers</div></div>
-            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.green }}>{cartsStats.converted}</div><div style={{ fontSize: 11, color: C.muted }}>récupérés</div></div>
-            <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{cartsStats.recovery.toFixed(0)}%</div><div style={{ fontSize: 11, color: C.muted }}>taux de récupération</div></div>
+      {pv && (
+        <>
+          {/* Top pays / Top villes (trafic) */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <Card title="🌍 Top pays">
+              {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {(showAllCountries ? pv.by_country : pv.by_country.slice(0, 10)).map((c: any) => (
+                    <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{c.country}</span><span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
+                    </div>
+                  ))}
+                  {pv.by_country.length > 10 && (
+                    <button onClick={() => setShowAllCountries(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
+                      {showAllCountries ? "Réduire" : `Voir tout (${pv.by_country.length})`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
+            <Card title="🏙️ Top villes (trafic)">
+              {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {(showAllCities ? pv.by_city : pv.by_city.slice(0, 10)).map((c: any, i: number) => (
+                    <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{c.city}{c.region ? <span style={{ color: C.muted }}> · {c.region}</span> : null}</span>
+                      <span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
+                    </div>
+                  ))}
+                  {pv.by_city.length > 10 && (
+                    <button onClick={() => setShowAllCities(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
+                      {showAllCities ? "Réduire" : `Voir tout (${pv.by_city.length})`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
           </div>
-        </Card>
-      </div>
+
+          {/* Carte des visiteurs */}
+          <div style={{ marginBottom: 24 }}>
+            <Card title="🗺️ Carte des visiteurs">
+              <WorldVisitorsMap cities={pv.by_city ?? []} />
+            </Card>
+          </div>
+
+          {/* Appareils / Système / Navigateur */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <Card title="📱 Appareils">
+              <div style={{ display: "grid", gap: 8 }}>
+                {(pv.by_device ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+                  pv.by_device.map((d: any) => (
+                    <div key={d.device_type} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
+                      <span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+            <Card title="💿 Système">
+              <div style={{ display: "grid", gap: 8 }}>
+                {(pv.by_os ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+                  pv.by_os.map((d: any) => (
+                    <div key={d.os} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+            <Card title="🌐 Navigateur">
+              <div style={{ display: "grid", gap: 8 }}>
+                {(pv.by_browser ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+                  pv.by_browser.map((d: any) => (
+                    <div key={d.browser} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+          </div>
+        </>
+      )}
 
       {/* Lexique footer */}
       <SectionTitle>Lexique</SectionTitle>

@@ -208,6 +208,35 @@ export async function GET(req: NextRequest) {
       .map(([channel, set]) => ({ channel, sessions: set.size, pct: Math.round((set.size / chanTotal) * 100) }))
       .sort((a, b) => b.sessions - a.sessions);
 
+    // ── Heatmap jour × heure × canal (heure Paris) ───────────────────────────
+    // Pour chaque créneau (jour 0=lundi…6, heure 0-23) : sessions distinctes par
+    // canal → canal DOMINANT du créneau + volume total de sessions. Alimente la
+    // carte croisée trafic (section Acquisition).
+    const heatCells: Array<Array<Map<string, Set<string>>>> = Array.from({ length: 7 }, () =>
+      Array.from({ length: 24 }, () => new Map<string, Set<string>>()));
+    rows.forEach(r => {
+      if (!r.session_id) return;
+      const p = new Date(new Date(r.viewed_at).toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+      const day = (p.getDay() + 6) % 7;
+      const cell = heatCells[day][p.getHours()];
+      const ch = channelOf(r);
+      if (!cell.has(ch)) cell.set(ch, new Set());
+      cell.get(ch)!.add(r.session_id);
+    });
+    const traffic_heatmap: { day: number; hour: number; sessions: number; channel: string | null }[] = [];
+    for (let day = 0; day < 7; day++) {
+      for (let hour = 0; hour < 24; hour++) {
+        const cell = heatCells[day][hour];
+        const allSess = new Set<string>();
+        let topCh: string | null = null, topN = 0;
+        for (const [ch, set] of cell) {
+          set.forEach(s => allSess.add(s));
+          if (set.size > topN) { topN = set.size; topCh = ch; }
+        }
+        traffic_heatmap.push({ day, hour, sessions: allSess.size, channel: topCh });
+      }
+    }
+
     // ── Référents ───────────────────────────────────────────────────────────
     const refMap = new Map<string, Set<string>>();
     rows.forEach(r => {
@@ -383,6 +412,7 @@ export async function GET(req: NextRequest) {
         by_weekday,
         by_source,
         by_channel,
+        traffic_heatmap,
         top_referrers,
         top_campaigns,
         by_country,

@@ -1,7 +1,7 @@
 "use client";
 import { useIsNarrow } from "@/lib/useIsNarrow";
 
-import { useEffect, useState, useRef, type CSSProperties } from "react";
+import { useEffect, useState, useRef, type CSSProperties, type SyntheticEvent } from "react";
 
 interface Subscriber {
   id: string;
@@ -138,6 +138,14 @@ export default function NewsletterAdminPage() {
   const [promoChoice, setPromoChoice] = useState("");
 
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Dernière position du curseur dans le textarea actif. Cliquer un bouton
+  // « Insérer » retire le focus du textarea → on mémorise la position AVANT le
+  // blur pour insérer au bon endroit (et pas en tête du message).
+  const lastCursorRef = useRef<{ start: number; end: number } | null>(null);
+  const rememberCursor = (e: SyntheticEvent<HTMLTextAreaElement>) => {
+    const ta = e.currentTarget;
+    lastCursorRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
+  };
 
   const showToast = (msg: string, ok = true) => {
     setToast({ msg, ok });
@@ -238,11 +246,18 @@ export default function NewsletterAdminPage() {
     const setValue = mode === "simple" ? setSimpleText : setHtmlContent;
     const ta = textareaRef.current;
     if (!ta) { setValue(value + insertion); return; }
-    const start = ta.selectionStart;
-    const end   = ta.selectionEnd;
+    // Position d'insertion : sélection VIVANTE si le textarea a encore le focus,
+    // sinon la dernière position mémorisée (le clic sur « Insérer » a blur le
+    // textarea), sinon la fin du texte. Jamais 0 par défaut → plus d'insertion
+    // parasite en tête du message.
+    const focused = typeof document !== "undefined" && document.activeElement === ta;
+    const start = focused ? ta.selectionStart : (lastCursorRef.current?.start ?? value.length);
+    const end   = focused ? ta.selectionEnd   : (lastCursorRef.current?.end   ?? start);
     setValue(value.slice(0, start) + insertion + value.slice(end));
+    const caret = start + insertion.length;
+    lastCursorRef.current = { start: caret, end: caret };
     setTimeout(() => {
-      ta.selectionStart = ta.selectionEnd = start + insertion.length;
+      ta.selectionStart = ta.selectionEnd = caret;
       ta.focus();
     }, 0);
   }
@@ -285,9 +300,13 @@ export default function NewsletterAdminPage() {
     const label = promoDiscountLabel(c);
     const ins = mode === "template"
       ? `
-<div style="background:#2a2018;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:20px;margin:20px 0;text-align:center">
-  <div style="font-size:12px;color:rgba(242,237,230,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">${label} avec le code</div>
-  <div style="font-size:24px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${c.code}</div>
+<div style="margin:24px 0;padding:26px 24px;background:#211913;border:1.5px solid #c49a4a;border-radius:18px;text-align:center">
+  <div style="font-size:24px;line-height:1;margin-bottom:10px">🎁</div>
+  <div style="font-size:12px;font-weight:700;color:#e8dcc4;text-transform:uppercase;letter-spacing:2px;margin-bottom:16px">${label} rien que pour toi</div>
+  <div style="display:inline-block;padding:13px 26px;background:rgba(196,154,74,0.10);border:1px dashed #c49a4a;border-radius:12px">
+    <span style="font-size:27px;font-weight:900;color:#c49a4a;font-family:'Courier New',Courier,monospace;letter-spacing:5px">${c.code}</span>
+  </div>
+  <div style="font-size:11px;color:rgba(242,237,230,0.4);margin-top:14px;letter-spacing:0.5px">Code à saisir dans le panier</div>
 </div>
 `
       : `Profite de ${label} avec le code ${c.code}`;
@@ -452,9 +471,9 @@ export default function NewsletterAdminPage() {
           <div>
             <label style={LBL}>{mode === "simple" ? "Votre message *" : "Contenu HTML *"}</label>
             {mode === "simple" ? (
-              <textarea ref={textareaRef} value={simpleText} onChange={e => setSimpleText(e.target.value)} placeholder="Écris ton message ici. Les retours à la ligne sont conservés. Tu peux insérer des images et des liens ci-dessous." style={TA} />
+              <textarea ref={textareaRef} value={simpleText} onChange={e => setSimpleText(e.target.value)} onSelect={rememberCursor} onKeyUp={rememberCursor} onBlur={rememberCursor} placeholder="Écris ton message ici. Les retours à la ligne sont conservés. Tu peux insérer des images et des liens ci-dessous." style={TA} />
             ) : (
-              <textarea ref={textareaRef} value={htmlContent} onChange={e => setHtmlContent(e.target.value)} spellCheck={false} style={{ ...TA, fontFamily: "ui-monospace, monospace", fontSize: 12.5, minHeight: 280 }} />
+              <textarea ref={textareaRef} value={htmlContent} onChange={e => setHtmlContent(e.target.value)} onSelect={rememberCursor} onKeyUp={rememberCursor} onBlur={rememberCursor} spellCheck={false} style={{ ...TA, fontFamily: "ui-monospace, monospace", fontSize: 12.5, minHeight: 280 }} />
             )}
             <div style={{ marginTop: 8, fontSize: 12, color: "rgba(26,20,16,0.5)", background: "rgba(196,154,74,0.08)", padding: "8px 12px", borderRadius: 8, lineHeight: 1.5 }}>
               💡 <code style={{ fontWeight: 800 }}>{"{{UNSUB_LINK}}"}</code> sera remplacé automatiquement par le lien de désabonnement personnalisé de chaque abonné.

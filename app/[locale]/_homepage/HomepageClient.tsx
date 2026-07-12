@@ -2033,6 +2033,23 @@ export default function HomePage() {
       {/* Le titre de section vient du DB (FR uniquement). Hors FR, on retombe
           sur la clé traduite pour ne pas afficher de français sur /en. */}
       <ProductsSection products={products} lbl={(locale === "fr" && lbl) ? lbl : t("products_default_lbl")} />
+
+      {/* Bandeau « Coffret de naissance » — remonté juste après les produits, avant les catégories */}
+      {coffretActive && (
+        <section style={{ background: P.taupeAlt, padding: "clamp(48px,7vw,88px) 5vw", textAlign: "center" }}>
+          <div style={{ maxWidth: 720, margin: "0 auto" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{t("coffret_eyebrow")}</div>
+            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>{t("coffret_title")}</h2>
+            <p style={{ margin: "0 0 26px", fontSize: "clamp(14px,1.4vw,17px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>
+              {t("coffret_desc")}
+            </p>
+            <Link href="/packs" style={{ display: "inline-block", padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none" }}>
+              {t("coffret_cta")}
+            </Link>
+          </div>
+        </section>
+      )}
+
       <CategoriesSection />
 
       {/* Édito 1 — texte gauche / photo droite */}
@@ -2083,21 +2100,6 @@ export default function HomePage() {
         bg={P.warm}
         imgSquare
       />
-
-      {coffretActive && (
-        <section style={{ background: P.taupeAlt, padding: "clamp(48px,7vw,88px) 5vw", textAlign: "center" }}>
-          <div style={{ maxWidth: 720, margin: "0 auto" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{t("coffret_eyebrow")}</div>
-            <h2 style={{ margin: "0 0 14px", fontSize: "clamp(24px,4vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: P.dark, lineHeight: 1.05 }}>{t("coffret_title")}</h2>
-            <p style={{ margin: "0 0 26px", fontSize: "clamp(14px,1.4vw,17px)", color: "rgba(26,20,16,0.65)", lineHeight: 1.7 }}>
-              {t("coffret_desc")}
-            </p>
-            <Link href="/packs" style={{ display: "inline-block", padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none" }}>
-              {t("coffret_cta")}
-            </Link>
-          </div>
-        </section>
-      )}
 
       <CadeauSection />
       <AccordionsSection />

@@ -48,12 +48,24 @@ const EMPTY: Settings = {
 
 const ORDINAUX = ["1ʳᵉ", "2ᵉ", "3ᵉ", "4ᵉ", "5ᵉ", "6ᵉ"];
 
+// Carte stat (motif KpiCard de /admin/analytics, adapté au thème clair de cette page).
+function StatCard({ label, value, sub, color }: { label: string; value: string; sub?: string; color: string }) {
+  return (
+    <div style={{ background: "#fff", borderRadius: 16, padding: "18px 20px", border: "1px solid rgba(0,0,0,0.06)", borderLeft: `3px solid ${color}` }}>
+      <div style={{ fontSize: 11.5, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", color: "rgba(26,20,16,0.45)" }}>{label}</div>
+      <div style={{ fontSize: 26, fontWeight: 950, color: DARK, margin: "4px 0 2px", letterSpacing: -0.5 }}>{value}</div>
+      {sub && <div style={{ fontSize: 11.5, color: "rgba(26,20,16,0.5)", lineHeight: 1.4 }}>{sub}</div>}
+    </div>
+  );
+}
+
 export default function AdminParrainagePage() {
   const [s, setS]             = useState<Settings>(EMPTY);
   const [cats, setCats]       = useState<{ slug: string; label: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving]   = useState(false);
   const [toast, setToast]     = useState<{ msg: string; ok: boolean } | null>(null);
+  const [stats, setStats]     = useState<any>(null);
 
   const showToast = (msg: string, ok = true) => { setToast({ msg, ok }); setTimeout(() => setToast(null), 3500); };
 
@@ -73,6 +85,9 @@ export default function AdminParrainagePage() {
     })();
     adminFetch("/api/admin/categories").then(r => r.ok ? r.json() : []).then((d: any) => {
       if (Array.isArray(d)) setCats(d.map((c: any) => ({ slug: c.slug, label: c.label ?? c.slug })));
+    }).catch(() => {});
+    adminFetch("/api/admin/parrainage/stats").then(r => r.ok ? r.json() : null).then((d: any) => {
+      if (d && !d.error) setStats(d);
     }).catch(() => {});
   }, []);
 
@@ -114,12 +129,71 @@ export default function AdminParrainagePage() {
   if (loading) return <div style={{ padding: 40, opacity: 0.5 }}>Chargement…</div>;
 
   return (
-    <div style={{ maxWidth: 720, margin: "0 auto", padding: "8px 4px 60px" }}>
+    <div style={{ maxWidth: 880, margin: "0 auto", padding: "8px 4px 60px" }}>
       <h1 style={{ fontSize: 26, fontWeight: 950, letterSpacing: -0.5, color: DARK, margin: "0 0 6px" }}>🎁 Parrainage</h1>
       <p style={{ fontSize: 14, color: "rgba(26,20,16,0.55)", margin: "0 0 24px", lineHeight: 1.6 }}>
         Réglages du programme. Les changements sont pris en compte immédiatement (le panier re-valide côté serveur à chaque commande, sans redéploiement).
       </p>
 
+      {/* ── Statistiques du programme (depuis le début) ── */}
+      <div style={{ marginBottom: 30 }}>
+        <div style={{ fontSize: 13, fontWeight: 900, textTransform: "uppercase", letterSpacing: 1, color: "rgba(26,20,16,0.4)", marginBottom: 12 }}>📊 Vue d'ensemble</div>
+        {!stats ? (
+          <div style={{ ...CARD, color: "rgba(26,20,16,0.4)", fontSize: 14 }}>Chargement des statistiques…</div>
+        ) : (
+          <>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 12 }}>
+              <StatCard label="Parrains actifs" value={String(stats.parrainsActifs)} sub="comptes avec ≥ 1 filleul ayant acheté" color="#a855f7" />
+              <StatCard label="Filleuls (commandes)" value={String(stats.filleulsTotaux)} sub={`${Number(stats.remiseFilleulTotal).toFixed(2)} € de remises filleul accordées`} color="#3b82f6" />
+              <StatCard label="Récompenses générées" value={String(stats.recompenses.total)} sub={`${stats.recompenses.disponible} dispo · ${stats.recompenses.utilisee} utilisées · ${stats.recompenses.expiree} expirées`} color="#c49a4a" />
+              <StatCard label="Valeur dépensée" value={`${Number(stats.valeur.utilisee).toFixed(2)} €`} sub={`${Number(stats.valeur.disponible).toFixed(2)} € en attente · ${Number(stats.valeur.expiree).toFixed(2)} € jamais réclamés`} color="#22c55e" />
+            </div>
+
+            <div style={{ ...CARD, marginBottom: 12 }}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: DARK, marginBottom: 10 }}>Répartition des récompenses</div>
+              {stats.recompenses.total === 0 ? (
+                <div style={{ fontSize: 13.5, color: "rgba(26,20,16,0.4)" }}>Aucune récompense générée pour l'instant.</div>
+              ) : (
+                <>
+                  <div style={{ display: "flex", height: 12, borderRadius: 99, overflow: "hidden", marginBottom: 10, background: "rgba(26,20,16,0.06)" }}>
+                    {(["disponible", "utilisee", "expiree"] as const).map(k => {
+                      const col = k === "disponible" ? "#22c55e" : k === "utilisee" ? "#3b82f6" : "#ef4444";
+                      const pct = stats.recompenses.total ? (stats.recompenses[k] / stats.recompenses.total) * 100 : 0;
+                      return pct > 0 ? <div key={k} style={{ width: `${pct}%`, background: col }} /> : null;
+                    })}
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 16, fontSize: 12.5 }}>
+                    {([["disponible", "Disponibles", "#22c55e"], ["utilisee", "Utilisées", "#3b82f6"], ["expiree", "Expirées", "#ef4444"]] as const).map(([k, lbl, col]) => {
+                      const n = stats.recompenses[k]; const pct = stats.recompenses.total ? Math.round(100 * n / stats.recompenses.total) : 0;
+                      return <span key={k} style={{ color: "rgba(26,20,16,0.6)" }}><span style={{ display: "inline-block", width: 9, height: 9, borderRadius: 2, background: col, marginRight: 5 }} /><strong style={{ color: DARK }}>{n}</strong> {lbl} ({pct}%)</span>;
+                    })}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div style={CARD}>
+              <div style={{ fontSize: 13, fontWeight: 800, color: DARK, marginBottom: 12 }}>🏆 Top parrains (par filleuls)</div>
+              {(!stats.topParrains || stats.topParrains.length === 0) ? (
+                <div style={{ fontSize: 13.5, color: "rgba(26,20,16,0.4)" }}>Aucun parrain avec filleul pour l'instant.</div>
+              ) : (
+                <div style={{ display: "grid", gap: 4 }}>
+                  {stats.topParrains.map((p: any, i: number) => (
+                    <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 10px", borderRadius: 8, background: i % 2 ? "transparent" : "#faf7f2" }}>
+                      <span style={{ width: 22, fontWeight: 900, color: i < 3 ? "#c49a4a" : "rgba(26,20,16,0.35)", fontSize: 14 }}>{i + 1}</span>
+                      <span style={{ flex: 1, fontSize: 13.5, color: DARK, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.prenom ? `${p.prenom} · ` : ""}{p.email}</span>
+                      <span style={{ fontWeight: 800, fontSize: 13.5, color: DARK, whiteSpace: "nowrap" }}>{p.filleuls} filleul{p.filleuls > 1 ? "s" : ""}</span>
+                      <span style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", minWidth: 96, textAlign: "right", whiteSpace: "nowrap" }}>{Number(p.solde).toFixed(2)} € solde</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* ── Réglages ── */}
       <div style={{ display: "grid", gap: 16 }}>
         {/* Activation */}
         <div style={{ ...CARD, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 16 }}>

@@ -38,9 +38,17 @@ export async function POST(req: NextRequest) {
     // Nouveaux champs (migration 004) — orthogonaux au type principal
     free_shipping:            Boolean(body.free_shipping),
     cumulable_avec_livraison: body.cumulable_avec_livraison !== undefined ? Boolean(body.cumulable_avec_livraison) : true,
+    // Cumul de codes classiques entre eux (migration 016) — `cumulable` = ce code
+    // accepte d'être combiné ; `cumulable_codes` = codes explicitement compatibles.
+    cumulable:                Boolean(body.cumulable),
+    cumulable_codes:          Array.isArray(body.cumulable_codes)
+                                ? body.cumulable_codes.map((c: any) => String(c).toUpperCase().trim()).filter(Boolean)
+                                : null,
   };
   // Si discount_type='free_shipping' → forcer free_shipping=true (cohérence)
   if (clean.discount_type === "free_shipping") clean.free_shipping = true;
+  // Un code non cumulable n'a pas de liste de compatibilité.
+  if (!clean.cumulable) clean.cumulable_codes = null;
 
   if (!clean.code) return Response.json({ error: "Code manquant" }, { status: 400 });
 
@@ -74,8 +82,14 @@ export async function PUT(req: NextRequest) {
   if (rest.active                   !== undefined) clean.active                   = rest.active;
   if (rest.free_shipping            !== undefined) clean.free_shipping            = Boolean(rest.free_shipping);
   if (rest.cumulable_avec_livraison !== undefined) clean.cumulable_avec_livraison = Boolean(rest.cumulable_avec_livraison);
+  if (rest.cumulable                !== undefined) clean.cumulable                = Boolean(rest.cumulable);
+  if (rest.cumulable_codes          !== undefined) clean.cumulable_codes          = Array.isArray(rest.cumulable_codes)
+                                                                                      ? rest.cumulable_codes.map((c: any) => String(c).toUpperCase().trim()).filter(Boolean)
+                                                                                      : null;
   // Cohérence : si on passe à discount_type='free_shipping' → free_shipping=true
   if (clean.discount_type === "free_shipping") clean.free_shipping = true;
+  // Un code explicitement rendu non cumulable perd sa liste de compatibilité.
+  if (clean.cumulable === false) clean.cumulable_codes = null;
 
   const { data, error } = await supabaseServer
     .from("promo_codes").update(clean).eq("id", id).select().single();

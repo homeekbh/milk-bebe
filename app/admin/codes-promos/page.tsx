@@ -43,6 +43,7 @@ type PromoCode = {
   min_order?: number; max_uses?: number; uses_count: number;
   active: boolean; expires_at?: string; starts_at?: string;
   created_at: string; ca_genere?: number;
+  cumulable?: boolean; cumulable_codes?: string[] | null;
 };
 
 // ── Mini calendrier avec plage colorée ───────────────────────────────────────
@@ -217,6 +218,8 @@ export default function AdminCodes() {
     starts_at: "", expires_at: "",
     free_shipping: false,
     cumulable_avec_livraison: true,
+    cumulable: false,
+    cumulable_codes: [] as string[],
   });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
@@ -290,9 +293,37 @@ export default function AdminCodes() {
       setError("La date de fin doit être après la date de début");
       return;
     }
+    const codeUp = trimCode.toUpperCase();
+
+    // ── Alerte plafond 60 % (paires %+%) ────────────────────────────────────
+    // Deux pourcentages cumulés peuvent, dans le pire cas, dépasser 60 % de remise
+    // (1 − (1−p1)(1−p2)). Au panier, le 2ᵉ code serait alors REFUSÉ. On prévient
+    // l'admin AVANT activation. (Les paires à montant fixe dépendent du panier →
+    // garanties par le garde-fou du checkout, pas d'alerte config possible.)
+    if (form.cumulable && form.type === "percent") {
+      const p1    = parseFloat(form.value) || 0;
+      const risky = codes
+        .filter(c => form.cumulable_codes.includes(c.code) && (c.discount_type ?? c.type) === "percent")
+        .map(c => {
+          const p2 = Number(c.discount_value ?? c.value ?? 0);
+          return { code: c.code, p2, worst: (1 - (1 - p1 / 100) * (1 - p2 / 100)) * 100 };
+        })
+        .filter(x => x.worst > 60);
+      if (risky.length > 0) {
+        const lines = risky.map(x => `• ${codeUp} (${p1} %) + ${x.code} (${x.p2} %) → jusqu'à ${x.worst.toFixed(1)} %`).join("\n");
+        const ok = confirm(
+          `⚠️ Plafond de remise 60 % — dépassement possible :\n\n${lines}\n\n`
+          + `Ces paires de codes en pourcentage peuvent cumuler plus de 60 % de remise. `
+          + `Au paiement, le 2ᵉ code sera alors REFUSÉ (le client ne pourra pas les cumuler).\n\n`
+          + `Créer ce code quand même ?`
+        );
+        if (!ok) return;
+      }
+    }
+
     setSaving(true); setError(""); setSuccess("");
     const body: Record<string, unknown> = {
-      code:                     trimCode.toUpperCase(),
+      code:                     codeUp,
       discount_type:            form.type,
       discount_value:           form.type === "free_shipping" ? 7.70 : parseFloat(form.value),
       min_order:                form.min_order  ? parseFloat(form.min_order) : null,
@@ -302,17 +333,36 @@ export default function AdminCodes() {
       active:                   true,
       free_shipping:            form.free_shipping || form.type === "free_shipping",
       cumulable_avec_livraison: form.cumulable_avec_livraison,
+      // Cumul de codes classiques entre eux (étape 21).
+      cumulable:                form.cumulable,
+      cumulable_codes:          form.cumulable ? form.cumulable_codes : null,
     };
     const res  = await adminFetch("/api/admin/promos", {
       method: "POST", body: JSON.stringify(body),
     });
     const data = await res.json();
     if (!res.ok) { setError(data.error ?? "Erreur lors de la création"); setSaving(false); return; }
+
+    // Compat MUTUELLE : le runtime exige la déclaration DES DEUX CÔTÉS. On inscrit
+    // donc ce nouveau code dans la liste `cumulable_codes` de chaque partenaire
+    // sélectionné (tous déjà `cumulable`, seuls proposés en option).
+    if (form.cumulable && form.cumulable_codes.length > 0) {
+      const partners = codes.filter(c => form.cumulable_codes.includes(c.code));
+      for (const p of partners) {
+        const merged = [...new Set([...(p.cumulable_codes ?? []), codeUp])];
+        await adminFetch("/api/admin/promos", {
+          method: "PUT",
+          body:   JSON.stringify({ id: p.id, cumulable: true, cumulable_codes: merged }),
+        });
+      }
+    }
+
     setSuccess("✅ Code créé avec succès !");
     setForm({
       code: "", type: "percent", value: "", min_order: "", max_uses: "",
       starts_at: "", expires_at: "",
       free_shipping: false, cumulable_avec_livraison: true,
+      cumulable: false, cumulable_codes: [],
     });
     setTimeout(() => setSuccess(""), 4000);
     await load();
@@ -339,6 +389,9 @@ export default function AdminCodes() {
   const activeCodes = codes.filter(c => c.active).length;
   const totalUses   = codes.reduce((a, c) => a + (c.uses_count ?? 0), 0);
   const totalCA     = codes.reduce((a, c) => a + (c.ca_genere ?? 0), 0);
+  // Partenaires de cumul proposables : autres codes ACTIFS eux-mêmes `cumulable`.
+  // Un code exclusif n'apparaît jamais comme option (compat mutuelle impossible).
+  const eligiblePartners = codes.filter(c => c.active && c.cumulable === true && c.code !== form.code.trim().toUpperCase());
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1000 }}>
@@ -494,6 +547,66 @@ export default function AdminCodes() {
           </div>
         </div>
 
+        {/* Ligne 2ter : cumul de codes classiques entre eux (étape 21) */}
+        <div style={{ background: "#faf8f4", borderRadius: 12, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", marginBottom: 12 }}>
+            Cumul avec d'autres codes
+          </div>
+          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={form.cumulable}
+              onChange={e => setForm(f => ({ ...f, cumulable: e.target.checked, cumulable_codes: e.target.checked ? f.cumulable_codes : [] }))}
+              style={{ marginTop: 3, width: 16, height: 16, accentColor: "#1a1410" }}
+            />
+            <div>
+              <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
+                Cumulable avec d'autres codes promo
+              </div>
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", marginTop: 2, lineHeight: 1.5 }}>
+                Autorise ce code à être combiné avec d'autres codes classiques. Ordre de calcul :
+                montants fixes d'abord, puis pourcentages. Remise cumulée plafonnée à 60 %.
+              </div>
+            </div>
+          </label>
+
+          {form.cumulable && (
+            <div style={{ marginTop: 14 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "#1a1410", marginBottom: 8 }}>
+                Codes compatibles (eux-mêmes cumulables) :
+              </div>
+              {eligiblePartners.length === 0 ? (
+                <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", fontStyle: "italic" }}>
+                  Aucun autre code cumulable pour l'instant. Crée d'abord un autre code coché « cumulable »,
+                  puis reviens le lier ici.
+                </div>
+              ) : (
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  {eligiblePartners.map(c => {
+                    const on = form.cumulable_codes.includes(c.code);
+                    return (
+                      <button
+                        type="button"
+                        key={c.id}
+                        onClick={() => setForm(f => ({
+                          ...f,
+                          cumulable_codes: on ? f.cumulable_codes.filter(x => x !== c.code) : [...f.cumulable_codes, c.code],
+                        }))}
+                        style={{ padding: "7px 12px", borderRadius: 999, fontFamily: "monospace", fontWeight: 800, fontSize: 13, cursor: "pointer", border: on ? "1.5px solid #1a1410" : "1.5px solid rgba(26,20,16,0.15)", background: on ? "#1a1410" : "#fff", color: on ? "#c49a4a" : "#1a1410" }}>
+                        {on ? "✓ " : ""}{c.code}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", marginTop: 8, lineHeight: 1.5 }}>
+                La compatibilité est réciproque : sélectionner un code l'ajoute aussi automatiquement à sa
+                propre liste. Deux pourcentages qui dépasseraient 60 % de remise déclenchent une confirmation.
+              </div>
+            </div>
+          )}
+        </div>
+
         {/* Ligne 3 : calendrier avec plage */}
         <div style={{ marginBottom: 20 }}>
           <label style={{ ...LS, display: "block", marginBottom: 10 }}>Période de validité</label>
@@ -551,7 +664,13 @@ export default function AdminCodes() {
                     )}
                     {c.cumulable_avec_livraison === false && (
                       <span style={{ padding: "3px 8px", borderRadius: 6, background: "#fef3c7", fontSize: 12, fontWeight: 700, color: "#92400e" }} title="Désactive la livraison offerte automatique tant que ce code est appliqué">
-                        Non cumulable
+                        Livraison non cumulable
+                      </span>
+                    )}
+                    {c.cumulable && (
+                      <span style={{ padding: "3px 8px", borderRadius: 6, background: "#e0e7ff", fontSize: 12, fontWeight: 700, color: "#3730a3" }}
+                        title={c.cumulable_codes && c.cumulable_codes.length ? `Cumulable avec : ${c.cumulable_codes.join(", ")}` : "Cumulable — aucun partenaire déclaré pour l'instant"}>
+                        🔗 Cumulable{c.cumulable_codes && c.cumulable_codes.length ? ` (${c.cumulable_codes.length})` : ""}
                       </span>
                     )}
                     {c.min_order && <span style={{ padding: "3px 8px", borderRadius: 6, background: "#f5f0e8", fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.6)" }}>min. {c.min_order}€</span>}

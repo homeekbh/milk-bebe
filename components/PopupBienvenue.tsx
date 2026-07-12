@@ -10,21 +10,22 @@ export default function PopupBienvenue() {
   const [popup,    setPopup]    = useState<any>(null);
 
   useEffect(() => {
-    // Ne pas afficher si déjà vu
-    if (typeof window !== "undefined" && localStorage.getItem("milk_popup_seen")) return;
-
-    // Charger le popup actif depuis l'API
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    // Charger le popup actif d'abord : le flag "déjà vu" est scopé à CE popup précis
+    // (milk_popup_seen_<id>) et non plus global — sinon fermer un popup masquait à vie
+    // toutes les campagnes futures sur ce navigateur.
     fetch("/api/popups/active")
       .then(r => r.json())
       .then(data => {
-        if (data && !data.error) {
-          setPopup(data);
-          // Apparaît après 4 secondes
-          const t = setTimeout(() => setVisible(true), 4000);
-          return () => clearTimeout(t);
-        }
+        if (!data || data.error) return;
+        // Ne pas ré-afficher ce popup précis s'il a déjà été vu/fermé.
+        if (typeof window !== "undefined" && data.id != null && localStorage.getItem(`milk_popup_seen_${data.id}`)) return;
+        setPopup(data);
+        // Apparaît après 4 secondes
+        timer = setTimeout(() => setVisible(true), 4000);
       })
       .catch(() => {});
+    return () => { if (timer) clearTimeout(timer); };
   }, []);
 
   async function handleSubmit() {
@@ -45,7 +46,7 @@ export default function PopupBienvenue() {
         return;
       }
       setDone(true);
-      localStorage.setItem("milk_popup_seen", "1");
+      if (popup?.id != null) localStorage.setItem(`milk_popup_seen_${popup.id}`, "1");
       setTimeout(() => setVisible(false), 3000);
     } catch (e) {
       process.env.NODE_ENV !== "production" && console.error("Newsletter subscribe error:", e);
@@ -55,7 +56,7 @@ export default function PopupBienvenue() {
 
   function close() {
     setVisible(false);
-    localStorage.setItem("milk_popup_seen", "1");
+    if (popup?.id != null) localStorage.setItem(`milk_popup_seen_${popup.id}`, "1");
   }
 
   if (!visible || !popup) return null;

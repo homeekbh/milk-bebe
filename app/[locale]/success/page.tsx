@@ -6,7 +6,7 @@ import { useCart } from "@/context/CartContext";
 import { Link } from "@/i18n/navigation";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
 import GoogleCustomerReviews from "@/components/analytics/GoogleCustomerReviews";
-import { trackPurchase, metaPurchase } from "@/lib/analytics";
+import { trackPurchase, metaPurchase, trackRemoveFromWishlist } from "@/lib/analytics";
 
 const FALLBACK_CATEGORY = "pyjamas";
 
@@ -147,6 +147,28 @@ export default function SuccessPage() {
           if (txId && email) setGcr({ orderId: txId, email });
         })();
       }
+
+      // ── Retrait auto des favoris achetés + tracking "purchased" ───────────
+      // Le favori a mené à un achat (signal positif). On compare les produits
+      // achetés (snapshot panier) au wishlist localStorage, on retire les matches
+      // et on notifie le WishlistContext (badge Header) via l'event custom.
+      // Fonctionne pour tout visiteur (compte ou invité) revenant sur son navigateur.
+      try {
+        const purchasedIds = items.map(it => String(it.id)).filter(Boolean);
+        if (purchasedIds.length > 0) {
+          const wl = JSON.parse(localStorage.getItem("milk_wishlist") ?? "[]");
+          if (Array.isArray(wl) && wl.length > 0) {
+            const purchasedSet = new Set(purchasedIds);
+            const removed: string[] = wl.filter((id: any) => purchasedSet.has(String(id)));
+            if (removed.length > 0) {
+              const keep = wl.filter((id: any) => !purchasedSet.has(String(id)));
+              localStorage.setItem("milk_wishlist", JSON.stringify(keep));
+              window.dispatchEvent(new Event("milk-wishlist-changed"));
+              removed.forEach(id => trackRemoveFromWishlist({ id: String(id) }, "purchased"));
+            }
+          }
+        }
+      } catch {}
 
       // ── 3. clearCart une seule fois ───────────────────────────────────────
       clearCart();

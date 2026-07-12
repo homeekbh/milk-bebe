@@ -1,6 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
-import { trackAddToWishlist } from "@/lib/analytics";
+import { trackAddToWishlist, trackRemoveFromWishlist } from "@/lib/analytics";
 
 type WishlistCtx = {
   ids:      string[];
@@ -30,12 +30,34 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
     try { localStorage.setItem("milk_wishlist", JSON.stringify(ids)); } catch {}
   }, [ids, mounted]);
 
+  // Re-synchronisation depuis localStorage : event custom "milk-wishlist-changed"
+  // (émis par la page succès quand un favori acheté est retiré) + "storage" (autres
+  // onglets). Garde d'égalité (retourne prev si identique) → pas de ping-pong.
+  useEffect(() => {
+    const resync = () => {
+      try {
+        const saved = JSON.parse(localStorage.getItem("milk_wishlist") ?? "[]");
+        const next: string[] = Array.isArray(saved) ? saved : [];
+        setIds(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } catch {}
+    };
+    const onStorage = (e: StorageEvent) => { if (e.key === "milk_wishlist") resync(); };
+    window.addEventListener("milk-wishlist-changed", resync);
+    window.addEventListener("storage", onStorage);
+    return () => {
+      window.removeEventListener("milk-wishlist-changed", resync);
+      window.removeEventListener("storage", onStorage);
+    };
+  }, []);
+
   function toggle(id: string) {
     const adding = !ids.includes(id);
     setIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
-    // Tracking analytique UNIQUEMENT à l'ajout (pas au retrait). Le stockage
-    // localStorage ci-dessus reste inchangé et seul responsable de l'UI/persistance.
+    // Tracking analytique séparé : ajout vs retrait MANUEL (re-clic sur le cœur).
+    // Le retrait à l'ACHAT est tracké ailleurs (page succès, reason "purchased").
+    // Le stockage localStorage ci-dessus reste inchangé (UI/persistance).
     if (adding) trackAddToWishlist({ id });
+    else        trackRemoveFromWishlist({ id }, "manual");
   }
 
   function isInList(id: string) { return ids.includes(id); }

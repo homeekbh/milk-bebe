@@ -39,7 +39,7 @@ const LEXIQUE: Record<string, { icon: string; def: string }> = {
   "Taux de conversion":    { icon: "🎯", def: "% de sessions qui aboutissent à une commande, sur la MÊME période. La moyenne e-commerce est 1–3%." },
   "Clients uniques":       { icon: "👤", def: "Nombre d'adresses email distinctes ayant commandé sur la période. Un client qui commande 2× compte pour 1." },
   "Comptes créés":         { icon: "🆕", def: "Nombre de comptes créés (inscriptions Supabase Auth) sur la période. Différent des « Clients uniques » : ici on compte les inscriptions, pas les acheteurs — un inscrit peut ne jamais commander." },
-  "Favoris":               { icon: "❤️", def: "Nombre de mises en favoris (wishlist) sur la période + top produits favorisés. Signal d'intérêt fort. Donnée mesurable UNIQUEMENT depuis le déploiement du tracking — pas d'historique rétroactif." },
+  "Favoris":               { icon: "❤️", def: "État net des favoris sur la période : Favoris actifs = ajouts − retraits. « Retirés (abandon) » = l'utilisateur a re-cliqué le cœur ; « Retirés (achat) » = le favori a mené à une commande (positif). + top produits favorisés. Donnée mesurable UNIQUEMENT depuis le déploiement du tracking — pas d'historique rétroactif." },
   "Taux de fidélité":      { icon: "🔁", def: "% de clients actifs sur la période qui avaient déjà commandé avant. Un client fidèle coûte 5× moins cher à garder qu'à acquérir." },
   "Nouveaux clients":      { icon: "✨", def: "Clients dont la toute première commande tombe dans la période sélectionnée. Mesure l'acquisition." },
   "Codes promos":          { icon: "🏷️", def: "Performance des codes promo : utilisations, CA généré et remises accordées. Mesure l'efficacité des campagnes." },
@@ -1023,8 +1023,13 @@ export default function AdminStats() {
         <Card title="❤️ Favoris (mises en wishlist)" lexique="Favoris">
           {!wishlist ? <Skeleton h={120} /> : (
             <>
-              <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 14 }}>
-                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{wishlist.total ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>ajout(s) aux favoris</div></div>
+              <div style={{ display: "flex", gap: 22, flexWrap: "wrap", marginBottom: 10 }}>
+                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{wishlist.active ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>favoris actifs</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.red }}>{wishlist.removed_manual ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>retirés (abandon)</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.green }}>{wishlist.removed_purchased ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>retirés (achat) ✓</div></div>
+              </div>
+              <div style={{ fontSize: 11, color: C.muted, marginBottom: 12, lineHeight: 1.5 }}>
+                Actifs = ajouts − retraits (tous motifs) sur la période. « Retirés (achat) » = le favori a mené à une commande — signal positif.
               </div>
               {(wishlist.top_products ?? []).length === 0 ? (
                 <div style={{ color: C.muted, fontSize: 13 }}>Aucun favori tracké sur la période (donnée non rétroactive — depuis le déploiement du tracking).</div>

@@ -171,6 +171,22 @@ export function trackAddToWishlist(product: { id: string; name?: string; price?:
   logInternalEvent({ event_type: "add_to_wishlist", product_id: String(product.id), value });
 }
 
+/**
+ * Retrait d'un favori. `reason` distingue le retrait MANUEL (l'utilisateur re-clique
+ * sur le cœur) de l'achat ("purchased" — le favori a mené à une commande, signal
+ * positif). Agrégé par la carte « Favoris » de l'admin (favoris actifs = ajouts −
+ * retraits ; ventilation par motif).
+ */
+export function trackRemoveFromWishlist(product: { id: string; name?: string; price?: number }, reason: "manual" | "purchased"): void {
+  const value = Number(product.price ?? 0);
+  pushDataLayer("remove_from_wishlist", {
+    currency: CURRENCY,
+    value,
+    items:    [toGa4Item({ id: product.id, name: product.name ?? "", price: value, quantity: 1 })],
+  });
+  logInternalEvent({ event_type: "remove_from_wishlist", product_id: String(product.id), value, metadata: { reason } });
+}
+
 export function trackRemoveFromCart(product: { id: string; name: string; price: number; quantity: number }): void {
   pushDataLayer("remove_from_cart", {
     currency: CURRENCY,

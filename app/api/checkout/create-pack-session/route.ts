@@ -72,8 +72,10 @@ export async function POST(req: Request) {
     const productIds = products.map((p: any) => p.id);
 
     // 3. Session Stripe — 1 line item = le pack
+    // klarna gated par STRIPE_KLARNA_ENABLED (moyen explicite → doit être activé dans
+    // le Dashboard Stripe, sinon l'API rejette la session). Parité avec create-session.
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card", "paypal"],
+      payment_method_types: ["card", "paypal", ...(process.env.STRIPE_KLARNA_ENABLED === "true" ? ["klarna"] : [])] as ("card" | "paypal" | "klarna")[],
       mode: "payment",
       locale: safeLocale,
       billing_address_collection: "auto",

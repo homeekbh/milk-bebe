@@ -328,9 +328,13 @@ export async function POST(req: Request) {
       // Safari iOS / Chrome Android par Stripe. 'paypal' → bouton PayPal natif
       // dans le Checkout Stripe (aucune clé PayPal requise : le compte PayPal
       // est lié côté Stripe Dashboard → Paramètres → Moyens de paiement).
-      // ⚠️ 'paypal' doit être ACTIVÉ dans le Dashboard Stripe, sinon l'API
-      // rejette la création de session ("payment method type paypal is invalid").
-      payment_method_types: ["card", "paypal"],
+      // ⚠️ Avec payment_method_types EXPLICITE, chaque moyen doit être ACTIVÉ dans le
+      // Dashboard Stripe, sinon l'API rejette la création de session ("payment method
+      // type X is invalid"). 'klarna' est donc gated par STRIPE_KLARNA_ENABLED : on ne
+      // l'ajoute QUE si Bou l'a activé dans le Dashboard ET posé l'env → déploiement sûr.
+      // (Klarna : devise EUR OK ; Stripe Checkout masque de lui-même Klarna hors de sa
+      //  plage de montants éligibles, donc pas de plancher/plafond à gérer côté panier.)
+      payment_method_types: ["card", "paypal", ...(process.env.STRIPE_KLARNA_ENABLED === "true" ? ["klarna"] : [])],
       line_items:           lineItems,
       mode:                 "payment",
       billing_address_collection: "auto",

@@ -372,18 +372,23 @@ export default function CartPage() {
     (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
     false;
 
-  // Sauvegarde panier abandonné
+  // Sauvegarde panier abandonné — connecté (user.email) OU invité (guestEmail valide).
+  // Sans email exploitable, la quasi-totalité des visiteurs (achat invité) n'était
+  // jamais enregistrée dans abandoned_carts, donc jamais relancée.
   useEffect(() => {
-    if (!user || items.length === 0) return;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const guest = guestEmail.trim();
+    const email = user?.email ?? (guest && emailRegex.test(guest) ? guest : "");
+    if (!email || items.length === 0) return;
     const timeout = setTimeout(() => {
       fetch("/api/cart/save", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ email: user.email, prenom: user.email?.split("@")[0] ?? "", items, total: subtotal }),
+        body:    JSON.stringify({ email, prenom: email.split("@")[0] ?? "", items, total: subtotal }),
       }).catch(e => process.env.NODE_ENV !== "production" && console.error("Cart save error:", e));
     }, 3000);
     return () => clearTimeout(timeout);
-  }, [items, user, subtotal]);
+  }, [items, user, subtotal, guestEmail]);
 
   async function applyPromo() {
     if (!promoCode.trim()) return;

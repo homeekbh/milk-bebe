@@ -100,6 +100,16 @@ export default function ProfilPage() {
   const { addToCart } = useCart();
 
   const [tab,      setTab]      = useState<"infos"|"adresses"|"commandes"|"favoris"|"parrainage">("commandes");
+  // Ouvre directement un onglet via ?tab=… (ex. lien email « Voir mes récompenses »
+  // → onglet Parrainage). Lecture client-only (pas de useSearchParams → pas de Suspense).
+  useEffect(() => {
+    try {
+      const t = new URLSearchParams(window.location.search).get("tab");
+      if (t && ["infos", "adresses", "commandes", "favoris", "parrainage"].includes(t)) {
+        setTab(t as "infos" | "adresses" | "commandes" | "favoris" | "parrainage");
+      }
+    } catch {}
+  }, []);
   const [profile,  setProfile]  = useState<Profile | null>(null);
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [loading,  setLoading]  = useState(true);

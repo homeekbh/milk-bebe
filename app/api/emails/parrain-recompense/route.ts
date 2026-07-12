@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       <strong style="color:#c49a4a">${montantFmt}€</strong> vient d'être ajoutée à ton compte —
       à utiliser sur ta prochaine commande.
     </p>
-    <a href="${BASE}/fr/profil"
+    <a href="${BASE}/fr/profil?tab=parrainage"
        style="display:inline-block;background:#c49a4a;color:#1a1410;font-weight:900;font-size:15px;padding:16px 32px;border-radius:12px;text-decoration:none;letter-spacing:-0.3px">
       Voir mes récompenses →
     </a>

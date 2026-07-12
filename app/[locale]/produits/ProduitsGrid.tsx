@@ -183,6 +183,11 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   const router = useRouter();
   const [activeCategory, setActiveCategory] = useState(defaultCategory ?? "");
   const [sortValue,      setSortValue]      = useState("position");
+  // Ordre aléatoire du catalogue /produits : un rang aléatoire par produit, recalculé
+  // à CHAQUE chargement (montage client → null au 1er render pour éviter le hydration
+  // mismatch, l'ordre par défaut reste `position` puis se mélange). Uniquement sur
+  // /produits (PAS /categorie) et seulement en tri par défaut. Cf. useEffect + filtered.
+  const [shuffleRank,    setShuffleRank]    = useState<Record<string, number> | null>(null);
   const [search,         setSearch]         = useState("");
   const [page,           setPage]           = useState(1);
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
@@ -207,6 +212,14 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     }
   }, [showPacks, packsLoaded]);
 
+  // Mélange aléatoire recalculé à chaque chargement de page (montage). Rang aléatoire
+  // par produit → tri par rang = permutation uniforme (équivalent Fisher-Yates).
+  useEffect(() => {
+    const rank: Record<string, number> = {};
+    for (const p of products) rank[p.id] = Math.random();
+    setShuffleRank(rank);
+  }, [products]);
+
   const filtered = useMemo(() => {
     let list = products.filter(p => p.published !== false);
     if (activeCategory) list = list.filter(p => p.category_slug === activeCategory);
@@ -217,9 +230,16 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     if (sortValue === "price-asc")  list = [...list].sort((a,b) => (a.promo_price ?? a.price_ttc) - (b.promo_price ?? b.price_ttc));
     if (sortValue === "price-desc") list = [...list].sort((a,b) => (b.promo_price ?? b.price_ttc) - (a.promo_price ?? a.price_ttc));
     if (sortValue === "promo")      list = [...list].sort((a,b) => (isPromoActive(b) ? 1 : 0) - (isPromoActive(a) ? 1 : 0));
-    if (sortValue === "position")   list = [...list].sort((a,b) => (a.position ?? 99) - (b.position ?? 99));
+    if (sortValue === "position") {
+      // Tri par DÉFAUT : sur le catalogue complet /produits (pas /categorie), mélange
+      // aléatoire recalculé à chaque visite une fois shuffleRank prêt ; sinon ordre
+      // manuel `position` (1er render + pages /categorie). Un tri explicite reprend la main.
+      list = (!defaultCategory && shuffleRank)
+        ? [...list].sort((a, b) => (shuffleRank[a.id] ?? 0) - (shuffleRank[b.id] ?? 0))
+        : [...list].sort((a, b) => (a.position ?? 99) - (b.position ?? 99));
+    }
     return [...list.filter(p => (p.stock??0)>0), ...list.filter(p => (p.stock??0)<=0)];
-  }, [products, activeCategory, sortValue, search]);
+  }, [products, activeCategory, sortValue, search, shuffleRank, defaultCategory]);
 
   const totalPages = Math.ceil(filtered.length / PER_PAGE);
   const paginated  = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE);

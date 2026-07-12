@@ -814,6 +814,22 @@ export default function ProductClient({ initialProduct, header }: { initialProdu
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? t("added") : outTaille ? t("sold_out") : needsTaille ? t("choose_size_up") : t("add_price", { price: (Number(displayPrice) * qty).toFixed(2) })}
             </button>
+
+            {/* Réassurance rapprochée du CTA (juste sous « Ajouter au panier ») :
+                OEKO-TEX · livraison offerte · retours 14j · paiement sécurisé. */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              {[
+                { Icon: IconLeaf,   label: t("reass_oeko")     },
+                { Icon: IconTruck,  label: t("reass_shipping", { amount: freeShipThreshold }) },
+                { Icon: IconReturn, label: t("reass_returns")   },
+                { Icon: IconLock,   label: t("reass_payment")  },
+              ].map(r => (
+                <div key={r.label} style={{ padding: "9px 11px", borderRadius: 10, background: "rgba(26,20,16,0.07)", display: "flex", alignItems: "center", gap: 7, fontSize: "clamp(10px,0.9vw,12px)", fontWeight: 700, color: "rgba(26,20,16,0.65)", whiteSpace: "nowrap" }}>
+                  <r.Icon />{r.label}
+                </div>
+              ))}
+            </div>
+
             {/* ── Alerte réassort si épuisé ── */}
             {outTaille && !needsTaille && (
               <StockAlertForm
@@ -855,19 +871,6 @@ export default function ProductClient({ initialProduct, header }: { initialProdu
               </div>
             </div>
           )}
-
-          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
-            {[
-              { Icon: IconLeaf,   label: t("reass_oeko")     },
-              { Icon: IconTruck,  label: t("reass_shipping", { amount: freeShipThreshold }) },
-              { Icon: IconReturn, label: t("reass_returns")   },
-              { Icon: IconLock,   label: t("reass_payment")  },
-            ].map(r => (
-              <div key={r.label} style={{ padding: "9px 11px", borderRadius: 10, background: "rgba(26,20,16,0.07)", display: "flex", alignItems: "center", gap: 7, fontSize: "clamp(10px,0.9vw,12px)", fontWeight: 700, color: "rgba(26,20,16,0.65)", whiteSpace: "nowrap" }}>
-                <r.Icon />{r.label}
-              </div>
-            ))}
-          </div>
 
           {whyResult && (
             <div style={{ padding: "20px 22px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)` }}>

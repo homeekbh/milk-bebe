@@ -53,6 +53,8 @@ export async function POST(req: NextRequest) {
     discount:                 result.discount,
     free_shipping:            result.free_shipping,
     cumulable_avec_livraison: result.cumulable_avec_livraison,
+    cumulable:                result.cumulable,        // cumul avec d'autres codes (étape 21)
+    cumulable_codes:          result.cumulable_codes,  // codes compatibles déclarés
     new_total:                Math.max(0, total - result.discount),
   });
 }

@@ -50,7 +50,7 @@ export default async function AdminComptes() {
       ) : (
         <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden" }}>
           <div style={{ overflowX: "auto" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 780 }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 980 }}>
               <thead>
                 <tr style={{ background: "#faf7f2" }}>
                   <th style={th}>Prénom</th>
@@ -58,6 +58,8 @@ export default async function AdminComptes() {
                   <th style={th}>Ville</th>
                   <th style={th}>Email</th>
                   <th style={th}>Commande</th>
+                  <th style={th}>Filleuls</th>
+                  <th style={th}>Récompenses</th>
                   <th style={th}>Newsletter</th>
                   <th style={th}>Créé le</th>
                 </tr>
@@ -73,6 +75,19 @@ export default async function AdminComptes() {
                       {a.has_ordered
                         ? <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(22,101,52,0.12)", color: "#166534", fontSize: 12, fontWeight: 800 }}>✓ Client</span>
                         : <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(26,20,16,0.06)", color: "rgba(26,20,16,0.4)", fontSize: 12, fontWeight: 700 }}>—</span>}
+                    </td>
+                    <td style={td}>
+                      {a.filleuls > 0
+                        ? <span style={{ fontWeight: 800, color: "#1a1410" }}>{a.filleuls}</span>
+                        : <span style={{ color: "rgba(26,20,16,0.35)" }}>0</span>}
+                    </td>
+                    <td style={{ ...td, whiteSpace: "nowrap" }}>
+                      {a.recompenses_total > 0 ? (
+                        <>
+                          <span style={{ fontWeight: 800, color: a.recompenses_disponible > 0 ? "#166534" : "rgba(26,20,16,0.5)" }}>{a.recompenses_disponible.toFixed(2)} € dispo</span>
+                          <span style={{ color: "rgba(26,20,16,0.4)", fontSize: 12.5 }}> / {a.recompenses_total.toFixed(2)} € total</span>
+                        </>
+                      ) : <span style={{ color: "rgba(26,20,16,0.35)" }}>—</span>}
                     </td>
                     <td style={td}>
                       {a.newsletter

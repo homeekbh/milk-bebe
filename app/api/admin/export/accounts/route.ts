@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const accounts = await getAccountsList();
 
     const rows: string[] = [];
-    rows.push(["Prénom", "Nom", "Ville", "Email", "A commandé", "Newsletter", "Date de création"].map(h => `"${h}"`).join(";"));
+    rows.push(["Prénom", "Nom", "Ville", "Email", "A commandé", "Filleuls", "Récompenses disponibles (€)", "Récompenses total (€)", "Newsletter", "Date de création"].map(h => `"${h}"`).join(";"));
     for (const a of accounts) {
       rows.push([
         a.first_name,
@@ -22,6 +22,9 @@ export async function GET(req: NextRequest) {
         a.ville,
         a.email,
         a.has_ordered ? "Oui" : "Non",
+        String(a.filleuls),
+        a.recompenses_disponible.toFixed(2).replace(".", ","),
+        a.recompenses_total.toFixed(2).replace(".", ","),
         a.newsletter ? "Oui" : "Non",
         a.created_at ? new Date(a.created_at).toLocaleDateString("fr-FR") : "",
       ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));

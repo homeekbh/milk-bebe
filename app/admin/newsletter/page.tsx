@@ -68,6 +68,31 @@ const LBL: CSSProperties = { fontSize: 11, fontWeight: 800, letterSpacing: 1, te
 const INP: CSSProperties = { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none", boxSizing: "border-box" };
 const TA:  CSSProperties = { width: "100%", minHeight: 220, padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", lineHeight: 1.6, background: "#fafaf9", outline: "none", boxSizing: "border-box", resize: "vertical", fontSize: 14 };
 
+// ── Codes promo (insertion dans le composer) ──
+type PromoCodeLite = {
+  code: string;
+  discount_type: string;          // "percent" | "fixed" | "free_shipping"
+  discount_value: number;
+  min_order: number | null;
+  max_uses: number | null;
+  uses_count: number;
+  expires_at: string | null;
+  free_shipping: boolean;
+};
+
+function promoDiscountLabel(c: PromoCodeLite): string {
+  if (c.discount_type === "percent") return `-${c.discount_value} %`;
+  if (c.discount_type === "fixed")   return `-${c.discount_value} €`;
+  return "Livraison offerte";
+}
+
+// Statut d'utilisabilité (pour prévenir Erika avant insertion).
+function promoStatus(c: PromoCodeLite): "ok" | "expired" | "exhausted" {
+  if (c.expires_at && new Date(c.expires_at).getTime() < Date.now()) return "expired";
+  if (c.max_uses != null && c.uses_count >= c.max_uses)              return "exhausted";
+  return "ok";
+}
+
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
     <div style={{ position: "fixed", bottom: 28, right: 28, background: ok ? "#16a34a" : "#dc2626", color: "#fff", padding: "13px 22px", borderRadius: 12, fontWeight: 800, fontSize: 14, zIndex: 9999, boxShadow: "0 8px 24px rgba(0,0,0,0.25)", maxWidth: 360 }}>
@@ -108,6 +133,10 @@ export default function NewsletterAdminPage() {
   const [articles,      setArticles]      = useState<{ id: string; slug: string; title: string; excerpt: string | null; image_url: string | null }[]>([]);
   const [articleChoice, setArticleChoice] = useState("");
 
+  // Insertion d'un code promo (au curseur, comme insertLink — pas un prefill complet).
+  const [promoCodes,  setPromoCodes]  = useState<PromoCodeLite[]>([]);
+  const [promoChoice, setPromoChoice] = useState("");
+
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   const showToast = (msg: string, ok = true) => {
@@ -135,6 +164,30 @@ export default function NewsletterAdminPage() {
         const list = Array.isArray(data) ? data : (data?.posts ?? []);
         setArticles(list.filter((a: any) => a.status === "published")
           .map((a: any) => ({ id: a.id, slug: a.slug, title: a.title, excerpt: a.excerpt ?? null, image_url: a.image_url ?? null })));
+      })
+      .catch(() => {});
+  }, []);
+
+  // Codes promo ACTIFS (pour l'insertion au curseur) — best-effort.
+  useEffect(() => {
+    adminFetch("/api/admin/promos")
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any) => {
+        if (!Array.isArray(data)) return;
+        setPromoCodes(
+          data
+            .filter((c: any) => c.active)
+            .map((c: any) => ({
+              code:           c.code,
+              discount_type:  c.discount_type ?? "percent",
+              discount_value: Number(c.discount_value ?? 0),
+              min_order:      c.min_order ?? null,
+              max_uses:       c.max_uses ?? null,
+              uses_count:     Number(c.uses_count ?? 0),
+              expires_at:     c.expires_at ?? null,
+              free_shipping:  Boolean(c.free_shipping),
+            }))
+        );
       })
       .catch(() => {});
   }, []);
@@ -221,6 +274,24 @@ export default function NewsletterAdminPage() {
       : `${linkText.trim()} : ${url}`;
     insertAtCursor(ins);
     setLinkText("");
+  }
+
+  // Insère le code promo sélectionné à la position du curseur (comme insertLink).
+  // Template → bloc HTML visuel (style de l'encart des emails de relance panier) ;
+  // simple → une ligne de texte. Ne verrouille rien : reste éditable ensuite.
+  function insertPromo() {
+    const c = promoCodes.find(x => x.code === promoChoice);
+    if (!c) { showToast("Choisis un code promo", false); return; }
+    const label = promoDiscountLabel(c);
+    const ins = mode === "template"
+      ? `
+<div style="background:#2a2018;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:20px;margin:20px 0;text-align:center">
+  <div style="font-size:12px;color:rgba(242,237,230,0.5);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">${label} avec le code</div>
+  <div style="font-size:24px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${c.code}</div>
+</div>
+`
+      : `Profite de ${label} avec le code ${c.code}`;
+    insertAtCursor(ins);
   }
 
   // Pré-remplit le composer depuis un article publié (sujet + aperçu + contenu
@@ -444,6 +515,61 @@ export default function NewsletterAdminPage() {
                 Insérer
               </button>
             </div>
+          </div>
+
+          {/* 6b. Insertion code promo */}
+          <div style={{ padding: 16, borderRadius: 12, background: "#faf8f4", border: "1px solid rgba(0,0,0,0.06)", display: "grid", gap: 12 }}>
+            <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>🎟️ Insérer un code promo</div>
+            {promoCodes.length === 0 ? (
+              <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
+                Aucun code promo actif. Crée-en un dans « Codes promos ».
+              </div>
+            ) : (
+              <>
+                <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 12, alignItems: "start" }}>
+                  <div>
+                    <label style={LBL}>Code actif</label>
+                    <select value={promoChoice} onChange={e => setPromoChoice(e.target.value)} style={{ ...INP, cursor: "pointer" }}>
+                      <option value="">— Sélectionner —</option>
+                      {promoCodes.map(c => {
+                        const st   = promoStatus(c);
+                        const warn = st === "expired" ? " · ⚠ expiré" : st === "exhausted" ? " · ⚠ épuisé" : "";
+                        return <option key={c.code} value={c.code}>{c.code} · {promoDiscountLabel(c)}{warn}</option>;
+                      })}
+                    </select>
+                  </div>
+                  {/* Aperçu du code sélectionné (réduction / expiration / utilisations) */}
+                  <div>
+                    <label style={LBL}>Aperçu</label>
+                    {(() => {
+                      const c = promoCodes.find(x => x.code === promoChoice);
+                      if (!c) return <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.45)", padding: "4px 0", lineHeight: 1.6 }}>Sélectionne un code pour vérifier réduction, expiration et utilisations restantes.</div>;
+                      const st        = promoStatus(c);
+                      const remaining = c.max_uses == null ? null : Math.max(0, c.max_uses - c.uses_count);
+                      const soon      = !!c.expires_at && st === "ok" && (new Date(c.expires_at).getTime() - Date.now()) < 7 * 864e5;
+                      const low       = remaining != null && st === "ok" && remaining <= 5;
+                      return (
+                        <div style={{ fontSize: 12.5, lineHeight: 1.7, color: "rgba(26,20,16,0.7)" }}>
+                          <div>💸 Réduction : <strong>{promoDiscountLabel(c)}</strong>{c.min_order ? ` (dès ${c.min_order} €)` : ""}</div>
+                          <div style={{ color: (st === "expired" || soon) ? "#b91c1c" : "inherit", fontWeight: (st === "expired" || soon) ? 700 : 400 }}>
+                            📅 {c.expires_at ? `Expire le ${new Date(c.expires_at).toLocaleDateString("fr-FR")}` : "Sans expiration"}{st === "expired" ? " — EXPIRÉ" : soon ? " — bientôt !" : ""}
+                          </div>
+                          <div style={{ color: (st === "exhausted" || low) ? "#b45309" : "inherit", fontWeight: (st === "exhausted" || low) ? 700 : 400 }}>
+                            🎫 {remaining == null ? "Utilisations illimitées" : `${remaining} restante${remaining > 1 ? "s" : ""} / ${c.max_uses}`}{st === "exhausted" ? " — ÉPUISÉ" : ""}
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </div>
+                <div>
+                  <button onClick={insertPromo} disabled={!promoChoice}
+                    style={{ padding: "9px 18px", borderRadius: 10, background: promoChoice ? "#1a1410" : "#d1cdc8", color: "#f2ede6", fontWeight: 800, fontSize: 13, border: "none", cursor: promoChoice ? "pointer" : "not-allowed" }}>
+                    Insérer {mode === "template" ? "le bloc" : "la ligne"}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
 
           {/* 7. Bouton aperçu (secondaire) */}

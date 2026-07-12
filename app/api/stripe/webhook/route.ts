@@ -391,19 +391,22 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
     .maybeSingle();
   if (existing?.converted) return;
 
-  const { error } = await supabaseServer
-    .from("abandoned_carts")
-    .upsert({
-      email:      emailClean,
-      prenom,
-      items,
-      total,
-      converted:  false,
-      updated_at: new Date().toISOString(),
-      relance_1:  existing?.relance_1 ?? false,
-      relance_2:  existing?.relance_2 ?? false,
-      relance_3:  existing?.relance_3 ?? false,
-    }, { onConflict: "email", ignoreDuplicates: false });
+  const row = {
+    email:      emailClean,
+    prenom,
+    items,
+    total,
+    converted:  false,
+    updated_at: new Date().toISOString(),
+    relance_1:  existing?.relance_1 ?? false,
+    relance_2:  existing?.relance_2 ?? false,
+    relance_3:  existing?.relance_3 ?? false,
+  };
+  // update-or-insert manuel : abandoned_carts n'a pas de contrainte UNIQUE(email) →
+  // .upsert({ onConflict: "email" }) échouait (42P10) et ne créait jamais la ligne.
+  const { error } = existing
+    ? await supabaseServer.from("abandoned_carts").update(row).eq("id", existing.id)
+    : await supabaseServer.from("abandoned_carts").insert(row);
   if (error) process.env.NODE_ENV !== "production" && console.error("[webhook] abandoned_carts (expired) upsert:", error.message);
 }
 

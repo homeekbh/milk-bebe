@@ -36,37 +36,34 @@ export async function POST(req: NextRequest) {
       .from("abandoned_carts")
       .select("id, relance_1, relance_2, relance_3")
       .eq("email", emailClean)
-      .single();
+      .maybeSingle();
 
-    const upsertData: Record<string, any> = {
+    const row: Record<string, any> = {
       email:      emailClean,
       prenom:     prenom ?? null,
       items,
       total:      total ?? 0,
       converted:  false,
       updated_at: new Date().toISOString(),
+      // Ne PAS reset relance_1/2/3 si déjà envoyées.
+      relance_1:  existing?.relance_1 ?? false,
+      relance_2:  existing?.relance_2 ?? false,
+      relance_3:  existing?.relance_3 ?? false,
     };
 
-    // ✅ Ne PAS reset relance_1/2/3 si elles ont déjà été envoyées
-    if (!existing) {
-      upsertData.relance_1 = false;
-      upsertData.relance_2 = false;
-      upsertData.relance_3 = false;
-    } else {
-      // Garder les valeurs existantes pour ne pas re-envoyer les relances
-      upsertData.relance_1 = existing.relance_1 ?? false;
-      upsertData.relance_2 = existing.relance_2 ?? false;
-      upsertData.relance_3 = existing.relance_3 ?? false;
+    // ⚠️ On N'utilise PAS .upsert({ onConflict: "email" }) : la table abandoned_carts
+    // n'a pas de contrainte UNIQUE sur email → l'upsert échouait (Postgres 42P10) et
+    // AUCUNE ligne n'était jamais créée (bug silencieux : la route renvoyait ok:true).
+    // update-or-insert manuel = robuste sans contrainte. (Contrainte UNIQUE recommandée
+    // en plus : supabase/migrations/013_abandoned_carts_email_unique.sql.)
+    const { error } = existing
+      ? await supabaseServer.from("abandoned_carts").update(row).eq("id", existing.id)
+      : await supabaseServer.from("abandoned_carts").insert(row);
+
+    if (error) {
+      console.error("Save cart error:", error.message);
+      return Response.json({ ok: false });
     }
-
-    const { error } = await supabaseServer
-      .from("abandoned_carts")
-      .upsert(upsertData, {
-        onConflict:       "email",
-        ignoreDuplicates: false,
-      });
-
-    if (error) console.error("Save cart error:", error.message);
     return Response.json({ ok: true });
   } catch (e: any) {
     return Response.json({ ok: false, error: e.message });

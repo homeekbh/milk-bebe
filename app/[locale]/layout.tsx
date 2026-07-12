@@ -1,5 +1,4 @@
 ﻿import type { Metadata, Viewport } from "next";
-import Script from "next/script";
 import { NextIntlClientProvider, hasLocale } from "next-intl";
 import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
@@ -14,16 +13,14 @@ import IntroScreen   from "@/components/intro/IntroScreen";
 import { CartProvider }   from "@/context/CartContext";
 import { AuthProvider }   from "@/context/AuthContext";
 import PopupBienvenue from "@/components/PopupBienvenue";
-import CookieBanner      from "@/components/CookieBanner";
+import ConsentManager     from "@/components/ConsentManager";
 import ExitIntentPopup     from "@/components/ExitIntentPopup";
 import PromoSticker        from "@/components/promo/PromoSticker";
 import { WishlistProvider } from "@/context/WishlistContext";
-import GTMScript, { GTMNoScript } from "@/components/analytics/GTMScript";
 import PageTracker from "@/components/analytics/PageTracker";
 import MerchantBadge from "@/components/analytics/MerchantBadge";
 
 const BASE_URL   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
-const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
 
 // ── Viewport ─────────────────────────────────────────────────────────────────
 export const viewport: Viewport = {
@@ -312,74 +309,16 @@ export default async function LocaleLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-
-        {/* Google Tag Manager — ne s'injecte que si NEXT_PUBLIC_GTM_ID défini */}
-        <GTMScript />
       </head>
 
       <body>
-        {/* GTM noscript fallback (sans JS) */}
-        <GTMNoScript />
-        {/* Tracking visiteur 1st-party (sessions, scroll, durée, géo, device) */}
+        {/* Tracking visiteur 1st-party (sessions, scroll, durée, géo, device) — mesure
+            d'audience 1re partie (base propre), hors périmètre du consentement tiers. */}
         <PageTracker />
         {/* Badge Google Merchant Widget (avis clients) sur toutes les pages */}
         <MerchantBadge />
-        {/* ── Google Analytics 4 ── */}
-        {process.env.NEXT_PUBLIC_GA4_ID && (
-          <>
-            <Script
-              id="ga4"
-              strategy="afterInteractive"
-              src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GA4_ID}`}
-            />
-            <Script
-              id="ga4-init"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  window.dataLayer = window.dataLayer || [];
-                  function gtag(){dataLayer.push(arguments);}
-                  gtag('js', new Date());
-                  gtag('config', '${process.env.NEXT_PUBLIC_GA4_ID}', { page_path: window.location.pathname });
-                `,
-              }}
-            />
-          </>
-        )}
-
-        {/* ── Meta Pixel (Facebook / Instagram Ads) ── */}
-        {META_PIXEL && (
-          <>
-            <Script
-              id="meta-pixel"
-              strategy="afterInteractive"
-              dangerouslySetInnerHTML={{
-                __html: `
-                  !function(f,b,e,v,n,t,s){
-                    if(f.fbq)return;n=f.fbq=function(){n.callMethod?
-                    n.callMethod.apply(n,arguments):n.queue.push(arguments)};
-                    if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';
-                    n.queue=[];t=b.createElement(e);t.async=!0;
-                    t.src=v;s=b.getElementsByTagName(e)[0];
-                    s.parentNode.insertBefore(t,s)}(window,document,'script',
-                    'https://connect.facebook.net/en_US/fbevents.js');
-                  fbq('init', '${META_PIXEL}');
-                  fbq('track', 'PageView');
-                `,
-              }}
-            />
-            <noscript>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                height="1"
-                width="1"
-                style={{ display: "none" }}
-                src={`https://www.facebook.com/tr?id=${META_PIXEL}&ev=PageView&noscript=1`}
-                alt=""
-              />
-            </noscript>
-          </>
-        )}
+        {/* GTM / GA4 / Meta Pixel : chargés UNIQUEMENT après consentement RGPD explicite,
+            par <ConsentManager /> monté plus bas (fin du <body>, dans les providers). */}
 
         <NextIntlClientProvider>
           <WishlistProvider>
@@ -392,7 +331,7 @@ export default async function LocaleLayout({
                   <main>{children}</main>
                   <Footer />
                   <ChatWidget />
-                  <CookieBanner />
+                  <ConsentManager />
                   <ExitIntentPopup />
                   <PromoSticker />
                 </IntroProvider>

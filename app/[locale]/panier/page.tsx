@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 import { computeCartTotals } from "@/lib/cart-totals";
+import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
 import {
   DELIVERY_DELAY,
@@ -48,6 +49,23 @@ type HomeAddress = {
   country:     string;
 };
 
+// Mappe la réponse de /api/promo/validate → ValidatedPromo (entrée de combinePromos).
+// Le `discount` renvoyé par l'API est ignoré : il est RECALCULÉ par combinePromos
+// dans le contexte du cumul (ordre fixe→%, plafond) — seule source de vérité côté UI.
+function toValidatedPromo(d: any): ValidatedPromo {
+  return {
+    code:                     String(d.code ?? "").toUpperCase().trim(),
+    type:                     String(d.type ?? ""),
+    value:                    Number(d.value) || 0,
+    free_shipping:            !!d.free_shipping,
+    cumulable_avec_livraison: d.cumulable_avec_livraison !== false,
+    cumulable:                d.cumulable === true,
+    cumulable_codes:          Array.isArray(d.cumulable_codes)
+                                ? d.cumulable_codes.map((c: any) => String(c).toUpperCase().trim()).filter(Boolean)
+                                : [],
+  };
+}
+
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
   const { user, session } = useAuth();
@@ -55,8 +73,8 @@ export default function CartPage() {
   const locale    = useLocale();
 
   const [loading,       setLoading]       = useState(false);
-  const [promoCode,     setPromoCode]     = useState("");
-  const [promoData,     setPromoData]     = useState<any>(null);
+  const [promoCode,     setPromoCode]     = useState("");             // champ de saisie
+  const [promoCodes,    setPromoCodes]    = useState<ValidatedPromo[]>([]); // codes appliqués (cumul)
   const [promoError,    setPromoError]    = useState("");
   const [promoLoading,  setPromoLoading]  = useState(false);
 
@@ -309,33 +327,62 @@ export default function CartPage() {
   const packsSubtotal    = packs.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 0), 0);
   const subtotal         = productsSubtotal + packsSubtotal;
 
-  // ✅ Recalcul automatique de la réduction quand le panier change (produits + packs)
-  const recalcPromo = useCallback(async (currentSubtotal: number) => {
-    if (!promoData?.code) return;
-    try {
-      const res  = await fetch("/api/promo/validate", {
-        method:  "POST",
-        headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ code: promoData.code, order_total: currentSubtotal }),
-      });
-      const data = await res.json();
-      if (res.ok) {
-        setPromoData(data);
-      } else {
-        // Code plus valide (ex: montant min non atteint)
-        setPromoData(null);
-        setPromoError(data.error ?? "Code promo non applicable");
+  // ── Cumul de codes promo (étape 21) ──────────────────────────────────────
+  // Combinaison PURE dérivée dans le render (ordre fixe→%, compat mutuelle,
+  // plafond 60 %). Même fonction que create-session (l'affiché = le facturé).
+  // → recalcul live automatique au changement de sous-total, sans I/O.
+  const combo   = promoCodes.length > 0 ? combinePromos(promoCodes, subtotal) : null;
+  const comboOk = combo && combo.valid ? combo : null;
+  const discount = comboOk ? comboOk.totalDiscount : 0;
+
+  // ✅ Re-validation async des codes appliqués au changement de sous-total :
+  //   - min_order / expiration / épuisement (validate côté serveur) → retire les
+  //     codes devenus inapplicables ;
+  //   - garde-fou plafond 60 % (mirroir conservateur de create-session) → retire
+  //     le DERNIER code jusqu'à repasser sous le plafond.
+  // Jamais de clamp silencieux : tout retrait est signalé via promoError.
+  const recheckPromos = useCallback(async (currentSubtotal: number, codes: ValidatedPromo[]) => {
+    if (codes.length === 0) return;
+    const checked = await Promise.all(codes.map(async pc => {
+      try {
+        const res = await fetch("/api/promo/validate", {
+          method:  "POST",
+          headers: { "Content-Type": "application/json" },
+          body:    JSON.stringify({ code: pc.code, order_total: currentSubtotal }),
+        });
+        if (res.status === 429) return pc;                         // rate-limit → garder
+        if (!res.ok)            return { drop: pc.code } as const;  // min_order… → retirer
+        return toValidatedPromo(await res.json());
+      } catch {
+        return pc;                                                 // erreur réseau → garder
       }
-    } catch {}
-  }, [promoData?.code]);
+    }));
+    const dropped: string[] = [];
+    let survivors: ValidatedPromo[] = [];
+    for (const c of checked) {
+      if ((c as any).drop) dropped.push((c as { drop: string }).drop);
+      else survivors.push(c as ValidatedPromo);
+    }
+    // Garde-fou plafond : retirer le dernier code tant que le cumul ne passe pas.
+    while (survivors.length >= 2 && !combinePromos(survivors, currentSubtotal).valid) {
+      dropped.push(survivors[survivors.length - 1].code);
+      survivors = survivors.slice(0, -1);
+    }
+    setPromoCodes(prev => {
+      const same = prev.length === survivors.length
+        && prev.every((p, i) => p.code === survivors[i].code && p.value === survivors[i].value && p.type === survivors[i].type);
+      return same ? prev : survivors;
+    });
+    if (dropped.length) {
+      const uniq = [...new Set(dropped)];
+      setPromoError(`Code${uniq.length > 1 ? "s" : ""} retiré${uniq.length > 1 ? "s" : ""} : ${uniq.join(", ")} — non applicable(s) à ce montant.`);
+    }
+  }, []);
 
   useEffect(() => {
-    if (promoData?.code) {
-      recalcPromo(subtotal);
-    }
+    if (promoCodes.length > 0) recheckPromos(subtotal, promoCodes);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal]); // ✅ Se déclenche à chaque changement de sous-total
-
-  const discount  = promoData?.free_shipping ? 0 : (promoData?.discount ?? 0);
   // Prix livraison depuis la matrice. 0 si carrier/type pas encore choisis.
   const basePrice = (carrier && deliveryType) ? getDeliveryPrice(carrier, deliveryType) : 0;
 
@@ -348,9 +395,11 @@ export default function CartPage() {
     discount,
     basePrice,
     freeShippingThreshold,
-    promo: promoData ? {
-      free_shipping:            !!promoData.free_shipping,
-      cumulable_avec_livraison: promoData.cumulable_avec_livraison !== false,
+    // Cumul : le combo agrège free_shipping (au moins un code l'offre) et
+    // cumulable_avec_livraison (tous les codes autorisent le seuil auto).
+    promo: comboOk ? {
+      free_shipping:            comboOk.free_shipping,
+      cumulable_avec_livraison: comboOk.cumulable_avec_livraison,
     } : null,
   });
   const totalAfterPromo = totals.totalAfterPromo;
@@ -389,21 +438,22 @@ export default function CartPage() {
   // Barre "il te reste X€" : calculée sur le TOTAL APRÈS PROMO (même base que le
   // port réel). Si un code repasse sous 60€, le port réapparaît avec la barre.
   // Promo non cumulable → seuil désactivé → barre masquée (pas de fausse promesse).
-  const promoBlocksThreshold = promoData?.cumulable_avec_livraison === false && !promoData?.free_shipping;
+  const promoBlocksThreshold = !!comboOk && comboOk.cumulable_avec_livraison === false && !comboOk.free_shipping;
   // « Plus que X€ » = montant de PRODUITS à AJOUTER (prix AVANT promo) pour franchir
   // le seuil APRÈS remise — et non le simple écart post-promo. Car ce qu'on ajoute est
-  // lui aussi remisé : pour un code %, il faut ajouter gap / (1 − taux) (ex. pack 84,90
-  // −30% → écart 0,57 → 0,57/0,70 = 0,81€). Code € fixe, livraison offerte ou sans promo
-  // → l'ajout n'est pas remisé → restant = écart brut (60 − sous-total).
+  // lui aussi remisé. Cumul (ordre fixe→%) : seuls les codes % font grossir la base ;
+  // les € fixes ne scalent pas avec l'ajout. On divise donc l'écart par le facteur
+  // pourcentage COMPOSÉ ∏(1 − pᵢ) des codes % du combo (=1 si aucun % → écart brut).
+  // Ex. un seul −30% → gap / 0,70 ; deux codes −20% + −10% → gap / (0,80 × 0,90).
+  const percentFactor = (comboOk?.entries ?? [])
+    .filter(e => e.type === "percent")
+    .reduce((f, e) => f * (1 - Math.min(Math.max((Number(e.value) || 0) / 100, 0), 0.99)), 1);
   const gap = Math.max(0, freeShippingThreshold - totalAfterPromo);
   let remaining: number;
   if (promoBlocksThreshold) {
     remaining = 0;
-  } else if (promoData?.type === "percent" && !promoData?.free_shipping) {
-    const rate = Math.min(Math.max((Number(promoData?.value) || 0) / 100, 0), 0.99); // garde anti division par 0
-    remaining = Math.round((gap / (1 - rate)) * 100) / 100;
   } else {
-    remaining = Math.round(gap * 100) / 100;
+    remaining = Math.round((gap / percentFactor) * 100) / 100;
   }
   const pct = promoBlocksThreshold ? 0 : Math.min(100, (totalAfterPromo / freeShippingThreshold) * 100);
 
@@ -450,23 +500,42 @@ export default function CartPage() {
   }, [items, user, subtotal, guestEmail]);
 
   async function applyPromo() {
-    if (!promoCode.trim()) return;
-    setPromoLoading(true); setPromoError(""); setPromoData(null);
+    const code = promoCode.trim().toUpperCase();
+    if (!code) return;
+    if (promoCodes.some(p => p.code === code)) {
+      setPromoError("Ce code est déjà appliqué.");
+      return;
+    }
+    setPromoLoading(true); setPromoError("");
     try {
       const res  = await fetch("/api/promo/validate", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ code: promoCode.trim(), order_total: subtotal }),
+        body:    JSON.stringify({ code, order_total: subtotal }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Code invalide");
-      setPromoData(data);
+      // Tester le CUMUL avant d'ajouter : compat mutuelle + plafond 60 %.
+      // Si le nouveau code casse la combinaison, on affiche le refus (jamais d'ajout partiel).
+      const next = [...promoCodes, toValidatedPromo(data)];
+      const test = combinePromos(next, subtotal);
+      if (!test.valid) throw new Error(test.error);
+      setPromoCodes(next);
+      setPromoCode("");
     } catch (e: any) {
       setPromoError(e.message);
     } finally {
       setPromoLoading(false);
     }
   }
+
+  function removePromo(code: string) {
+    setPromoCodes(prev => prev.filter(p => p.code !== code));
+    setPromoError("");
+  }
+  // Champ de saisie visible si aucun code OU si TOUS les codes appliqués acceptent
+  // le cumul (permet d'en ajouter un 2e). Un code exclusif masque le champ.
+  const canAddPromo = promoCodes.length === 0 || promoCodes.every(p => p.cumulable);
 
   // ── Parrainage : récompenses + réglages du compte connecté ────────────────
   useEffect(() => {
@@ -549,7 +618,7 @@ export default function CartPage() {
         slug:     it.slug,
       })),
       cartValue,
-      promoData ? (promoCode || undefined) : undefined,
+      promoCodes.length > 0 ? promoCodes.map(p => p.code).join("+") : undefined,
     );
     metaInitiateCheckout(cartValue, numItems);
     // ✅ Sauvegarder l'email guest pour la success page (conversion panier abandonné)
@@ -574,7 +643,10 @@ export default function CartPage() {
           // ⚠️ promo_code / parrain_code / reward_ids : TOUT est RE-VALIDÉ et
           // RE-CALCULÉ côté serveur (validatePromoCode + validateParrainCode +
           // computeParrainage). Le client ne peut forger aucune remise.
-          promo_code:     promoData?.code    ?? null,
+          // Cumul : liste de TOUS les codes appliqués. create-session re-valide et
+          // recombine (dégradation gracieuse). `promo_code` (1er) laissé pour compat.
+          promo_codes:    promoCodes.map(p => p.code),
+          promo_code:     promoCodes[0]?.code ?? null,
           parrain_code:   parrainData?.code  ?? null,
           reward_ids:     selectedRewardIds,
           customer_email: user?.email ?? guestEmail.trim(),
@@ -643,7 +715,7 @@ export default function CartPage() {
                   - seuil atteint sur BRUT : "Livraison offerte"
                   - sinon                  : barre de progression vers le seuil */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                {promoData?.free_shipping ? (
+                {comboOk?.free_shipping ? (
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
                     ✓ Livraison offerte avec ton code promo !
                   </div>
@@ -710,31 +782,50 @@ export default function CartPage() {
               {/* Code promo */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                 <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>Code promo</div>
-                {promoData ? (
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 12, background: "#dcfce7", border: "1px solid #86efac" }}>
-                    <div>
-                      <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15 }}>{promoData.code}</span>
-                      <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 700, color: "#16a34a" }}>
-                        {promoData.free_shipping ? "Livraison offerte" : `− ${promoData.discount.toFixed(2)} €`}
-                      </span>
-                    </div>
-                    <button onClick={() => { setPromoData(null); setPromoCode(""); setPromoError(""); }}
-                      style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>
-                      Supprimer
-                    </button>
+
+                {/* Codes appliqués — un par un, avec SA remise (combo.entries) + suppression individuelle */}
+                {promoCodes.length > 0 && (
+                  <div style={{ display: "grid", gap: 8, marginBottom: canAddPromo ? 12 : 0 }}>
+                    {promoCodes.map(pc => {
+                      const e     = comboOk?.entries.find(x => x.code === pc.code);
+                      const label = e && e.discount > 0 ? `− ${e.discount.toFixed(2)} €`
+                                  : pc.free_shipping    ? "Livraison offerte"
+                                  : e                   ? "Appliqué"
+                                  :                       "…";
+                      return (
+                        <div key={pc.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 12, background: "#dcfce7", border: "1px solid #86efac" }}>
+                          <div>
+                            <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15 }}>{pc.code}</span>
+                            <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 700, color: "#16a34a" }}>{label}</span>
+                          </div>
+                          <button onClick={() => removePromo(pc.code)}
+                            style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>
+                            Supprimer
+                          </button>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : (
+                )}
+
+                {/* Saisie — visible si aucun code OU si tous les codes appliqués sont cumulables */}
+                {canAddPromo && (
                   <div style={{ display: "flex", gap: 10 }}>
                     <input type="text" value={promoCode}
                       onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }}
                       onKeyDown={e => e.key === "Enter" && applyPromo()}
-                      placeholder="Ex : BIENVENUE10"
+                      placeholder={promoCodes.length > 0 ? "Ajouter un autre code" : "Ex : BIENVENUE10"}
                       style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
                     />
                     <button onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
                       style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: promoLoading || !promoCode.trim() ? 0.5 : 1 }}>
                       {promoLoading ? "..." : "Appliquer"}
                     </button>
+                  </div>
+                )}
+                {canAddPromo && promoCodes.length > 0 && (
+                  <div style={{ marginTop: 8, fontSize: 12, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
+                    Tu peux cumuler un autre code compatible.
                   </div>
                 )}
                 {promoError && (
@@ -842,18 +933,12 @@ export default function CartPage() {
                     <span>Sous-total</span>
                     <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} €</span>
                   </div>
-                  {promoData && !promoData.free_shipping && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Code {promoData.code}</span>
-                      <span style={{ fontWeight: 800 }}>− {discount.toFixed(2)} €</span>
+                  {comboOk?.entries.map(e => (
+                    <div key={e.code} style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
+                      <span style={{ fontWeight: 700 }}>Code {e.code}</span>
+                      <span style={{ fontWeight: 800 }}>{e.discount > 0 ? `− ${e.discount.toFixed(2)} €` : "Livraison offerte"}</span>
                     </div>
-                  )}
-                  {promoData?.free_shipping && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Code {promoData.code}</span>
-                      <span style={{ fontWeight: 800 }}>Livraison offerte</span>
-                    </div>
-                  )}
+                  ))}
                   {parrainData && parrainageCalc.parrainApplicable && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
                       <span style={{ fontWeight: 700 }}>Code parrain {parrainData.code}</span>

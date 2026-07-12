@@ -1,5 +1,6 @@
 import type { NextConfig } from "next";
 import createNextIntlPlugin from "next-intl/plugin";
+import { withSentryConfig } from "@sentry/nextjs";
 
 const nextConfig: NextConfig = {
   turbopack: {},
@@ -35,7 +36,7 @@ const nextConfig: NextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: blob: https://*.supabase.co https://www.google-analytics.com https://www.facebook.com",
       "font-src 'self' data:",
-      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google-analytics.com https://connect.facebook.net https://*.resend.com",
+      "connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.stripe.com https://www.google-analytics.com https://connect.facebook.net https://*.resend.com https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com",
       "form-action 'self' https://checkout.stripe.com",
       "frame-ancestors 'none'",
@@ -53,7 +54,7 @@ const nextConfig: NextConfig = {
       "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://ssl.google-analytics.com https://connect.facebook.net https://js.stripe.com https://maps.googleapis.com https://apis.google.com https://www.gstatic.com https://w.behold.so",
       "script-src-elem 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://ssl.google-analytics.com https://connect.facebook.net https://js.stripe.com https://apis.google.com https://www.gstatic.com https://w.behold.so",
       "img-src 'self' data: blob: https://www.google-analytics.com https://www.googletagmanager.com https://www.facebook.com https://ntkqmnenczltlwplswka.supabase.co https://images.unsplash.com https://www.gstatic.com https://www.google.com https://*.behold.so https://*.cdninstagram.com",
-      "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://region1.google-analytics.com https://www.googletagmanager.com https://www.merchant-center-analytics.goog https://www.facebook.com https://connect.facebook.net https://ntkqmnenczltlwplswka.supabase.co https://api.stripe.com https://panel.sendcloud.sc https://apis.google.com https://*.behold.so",
+      "connect-src 'self' https://www.google-analytics.com https://analytics.google.com https://stats.g.doubleclick.net https://region1.google-analytics.com https://www.googletagmanager.com https://www.merchant-center-analytics.goog https://www.facebook.com https://connect.facebook.net https://ntkqmnenczltlwplswka.supabase.co https://api.stripe.com https://panel.sendcloud.sc https://apis.google.com https://*.behold.so https://*.sentry.io https://*.ingest.sentry.io https://*.ingest.us.sentry.io https://*.ingest.de.sentry.io",
       "frame-src 'self' https://js.stripe.com https://hooks.stripe.com https://www.google.com https://apis.google.com",
       "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
       "font-src 'self' data: https://fonts.gstatic.com",
@@ -99,4 +100,14 @@ const nextConfig: NextConfig = {
 
 // next-intl : charge la config i18n/request.ts (chemin par défaut).
 const withNextIntl = createNextIntlPlugin();
-export default withNextIntl(nextConfig);
+
+// Sentry — wrappe la config. Inerte tant que SENTRY_ORG/PROJECT/AUTH_TOKEN ne sont pas
+// définis (aucun upload de sourcemaps, aucun échec de build). Le monitoring RUNTIME
+// s'active via NEXT_PUBLIC_SENTRY_DSN + NODE_ENV=production (cf. instrumentation*.ts).
+export default withSentryConfig(withNextIntl(nextConfig), {
+  org:                   process.env.SENTRY_ORG,
+  project:               process.env.SENTRY_PROJECT,
+  silent:                true,
+  widenClientFileUpload: true,
+  disableLogger:         true,
+});

@@ -731,8 +731,16 @@ export default function ProductClient({ initialProduct, header }: { initialProdu
 
           {taillesDispos.length > 0 && (
             <div id="taille-selector" style={{ display: "grid", gap: 10 }}>
-              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                {t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}
+              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
+                <span>{t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}</span>
+                {/* Lien direct « Guide des tailles » visible dès le choix de la taille →
+                    ouvre le panneau déroulant existant (juste en dessous). Hors bonnets. */}
+                {!productSlug.includes("bonnet") && (
+                  <button type="button" onClick={() => setGuideOpen(true)}
+                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: 0.3, textTransform: "none", color: AMBER, textDecoration: "underline", padding: 0, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                    📏 {t("size_guide")}
+                  </button>
+                )}
               </span>
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {

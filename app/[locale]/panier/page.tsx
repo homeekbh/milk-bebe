@@ -419,6 +419,7 @@ export default function CartPage() {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!guestEmail.trim() || !emailRegex.test(guestEmail.trim())) {
         setGuestError("Saisis un email valide pour continuer.");
+        setCheckoutError("Saisis un email valide pour continuer.");
         return;
       }
     }
@@ -558,40 +559,6 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
-
-              {/* Guest checkout ou connexion */}
-              {!user && (
-                <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)" }}>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 4 }}>
-                    Commander sans créer de compte
-                  </div>
-                  <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 14, lineHeight: 1.6 }}>
-                    Entre ton email pour recevoir la confirmation et suivre ta livraison.
-                  </div>
-                  <input
-                    type="email"
-                    inputMode="email"
-                    autoComplete="email"
-                    value={guestEmail}
-                    onChange={e => { setGuestEmail(e.target.value); setGuestError(""); }}
-                    placeholder="ton@email.fr"
-                    style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: guestError ? "1.5px solid #ef4444" : "1px solid rgba(242,237,230,0.15)", fontSize: 14, fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "#f2ede6", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
-                  />
-                  {guestError && (
-                    <div style={{ fontSize: 13, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>⚠ {guestError}</div>
-                  )}
-                  <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                    <Link href="/connexion?redirect=/panier"
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
-                      J'ai un compte
-                    </Link>
-                    <Link href="/inscription?redirect=/panier"
-                      style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
-                      Créer un compte
-                    </Link>
-                  </div>
-                </div>
-              )}
 
               {/* Liste articles */}
               {items.map(item => (
@@ -862,6 +829,41 @@ export default function CartPage() {
                         <input type="text" autoComplete="address-level2" placeholder="Ville"
                           value={homeAddress.city} onChange={e => setHomeAddress(a => ({ ...a, city: e.target.value }))}
                           style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Commander sans créer de compte — rapproché du bouton de paiement pour
+                      que l'erreur email (guestError) reste visible au clic, y compris mobile. */}
+                  {!user && (
+                    <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)", marginBottom: 10 }}>
+                      <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 4 }}>
+                        Commander sans créer de compte
+                      </div>
+                      <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 14, lineHeight: 1.6 }}>
+                        Entre ton email pour recevoir la confirmation et suivre ta livraison.
+                      </div>
+                      <input
+                        type="email"
+                        inputMode="email"
+                        autoComplete="email"
+                        value={guestEmail}
+                        onChange={e => { setGuestEmail(e.target.value); setGuestError(""); }}
+                        placeholder="ton@email.fr"
+                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: guestError ? "1.5px solid #ef4444" : "1px solid rgba(242,237,230,0.15)", fontSize: 14, fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "#f2ede6", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
+                      />
+                      {guestError && (
+                        <div style={{ fontSize: 13, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>⚠ {guestError}</div>
+                      )}
+                      <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
+                        <Link href="/connexion?redirect=/panier"
+                          style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
+                          J'ai un compte
+                        </Link>
+                        <Link href="/inscription?redirect=/panier"
+                          style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
+                          Créer un compte
+                        </Link>
                       </div>
                     </div>
                   )}

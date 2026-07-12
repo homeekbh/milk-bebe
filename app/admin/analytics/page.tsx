@@ -995,8 +995,8 @@ export default function AdminStats() {
       {/* ══════════════ 2 · COMPORTEMENT ══════════════ */}
       <SectionTitle>2 · Comportement</SectionTitle>
 
-      {/* Tunnel de conversion + Paniers abandonnés (les deux ensemble — même histoire) */}
-      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1.4fr 1fr", gap: 16, marginBottom: 24 }}>
+      {/* Tunnel de conversion + Paniers abandonnés + Favoris (les trois en tête de section) */}
+      <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1.4fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="🔻 Tunnel de conversion" lexique="Tunnel de conversion">
           {(pv?.funnel ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>Données insuffisantes sur la période.</div> : (
             <>
@@ -1016,6 +1016,35 @@ export default function AdminStats() {
           <div style={{ fontSize: 11, color: C.muted, lineHeight: 1.6 }}>
             C'est ici que le tunnel décroche : panier rempli, pas de paiement. Séquence de relance email automatique 1h / 24h / 72h.
           </div>
+        </Card>
+        <Card title="❤️ Favoris (mises en wishlist)" lexique="Favoris">
+          {!wishlist ? <Skeleton h={120} /> : (
+            <>
+              <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 14 }}>
+                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{wishlist.total ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>ajout(s) aux favoris</div></div>
+              </div>
+              {(wishlist.top_products ?? []).length === 0 ? (
+                <div style={{ color: C.muted, fontSize: 13 }}>Aucun favori tracké sur la période (donnée non rétroactive — depuis le déploiement du tracking).</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ color: C.muted, textAlign: "left" }}>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Produit</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Favoris</th>
+                    </tr></thead>
+                    <tbody>
+                      {wishlist.top_products.map((p: any) => (
+                        <tr key={p.id} style={{ borderTop: `1px solid ${C.faint}` }}>
+                          <td style={{ padding: "10px 10px", color: C.warm }}>{p.name}</td>
+                          <td style={{ padding: "10px 10px", color: C.amber, fontWeight: 800 }}>{p.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
+          )}
         </Card>
       </div>
 
@@ -1080,6 +1109,85 @@ export default function AdminStats() {
             </Card>
             <Card title="📈 Nouveaux vs récurrents dans le temps" lexique="Nouveaux visiteurs">
               <NewVsReturningChart byDay={pv.new_returning_by_day ?? []} />
+            </Card>
+          </div>
+
+          {/* Top pays / Top villes (trafic) — profil visiteur, juste après Nouveaux vs récurrents */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
+            <Card title="🌍 Top pays">
+              {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {(showAllCountries ? pv.by_country : pv.by_country.slice(0, 10)).map((c: any) => (
+                    <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{c.country}</span><span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
+                    </div>
+                  ))}
+                  {pv.by_country.length > 10 && (
+                    <button onClick={() => setShowAllCountries(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
+                      {showAllCountries ? "Réduire" : `Voir tout (${pv.by_country.length})`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
+            <Card title="🏙️ Top villes (trafic)">
+              {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
+                <div style={{ display: "grid", gap: 8 }}>
+                  {(showAllCities ? pv.by_city : pv.by_city.slice(0, 10)).map((c: any, i: number) => (
+                    <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{c.city}{c.region ? <span style={{ color: C.muted }}> · {c.region}</span> : null}</span>
+                      <span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
+                    </div>
+                  ))}
+                  {pv.by_city.length > 10 && (
+                    <button onClick={() => setShowAllCities(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
+                      {showAllCities ? "Réduire" : `Voir tout (${pv.by_city.length})`}
+                    </button>
+                  )}
+                </div>
+              )}
+            </Card>
+          </div>
+
+          {/* Carte des visiteurs */}
+          <div style={{ marginBottom: 24 }}>
+            <Card title="🗺️ Carte des visiteurs">
+              <WorldVisitorsMap cities={pv.by_city ?? []} />
+            </Card>
+          </div>
+
+          {/* Appareils / Système / Navigateur */}
+          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
+            <Card title="📱 Appareils">
+              <div style={{ display: "grid", gap: 8 }}>
+                {(pv.by_device ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+                  pv.by_device.map((d: any) => (
+                    <div key={d.device_type} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
+                      <span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+            <Card title="💿 Système">
+              <div style={{ display: "grid", gap: 8 }}>
+                {(pv.by_os ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+                  pv.by_os.map((d: any) => (
+                    <div key={d.os} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                    </div>
+                  ))}
+              </div>
+            </Card>
+            <Card title="🌐 Navigateur">
+              <div style={{ display: "grid", gap: 8 }}>
+                {(pv.by_browser ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
+                  pv.by_browser.map((d: any) => (
+                    <div key={d.browser} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
+                      <span style={{ color: C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                    </div>
+                  ))}
+              </div>
             </Card>
           </div>
         </>
@@ -1231,39 +1339,6 @@ export default function AdminStats() {
         </Card>
       </div>
 
-      {/* Favoris (mises en wishlist) */}
-      <div style={{ marginBottom: 24 }}>
-        <Card title="❤️ Favoris (mises en wishlist)" lexique="Favoris">
-          {!wishlist ? <Skeleton h={120} /> : (
-            <>
-              <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 14 }}>
-                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{wishlist.total ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>ajout(s) aux favoris</div></div>
-              </div>
-              {(wishlist.top_products ?? []).length === 0 ? (
-                <div style={{ color: C.muted, fontSize: 13 }}>Aucun favori tracké sur la période (donnée non rétroactive — depuis le déploiement du tracking).</div>
-              ) : (
-                <div style={{ overflowX: "auto" }}>
-                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
-                    <thead><tr style={{ color: C.muted, textAlign: "left" }}>
-                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Produit</th>
-                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Favoris</th>
-                    </tr></thead>
-                    <tbody>
-                      {wishlist.top_products.map((p: any) => (
-                        <tr key={p.id} style={{ borderTop: `1px solid ${C.faint}` }}>
-                          <td style={{ padding: "10px 10px", color: C.warm }}>{p.name}</td>
-                          <td style={{ padding: "10px 10px", color: C.amber, fontWeight: 800 }}>{p.count}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </>
-          )}
-        </Card>
-      </div>
-
       {/* Newsletter + Avis clients */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="📧 Newsletter" lexique="Newsletter">
@@ -1349,89 +1424,6 @@ export default function AdminStats() {
           )}
         </Card>
       </div>
-
-      {pv && (
-        <>
-          {/* Top pays / Top villes (trafic) */}
-          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 16 }}>
-            <Card title="🌍 Top pays">
-              {(pv.by_country ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  {(showAllCountries ? pv.by_country : pv.by_country.slice(0, 10)).map((c: any) => (
-                    <div key={c.country} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{c.country}</span><span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
-                    </div>
-                  ))}
-                  {pv.by_country.length > 10 && (
-                    <button onClick={() => setShowAllCountries(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
-                      {showAllCountries ? "Réduire" : `Voir tout (${pv.by_country.length})`}
-                    </button>
-                  )}
-                </div>
-              )}
-            </Card>
-            <Card title="🏙️ Top villes (trafic)">
-              {(pv.by_city ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13, fontStyle: "italic" }}>Disponible uniquement en production Vercel.</div> : (
-                <div style={{ display: "grid", gap: 8 }}>
-                  {(showAllCities ? pv.by_city : pv.by_city.slice(0, 10)).map((c: any, i: number) => (
-                    <div key={c.city + i} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{c.city}{c.region ? <span style={{ color: C.muted }}> · {c.region}</span> : null}</span>
-                      <span style={{ color: C.amber, fontWeight: 700 }}>{c.sessions}</span>
-                    </div>
-                  ))}
-                  {pv.by_city.length > 10 && (
-                    <button onClick={() => setShowAllCities(v => !v)} style={{ marginTop: 6, background: "none", border: `1px solid ${C.faint}`, color: C.amber, borderRadius: 8, padding: "6px 14px", fontSize: 12, fontWeight: 700, cursor: "pointer", justifySelf: "start" }}>
-                      {showAllCities ? "Réduire" : `Voir tout (${pv.by_city.length})`}
-                    </button>
-                  )}
-                </div>
-              )}
-            </Card>
-          </div>
-
-          {/* Carte des visiteurs */}
-          <div style={{ marginBottom: 24 }}>
-            <Card title="🗺️ Carte des visiteurs">
-              <WorldVisitorsMap cities={pv.by_city ?? []} />
-            </Card>
-          </div>
-
-          {/* Appareils / Système / Navigateur */}
-          <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Card title="📱 Appareils">
-              <div style={{ display: "grid", gap: 8 }}>
-                {(pv.by_device ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
-                  pv.by_device.map((d: any) => (
-                    <div key={d.device_type} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
-                      <span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
-                    </div>
-                  ))}
-              </div>
-            </Card>
-            <Card title="💿 Système">
-              <div style={{ display: "grid", gap: 8 }}>
-                {(pv.by_os ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
-                  pv.by_os.map((d: any) => (
-                    <div key={d.os} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
-                    </div>
-                  ))}
-              </div>
-            </Card>
-            <Card title="🌐 Navigateur">
-              <div style={{ display: "grid", gap: 8 }}>
-                {(pv.by_browser ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
-                  pv.by_browser.map((d: any) => (
-                    <div key={d.browser} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
-                    </div>
-                  ))}
-              </div>
-            </Card>
-          </div>
-        </>
-      )}
 
       {/* Lexique footer */}
       <SectionTitle>Lexique</SectionTitle>

@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, isValidOrder, VALID_STATUSES, fetchAllPaged, pct, ok, fail } from "@/lib/analytics-server";
+import { normalizePeriod, periodRange, isValidOrder, VALID_STATUSES, fetchAllPaged, pct, ok, fail, botSessionIds } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -14,15 +14,21 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
   try {
-    const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
+    const sp = new URL(req.url).searchParams;
+    const period = normalizePeriod(sp.get("period"));
+    const excludeBots = sp.get("bots") === "exclude";
     const { from, fromPrev, to } = periodRange(period);
 
     // Taux de conversion d'une fenêtre = commandes valides / sessions distinctes.
     // page_views paginé (cap PostgREST 1000/req → sinon sessions sous-comptées).
+    // Si excludeBots : sessions bots retirées du dénominateur (même heuristique que
+    // /api/admin/page-views) → taux de conversion plus juste (bots gonflaient les sessions).
     const rate = async (a: string, b: string, lt = false) => {
       const [rows, ords] = await Promise.all([
-        fetchAllPaged<{ session_id: string | null }>((rf, rt) => {
-          let q = supabaseServer.from("page_views").select("session_id").gte("viewed_at", a);
+        fetchAllPaged<any>((rf, rt) => {
+          let q = supabaseServer.from("page_views")
+            .select("session_id, time_on_page, scroll_depth, is_bounce, user_agent")
+            .gte("viewed_at", a);
           q = lt ? q.lt("viewed_at", b) : q.lte("viewed_at", b);
           return q.order("viewed_at", { ascending: true }).range(rf, rt);
         }),
@@ -31,7 +37,8 @@ export async function GET(req: NextRequest) {
           : supabaseServer.from("orders").select("status, shipping_status").in("status", VALID_STATUSES).gte("created_at", a).lte("created_at", b).limit(100000)),
       ]);
       if (ords.error) throw new Error(ords.error.message);
-      const distinct  = new Set(rows.map((r: any) => r.session_id).filter(Boolean)).size;
+      const botSet    = excludeBots ? botSessionIds(rows) : new Set<string>();
+      const distinct  = new Set(rows.map((r: any) => r.session_id).filter(Boolean).filter((s: string) => !botSet.has(s))).size;
       const sessions  = distinct > 0 ? distinct : rows.length; // fallback si session_id absent
       const purchases = (ords.data ?? []).filter(isValidOrder).length;
       return { sessions, purchases, conversion_rate: sessions > 0 ? (purchases / sessions) * 100 : 0 };

@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct } from "@/lib/analytics-server";
+import { normalizePeriod, periodRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct, botSessionIds } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -32,26 +32,8 @@ function channelOf(r: any): string {
   return "Referral";
 }
 
-// Heuristique bots (page_views n'a pas encore de user_agent garanti → on tolère
-// son absence : r.user_agent undefined → on retombe sur l'engagement). Bot si :
-// user-agent crawler connu, OU session 100% sans engagement (rebond + scroll 0 +
-// temps ~0 sur TOUTES ses vues).
-const CRAWLER_RE = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i;
-function botSessionIds(rows: any[]): Set<string> {
-  const bySess = new Map<string, any[]>();
-  for (const r of rows) { const s = r.session_id; if (!s) continue; if (!bySess.has(s)) bySess.set(s, []); bySess.get(s)!.push(r); }
-  const bots = new Set<string>();
-  for (const [sid, rs] of bySess) {
-    const uaBot = rs.some(r => r.user_agent && CRAWLER_RE.test(String(r.user_agent)));
-    const noEngagement = rs.every(r =>
-      (r.time_on_page == null || Number(r.time_on_page) <= 0) &&
-      (r.scroll_depth == null || Number(r.scroll_depth) === 0) &&
-      !!r.is_bounce
-    );
-    if (uaBot || noEngagement) bots.add(sid);
-  }
-  return bots;
-}
+// Heuristique bots : botSessionIds / CRAWLER_RE partagés via lib/analytics-server.ts
+// (réutilisés par /api/admin/analytics/conversion).
 
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);

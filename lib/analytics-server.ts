@@ -8,13 +8,15 @@ import { VALID_STATUSES, isValidOrder, getNetAmount } from "@/lib/orders";
 
 export { VALID_STATUSES, isValidOrder, getNetAmount };
 
-export type PeriodKey = "7" | "30" | "90" | "all";
+export type PeriodKey = "1" | "3" | "7" | "30" | "90" | "all";
 
-/** Normalise la query (?period=) vers une clé canonique. Défaut: 30. */
+/** Normalise la query (?period=) vers une clé canonique. Défaut: 30.
+ *  "1" = 24h (1 jour), "3" = 3 jours. Tolère "24"/"24h"/"7j"/"tout". */
 export function normalizePeriod(raw: string | null | undefined): PeriodKey {
-  const v = String(raw ?? "30").toLowerCase().replace(/j$/, "");
+  const v = String(raw ?? "30").toLowerCase().replace(/[jh]$/, "");
   if (v === "tout" || v === "all") return "all";
-  if (v === "7" || v === "30" || v === "90") return v as PeriodKey;
+  if (v === "24") return "1"; // "24h" → 24 heures = 1 jour
+  if (v === "1" || v === "3" || v === "7" || v === "30" || v === "90") return v as PeriodKey;
   return "30";
 }
 
@@ -33,7 +35,7 @@ export function periodRange(period: PeriodKey): PeriodRange {
     const from = new Date("2024-01-01T00:00:00.000Z").toISOString();
     return { period, days: null, from, fromPrev: from, to: now.toISOString() };
   }
-  const days = period === "7" ? 7 : period === "30" ? 30 : 90;
+  const days = period === "1" ? 1 : period === "3" ? 3 : period === "7" ? 7 : period === "30" ? 30 : 90;
   const MS   = 24 * 60 * 60 * 1000;
   const from     = new Date(now.getTime() - days * MS).toISOString();
   const fromPrev = new Date(now.getTime() - 2 * days * MS).toISOString();
@@ -44,6 +46,28 @@ export function periodRange(period: PeriodKey): PeriodRange {
 export function pct(cur: number, prev: number): number {
   if (!prev || prev <= 0) return 0;
   return ((cur - prev) / prev) * 100;
+}
+
+// ── Heuristique bots (partagée par /api/admin/page-views et /conversion) ─────
+// page_views n'a pas toujours de user_agent → on tolère son absence en retombant
+// sur l'engagement. Bot si : user-agent crawler connu, OU session 100% sans
+// engagement (rebond + scroll 0 + temps ~0 sur TOUTES ses vues).
+export const CRAWLER_RE = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i;
+
+export function botSessionIds(rows: any[]): Set<string> {
+  const bySess = new Map<string, any[]>();
+  for (const r of rows) { const s = r.session_id; if (!s) continue; if (!bySess.has(s)) bySess.set(s, []); bySess.get(s)!.push(r); }
+  const bots = new Set<string>();
+  for (const [sid, rs] of bySess) {
+    const uaBot = rs.some(r => r.user_agent && CRAWLER_RE.test(String(r.user_agent)));
+    const noEngagement = rs.every(r =>
+      (r.time_on_page == null || Number(r.time_on_page) <= 0) &&
+      (r.scroll_depth == null || Number(r.scroll_depth) === 0) &&
+      !!r.is_bounce
+    );
+    if (uaBot || noEngagement) bots.add(sid);
+  }
+  return bots;
 }
 
 /** Ratio net/brut d'une commande (pour ventiler un remboursement partiel sur ses items). */

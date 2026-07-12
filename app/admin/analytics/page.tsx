@@ -23,7 +23,7 @@ function adminFetch(url: string, options: RequestInit = {}) {
 import { useEffect, useState, useMemo, useCallback } from "react";
 import WorldVisitorsMap from "@/components/admin/WorldVisitorsMap";
 
-type PeriodKey = "7" | "30" | "90" | "all";
+type PeriodKey = "1" | "3" | "7" | "30" | "90" | "all";
 
 const C = {
   bg: "#0d0b09", bg2: "#161210", card: "#1c1814",
@@ -223,11 +223,11 @@ function Skeleton({ h = 80 }: { h?: number }) {
 // ─── Helpers format ───────────────────────────────────────────────────────────
 const eur  = (n: any, dec = 0) => `${(Number(n) || 0).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec })} €`;
 const PERIODS: { key: PeriodKey; label: string }[] = [
-  { key: "7", label: "7j" }, { key: "30", label: "30j" }, { key: "90", label: "90j" }, { key: "all", label: "Tout" },
+  { key: "1", label: "24h" }, { key: "3", label: "3j" }, { key: "7", label: "7j" }, { key: "30", label: "30j" }, { key: "90", label: "90j" }, { key: "all", label: "Tout" },
 ];
 function periodFromMs(p: PeriodKey): number {
   if (p === "all") return new Date("2024-01-01").getTime();
-  const days = p === "7" ? 7 : p === "30" ? 30 : 90;
+  const days = p === "1" ? 1 : p === "3" ? 3 : p === "7" ? 7 : p === "30" ? 30 : 90;
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
 const fmtDur = (sec: number | null | undefined): string => {
@@ -598,7 +598,7 @@ export default function AdminStats() {
   const narrow = useIsNarrow();
 
   const [period, setPeriod] = useState<PeriodKey>("30");
-  const [excludeBots, setExcludeBots] = useState(false); // toggle « exclure les bots » (page-views uniquement)
+  const [excludeBots, setExcludeBots] = useState(false); // toggle « exclure les bots » (page-views + conversion : seuls endpoints comptant de vraies sessions)
 
   // Données server-side (chacune null tant que non chargée)
   const [kpis,         setKpis]         = useState<any>(null);
@@ -663,7 +663,7 @@ export default function AdminStats() {
         safeData(`/api/admin/analytics/revenue-chart${q}`),
         safeData(`/api/admin/analytics/top-products${q}`),
         safeData(`/api/admin/analytics/top-customers${q}`),
-        safeData(`/api/admin/analytics/conversion${q}`),
+        safeData(`/api/admin/analytics/conversion${q}&bots=${excludeBots ? "exclude" : "all"}`),
         safeData(`/api/admin/analytics/promos${q}`),
         safeData(`/api/admin/analytics/retention${q}`),
         safeData(`/api/admin/analytics/geo${q}`),
@@ -876,11 +876,11 @@ export default function AdminStats() {
         <>
           {/* KPIs trafic */}
           <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-            <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={pv.deltas?.views} />
-            <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={pv.deltas?.sessions} />
-            <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={pv.deltas?.visitors} />
+            <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={showDelta ? pv.deltas?.views : undefined} />
+            <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={showDelta ? pv.deltas?.sessions : undefined} />
+            <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={showDelta ? pv.deltas?.visitors : undefined} />
             <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)} color={C.green}
-                     delta={pv.deltas?.avg_time}
+                     delta={showDelta ? pv.deltas?.avg_time : undefined}
                      pending={pv.avg_time_on_page == null || pv.avg_time_on_page === 0}
                      title="Ces données se remplissent après les premières navigations complètes" />
             <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`}

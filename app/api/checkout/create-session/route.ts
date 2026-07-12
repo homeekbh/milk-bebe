@@ -10,6 +10,8 @@ import {
 } from "@/lib/delivery-config";
 import { validatePromoCode } from "@/lib/promo-validate";
 import { computeCartTotals } from "@/lib/cart-totals";
+import { computeParrainage } from "@/lib/parrainage";
+import { getParrainageSettings, validateParrainCode, listUsableRewards, getUserFromRequest } from "@/lib/parrainage-server";
 
 // Pin l'API version au plus récent supporté par le SDK installé (cf.
 // node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
@@ -61,6 +63,8 @@ export async function POST(req: Request) {
       items,
       packs,
       promo_code,
+      parrain_code,
+      reward_ids,
       customer_email,
       customer_phone,
       delivery_type,
@@ -295,6 +299,65 @@ export async function POST(req: Request) {
       });
     }
 
+    // ── RE-VALIDATION PARRAINAGE (serveur — jamais le calcul client) ──────────
+    // Méca 1 (code parrain, invité OK) + méca 2 (récompenses, compte requis).
+    // On rejoue computeParrainage avec nos propres montants → montants figés ici,
+    // le webhook n'appliquera que ce qui est écrit dans le payload du draft.
+    const parrainageSettings = await getParrainageSettings();
+    const requester = await getUserFromRequest(req);
+
+    let hasValidParrainCode = false;
+    let validParrainId: string | null = null;
+    let validParrainCode: string | null = null;
+    if (parrain_code && String(parrain_code).trim()) {
+      const chk = await validateParrainCode(String(parrain_code), {
+        requesterUserId: requester?.id ?? null,
+        requesterEmail:  requester?.email ?? customer_email ?? null,
+        settings:        parrainageSettings,
+      });
+      if (chk.valid) {
+        hasValidParrainCode = true;
+        validParrainId   = chk.parrainId;
+        validParrainCode = String(parrain_code).trim().toUpperCase();
+      }
+    }
+
+    // Récompenses (méca 2) : uniquement celles RÉELLEMENT utilisables du compte
+    // connecté, filtrées sur la sélection cliente (jamais confiance au client).
+    const usableRewards = requester ? await listUsableRewards(requester.id) : [];
+    const wantedRewardIds = new Set((Array.isArray(reward_ids) ? reward_ids : []).map(String));
+    const selectedUsable = usableRewards.filter(r => wantedRewardIds.has(r.id));
+
+    const cartCategorySlugs: string[] = [
+      ...validatedItems.map((i: any) => i.category_slug).filter(Boolean),
+      ...draftPacks.flatMap((p: any) => (Array.isArray(p.items) ? p.items : []).map((it: any) => it?.category_slug).filter(Boolean)),
+    ];
+
+    const parrainageResult = computeParrainage({
+      settings:              parrainageSettings,
+      subtotal,
+      promoDiscount:         serverDiscount,
+      freeShippingThreshold: freeShipThreshold,
+      hasValidParrainCode,
+      rewardsAvailableCount: usableRewards.length,
+      rewardsSelectedCount:  selectedUsable.length,
+      cartCategorySlugs,
+    });
+
+    const parrainDiscount   = parrainageResult.parrainDiscount;
+    const rewardDiscount    = parrainageResult.rewardDiscount;
+    const consumedRewardIds = selectedUsable.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
+    const parrainApplied    = parrainageResult.parrainApplicable && !!validParrainId;
+
+    // Payload écrit dans le draft → seule source que le webhook consommera.
+    const parrainagePayload = {
+      parrain_code:     parrainApplied ? validParrainCode : null,
+      parrain_id:       parrainApplied ? validParrainId   : null,
+      parrain_discount: parrainApplied ? parrainDiscount  : 0,
+      reward_ids:       consumedRewardIds,
+      reward_discount:  rewardDiscount,
+    };
+
     // ── DRAFT (pending_orders) : SÉLECTION RÉSOLUE (produits + pièces de packs
     //    avec leurs tailles) + livraison + promo. Sert au webhook à RETROUVER la
     //    commande et décrémenter. Le BILLING reste les line_items Stripe (calculés
@@ -314,6 +377,7 @@ export async function POST(req: Request) {
         },
         guest_email: customer_email ?? null,
         locale:      safeLocale,
+        parrainage:  parrainagePayload,
         status:      "pending",
       }])
       .select("id").single();
@@ -356,28 +420,38 @@ export async function POST(req: Request) {
       };
     }
 
-    if (serverDiscount > 0) {
-      // Clé STABLE dérivée du panier+promo+email (hash), SANS fenêtre temporelle.
-      // Avant: `Date.now() >> 16` changeait toutes les ~65s → coupons orphelins +
-      // collisions. Ici, un retry/double-clic du MÊME panier réutilise le même
-      // coupon (vraie idempotency Stripe) ; deux paniers différents → clés distinctes.
+    // ── Coupon UNIQUE = promo classique + code parrain + récompenses ──────────
+    // Stripe n'autorise qu'UN discount par session → tous les montants sont
+    // cumulés dans un seul amount_off. Clé idempotente STABLE (panier + toutes
+    // les remises + email) : un retry/double-clic du même panier réutilise le
+    // même coupon ; un panier ou une remise différente → clé distincte.
+    const totalDiscount = serverDiscount + parrainDiscount + rewardDiscount;
+    if (totalDiscount > 0) {
       const cartSig = [
         ...validatedItems.map(i => `${i.id}:${i.quantity}`),
         ...draftPacks.map(p => `pack:${p.pack_id}:${p.size ?? ""}:${p.quantity}`),
+        `promo:${serverPromoCode || ""}`,
+        `parrain:${parrainApplied ? validParrainCode : ""}`,
+        `rewards:${consumedRewardIds.join("+")}`,
       ].join(",");
       const cartHash = crypto.createHash("sha1").update(cartSig).digest("hex").slice(0, 12);
-      const idempotencyKey = `coupon-${serverPromoCode || "anon"}-${Math.round(serverDiscount * 100)}-${customer_email ?? "guest"}-${cartHash}`;
+      const idempotencyKey = `coupon-${Math.round(totalDiscount * 100)}-${customer_email ?? "guest"}-${cartHash}`;
+      const parts = [
+        serverPromoCode && `code ${serverPromoCode}`,
+        parrainDiscount > 0 && "parrain",
+        rewardDiscount > 0 && "récompenses",
+      ].filter(Boolean) as string[];
       const coupon = await stripe.coupons.create({
-        amount_off: Math.round(serverDiscount * 100),
+        amount_off: Math.round(totalDiscount * 100),
         currency:   "eur",
         duration:   "once",
-        name:       `Code ${serverPromoCode}`,
+        name:       `Remise M!LK (${parts.join(" + ") || "remise"})`.slice(0, 40),
       }, { idempotencyKey });
       sessionParams.discounts = [{ coupon: coupon.id }];
     }
 
     // ✅ Vérification montant minimum Stripe (0.50€)
-    const finalTotal = Math.max(0, subtotal - serverDiscount) + deliveryCost;
+    const finalTotal = Math.max(0, subtotal - totalDiscount) + deliveryCost;
     if (finalTotal < 0.50) {
       return Response.json({ error: "Le montant total est trop faible pour être traité (minimum 0.50€)" }, { status: 400 });
     }

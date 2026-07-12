@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { supabaseServer } from "@/lib/server/supabase";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
@@ -47,6 +48,21 @@ export async function GET(req: Request) {
     results.stockAlerts = await r.json();
   } catch (e: any) {
     results.stockAlerts = { error: e.message };
+  }
+
+  // 4. Parrainage : ménage des récompenses expirées (disponible → expiree).
+  //    Le calcul-à-la-lecture fait déjà autorité partout (panier/profil/serveur) ;
+  //    ceci régularise juste le status en base pour l'affichage historique.
+  try {
+    const { data, error } = await supabaseServer
+      .from("parrainage_recompenses")
+      .update({ status: "expiree" })
+      .eq("status", "disponible")
+      .lt("expires_at", new Date().toISOString())
+      .select("id");
+    results.parrainageExpired = error ? { error: error.message } : { expired: data?.length ?? 0 };
+  } catch (e: any) {
+    results.parrainageExpired = { error: e.message };
   }
 
   return NextResponse.json({ ok: true, results });

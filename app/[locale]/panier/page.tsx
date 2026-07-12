@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 import { computeCartTotals } from "@/lib/cart-totals";
+import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
 import {
   DELIVERY_DELAY,
   getDeliveryPrice,
@@ -49,7 +50,7 @@ type HomeAddress = {
 
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
-  const { user }  = useAuth();
+  const { user, session } = useAuth();
   const router    = useRouter();
   const locale    = useLocale();
 
@@ -58,6 +59,17 @@ export default function CartPage() {
   const [promoData,     setPromoData]     = useState<any>(null);
   const [promoError,    setPromoError]    = useState("");
   const [promoLoading,  setPromoLoading]  = useState(false);
+
+  // ── Parrainage ──
+  const [parrainCode,    setParrainCode]    = useState("");
+  const [parrainData,    setParrainData]    = useState<{ code: string; montant_recompense: number; seuil_filleul: number } | null>(null);
+  const [parrainError,   setParrainError]   = useState("");
+  const [parrainLoading, setParrainLoading] = useState(false);
+  // Données du compte connecté (récompenses utilisables + réglages complets).
+  const [meRewards,      setMeRewards]      = useState<{ id: string; montant: number; days_left: number }[]>([]);
+  const [meSettings,     setMeSettings]     = useState<ParrainageSettings | null>(null);
+  const [meActif,        setMeActif]        = useState(true);
+  const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
   const [guestEmail,    setGuestEmail]    = useState("");
   const [guestError,    setGuestError]    = useState("");
   const [checkoutError, setCheckoutError] = useState("");
@@ -346,6 +358,34 @@ export default function CartPage() {
   const shipping        = totals.shipping;
   const total           = totals.total;
 
+  // ── Parrainage : calcul d'AFFICHAGE (create-session re-valide, seul juge) ──
+  const parrainageSettingsForCalc: ParrainageSettings = {
+    actif:                        meSettings?.actif ?? meActif,
+    montant_recompense:           parrainData?.montant_recompense ?? meSettings?.montant_recompense ?? 5,
+    seuil_filleul:                parrainData?.seuil_filleul ?? meSettings?.seuil_filleul ?? 60,
+    seuil_parrain:                meSettings?.seuil_parrain ?? 100,
+    max_recompenses_par_commande: meSettings?.max_recompenses_par_commande ?? 4,
+    duree_validite_jours:         meSettings?.duree_validite_jours ?? 30,
+    categories_restriction:       meSettings?.categories_restriction ?? null,
+  };
+  const cartCatSlugs: string[] = [
+    ...items.map(i => i.category_slug).filter((s): s is string => !!s),
+    ...packs.map(() => "pack"),
+  ];
+  const parrainageCalc = computeParrainage({
+    settings:              parrainageSettingsForCalc,
+    subtotal,
+    promoDiscount:         discount,
+    freeShippingThreshold,
+    hasValidParrainCode:   !!parrainData,
+    rewardsAvailableCount: meRewards.length,
+    rewardsSelectedCount:  selectedRewardIds.length,
+    cartCategorySlugs:     cartCatSlugs,
+  });
+  const parrainDiscount = parrainageCalc.parrainDiscount;
+  const rewardDiscount  = parrainageCalc.rewardDiscount;
+  const grandTotal      = Math.max(0, total - parrainDiscount - rewardDiscount);
+
   // Barre "il te reste X€" : calculée sur le TOTAL APRÈS PROMO (même base que le
   // port réel). Si un code repasse sous 60€, le port réapparaît avec la barre.
   // Promo non cumulable → seuil désactivé → barre masquée (pas de fausse promesse).
@@ -428,6 +468,46 @@ export default function CartPage() {
     }
   }
 
+  // ── Parrainage : récompenses + réglages du compte connecté ────────────────
+  useEffect(() => {
+    const token = session?.access_token;
+    if (!token) { setMeRewards([]); setMeSettings(null); return; }
+    fetch("/api/parrainage/me", { headers: { Authorization: `Bearer ${token}` } })
+      .then(r => (r.ok ? r.json() : null))
+      .then((d: any) => {
+        if (!d || d.error) return;
+        setMeActif(d.actif !== false);
+        if (d.settings) setMeSettings(d.settings as ParrainageSettings);
+        setMeRewards(Array.isArray(d.rewards_usable) ? d.rewards_usable : []);
+      })
+      .catch(() => {});
+  }, [session?.access_token]);
+
+  async function applyParrain() {
+    if (!parrainCode.trim()) return;
+    setParrainLoading(true); setParrainError(""); setParrainData(null);
+    try {
+      const token = session?.access_token;
+      const res = await fetch("/api/parrainage/validate", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body:    JSON.stringify({ code: parrainCode.trim(), email: user?.email ?? (guestEmail.trim() || null) }),
+      });
+      const data = await res.json();
+      if (!data.valid) throw new Error(data.error ?? "Code parrain invalide");
+      setParrainData({ code: data.code, montant_recompense: data.montant_recompense, seuil_filleul: data.seuil_filleul });
+    } catch (e: any) {
+      setParrainError(e.message);
+    } finally {
+      setParrainLoading(false);
+    }
+  }
+
+  function removeParrain() { setParrainData(null); setParrainCode(""); setParrainError(""); }
+  function toggleReward(id: string) {
+    setSelectedRewardIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
+  }
+
   async function handleCheckout() {
     if ((items.length === 0 && packs.length === 0) || loading) return;
     setGuestError("");
@@ -481,16 +561,22 @@ export default function CartPage() {
       const isRelayType = deliveryType === "point_relais" || deliveryType === "locker";
       const res  = await fetch("/api/checkout/create-session", {
         method:  "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          // Token pour identifier le compte (récompenses méca 2 — serveur only).
+          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+        },
         body:    JSON.stringify({
           items,
           // Packs : envoyés en sélection (pack_id + taille choisie + qty). Le
           // serveur recalcule le forfait + les tailles par pièce depuis la base.
           packs: packs.map(p => ({ pack_id: p.pack_id, size: p.size, quantity: p.quantity })),
-          // ⚠️ promo_code uniquement — discount/free_shipping sont RECALCULÉS
-          // côté serveur via validatePromoCode + computeShipping. Empêche
-          // tout client malveillant de forger une remise.
+          // ⚠️ promo_code / parrain_code / reward_ids : TOUT est RE-VALIDÉ et
+          // RE-CALCULÉ côté serveur (validatePromoCode + validateParrainCode +
+          // computeParrainage). Le client ne peut forger aucune remise.
           promo_code:     promoData?.code    ?? null,
+          parrain_code:   parrainData?.code  ?? null,
+          reward_ids:     selectedRewardIds,
           customer_email: user?.email ?? guestEmail.trim(),
           customer_phone: customerPhone.trim(),
           carrier,
@@ -655,6 +741,81 @@ export default function CartPage() {
                   <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>❌ {promoError}</div>
                 )}
               </div>
+
+              {/* Code parrain — masqué si le programme est désactivé */}
+              {(meActif || !user) && (
+              <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Code parrain 🎁</div>
+                <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
+                  Un ami t'a donné son code&nbsp;? Saisis-le pour −{parrainageSettingsForCalc.montant_recompense.toFixed(0)}€ dès {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ d'achat.
+                </div>
+                {parrainData ? (
+                  <>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 12, background: parrainageCalc.parrainApplicable ? "#dcfce7" : "#fef3c7", border: `1px solid ${parrainageCalc.parrainApplicable ? "#86efac" : "#fde68a"}` }}>
+                      <div>
+                        <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15 }}>{parrainData.code}</span>
+                        <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 700, color: parrainageCalc.parrainApplicable ? "#16a34a" : "#92400e" }}>
+                          {parrainageCalc.parrainApplicable ? `− ${parrainDiscount.toFixed(2)} €` : `il manque ${parrainageCalc.parrainShortfall.toFixed(2)} €`}
+                        </span>
+                      </div>
+                      <button onClick={removeParrain} style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>Supprimer</button>
+                    </div>
+                    {!parrainageCalc.parrainApplicable && (
+                      <div style={{ marginTop: 8, fontSize: 12.5, color: "#92400e", fontWeight: 600 }}>
+                        Code parrain valable à partir de {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ (après code promo).
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div style={{ display: "flex", gap: 10 }}>
+                    <input type="text" value={parrainCode}
+                      onChange={e => { setParrainCode(e.target.value.toUpperCase()); setParrainError(""); }}
+                      onKeyDown={e => e.key === "Enter" && applyParrain()}
+                      placeholder="Ex : K7PMR4TX"
+                      style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
+                    />
+                    <button onClick={applyParrain} disabled={parrainLoading || !parrainCode.trim()}
+                      style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: parrainLoading || !parrainCode.trim() ? 0.5 : 1 }}>
+                      {parrainLoading ? "..." : "Appliquer"}
+                    </button>
+                  </div>
+                )}
+                {parrainError && (
+                  <div style={{ marginTop: 8, fontSize: 13, color: "#b91c1c", fontWeight: 700 }}>❌ {parrainError}</div>
+                )}
+              </div>
+              )}
+
+              {/* Mes récompenses parrainage (compte connecté) */}
+              {user && meActif && meRewards.length > 0 && (
+                <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Mes récompenses parrainage 🎉</div>
+                  <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
+                    {parrainageCalc.rewardsEligible
+                      ? `Coche jusqu'à ${parrainageSettingsForCalc.max_recompenses_par_commande} récompense(s) à utiliser sur cette commande.`
+                      : `Utilisables dès ${parrainageSettingsForCalc.seuil_parrain.toFixed(0)}€ — il te manque ${parrainageCalc.rewardsShortfall.toFixed(2)} €.`}
+                  </div>
+                  <div style={{ display: "grid", gap: 8 }}>
+                    {meRewards.map((r) => {
+                      const checked = selectedRewardIds.includes(r.id);
+                      const capReached = !checked && selectedRewardIds.length >= parrainageSettingsForCalc.max_recompenses_par_commande;
+                      const disabled = !parrainageCalc.rewardsEligible || capReached;
+                      return (
+                        <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: disabled ? "rgba(26,20,16,0.04)" : "#ede8df", opacity: disabled ? 0.55 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
+                          <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleReward(r.id)} />
+                          <span style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>− {r.montant.toFixed(2)} €</span>
+                          <span style={{ marginLeft: "auto", fontSize: 12, color: r.days_left <= 7 ? "#b45309" : "rgba(26,20,16,0.45)", fontWeight: 600 }}>
+                            expire dans {r.days_left} j
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
+                  <div style={{ marginTop: 10, fontSize: 11.5, color: "rgba(26,20,16,0.4)", lineHeight: 1.5 }}>
+                    Les remises finales sont confirmées au paiement.
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* ── Récapitulatif ── */}
@@ -679,6 +840,18 @@ export default function CartPage() {
                       <span style={{ fontWeight: 800 }}>Livraison offerte</span>
                     </div>
                   )}
+                  {parrainData && parrainageCalc.parrainApplicable && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
+                      <span style={{ fontWeight: 700 }}>Code parrain {parrainData.code}</span>
+                      <span style={{ fontWeight: 800 }}>− {parrainDiscount.toFixed(2)} €</span>
+                    </div>
+                  )}
+                  {rewardDiscount > 0 && (
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
+                      <span style={{ fontWeight: 700 }}>Récompenses ({parrainageCalc.rewardsUsable})</span>
+                      <span style={{ fontWeight: 800 }}>− {rewardDiscount.toFixed(2)} €</span>
+                    </div>
+                  )}
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
                     <span>Livraison</span>
                     {!carrier || !deliveryType ? (
@@ -698,7 +871,7 @@ export default function CartPage() {
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
                     <span>Total TTC</span>
-                    <span>{total.toFixed(2)} €</span>
+                    <span>{grandTotal.toFixed(2)} €</span>
                   </div>
                 </div>
 

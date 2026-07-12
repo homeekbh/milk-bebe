@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { useAuth } from "@/context/AuthContext";
+import ParrainageProfil from "@/components/ParrainageProfil";
 import { useCart } from "@/context/CartContext";
 import { supabase } from "@/lib/supabase-client";
 
@@ -98,7 +99,7 @@ export default function ProfilPage() {
   const { ids: wishIds, toggle } = useWishlist();
   const { addToCart } = useCart();
 
-  const [tab,      setTab]      = useState<"infos"|"adresses"|"commandes"|"favoris">("commandes");
+  const [tab,      setTab]      = useState<"infos"|"adresses"|"commandes"|"favoris"|"parrainage">("commandes");
   const [profile,  setProfile]  = useState<Profile | null>(null);
   const [orders,   setOrders]   = useState<Order[]>([]);
   const [loading,  setLoading]  = useState(true);
@@ -261,7 +262,13 @@ export default function ProfilPage() {
           <button style={TAB_STYLE(tab === "favoris")} onClick={() => setTab("favoris")}>
             ❤️ Mes favoris {wishIds.length > 0 && `(${wishIds.length})`}
           </button>
+          <button style={TAB_STYLE(tab === "parrainage")} onClick={() => setTab("parrainage")}>
+            🎁 Parrainage
+          </button>
         </div>
+
+        {/* ══ PARRAINAGE ══ */}
+        {tab === "parrainage" && <ParrainageProfil />}
 
         {/* ══ COMMANDES ══ */}
         {tab === "commandes" && (

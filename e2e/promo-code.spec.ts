@@ -12,8 +12,11 @@ test("code promo invalide → message d'erreur", async ({ page }) => {
   await prime(page, { cart: [sampleCartItem()] });
   await page.goto("/fr/panier", { waitUntil: "domcontentloaded" });
 
-  await page.getByPlaceholder("Ex : BIENVENUE10").fill(FIXTURES.invalidPromo);
-  await page.getByRole("button", { name: "Appliquer" }).click();
+  // Enter dans le champ promo → applyPromo (évite l'ambiguïté avec le bouton
+  // « Appliquer » du champ code parrain, ajouté à l'étape 15).
+  const promoInput = page.getByPlaceholder("Ex : BIENVENUE10");
+  await promoInput.fill(FIXTURES.invalidPromo);
+  await promoInput.press("Enter");
 
   await expect(page.getByText(/❌/)).toBeVisible();
 });
@@ -22,8 +25,9 @@ test("code promo valide MILK10 → remise appliquée", async ({ page }) => {
   await prime(page, { cart: [sampleCartItem()] });
   await page.goto("/fr/panier", { waitUntil: "domcontentloaded" });
 
-  await page.getByPlaceholder("Ex : BIENVENUE10").fill(FIXTURES.validPromo);
-  await page.getByRole("button", { name: "Appliquer" }).click();
+  const promoInput = page.getByPlaceholder("Ex : BIENVENUE10");
+  await promoInput.fill(FIXTURES.validPromo);
+  await promoInput.press("Enter");
 
   // Succès : aucune erreur, le code appliqué + une remise « − …€ » + bouton Supprimer.
   await expect(page.getByText(/❌/)).toHaveCount(0);

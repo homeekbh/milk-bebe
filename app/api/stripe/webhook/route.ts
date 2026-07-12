@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
 import { logActivity } from "@/lib/server/audit";
+import { getParrainageSettings } from "@/lib/parrainage-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -259,6 +260,67 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     .eq("id", pendingId).eq("status", "pending")
     .select("id").maybeSingle();
   if (!claimed) return; // déjà consommé (rejeu Stripe) → pas de double décrément
+
+  // ── PARRAINAGE — exactement 1× (protégé par le claim atomique ci-dessus) ──
+  //    Rattachement filleul→parrain + création/consommation des récompenses
+  //    UNIQUEMENT ici, au paiement confirmé (anti-abus règles 2 & 3).
+  try {
+    const pay: any        = draft.parrainage ?? {};
+    const orderId         = orderData?.id;
+    const parrainDiscount = Number(pay.parrain_discount ?? 0) || 0;
+    const rewardDiscount  = Number(pay.reward_discount ?? 0) || 0;
+
+    if (orderId && (pay.parrain_code || parrainDiscount > 0 || rewardDiscount > 0)) {
+      // Réconciliation sur la commande du filleul.
+      try {
+        await supabaseServer.from("orders").update({
+          parrain_code:        pay.parrain_code ?? null,
+          parrain_discount:    parrainDiscount,
+          recompense_discount: rewardDiscount,
+        }).eq("id", orderId);
+      } catch {}
+    }
+
+    // Méca 1 : le filleul a payé avec un code parrain → le PARRAIN gagne une récompense.
+    if (orderId && pay.parrain_id && pay.parrain_code) {
+      const { data: already } = await supabaseServer
+        .from("parrainage_recompenses").select("id").eq("filleul_order_id", orderId).limit(1).maybeSingle();
+      if (!already) {
+        const settings  = await getParrainageSettings();
+        const expiresAt = new Date(Date.now() + settings.duree_validite_jours * 86_400_000).toISOString();
+        await supabaseServer.from("parrainage_recompenses").insert([{
+          parrain_id:       pay.parrain_id,
+          filleul_order_id: orderId,
+          montant:          settings.montant_recompense,
+          status:           "disponible",
+          expires_at:       expiresAt,
+        }]);
+        // Email parrain (récompense disponible) — best-effort.
+        try {
+          const { data: pp } = await supabaseServer
+            .from("profiles").select("email, prenom").eq("id", pay.parrain_id).maybeSingle();
+          if (pp?.email) {
+            fetch(`${BASE}/api/emails/parrain-recompense`, {
+              method:  "POST",
+              headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+              body:    JSON.stringify({ email: pp.email, prenom: pp.prenom ?? "", montant: settings.montant_recompense }),
+            }).catch(() => {});
+          }
+        } catch {}
+      }
+    }
+
+    // Méca 2 : marquer les récompenses cochées « utilisée » (disponible→utilisee).
+    // Idempotent : le filtre status='disponible' ne matche rien en cas de rejeu.
+    const rewardIds: string[] = Array.isArray(pay.reward_ids) ? pay.reward_ids.map(String) : [];
+    if (orderId && rewardIds.length > 0) {
+      await supabaseServer.from("parrainage_recompenses")
+        .update({ status: "utilisee", used_on_order_id: orderId })
+        .in("id", rewardIds).eq("status", "disponible");
+    }
+  } catch (e: any) {
+    process.env.NODE_ENV !== "production" && console.error("[webhook] parrainage:", e?.message);
+  }
 
   // ── Décrément : produits + chaque pièce de chaque pack, sur SA taille (× qty).
   const stockIssues: Array<{ name: string; size?: string; requested: number; available: number; error?: string }> = [];

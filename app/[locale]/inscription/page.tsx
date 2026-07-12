@@ -112,7 +112,7 @@ export default function InscriptionPage() {
       instagram: form.instagram || null,
       facebook: form.facebook || null,
       comment_connu: form.comment_connu || null,
-      newsletter: form.newsletter,
+      newsletter: true, // opt-in systématique (plus de case à décocher)
     }]);
 
     // Email de bienvenue — fire-and-forget. N'attend pas la réponse pour
@@ -325,16 +325,11 @@ export default function InscriptionPage() {
                   </Field>
                 </div>
 
-                <div style={{ padding: 18, borderRadius: 14, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.2)" }}>
-                  <label style={{ display: "flex", alignItems: "flex-start", gap: 12, cursor: "pointer" }}>
-                    <input type="checkbox" checked={form.newsletter} onChange={(e) => set("newsletter", e.target.checked)} style={{ width: 18, height: 18, marginTop: 2, flexShrink: 0 }} />
-                    <div>
-                      <div style={{ fontWeight: 800, fontSize: 14, color: "#f2ede6" }}>{t("newsletter_opt")}</div>
-                      <div style={{ fontSize: 12, color: "rgba(242,237,230,0.45)", marginTop: 3, lineHeight: 1.5 }}>
-                        {t("newsletter_opt_desc")}
-                      </div>
-                    </div>
-                  </label>
+                {/* Newsletter : opt-in automatique à la création de compte (demande de
+                    Bou). Plus de case à décocher — mention passive RGPD suffisante, le
+                    lien de désabonnement est présent dans les emails marketing envoyés. */}
+                <div style={{ padding: 14, borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.2)", fontSize: 12, color: "rgba(242,237,230,0.55)", lineHeight: 1.6 }}>
+                  📩 En créant un compte, tu acceptes de recevoir nos actualités et offres M!LK par email. Désabonnement possible à tout moment en un clic.
                 </div>
               </>
             )}

@@ -372,6 +372,12 @@ export default function CartPage() {
     (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
     false;
 
+  // Email requis pour payer : connecté (user.email connu) OU invité avec email valide.
+  const emailReady = !!user || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
+  // Gating unique du bouton paiement : livraison complète + email valide + panier non
+  // vide (items OU packs — un pack seul compte, items.length seul ratait ce cas).
+  const canPay     = deliveryReady && emailReady && (items.length + packs.length) > 0;
+
   // Sauvegarde panier abandonné — connecté (user.email) OU invité (guestEmail valide).
   // Sans email exploitable, la quasi-totalité des visiteurs (achat invité) n'était
   // jamais enregistrée dans abandoned_carts, donc jamais relancée.
@@ -833,14 +839,32 @@ export default function CartPage() {
                     </div>
                   )}
 
-                  {/* Commander sans créer de compte — rapproché du bouton de paiement pour
-                      que l'erreur email (guestError) reste visible au clic, y compris mobile. */}
+                  {/* Choix compte / invité — rapproché du bouton de paiement pour que
+                      l'erreur email (guestError) reste visible au clic, y compris mobile.
+                      « Créer un compte » mis en avant (recommandé), invité toujours possible. */}
                   {!user && (
                     <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)", marginBottom: 10 }}>
-                      <div style={{ fontSize: 15, fontWeight: 900, color: "#f2ede6", marginBottom: 4 }}>
-                        Commander sans créer de compte
+                      {/* Option recommandée : créer un compte (amber + pulse doux) */}
+                      <Link href="/inscription?redirect=/panier"
+                        style={{ display: "block", padding: "14px 18px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, textDecoration: "none", textAlign: "center", animation: "milk-cart-glow 1.8s ease-in-out infinite" }}>
+                        Créer un compte →
+                      </Link>
+                      <div style={{ fontSize: 12, color: "rgba(242,237,230,0.6)", marginTop: 8, textAlign: "center", lineHeight: 1.5 }}>
+                        ✨ Recommandé — suivi de commande, historique et avantages membres.
                       </div>
-                      <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 14, lineHeight: 1.6 }}>
+
+                      {/* Séparateur */}
+                      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 14px" }}>
+                        <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.12)" }} />
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.4)" }}>ou</span>
+                        <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.12)" }} />
+                      </div>
+
+                      {/* Option neutre : payer sans compte */}
+                      <div style={{ fontSize: 14, fontWeight: 800, color: "#f2ede6", marginBottom: 4 }}>
+                        Payer sans créer de compte
+                      </div>
+                      <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 12, lineHeight: 1.6 }}>
                         Entre ton email pour recevoir la confirmation et suivre ta livraison.
                       </div>
                       <input
@@ -855,16 +879,10 @@ export default function CartPage() {
                       {guestError && (
                         <div style={{ fontSize: 13, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>⚠ {guestError}</div>
                       )}
-                      <div style={{ display: "flex", gap: 10, marginTop: 4 }}>
-                        <Link href="/connexion?redirect=/panier"
-                          style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
-                          J'ai un compte
-                        </Link>
-                        <Link href="/inscription?redirect=/panier"
-                          style={{ flex: 1, padding: "10px", borderRadius: 10, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "none", textAlign: "center", border: "1px solid rgba(242,237,230,0.12)" }}>
-                          Créer un compte
-                        </Link>
-                      </div>
+                      <Link href="/connexion?redirect=/panier"
+                        style={{ display: "inline-block", marginTop: 2, color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "underline" }}>
+                        J'ai déjà un compte
+                      </Link>
                     </div>
                   )}
 
@@ -910,8 +928,13 @@ export default function CartPage() {
                     Veuillez compléter votre choix de livraison
                   </div>
                 )}
-                <button onClick={handleCheckout} disabled={loading || items.length === 0 || !deliveryReady}
-                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || items.length === 0 || !deliveryReady) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || items.length === 0 || !deliveryReady) ? "not-allowed" : "pointer", marginBottom: 12 }}>
+                {!emailReady && (items.length + packs.length) > 0 && (
+                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
+                    Saisis ton email ci-dessus pour activer le paiement.
+                  </div>
+                )}
+                <button onClick={handleCheckout} disabled={loading || !canPay}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || !canPay) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || !canPay) ? "not-allowed" : "pointer", marginBottom: 12 }}>
                   {loading ? "Redirection..." : "Passer au paiement →"}
                 </button>
 

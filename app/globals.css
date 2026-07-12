@@ -190,6 +190,18 @@ img[loading="lazy"] { content-visibility: auto; }
   .admin-clocks-wrap { display: none !important; }
 }
 
+/* ── Rappels visuels checkout (panier non vide, CTA « créer un compte ») ──
+   Même esprit que milk-promo-pulse (PromoSticker), teinte amber du design system.
+   Centralisés ici → réutilisables par le Header (icône panier) ET le panier. ── */
+@keyframes milk-cart-pulse {
+  0%, 100% { transform: scale(1);    filter: drop-shadow(0 0 0 rgba(196,154,74,0)); }
+  50%      { transform: scale(1.12); filter: drop-shadow(0 0 7px rgba(196,154,74,0.7)); }
+}
+@keyframes milk-cart-glow {
+  0%, 100% { box-shadow: 0 0 0 rgba(196,154,74,0); }
+  50%      { box-shadow: 0 0 14px rgba(196,154,74,0.5); }
+}
+
 /* ── Touch targets minimum 44px ── */
 @media (max-width: 768px) {
   button, a[role="button"] {

@@ -116,6 +116,9 @@ export default function Header() {
     };
   }, [pathname]);
   const totalItems = items.reduce((s, i) => s + i.quantity, 0) + packCount;
+  // Rappel visuel : tant qu'il reste au moins un article/pack, l'icône panier pulse.
+  const cartPulse = totalItems > 0 ? "milk-cart-pulse 1.8s ease-in-out infinite" : undefined;
+  const cartGlow  = totalItems > 0 ? "milk-cart-glow 1.8s ease-in-out infinite"  : undefined;
 
   useEffect(() => { setMobileOpen(false); }, [pathname]);
 
@@ -180,6 +183,7 @@ export default function Header() {
         }
         .hdr-link:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
         .hdr-icon:hover { background: rgba(128,128,128,0.1) !important; }
+        /* keyframes milk-cart-pulse / milk-cart-glow → définis dans globals.css */
       `}</style>
 
       <header ref={el => { headerRef.current = el; }}
@@ -250,7 +254,7 @@ export default function Header() {
             </Link>
 
             <Link href="/panier" aria-label="Panier" className="hdr-icon"
-              style={{ position: "relative", width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none" }}>
+              style={{ position: "relative", width: 40, height: 40, borderRadius: 10, display: "grid", placeItems: "center", textDecoration: "none", animation: cartPulse }}>
               <CartIcon color={C.text} size={22} />
               {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center", lineHeight: 1.4 }}>{totalItems}</span>}
             </Link>
@@ -266,7 +270,7 @@ export default function Header() {
 
           {/* Mobile burger */}
           <div className="milk-burger" style={{ alignItems: "center", gap: 6, flexShrink: 0 }}>
-            <Link href="/panier" style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}>
+            <Link href="/panier" style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none", animation: cartPulse }}>
               <CartIcon color={C.text} size={22} />
               {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>{totalItems}</span>}
             </Link>
@@ -376,7 +380,7 @@ export default function Header() {
               </>
             )}
             <Link href="/panier" onClick={() => setMobileOpen(false)}
-              style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              style={{ marginTop: "auto", padding: "18px 20px", borderRadius: 14, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#c49a4a", display: "flex", justifyContent: "space-between", alignItems: "center", animation: cartGlow }}>
               <span style={{ display: "flex", alignItems: "center", gap: 10 }}><CartIcon color="#c49a4a" size={20} />{t("my_cart")}</span>
               {totalItems > 0 && <span style={{ padding: "4px 12px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 14, fontWeight: 900 }}>{totalItems}</span>}
             </Link>

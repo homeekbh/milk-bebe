@@ -1769,6 +1769,9 @@ export default function HomePage() {
   const [lbl, setLbl]                             = useState("");
   const [freeShipThreshold, setFreeShipThreshold] = useState<number>(60);
   const [coffretActive, setCoffretActive]         = useState(false);
+  // Pack mis à l'honneur : UN des packs actifs, tiré au sort à chaque chargement de
+  // page (côté client → change à chaque visite, « vivant »). Pas de setInterval.
+  const [featuredPack, setFeaturedPack]           = useState<any>(null);
 
   useEffect(() => {
     fetch("/api/settings/public")
@@ -1797,6 +1800,19 @@ export default function HomePage() {
             })
             .catch(() => {});
         }
+      })
+      .catch(() => {});
+  }, []);
+
+  // Packs actifs (dynamiques, depuis la table `packs` via /api/packs) → tirage au sort
+  // d'un seul, au montage (donc à chaque visite/rechargement). Reste à jour si un pack
+  // est désactivé/ajouté (pas de liste codée en dur).
+  useEffect(() => {
+    fetch("/api/packs")
+      .then(r => r.json())
+      .then((data: any) => {
+        const list = Array.isArray(data?.packs) ? data.packs : [];
+        if (list.length > 0) setFeaturedPack(list[Math.floor(Math.random() * list.length)]);
       })
       .catch(() => {});
   }, []);
@@ -2046,6 +2062,24 @@ export default function HomePage() {
             <Link href="/packs" style={{ display: "inline-block", padding: "16px 32px", borderRadius: 14, background: P.dark, color: P.cream, fontWeight: 900, fontSize: "clamp(14px,1.5vw,17px)", textDecoration: "none" }}>
               {t("coffret_cta")}
             </Link>
+
+            {/* Pack à l'honneur — tiré au sort à chaque visite (image + nom + prix). */}
+            {featuredPack && (
+              <Link href={`/packs/${featuredPack.slug}`}
+                style={{ display: "block", marginTop: 40, maxWidth: 440, marginInline: "auto", background: P.cream, borderRadius: 22, overflow: "hidden", textDecoration: "none", border: "1px solid rgba(26,20,16,0.08)", boxShadow: "0 14px 44px rgba(13,11,9,0.14)" }}>
+                {featuredPack.image_url && (
+                  <div style={{ width: "100%", aspectRatio: "4 / 3", backgroundColor: "#e8e2d8", backgroundImage: `url("${featuredPack.image_url}")`, backgroundSize: "cover", backgroundPosition: "center" }} />
+                )}
+                <div style={{ padding: "20px 24px", textAlign: "left" }}>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: P.amber, marginBottom: 6 }}>Coffret à l'honneur</div>
+                  <div style={{ fontSize: "clamp(18px,2.2vw,22px)", fontWeight: 950, letterSpacing: -0.5, color: P.dark, marginBottom: 10 }}>{featuredPack.title}</div>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                    <span style={{ fontSize: "clamp(20px,2.4vw,26px)", fontWeight: 950, color: P.dark }}>{Number(featuredPack.price).toFixed(2)} €</span>
+                    <span style={{ fontSize: 14, fontWeight: 800, color: P.amber, whiteSpace: "nowrap" }}>Voir ce coffret →</span>
+                  </div>
+                </div>
+              </Link>
+            )}
           </div>
         </section>
       )}

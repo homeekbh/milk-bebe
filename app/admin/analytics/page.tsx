@@ -39,6 +39,7 @@ const LEXIQUE: Record<string, { icon: string; def: string }> = {
   "Taux de conversion":    { icon: "🎯", def: "% de sessions qui aboutissent à une commande, sur la MÊME période. La moyenne e-commerce est 1–3%." },
   "Clients uniques":       { icon: "👤", def: "Nombre d'adresses email distinctes ayant commandé sur la période. Un client qui commande 2× compte pour 1." },
   "Comptes créés":         { icon: "🆕", def: "Nombre de comptes créés (inscriptions Supabase Auth) sur la période. Différent des « Clients uniques » : ici on compte les inscriptions, pas les acheteurs — un inscrit peut ne jamais commander." },
+  "Favoris":               { icon: "❤️", def: "Nombre de mises en favoris (wishlist) sur la période + top produits favorisés. Signal d'intérêt fort. Donnée mesurable UNIQUEMENT depuis le déploiement du tracking — pas d'historique rétroactif." },
   "Taux de fidélité":      { icon: "🔁", def: "% de clients actifs sur la période qui avaient déjà commandé avant. Un client fidèle coûte 5× moins cher à garder qu'à acquérir." },
   "Nouveaux clients":      { icon: "✨", def: "Clients dont la toute première commande tombe dans la période sélectionnée. Mesure l'acquisition." },
   "Codes promos":          { icon: "🏷️", def: "Performance des codes promo : utilisations, CA généré et remises accordées. Mesure l'efficacité des campagnes." },
@@ -844,6 +845,7 @@ export default function AdminStats() {
   const [stockDormant, setStockDormant] = useState<any>(null);
   const [pageViews,    setPageViews]    = useState<any>(null);
   const [accounts,     setAccounts]     = useState<any>(null);
+  const [wishlist,     setWishlist]     = useState<any>(null);
 
   // Données client-side conservées
   const [slimOrders,     setSlimOrders]     = useState<any[]>([]);
@@ -882,7 +884,7 @@ export default function AdminStats() {
     const q = `?period=${period}`;
     try {
       const [
-        kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD, accD,
+        kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD, accD, wishD,
         slim, carts, news, revs, alerts,
       ] = await Promise.all([
         safeData(`/api/admin/analytics/kpis${q}`),
@@ -896,6 +898,7 @@ export default function AdminStats() {
         safeData(`/api/admin/analytics/stock-dormant`),
         safeData(`/api/admin/page-views${q}&bots=${excludeBots ? "exclude" : "all"}`),
         safeData(`/api/admin/analytics/accounts-count${q}`),
+        safeData(`/api/admin/analytics/wishlist${q}`),
         safe(`/api/admin/commandes-data?fields=slim`),
         safe(`/api/admin/abandoned-carts`),
         safe(`/api/admin/newsletter`),
@@ -905,7 +908,7 @@ export default function AdminStats() {
 
       setKpis(kpisD); setRevenueChart(revD); setTopProducts(topPD); setTopCustomers(topCD);
       setConversion(convD); setPromos(promoD); setRetention(retD); setGeo(geoD); setStockDormant(dormantD);
-      setPageViews(pvD); setAccounts(accD);
+      setPageViews(pvD); setAccounts(accD); setWishlist(wishD);
 
       if (Array.isArray(slim)) setSlimOrders(slim); else if (slim != null) failed.add("commandes-data");
       if (carts?.carts && Array.isArray(carts.carts)) setAbandonedCarts(carts.carts);
@@ -1162,6 +1165,39 @@ export default function AdminStats() {
                 </tbody>
               </table>
             </div>
+          )}
+        </Card>
+      </div>
+
+      {/* Favoris (mises en wishlist) */}
+      <div style={{ marginBottom: 24 }}>
+        <Card title="❤️ Favoris (mises en wishlist)" lexique="Favoris">
+          {!wishlist ? <Skeleton h={120} /> : (
+            <>
+              <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 14 }}>
+                <div><div style={{ fontSize: 22, fontWeight: 950, color: C.amber }}>{wishlist.total ?? 0}</div><div style={{ fontSize: 11, color: C.muted }}>ajout(s) aux favoris</div></div>
+              </div>
+              {(wishlist.top_products ?? []).length === 0 ? (
+                <div style={{ color: C.muted, fontSize: 13 }}>Aucun favori tracké sur la période (donnée non rétroactive — depuis le déploiement du tracking).</div>
+              ) : (
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                    <thead><tr style={{ color: C.muted, textAlign: "left" }}>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Produit</th>
+                      <th style={{ padding: "8px 10px", fontWeight: 700 }}>Favoris</th>
+                    </tr></thead>
+                    <tbody>
+                      {wishlist.top_products.map((p: any) => (
+                        <tr key={p.id} style={{ borderTop: `1px solid ${C.faint}` }}>
+                          <td style={{ padding: "10px 10px", color: C.warm }}>{p.name}</td>
+                          <td style={{ padding: "10px 10px", color: C.amber, fontWeight: 800 }}>{p.count}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </Card>
       </div>

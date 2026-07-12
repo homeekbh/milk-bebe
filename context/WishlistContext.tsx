@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, useEffect } from "react";
+import { trackAddToWishlist } from "@/lib/analytics";
 
 type WishlistCtx = {
   ids:      string[];
@@ -30,7 +31,11 @@ export function WishlistProvider({ children }: { children: React.ReactNode }) {
   }, [ids, mounted]);
 
   function toggle(id: string) {
+    const adding = !ids.includes(id);
     setIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
+    // Tracking analytique UNIQUEMENT à l'ajout (pas au retrait). Le stockage
+    // localStorage ci-dessus reste inchangé et seul responsable de l'UI/persistance.
+    if (adding) trackAddToWishlist({ id });
   }
 
   function isInList(id: string) { return ids.includes(id); }

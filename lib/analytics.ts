@@ -152,6 +152,25 @@ export function trackAddToCart(product: { id: string; name: string; price: numbe
   });
 }
 
+export function trackAddToWishlist(product: { id: string; name?: string; price?: number; category?: string; variant?: string }): void {
+  const value = Number(product.price ?? 0);
+  // GA4 (optionnel : name/price peuvent être absents si appelé avec l'id seul).
+  pushDataLayer("add_to_wishlist", {
+    currency: CURRENCY,
+    value,
+    items:    [toGa4Item({ id: product.id, name: product.name ?? "", price: value, quantity: 1, category: product.category, variant: product.variant })],
+  });
+  fbqTrack("AddToWishlist", {
+    content_ids:  [String(product.id)],
+    ...(product.name ? { content_name: product.name } : {}),
+    content_type: "product",
+    value,
+    currency:     CURRENCY,
+  });
+  // Source de vérité interne (agrégée par la carte « Favoris » de l'admin).
+  logInternalEvent({ event_type: "add_to_wishlist", product_id: String(product.id), value });
+}
+
 export function trackRemoveFromCart(product: { id: string; name: string; price: number; quantity: number }): void {
   pushDataLayer("remove_from_cart", {
     currency: CURRENCY,

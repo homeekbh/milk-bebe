@@ -368,10 +368,15 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     try { await logActivity("stock_alert", `Stock insuffisant (commande unifiée) #${orderData.id.slice(0, 8).toUpperCase()} — ${stockIssues.length} item(s)`, { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }); } catch {}
   }
 
-  // Promo uses_count + conversion panier abandonné.
-  if (draft.promo_code) {
-    const { data: promo } = await supabaseServer.from("promo_codes").select("id, uses_count").eq("code", draft.promo_code).single();
-    if (promo) await supabaseServer.from("promo_codes").update({ uses_count: (promo.uses_count ?? 0) + 1 }).eq("id", promo.id);
+  // Promo uses_count — CHAQUE code appliqué (cumul étape 21) + conversion panier.
+  {
+    const appliedCodes: string[] = Array.isArray(draft.promo_codes) && draft.promo_codes.length
+      ? draft.promo_codes
+      : (draft.promo_code ? [draft.promo_code] : []);
+    for (const pc of appliedCodes) {
+      const { data: promo } = await supabaseServer.from("promo_codes").select("id, uses_count").eq("code", pc).maybeSingle();
+      if (promo) await supabaseServer.from("promo_codes").update({ uses_count: (promo.uses_count ?? 0) + 1 }).eq("id", promo.id);
+    }
   }
   if (email) await supabaseServer.from("abandoned_carts").update({ converted: true }).eq("email", email.toLowerCase().trim());
 

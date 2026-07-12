@@ -15,5 +15,10 @@ alter table promo_codes
 
 -- (`cumulable` boolean déjà présent, défaut false = code exclusif.)
 
+-- Brouillon de commande : tous les codes promo appliqués (cumul) → le webhook
+-- incrémente uses_count de chacun. `promo_code` (texte, 1er code) reste pour compat.
+alter table pending_orders
+  add column if not exists promo_codes text[] default null;
+
 -- Vérif : select code, cumulable, cumulable_codes from promo_codes;
 -- ═══════════════════════════════════════════════════════════════════════════

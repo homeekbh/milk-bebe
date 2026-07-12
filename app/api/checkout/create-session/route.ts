@@ -8,7 +8,7 @@ import {
   getDeliveryPrice,
   deliveryLabel,
 } from "@/lib/delivery-config";
-import { validatePromoCode } from "@/lib/promo-validate";
+import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
 import { computeCartTotals } from "@/lib/cart-totals";
 import { computeParrainage } from "@/lib/parrainage";
 import { getParrainageSettings, validateParrainCode, listUsableRewards, getUserFromRequest } from "@/lib/parrainage-server";
@@ -63,6 +63,7 @@ export async function POST(req: Request) {
       items,
       packs,
       promo_code,
+      promo_codes,
       parrain_code,
       reward_ids,
       customer_email,
@@ -252,27 +253,34 @@ export async function POST(req: Request) {
     const productsSubtotal = validatedItems.reduce((s, i) => s + i.price * i.quantity, 0);
     const subtotal         = productsSubtotal + packsSubtotal;
 
-    // ── RE-VALIDATION du code promo côté serveur ─────────────────────────────
-    // Si promo_code est fourni : on rejoue la validation. Si elle échoue
-    // (expiré, max_uses atteint, etc.) → on continue SANS promo (silencieux,
-    // ne casse pas le checkout). Le panier client aura déjà affiché l'erreur.
-    let serverDiscount      = 0;
-    let serverPromoCode     = "";
+    // ── RE-VALIDATION des codes promo côté serveur (1 ou PLUSIEURS — cumul étape 21)
+    //    Dégradation gracieuse : un code invalide / incompatible / hors plafond est
+    //    RETIRÉ et on réessaie (le panier a déjà refusé le 2e le cas échéant) → jamais
+    //    de rejet au checkout après un code accepté au panier.
+    let serverDiscount   = 0;
+    let serverPromoCodes: string[] = [];
     let serverPromoForCS: { free_shipping: boolean; cumulable_avec_livraison: boolean } | null = null;
-
-    if (promo_code && String(promo_code).trim()) {
-      const v = await validatePromoCode(String(promo_code), subtotal);
-      if (v.valid) {
-        serverDiscount  = v.discount;
-        serverPromoCode = v.code;
-        serverPromoForCS = {
-          free_shipping:            v.free_shipping,
-          cumulable_avec_livraison: v.cumulable_avec_livraison,
-        };
+    {
+      const rawCodes: string[] = Array.isArray(promo_codes)
+        ? promo_codes.map((c: any) => String(c ?? "").toUpperCase().trim())
+        : (promo_code ? [String(promo_code).toUpperCase().trim()] : []);
+      let codes = [...new Set(rawCodes.filter(Boolean))];
+      while (codes.length > 0) {
+        const combo = await validatePromoCombo(codes, subtotal);
+        if (combo.valid) {
+          serverDiscount   = combo.totalDiscount;
+          serverPromoCodes = combo.entries.map(e => e.code);
+          serverPromoForCS = { free_shipping: combo.free_shipping, cumulable_avec_livraison: combo.cumulable_avec_livraison };
+          break;
+        }
+        const bad  = combo.rejectedCode ?? codes[codes.length - 1];
+        const next = codes.filter(c => c !== bad);
+        if (next.length === codes.length) break; // rien retiré → stop (sécurité)
+        codes = next;
       }
-      // Sinon : promo silencieusement ignorée. Pas d'erreur — l'UX serait
-      // catastrophique de rejeter au checkout après un code accepté au panier.
     }
+    // Alias 1er code (compat aval : nom de coupon, draft.promo_code).
+    const serverPromoCode = serverPromoCodes[0] ?? "";
 
     // ── Calcul UNIFIÉ produits+packs (seuil livraison sur le TOTAL APRÈS PROMO)
     //    via computeCartTotals — MÊME fonction que le panier (affiché = facturé).
@@ -349,6 +357,24 @@ export async function POST(req: Request) {
     const consumedRewardIds = selectedUsable.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
     const parrainApplied    = parrainageResult.parrainApplicable && !!validParrainId;
 
+    // ── Garde-fou 60% « tous confondus » pour le CUMUL (≥ 2 codes promo) : si le
+    //    grand total (promo + parrain + récompenses) dépasse 60% du sous-total, on
+    //    RETIRE le dernier code promo et on recalcule la combo. Parrain/récompenses
+    //    gardés tels quels (retirer un code AUGMENTE le total après promo → ils ne
+    //    feraient qu'augmenter → conservateur/sûr).
+    if (serverPromoCodes.length >= 2) {
+      const cap = Math.round(subtotal * PROMO_CAP_RATE * 100) / 100;
+      let guardCodes = [...serverPromoCodes];
+      while (guardCodes.length >= 2 && (serverDiscount + parrainDiscount + rewardDiscount) > cap) {
+        guardCodes = guardCodes.slice(0, -1);
+        const combo = await validatePromoCombo(guardCodes, subtotal);
+        if (!combo.valid) break;
+        serverDiscount   = combo.totalDiscount;
+        serverPromoCodes = combo.entries.map(e => e.code);
+        serverPromoForCS = { free_shipping: combo.free_shipping, cumulable_avec_livraison: combo.cumulable_avec_livraison };
+      }
+    }
+
     // Payload écrit dans le draft → seule source que le webhook consommera.
     const parrainagePayload = {
       parrain_code:     parrainApplied ? validParrainCode : null,
@@ -367,7 +393,8 @@ export async function POST(req: Request) {
       .insert([{
         products: validatedItems.map(i => ({ id: i.id, name: i.name, slug: i.slug, price: i.price, quantity: i.quantity, taille: i.taille, category_slug: i.category_slug })),
         packs:    draftPacks,
-        promo_code: serverPromoCode || null,
+        promo_code:  serverPromoCode || null, // 1er code (compat)
+        promo_codes: serverPromoCodes,        // tous les codes appliqués (cumul)
         delivery: {
           carrier, delivery_type,
           delivery_price: deliveryCost,
@@ -430,14 +457,14 @@ export async function POST(req: Request) {
       const cartSig = [
         ...validatedItems.map(i => `${i.id}:${i.quantity}`),
         ...draftPacks.map(p => `pack:${p.pack_id}:${p.size ?? ""}:${p.quantity}`),
-        `promo:${serverPromoCode || ""}`,
+        `promo:${serverPromoCodes.join("+")}`,
         `parrain:${parrainApplied ? validParrainCode : ""}`,
         `rewards:${consumedRewardIds.join("+")}`,
       ].join(",");
       const cartHash = crypto.createHash("sha1").update(cartSig).digest("hex").slice(0, 12);
       const idempotencyKey = `coupon-${Math.round(totalDiscount * 100)}-${customer_email ?? "guest"}-${cartHash}`;
       const parts = [
-        serverPromoCode && `code ${serverPromoCode}`,
+        serverPromoCodes.length > 1 ? `codes ${serverPromoCodes.join(" + ")}` : (serverPromoCode && `code ${serverPromoCode}`),
         parrainDiscount > 0 && "parrain",
         rewardDiscount > 0 && "récompenses",
       ].filter(Boolean) as string[];

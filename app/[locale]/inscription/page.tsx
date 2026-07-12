@@ -106,6 +106,21 @@ export default function InscriptionPage() {
       ville: form.ville,
       code_postal: form.code_postal,
       pays: form.pays,
+      // Colonnes canoniques EN (lues par /api/profil → page /profil) remplies EN PLUS
+      // des FR, sinon la page compte du client affichait des champs vides (mismatch
+      // prenom/nom/ville ↔ first_name/last_name/shipping_address). Backfill des comptes
+      // déjà créés : supabase/migrations/012_backfill_profiles_en.sql (à exécuter par Bou).
+      first_name: form.prenom,
+      last_name:  form.nom,
+      phone:      form.telephone,
+      shipping_address: {
+        name:        `${form.prenom} ${form.nom}`.trim(),
+        line1:       form.adresse_livraison,
+        line2:       "",
+        postal_code: form.code_postal,
+        city:        form.ville,
+        country:     form.pays,
+      },
       adresse_livraison_alt: form.adresse_diff ? form.adresse_livraison_alt : null,
       ville_alt: form.adresse_diff ? form.ville_alt : null,
       code_postal_alt: form.adresse_diff ? form.code_postal_alt : null,

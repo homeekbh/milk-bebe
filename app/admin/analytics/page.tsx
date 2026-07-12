@@ -87,8 +87,8 @@ function LexiqueTag({ terme }: { terme: string }) {
   );
 }
 
-function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc.", pending, title }: {
-  label: string; value: string; sub?: string; color?: string; delta?: number; deltaLabel?: string; pending?: boolean; title?: string;
+function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc.", pending, title, href, actionLabel }: {
+  label: string; value: string; sub?: string; color?: string; delta?: number; deltaLabel?: string; pending?: boolean; title?: string; href?: string; actionLabel?: string;
 }) {
   return (
     <div title={title} style={{ background: C.card, borderRadius: 16, padding: "22px 20px", border: `1px solid ${C.faint}` }}>
@@ -101,6 +101,9 @@ function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs p�
         <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: delta >= 0 ? C.green : C.red }}>
           {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% {deltaLabel}
         </div>
+      )}
+      {href && actionLabel && (
+        <a href={href} style={{ display: "inline-block", marginTop: 12, fontSize: 12, fontWeight: 800, color: C.amber, textDecoration: "none", border: `1px solid rgba(196,154,74,0.4)`, borderRadius: 8, padding: "5px 12px" }}>{actionLabel}</a>
       )}
       <LexiqueTag terme={label} />
     </div>
@@ -1289,9 +1292,13 @@ export default function AdminStats() {
       {/* ══════════════ 4 · CLIENTS & FIDÉLITÉ ══════════════ */}
       <SectionTitle>4 · Clients &amp; fidélité</SectionTitle>
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
-        {accounts
-          ? <KpiCard label="Comptes créés" value={String(accounts.count ?? 0)} sub="inscriptions sur la période" color={C.blue} delta={showDelta ? accounts.delta_pct : undefined} />
-          : <Skeleton h={110} />}
+        {/* Toujours rendue (jamais gated sur `accounts`) → ne peut plus « disparaître »
+            en skeleton perpétuel si la route est lente/échoue ; le sous-titre affiche le
+            TOTAL all-time même quand le compte de la période vaut 0. */}
+        <KpiCard label="Comptes créés" value={String(accounts?.count ?? 0)}
+          sub={accounts ? `${accounts.total ?? 0} compte(s) au total` : "inscriptions sur la période"}
+          color={C.blue} delta={showDelta ? accounts?.delta_pct : undefined}
+          href="/admin/comptes" actionLabel="Voir les comptes →" />
         {kpis
           ? <KpiCard label="Clients uniques" value={String(kpis.unique_customers)} sub={`${kpis.orders_count} commande(s)`} delta={showDelta ? kpis.orders_delta_pct : undefined} deltaLabel="commandes vs préc." />
           : <Skeleton h={110} />}

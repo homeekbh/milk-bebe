@@ -18,6 +18,7 @@ const NAV: Array<{ href: string; label: string; icon: string; badgeKey?: "review
   { href: "/admin/categories",   label: "Catégories",   icon: "📂" },
   { href: "/admin/commandes",    label: "Commandes",    icon: "📦", badgeKey: "commandesPending" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
+  { href: "/admin/comptes",      label: "Comptes",      icon: "🆕" },
   { href: "/admin/codes-promos", label: "Codes promos", icon: "🎟" },
   { href: "/admin/avis",         label: "Avis",         icon: "★",  badgeKey: "reviewsPending" },
   { href: "/admin/popups",       label: "Pop-ups",      icon: "💬" },

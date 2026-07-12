@@ -21,6 +21,12 @@ export default function AdminExports() {
             icon:  "👥",
           },
           {
+            title: "Comptes créés",
+            desc:  "Prénom · Nom · Ville · Email · A commandé · Newsletter · Date",
+            url:   "/api/admin/export/accounts",
+            icon:  "🆕",
+          },
+          {
             title: "Produits & stock",
             desc:  "Référence · Prix · Stock · Catégorie · Valeur stock",
             url:   "/api/admin/export/produits",

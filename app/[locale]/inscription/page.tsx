@@ -1,9 +1,9 @@
 ﻿"use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 
 const COMMENT_CONNU = [
@@ -48,8 +48,15 @@ const selectStyle = {
   appearance: "none" as const,
 };
 
-export default function InscriptionPage() {
+function InscriptionForm() {
   const router = useRouter();
+  // Redirection post-inscription : revenir là d'où on vient (?redirect=/panier envoyé
+  // depuis le panier) si c'est un chemin INTERNE sûr, sinon /profil?welcome=1 (défaut).
+  // Garde anti-open-redirect : commence par "/" mais pas "//" (URL protocol-relative).
+  const redirect     = useSearchParams().get("redirect");
+  const safeRedirect = redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+    ? redirect
+    : "/profil?welcome=1";
   const t = useTranslations("auth");
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -146,12 +153,12 @@ export default function InscriptionPage() {
     e.preventDefault();
     if (step < 3) { setStep(s => s + 1); return; }
     const ok = await createAccount();
-    if (ok) router.push("/profil?welcome=1");
+    if (ok) router.push(safeRedirect);
   }
 
   async function handleSkip() {
     const ok = await createAccount();
-    if (ok) router.push("/profil?welcome=1");
+    if (ok) router.push(safeRedirect);
   }
 
   const stepLabels = [t("register_step1"), t("register_step2"), t("register_step3")];
@@ -379,5 +386,15 @@ export default function InscriptionPage() {
         </form>
       </div>
     </div>
+  );
+}
+
+// useSearchParams() exige une frontière Suspense au build Next.js (« should be wrapped
+// in a suspense boundary »). On enveloppe le formulaire dans <Suspense>.
+export default function InscriptionPage() {
+  return (
+    <Suspense fallback={null}>
+      <InscriptionForm />
+    </Suspense>
   );
 }

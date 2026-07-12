@@ -20,7 +20,9 @@ export type ParrainageSettings = {
   actif: boolean;
   montant_recompense: number;
   seuil_filleul: number;
-  seuil_parrain: number;
+  // Barème PROGRESSIF : un seuil par position de récompense (1ère, 2e, 3e, 4e…).
+  // La i-ème récompense est cochable dès que le total atteint seuils_parrain[i].
+  seuils_parrain: number[];
   max_recompenses_par_commande: number;
   duree_validite_jours: number;
   categories_restriction: string[] | null;
@@ -30,7 +32,7 @@ export const DEFAULT_PARRAINAGE_SETTINGS: ParrainageSettings = {
   actif: true,
   montant_recompense: 5,
   seuil_filleul: 60,
-  seuil_parrain: 100,
+  seuils_parrain: [60, 80, 90, 100],
   max_recompenses_par_commande: 4,
   duree_validite_jours: 30,
   categories_restriction: null,
@@ -59,10 +61,11 @@ export type ParrainageResult = {
   totalApresParrain: number;
   parrainShortfall: number;      // € manquants pour débloquer le code parrain (0 si OK/absent)
   // Mécanique 2
-  rewardsEligible: boolean;      // seuil parrain atteint + catégorie OK + système actif
-  rewardsUsable: number;         // nb de récompenses réellement activables
+  rewardsEligible: boolean;      // au moins 1 palier débloqué + catégorie OK + système actif
+  rewardsUnlocked: number;       // nb de POSITIONS débloquées par le barème (plafonné au max/commande)
+  rewardsUsable: number;         // nb de récompenses réellement activables (min sélection / débloqué / stock)
   rewardDiscount: number;
-  rewardsShortfall: number;      // € manquants pour débloquer les récompenses
+  rewardsShortfall: number;      // € manquants pour débloquer la PROCHAINE case (0 si aucune de plus)
   // Total
   totalFinal: number;
 };
@@ -90,31 +93,37 @@ export function computeParrainage(input: ParrainageInput): ParrainageResult {
       ? round2(Math.max(0, s.seuil_filleul - totalApresPromo))
       : 0;
 
-  // 5) récompenses (méca 2) — seuil >= seuil_parrain, sur totalApresParrain
+  // 5) récompenses (méca 2) — barème PROGRESSIF sur totalApresParrain. Chaque
+  //    position i (1ère, 2e, …) a son propre seuil seuils_parrain[i], évalué
+  //    indépendamment sur le même total de référence.
   const categoryOk =
     !s.categories_restriction ||
     s.categories_restriction.length === 0 ||
     input.cartCategorySlugs.some((c) => s.categories_restriction!.includes(c));
-  const rewardsThresholdOk = totalApresParrain >= s.seuil_parrain;
-  const rewardsEligible = !!s.actif && categoryOk && rewardsThresholdOk && input.rewardsAvailableCount > 0;
 
-  const rewardsUsable = rewardsEligible
-    ? Math.max(
-        0,
-        Math.min(
-          input.rewardsSelectedCount,
-          s.max_recompenses_par_commande,
-          input.rewardsAvailableCount
-        )
-      )
-    : 0;
+  const tiers = Array.isArray(s.seuils_parrain) ? s.seuils_parrain : [];
+  // Paliers atteints DANS L'ORDRE (seuils croissants → on s'arrête au 1er non atteint).
+  let tiersReached = 0;
+  for (const t of tiers) {
+    if (totalApresParrain >= t) tiersReached++;
+    else break;
+  }
+  // Positions débloquées par le barème (plafonnées au max/commande, hors stock).
+  const rewardsUnlocked = Math.min(tiersReached, s.max_recompenses_par_commande);
+  // Plafond réel = positions débloquées ∩ stock de récompenses disponible.
+  const rewardsCap = Math.min(rewardsUnlocked, input.rewardsAvailableCount);
+  const rewardsEligible = !!s.actif && categoryOk && rewardsCap > 0;
+
+  const rewardsUsable = rewardsEligible ? Math.max(0, Math.min(input.rewardsSelectedCount, rewardsCap)) : 0;
   const rewardDiscount = round2(rewardsUsable * s.montant_recompense);
   const totalFinal = round2(Math.max(0, totalApresParrain - rewardDiscount));
 
-  const rewardsShortfall =
-    s.actif && input.rewardsAvailableCount > 0 && categoryOk && !rewardsThresholdOk
-      ? round2(Math.max(0, s.seuil_parrain - totalApresParrain))
-      : 0;
+  // Manque pour débloquer la PROCHAINE case (dans la limite du stock + max), 0 sinon.
+  const nextIdx = tiersReached;
+  const canUnlockMore =
+    !!s.actif && categoryOk &&
+    nextIdx < Math.min(tiers.length, s.max_recompenses_par_commande, input.rewardsAvailableCount);
+  const rewardsShortfall = canUnlockMore ? round2(Math.max(0, tiers[nextIdx] - totalApresParrain)) : 0;
 
   return {
     subtotal,
@@ -125,6 +134,7 @@ export function computeParrainage(input: ParrainageInput): ParrainageResult {
     totalApresParrain,
     parrainShortfall,
     rewardsEligible,
+    rewardsUnlocked,
     rewardsUsable,
     rewardDiscount,
     rewardsShortfall,

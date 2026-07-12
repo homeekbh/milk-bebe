@@ -18,7 +18,9 @@ export async function getParrainageSettings(): Promise<ParrainageSettings> {
     actif:                        Boolean(data.actif),
     montant_recompense:           Number(data.montant_recompense),
     seuil_filleul:                Number(data.seuil_filleul),
-    seuil_parrain:                Number(data.seuil_parrain),
+    seuils_parrain:               Array.isArray(data.seuils_parrain) && data.seuils_parrain.length > 0
+                                    ? data.seuils_parrain.map(Number)
+                                    : [...DEFAULT_PARRAINAGE_SETTINGS.seuils_parrain],
     max_recompenses_par_commande: Number(data.max_recompenses_par_commande),
     duree_validite_jours:         Number(data.duree_validite_jours),
     categories_restriction:       Array.isArray(data.categories_restriction) ? data.categories_restriction : null,

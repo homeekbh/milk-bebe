@@ -25,12 +25,24 @@ export async function PUT(req: NextRequest) {
     ? body.categories_restriction.map(String)
     : null;
 
+  // Barème progressif : tableau de seuils, un par position de récompense.
+  // Doit être CROISSANT (chaque palier ≥ le précédent) → sinon incohérence.
+  const rawTiers = Array.isArray(body.seuils_parrain)
+    ? body.seuils_parrain.map((v: any) => Math.max(0, Number(v) || 0))
+    : [];
+  for (let i = 1; i < rawTiers.length; i++) {
+    if (rawTiers[i] < rawTiers[i - 1]) {
+      return Response.json({ error: "Les seuils du barème doivent être croissants (chaque palier ≥ le précédent)." }, { status: 400 });
+    }
+  }
+  const seuils_parrain = rawTiers.length > 0 ? rawTiers : [60, 80, 90, 100];
+
   // Construction explicite — jamais de ...body.
   const clean = {
     actif:                        Boolean(body.actif),
     montant_recompense:           Math.max(0, Number(body.montant_recompense) || 0),
     seuil_filleul:                Math.max(0, Number(body.seuil_filleul) || 0),
-    seuil_parrain:                Math.max(0, Number(body.seuil_parrain) || 0),
+    seuils_parrain,
     max_recompenses_par_commande: Math.max(0, parseInt(body.max_recompenses_par_commande) || 0),
     duree_validite_jours:         Math.max(1, parseInt(body.duree_validite_jours) || 30),
     categories_restriction:       restriction,
@@ -40,6 +52,6 @@ export async function PUT(req: NextRequest) {
     .from("parrainage_settings").update(clean).eq("id", 1);
   if (error) return Response.json({ error: error.message }, { status: 500 });
 
-  await logActivity("parrainage_settings", `Réglages parrainage mis à jour (actif=${clean.actif}, filleul=${clean.seuil_filleul}€, parrain=${clean.seuil_parrain}€)`, clean);
+  await logActivity("parrainage_settings", `Réglages parrainage mis à jour (actif=${clean.actif}, filleul=${clean.seuil_filleul}€, barème=[${seuils_parrain.join(", ")}])`, clean);
   return Response.json({ ok: true });
 }

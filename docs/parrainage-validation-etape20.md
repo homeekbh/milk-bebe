@@ -5,7 +5,7 @@
 > **coché / grisé / bloqué** et pourquoi.
 >
 > Réglages par défaut (admin `/admin/parrainage`) : récompense **5 €**, seuil filleul **60 €**,
-> seuil parrain **100 €**, max **4**/commande, validité **30 j**.
+> **barème récompenses 60 / 80 / 90 / 100 €** (1 seuil par position), max **4**/commande, validité **30 j**.
 > Rappel : **l'affiché au panier = le facturé** (le serveur re-calcule tout à `create-session`).
 
 ## Prérequis
@@ -48,16 +48,17 @@
   « il manque 14,50 € » (45,50 < 60). Ligne « Code parrain » **disparaît** du récap.
 - **Livraison** : redevient **payante** (45,50 < 60). **Total TTC 45,50 € + livraison**.
 
-### A5 — 100 €, ETE30 → 70 €, code parrain → 65 €, récompenses NON valables
-- **Panier** : sous-total **100,00 €** (compte B qui a ≥ 1 récompense dispo, cf. A avoir parrainé avant — ou force une récompense en base pour le test).
+### A5 (barème) — 100 €, ETE30 → 70 €, code parrain → 65 € : 1ʳᵉ récompense débloquée, pas les suivantes
+- **Panier** : sous-total **100,00 €** (compte B avec ≥ 2 récompenses dispo).
 - **Actions** : applique **ETE30** (→ 70,00 €), puis le code parrain de A (→ 65,00 €).
-- **Attendu** : Récap = Sous-total 100 · Code ETE30 − 30,00 € · Code parrain − 5,00 € · **Total 65,00 €**.
-  Bloc « Mes récompenses » : cases **grisées** (65 < 100), message **« il te manque 35,00 € »**.
+- **Attendu** : Récap = Sous-total 100 · ETE30 − 30,00 € · Code parrain − 5,00 € · **Total 65,00 €**.
+  Bloc « Mes récompenses » : la **1ʳᵉ case est cochable** (65 ≥ 60) ; la **2ᵉ est grisée** avec
+  **« ajoute 15,00 € pour débloquer la 2ᵉ remise »** (80 − 65). Coche la 1ʳᵉ → **Total 60,00 €**.
 
-### A6 — récompense sous le seuil 100 € → grisée, manque exact
-- **Panier (compte B, ≥1 récompense dispo)** : sous-total **70,00 €**, applique le code parrain → 65,00 €.
-- **Attendu** : bloc récompenses **grisé**, message **« Utilisables dès 100 € — il te manque 35,00 € »**,
-  + par récompense « expire dans N j ». **Aucune case cochable.**
+### A6 (barème) — manque exact pour la PROCHAINE case (pas le seuil final)
+- **Panier (compte B, ≥ 2 récompenses dispo)** : sous-total **70,00 €**, applique le code parrain → 65,00 €.
+- **Attendu** : 1ʳᵉ récompense cochable ; 2ᵉ **grisée** avec **« ajoute 15,00 € pour débloquer la 2ᵉ remise »**
+  (80 − 65 — **pas** 35 € vers un seuil unique à 100). Chaque récompense affiche « expire dans N j ».
 
 ### A7 — propre code refusé
 - Voir **B6** (anti-abus) — la remise n'est jamais appliquée.
@@ -98,18 +99,19 @@
   (sujet, bloc ambre avec le code, bouton « Voir mes récompenses → » vers `/fr/profil`).
 - **Vérif** : reçu dans la **vraie boîte** de A (pas seulement en base). Un seul email même si Stripe rejoue le webhook (idempotence).
 
-### B4 — Récompense visible mais non cochable (sous 100 €) — message exact
-- **Compte B** avec ≥ 1 récompense dispo, panier **70 €** + code parrain (→ 65 €).
-- **Attendu** : la récompense est **listée mais grisée**, opacité réduite, case **désactivée**.
-  Message exact : **« Utilisables dès 100 € — il te manque 35,00 € »**, et sur la ligne « expire dans N j »
-  (orange si ≤ 7 j).
+### B4 (barème) — Récompense grisée à un palier non atteint — message exact
+- **Compte B** avec ≥ 2 récompenses dispo, panier **70 €** + code parrain (→ 65 €).
+- **Attendu** : la **1ʳᵉ** récompense est **cochable** ; la **2ᵉ** est **grisée** (opacité réduite, case désactivée)
+  avec le message exact **« ajoute 15,00 € pour débloquer la 2ᵉ remise »** (80 − 65), en orange.
+  Chaque récompense affiche « expire dans N j » (orange si ≤ 7 j).
 
-### B5 — Ajout d'un produit qui franchit 100 € → cases cochables EN DIRECT (sans reload)
-- **Départ** : panier B à **70 €** + code parrain (récompenses grisées, cf. B4).
-- **Action** : **augmente la quantité** / ajoute un article pour passer le sous-total à **≥ 105 €**
-  (après code parrain, total ≥ 100 €), **sans recharger la page**.
-- **Attendu** : les cases récompenses **se dégrisent instantanément**, le message « il te manque … »
-  disparaît, et cocher une récompense **met à jour le Total TTC en direct** (− 5,00 € par case).
+### B5 (barème) — Franchir un palier → la case suivante se dégrise EN DIRECT (sans reload)
+- **Départ** : panier B à **70 €** + code parrain (→ 65 €) : 1ʳᵉ cochable, **2ᵉ grisée** (cf. B4).
+- **Action** : **augmente la quantité** pour porter le total après parrain à **≥ 80 €** (le palier de la 2ᵉ case),
+  **sans recharger la page**.
+- **Attendu** : la **2ᵉ case se dégrise instantanément**, son message « ajoute … € » disparaît ; cocher
+  cette 2ᵉ récompense **met à jour le Total TTC en direct** (− 5,00 € de plus). Continue vers **90 € / 100 €**
+  pour débloquer les 3ᵉ / 4ᵉ de la même façon.
 
 ### B6 — Propre code parrain refusé (message clair, pas d'erreur technique)
 - **Compte A** connecté, panier ≥ 60 €, saisit **son propre** code parrain → **Appliquer**.
@@ -118,9 +120,13 @@
 - **Bonus invité** : en invité, saisir un code dont l'email de commande = l'email du parrain → **même blocage**.
 
 ### B7 — Admin change un seuil → pris en compte immédiatement (sans redéploiement)
-- **Actions** : `/admin/parrainage`, passe **seuil_filleul** de 60 à **80 €**, **Enregistrer** (toast « ✓ »).
+- **Actions** : `/admin/parrainage`, passe **seuil filleul** de 60 à **80 €**, **Enregistrer** (toast « ✓ »).
 - **Vérif** : sur `/panier` (recharge simple, pas de déploiement), un panier de **70 €** + code parrain
   affiche maintenant **« il manque 10,00 € »** (70 < 80) → **pas de remise**. Remets **60 €** ensuite pour A2/A3.
+- **Barème** : dans le bloc **« Barème de déblocage des récompenses »**, passe la **2ᵉ récompense** de 80 à **75 €**,
+  Enregistrer. Sur `/panier` (rechargé), un total après parrain à **76 €** débloque désormais **2** cases
+  (76 ≥ 75) au lieu d'1. **Refus** attendu si tu tentes un barème décroissant (ex. 2ᵉ < 1ʳᵉ) → toast d'erreur.
+  Remets **{60,80,90,100}** à la fin.
 
 ### B8 — Désactivation du programme (admin)
 - **Actions** : `/admin/parrainage`, **toggle « Programme actif » → OFF**, Enregistrer.

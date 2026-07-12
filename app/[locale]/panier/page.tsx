@@ -363,7 +363,7 @@ export default function CartPage() {
     actif:                        meSettings?.actif ?? meActif,
     montant_recompense:           parrainData?.montant_recompense ?? meSettings?.montant_recompense ?? 5,
     seuil_filleul:                parrainData?.seuil_filleul ?? meSettings?.seuil_filleul ?? 60,
-    seuil_parrain:                meSettings?.seuil_parrain ?? 100,
+    seuils_parrain:               meSettings?.seuils_parrain ?? [60, 80, 90, 100],
     max_recompenses_par_commande: meSettings?.max_recompenses_par_commande ?? 4,
     duree_validite_jours:         meSettings?.duree_validite_jours ?? 30,
     categories_restriction:       meSettings?.categories_restriction ?? null,
@@ -786,27 +786,41 @@ export default function CartPage() {
               </div>
               )}
 
-              {/* Mes récompenses parrainage (compte connecté) */}
+              {/* Mes récompenses parrainage (compte connecté) — barème PROGRESSIF */}
               {user && meActif && meRewards.length > 0 && (
                 <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                   <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Mes récompenses parrainage 🎉</div>
                   <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
-                    {parrainageCalc.rewardsEligible
-                      ? `Coche jusqu'à ${parrainageSettingsForCalc.max_recompenses_par_commande} récompense(s) à utiliser sur cette commande.`
-                      : `Utilisables dès ${parrainageSettingsForCalc.seuil_parrain.toFixed(0)}€ — il te manque ${parrainageCalc.rewardsShortfall.toFixed(2)} €.`}
+                    {parrainageCalc.rewardsUnlocked > 0
+                      ? `Coche jusqu'à ${parrainageCalc.rewardsUnlocked} récompense${parrainageCalc.rewardsUnlocked > 1 ? "s" : ""} sur cette commande — débloquées par paliers.`
+                      : `Ajoute ${parrainageCalc.rewardsShortfall.toFixed(2)} € pour débloquer ta 1ʳᵉ récompense.`}
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
-                    {meRewards.map((r) => {
-                      const checked = selectedRewardIds.includes(r.id);
-                      const capReached = !checked && selectedRewardIds.length >= parrainageSettingsForCalc.max_recompenses_par_commande;
-                      const disabled = !parrainageCalc.rewardsEligible || capReached;
+                    {meRewards.map((r, i) => {
+                      const tier         = parrainageSettingsForCalc.seuils_parrain[i]; // seuil de la position i
+                      const tierUnlocked = i < parrainageCalc.rewardsUnlocked;          // débloquée (barème + plafond max)
+                      const checked      = selectedRewardIds.includes(r.id);
+                      const capReached   = !checked && selectedRewardIds.length >= parrainageCalc.rewardsUnlocked;
+                      const disabled     = !tierUnlocked || capReached;
+                      const manque       = tier != null ? Math.max(0, tier - parrainageCalc.totalApresParrain) : 0;
+                      const ord          = i === 0 ? "1ʳᵉ" : `${i + 1}ᵉ`;
                       return (
                         <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: disabled ? "rgba(26,20,16,0.04)" : "#ede8df", opacity: disabled ? 0.55 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
                           <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleReward(r.id)} />
                           <span style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>− {r.montant.toFixed(2)} €</span>
-                          <span style={{ marginLeft: "auto", fontSize: 12, color: r.days_left <= 7 ? "#b45309" : "rgba(26,20,16,0.45)", fontWeight: 600 }}>
-                            expire dans {r.days_left} j
-                          </span>
+                          {!tierUnlocked && tier != null ? (
+                            <span style={{ marginLeft: "auto", fontSize: 12, color: "#b45309", fontWeight: 700, textAlign: "right" }}>
+                              ajoute {manque.toFixed(2)} € pour débloquer la {ord} remise
+                            </span>
+                          ) : !tierUnlocked && tier == null ? (
+                            <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
+                              max {parrainageSettingsForCalc.max_recompenses_par_commande} / commande
+                            </span>
+                          ) : (
+                            <span style={{ marginLeft: "auto", fontSize: 12, color: r.days_left <= 7 ? "#b45309" : "rgba(26,20,16,0.45)", fontWeight: 600 }}>
+                              expire dans {r.days_left} j
+                            </span>
+                          )}
                         </label>
                       );
                     })}

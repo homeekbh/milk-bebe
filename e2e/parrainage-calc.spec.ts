@@ -59,7 +59,7 @@ test("Scénario 4 — 65€ + code parrain PUIS promo -30% → 45,50€, parrain
   expect(r.totalFinal).toBe(45.5);
 });
 
-test("Scénario 5 — 100€, ETE30 -30% → 70€, code parrain → 65€, récompenses NON valables (<100€)", () => {
+test("Scénario 5 (barème) — 100€, ETE30 → 70€, parrain → 65€ : SEULE la 1ʳᵉ récompense débloquée (65 ≥ 60, < 80)", () => {
   const r = computeParrainage(
     mk({ subtotal: 100, promoDiscount: 30, hasValidParrainCode: true, rewardsAvailableCount: 3, rewardsSelectedCount: 3 })
   );
@@ -67,19 +67,51 @@ test("Scénario 5 — 100€, ETE30 -30% → 70€, code parrain → 65€, réc
   expect(r.freeShipping).toBe(true);
   expect(r.parrainApplicable).toBe(true);
   expect(r.totalApresParrain).toBe(65);
-  expect(r.rewardsEligible).toBe(false); // 65 < 100
-  expect(r.rewardDiscount).toBe(0);
-  expect(r.totalFinal).toBe(65);
+  expect(r.rewardsUnlocked).toBe(1);   // barème [60,80,90,100] : seul 60 atteint
+  expect(r.rewardsUsable).toBe(1);     // 3 cochées mais 1 seule débloquée
+  expect(r.rewardDiscount).toBe(5);
+  expect(r.totalFinal).toBe(60);
+  expect(r.rewardsShortfall).toBe(15); // 80 - 65 pour débloquer la 2e
 });
 
-test("Scénario 6 — récompenses sous le seuil 100€ → grisées, manque exact", () => {
+test("Scénario 6 (barème) — manque exact pour la PROCHAINE case (pas le seuil final)", () => {
   const r = computeParrainage(mk({ subtotal: 70, hasValidParrainCode: true, rewardsAvailableCount: 2, rewardsSelectedCount: 2 }));
-  // 70 → parrain -5 → 65 ; récompenses 65 < 100
+  // 70 → parrain -5 → 65 ; 1er palier (60) OK, 2e (80) non
   expect(r.totalApresParrain).toBe(65);
-  expect(r.rewardsEligible).toBe(false);
-  expect(r.rewardsShortfall).toBe(35); // 100 - 65
-  expect(r.rewardDiscount).toBe(0);
+  expect(r.rewardsUnlocked).toBe(1);
+  expect(r.rewardsUsable).toBe(1);
+  expect(r.rewardsShortfall).toBe(15); // 80 - 65, PAS 35 (100 - 65)
 });
+
+test("Barème — 65€, 3 récompenses dispo → 1 seule cochable (60 OK, 80 non)", () => {
+  const r = computeParrainage(mk({ subtotal: 65, rewardsAvailableCount: 3, rewardsSelectedCount: 3 }));
+  expect(r.rewardsUnlocked).toBe(1);
+  expect(r.rewardsUsable).toBe(1);
+});
+
+test("Barème — 85€, 3 dispo → 2 cochables (60,80 OK, 90 non)", () => {
+  const r = computeParrainage(mk({ subtotal: 85, rewardsAvailableCount: 3, rewardsSelectedCount: 3 }));
+  expect(r.rewardsUnlocked).toBe(2);
+  expect(r.rewardsUsable).toBe(2);
+});
+
+test("Barème — 95€, 4 dispo → 3 cochables (60,80,90 OK, 100 non)", () => {
+  const r = computeParrainage(mk({ subtotal: 95, rewardsAvailableCount: 4, rewardsSelectedCount: 4 }));
+  expect(r.rewardsUnlocked).toBe(3);
+  expect(r.rewardsUsable).toBe(3);
+});
+
+test("Barème — 100€, 5 dispo → 4 max cochables (les 5e+ restent en réserve)", () => {
+  const r = computeParrainage(mk({ subtotal: 100, rewardsAvailableCount: 5, rewardsSelectedCount: 5 }));
+  expect(r.rewardsUnlocked).toBe(4); // 4 paliers atteints + plafond max 4
+  expect(r.rewardsUsable).toBe(4);
+  expect(r.rewardDiscount).toBe(20);
+});
+
+// NB — Tri par expiration la plus proche (étape 2) : géré côté SERVEUR
+// (listUsableRewards ordonne par expires_at asc) puis le panier applique la
+// limite du barème sur cette liste triée. Non testable sur le calcul PUR (qui ne
+// reçoit que des compteurs, pas les dates) → couvert par la checklist manuelle B.
 
 test("Scénario 7 — propre code refusé en amont (hasValidParrainCode=false) → aucune remise", () => {
   const r = computeParrainage(mk({ subtotal: 80, hasValidParrainCode: false }));

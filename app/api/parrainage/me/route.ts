@@ -56,7 +56,7 @@ export async function GET(req: Request) {
       settings,
       montant_recompense:  settings.montant_recompense,
       seuil_filleul:       settings.seuil_filleul,
-      seuil_parrain:       settings.seuil_parrain,
+      seuils_parrain:      settings.seuils_parrain,
       max_recompenses_par_commande: settings.max_recompenses_par_commande,
       duree_validite_jours: settings.duree_validite_jours,
       rewards_usable:      usable.map(r => ({ ...r, days_left: daysLeft(r.expires_at) })),

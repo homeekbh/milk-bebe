@@ -35,16 +35,18 @@ type Settings = {
   actif: boolean;
   montant_recompense: number | string;
   seuil_filleul: number | string;
-  seuil_parrain: number | string;
+  seuils_parrain: (number | string)[]; // barème progressif : 1 seuil / position
   max_recompenses_par_commande: number | string;
   duree_validite_jours: number | string;
   categories_restriction: string[] | null;
 };
 
 const EMPTY: Settings = {
-  actif: true, montant_recompense: 5, seuil_filleul: 60, seuil_parrain: 100,
+  actif: true, montant_recompense: 5, seuil_filleul: 60, seuils_parrain: [60, 80, 90, 100],
   max_recompenses_par_commande: 4, duree_validite_jours: 30, categories_restriction: null,
 };
+
+const ORDINAUX = ["1ʳᵉ", "2ᵉ", "3ᵉ", "4ᵉ", "5ᵉ", "6ᵉ"];
 
 export default function AdminParrainagePage() {
   const [s, setS]             = useState<Settings>(EMPTY);
@@ -61,7 +63,11 @@ export default function AdminParrainagePage() {
         const res = await adminFetch("/api/admin/parrainage");
         if (res.ok) {
           const d = await res.json();
-          if (d && typeof d === "object") setS({ ...EMPTY, ...d, categories_restriction: Array.isArray(d.categories_restriction) ? d.categories_restriction : null });
+          if (d && typeof d === "object") setS({
+            ...EMPTY, ...d,
+            seuils_parrain: Array.isArray(d.seuils_parrain) && d.seuils_parrain.length ? d.seuils_parrain : EMPTY.seuils_parrain,
+            categories_restriction: Array.isArray(d.categories_restriction) ? d.categories_restriction : null,
+          });
         }
       } finally { setLoading(false); }
     })();
@@ -72,6 +78,14 @@ export default function AdminParrainagePage() {
 
   function set<K extends keyof Settings>(k: K, v: Settings[K]) { setS(prev => ({ ...prev, [k]: v })); }
 
+  function setTier(i: number, v: string) {
+    setS(prev => {
+      const next = [...prev.seuils_parrain];
+      next[i] = v;
+      return { ...prev, seuils_parrain: next };
+    });
+  }
+
   function toggleCat(slug: string) {
     setS(prev => {
       const cur = prev.categories_restriction ?? [];
@@ -81,6 +95,11 @@ export default function AdminParrainagePage() {
   }
 
   async function save() {
+    // Garde client : le barème doit être croissant (chaque palier ≥ le précédent).
+    const nums = s.seuils_parrain.map(v => Number(v) || 0);
+    for (let i = 1; i < nums.length; i++) {
+      if (nums[i] < nums[i - 1]) { showToast("✕ Les seuils du barème doivent être croissants.", false); return; }
+    }
     setSaving(true);
     try {
       const res = await adminFetch("/api/admin/parrainage", { method: "PUT", body: JSON.stringify(s) });
@@ -129,13 +148,26 @@ export default function AdminParrainagePage() {
               <input type="number" step="1" min="0" value={s.seuil_filleul} onChange={e => set("seuil_filleul", e.target.value)} style={INP} />
             </div>
             <div>
-              <label style={LBL}>Seuil récompenses parrain (€)</label>
-              <input type="number" step="1" min="0" value={s.seuil_parrain} onChange={e => set("seuil_parrain", e.target.value)} style={INP} />
-            </div>
-            <div>
               <label style={LBL}>Max récompenses / commande</label>
               <input type="number" min="0" value={s.max_recompenses_par_commande} onChange={e => set("max_recompenses_par_commande", e.target.value)} style={INP} />
             </div>
+          </div>
+        </div>
+
+        {/* Barème progressif des récompenses */}
+        <div style={CARD}>
+          <label style={LBL}>Barème de déblocage des récompenses (€)</label>
+          <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 14, lineHeight: 1.5 }}>
+            Chaque récompense a son propre seuil, évalué sur le total <strong>après code parrain</strong>.
+            Ex. 60 / 80 / 90 / 100 → à 85 € : <strong>2</strong> récompenses cochables. Les seuils doivent être <strong>croissants</strong>.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 }}>
+            {(s.seuils_parrain.length ? s.seuils_parrain : [60, 80, 90, 100]).map((v, i) => (
+              <div key={i}>
+                <label style={LBL}>{ORDINAUX[i] ?? `${i + 1}ᵉ`} récompense</label>
+                <input type="number" step="1" min="0" value={v} onChange={e => setTier(i, e.target.value)} style={INP} />
+              </div>
+            ))}
           </div>
         </div>
 

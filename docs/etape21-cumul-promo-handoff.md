@@ -52,7 +52,38 @@ alter table pending_orders add column if not exists promo_codes     text[] defau
 ```
 (`promo_codes.cumulable` bool existe déjà → réutilisé.)
 
-## RESTE À FAIRE (non commencé)
+## ✅ FAIT depuis le handoff (UI — commits LOCAUX non poussés)
+
+| Commit | Rôle | Fichiers |
+|---|---|---|
+| `42d0914` | (4a/4) /panier multi-codes UI | **MOD** `app/[locale]/panier/page.tsx` |
+| `0bdd1c1` | (4b/4) admin cumul + alerte 60 % | **MOD** `app/admin/codes-promos/page.tsx` · **MOD** `app/api/admin/promos/route.ts` |
+
+- **`/panier`** : `promoData` unique → **liste `promoCodes[]`** ; remise dérivée LIVE via
+  `combinePromos(promoCodes, subtotal)` (l'affiché = le facturé). `applyPromo` teste le
+  cumul avant d'ajouter (refus explicite sinon). Suppression individuelle. Champ visible
+  si tous cumulables. Re-check async (min_order + garde-fou plafond, avec message, jamais
+  de clamp silencieux). « Il te reste X€ » généralisé (÷ facteur % composé). Récap : 1 ligne
+  par code. `handleCheckout` envoie `promo_codes[]`.
+- **Admin** : case « Cumulable » (→ `cumulable`) + multi-select des autres codes cumulables
+  (→ `cumulable_codes`) ; **liaison MUTUELLE** auto (le code créé est inscrit chez chaque
+  partenaire) ; **alerte 60 %** si paire %+% dépasse le plafond (confirm avant création).
+  API admin POST/PUT construisent `cumulable`/`cumulable_codes` explicitement.
+- **Vérifs** : `tsc` + `npm run build` verts ; **10 tests cumul-calc** verts ; **suite panier**
+  (promo/steps/gating/add-to-cart/account) **verte** (non-régression).
+
+### ⛔ RESTE : validation groupée + migration + push
+1. Faire relire ce diff à Bou.
+2. Bou relit puis exécute **`016_promo_cumul.sql`** dans Supabase Studio (⚠️ tant que la
+   colonne `cumulable_codes` n'existe pas, créer un code cumulable en admin échoue, et le
+   cumul reste inactif au panier — dégradation propre, pas de crash).
+3. Test manuel end-to-end avec 2 vrais codes DB mutuellement cumulables (impossible avant
+   la migration).
+4. **PUIS** push (tous les commits `7b1aece`→`0bdd1c1`).
+
+---
+
+## Détail d'origine — RESTE À FAIRE (désormais FAIT, conservé pour trace)
 
 ### A. `/panier` (`app/[locale]/panier/page.tsx`) — GROS refactor, page critique
 Remplacer le `promoData` UNIQUE (state ligne ~59) par une **LISTE** de codes appliqués.

@@ -1,6 +1,6 @@
 // Coque SERVER de la fiche produit : fetch produit + rend le header (eyebrow +
 // <h1> + prix) en HTML brut (SEO/LCP), puis délègue tout l'interactif au composant
-// client (galerie, tailles/couleurs, panier, Apple Pay, FAQ). Le Product JSON-LD
+// client (galerie, tailles/couleurs, panier, FAQ). Le Product JSON-LD
 // reste émis par layout.tsx (non modifié).
 import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";

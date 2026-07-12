@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { type Pack, packProducts, packSavings } from "@/components/packs/PackCard";
 import { trackAddToCart, metaAddToCart } from "@/lib/analytics";
@@ -9,7 +8,6 @@ import { trackAddToCart, metaAddToCart } from "@/lib/analytics";
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", taupe: "#e9e1d4", cream: "#f2ede6", muted: "rgba(26,20,16,0.6)" };
 
 export default function PackDetailClient({ pack }: { pack: Pack }) {
-  const locale  = useLocale();
   const prods   = packProducts(pack);
   const savings = packSavings(pack);
 
@@ -45,7 +43,6 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
 
   const firstAvail = sizes.find(s => s.available)?.size ?? "";
   const [selectedSize, setSelectedSize] = useState(firstAvail);
-  const [busy, setBusy] = useState(false);
   const [added, setAdded] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -101,28 +98,6 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
       showToast("Ajouté au panier 🎁");
       setAdded(true); setTimeout(() => setAdded(false), 2500);
     } catch {}
-  }
-
-  async function addToCart() {
-    if (sizeRequired && !selectedSize) { showToast("Choisis une taille"); return; }
-    setBusy(true);
-    try {
-      const res = await fetch("/api/checkout/create-pack-session", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pack_id: pack.id, size: selectedSize || null, locale }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok || !data.url) {
-        showToast(data.product ? `Rupture : ${data.product}` : (data.error || "Erreur"));
-        setBusy(false);
-        return;
-      }
-      window.location.href = data.url;
-    } catch {
-      showToast("Erreur réseau");
-      setBusy(false);
-    }
   }
 
   function copyLink() {
@@ -235,12 +210,12 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
 
             {/* Actions */}
             <div style={{ display: "flex", flexDirection: "column", gap: 12, marginTop: 4 }}>
-              <button onClick={addToCart} disabled={busy || !canBuy}
-                style={{ padding: "16px 28px", borderRadius: 14, background: C.amber, color: C.dark, fontWeight: 950, fontSize: 16, border: "none", cursor: (busy || !canBuy) ? "not-allowed" : "pointer", opacity: (busy || !canBuy) ? 0.5 : 1 }}>
-                {busy ? "Redirection..." : "Acheter ce pack →"}
-              </button>
+              {/* Paiement UNIQUEMENT via /panier (parité avec la fiche produit) : plus de
+                  bouton « Acheter ce pack » qui créait une session Stripe DIRECTE (donc
+                  Apple/Google Pay proposés sur mobile) en contournant le panier. Seul
+                  « Ajouter au panier » subsiste → le pack passe par /panier pour payer. */}
               <button onClick={addToCartLocal} disabled={!canBuy}
-                style={{ padding: "14px 28px", borderRadius: 14, background: added ? "#2d6a2d" : C.dark, color: added ? "#fff" : C.cream, fontWeight: 900, fontSize: 15, border: "none", cursor: !canBuy ? "not-allowed" : "pointer", opacity: !canBuy ? 0.5 : 1, transition: "all 0.2s" }}>
+                style={{ padding: "16px 28px", borderRadius: 14, background: added ? "#2d6a2d" : C.amber, color: added ? "#fff" : C.dark, fontWeight: 950, fontSize: 16, border: "none", cursor: !canBuy ? "not-allowed" : "pointer", opacity: !canBuy ? 0.5 : 1, transition: "all 0.2s" }}>
                 {added ? "✓ Ajouté au panier !" : "🛒 Ajouter au panier"}
               </button>
               <button onClick={toggleFav}

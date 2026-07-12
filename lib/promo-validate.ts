@@ -1,4 +1,9 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { combinePromos, PROMO_CAP_RATE, type ValidatedPromo, type PromoComboResult, type PromoComboEntry } from "@/lib/promo-combine";
+
+// Ré-export pour les consommateurs existants (create-session, panier).
+export { combinePromos, PROMO_CAP_RATE };
+export type { ValidatedPromo, PromoComboResult, PromoComboEntry };
 
 /**
  * Validation d'un code promo — source unique réutilisable.
@@ -26,6 +31,8 @@ export type PromoValidationOk = {
   discount:                number;     // remise produits TTC (0 si free_shipping)
   free_shipping:           boolean;    // code-driven uniquement
   cumulable_avec_livraison: boolean;   // passthrough DB, default true
+  cumulable:               boolean;    // accepte le cumul avec d'AUTRES codes (étape 21)
+  cumulable_codes:         string[];   // codes explicitement déclarés compatibles
 };
 
 export type PromoValidationKo = {
@@ -106,5 +113,42 @@ export async function validatePromoCode(
     discount,
     free_shipping:            codeDrivenFree,
     cumulable_avec_livraison: cumulable,
+    cumulable:                data.cumulable === true,
+    cumulable_codes:          Array.isArray(data.cumulable_codes)
+                                ? data.cumulable_codes.map((c: any) => String(c).toUpperCase().trim()).filter(Boolean)
+                                : [],
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Cumul de PLUSIEURS codes promo classiques (étape 21) — payment-critical.
+// La combinaison PURE (ordre fixe→%, compat mutuelle, plafond 60 %) vit dans
+// lib/promo-combine.ts (testable, sans I/O). Ici : validation DB puis combine.
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Valide (DB) chaque code puis combine. Le plafond « tous discounts confondus »
+ * (incluant parrain/récompenses) est ré-appliqué à create-session, seul endroit
+ * qui connaît l'ensemble.
+ */
+export async function validatePromoCombo(rawCodes: string[], subtotal: number): Promise<PromoComboResult> {
+  const seen = new Set<string>();
+  const codes: string[] = [];
+  for (const c of rawCodes ?? []) {
+    const k = String(c ?? "").toUpperCase().trim();
+    if (k && !seen.has(k)) { seen.add(k); codes.push(k); }
+  }
+  if (codes.length === 0) return { valid: false, error: "Aucun code", status: 400 };
+
+  const promos: ValidatedPromo[] = [];
+  for (const code of codes) {
+    const v = await validatePromoCode(code, subtotal);
+    if (!v.valid) return { valid: false, error: v.error, status: v.status, rejectedCode: code };
+    promos.push({
+      code: v.code, type: v.type, value: v.value,
+      free_shipping: v.free_shipping, cumulable_avec_livraison: v.cumulable_avec_livraison,
+      cumulable: v.cumulable, cumulable_codes: v.cumulable_codes,
+    });
+  }
+  return combinePromos(promos, subtotal);
 }

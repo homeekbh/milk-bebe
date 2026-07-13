@@ -142,6 +142,38 @@ export default function AdminParrainagePage() {
           <div style={{ ...CARD, color: "rgba(26,20,16,0.4)", fontSize: 14 }}>Chargement des statistiques…</div>
         ) : (
           <>
+            {/* Récompenses à trancher à la main (flaguées par le webhook charge.refunded) */}
+            {Array.isArray(stats.aVerifier) && stats.aVerifier.length > 0 && (
+              <div style={{ ...CARD, borderLeft: "3px solid #ef4444", background: "#fff7f5", marginBottom: 12 }}>
+                <div style={{ fontSize: 13, fontWeight: 900, color: "#b91c1c", marginBottom: 4 }}>
+                  ⚠️ À vérifier manuellement ({stats.aVerifier.length})
+                </div>
+                <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.6)", marginBottom: 12, lineHeight: 1.5 }}>
+                  Récompenses liées à une commande filleul remboursée qui n'ont pas pu être annulées automatiquement
+                  (déjà dépensées par le parrain, ou remboursement partiel ambigu). À trancher au cas par cas.
+                </div>
+                <div style={{ display: "grid", gap: 8 }}>
+                  {stats.aVerifier.map((v: any) => {
+                    const label = v.reason === "deja_utilisee_apres_remboursement" ? "Déjà utilisée · filleul remboursé"
+                                : v.reason === "remboursement_partiel_filleul"     ? "Remboursement partiel · à trancher"
+                                : (v.reason || "À vérifier");
+                    const short = (id: string | null) => (id ? `#${String(id).slice(0, 8).toUpperCase()}` : "—");
+                    return (
+                      <div key={v.id} style={{ display: "flex", flexWrap: "wrap", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 8, background: "#fff", border: "1px solid rgba(0,0,0,0.06)" }}>
+                        <span style={{ fontWeight: 900, color: DARK, fontSize: 14 }}>{(Number(v.montant) || 0).toFixed(2)} €</span>
+                        <span style={{ fontSize: 13, color: DARK, overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {v.parrain_prenom ? `${v.parrain_prenom} · ` : ""}{v.parrain_email}
+                        </span>
+                        <span style={{ marginLeft: "auto", fontSize: 11.5, fontWeight: 800, color: "#b45309", background: "#fef3c7", padding: "3px 8px", borderRadius: 6 }}>{label}</span>
+                        <span style={{ fontSize: 11.5, color: "rgba(26,20,16,0.5)", width: "100%" }}>
+                          Filleul remboursé {short(v.filleul_order_id)}{v.used_on_order_id ? ` · récompense dépensée sur ${short(v.used_on_order_id)}` : ""}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 12 }}>
               <StatCard label="Parrains actifs" value={String(stats.parrainsActifs)} sub="comptes avec ≥ 1 filleul ayant acheté" color="#a855f7" />
               <StatCard label="Filleuls (commandes)" value={String(stats.filleulsTotaux)} sub={`${Number(stats.remiseFilleulTotal).toFixed(2)} € de remises filleul accordées`} color="#3b82f6" />

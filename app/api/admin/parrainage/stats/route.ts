@@ -30,8 +30,8 @@ export async function GET(req: NextRequest) {
   // 2) récompenses → répartition + valeur par statut EFFECTIF (calcul-à-la-lecture :
   //    une 'disponible' expirée compte comme 'expiree', comme partout ailleurs).
   const now = Date.now();
-  const counts = { total: 0, disponible: 0, utilisee: 0, expiree: 0 };
-  const valeur = { disponible: 0, utilisee: 0, expiree: 0 };
+  const counts = { total: 0, disponible: 0, utilisee: 0, expiree: 0, annulee: 0 };
+  const valeur = { disponible: 0, utilisee: 0, expiree: 0, annulee: 0 };
   const soldeByParrain = new Map<string, number>();
   const { data: recs } = await supabaseServer
     .from("parrainage_recompenses").select("parrain_id, montant, status, expires_at");
@@ -39,6 +39,8 @@ export async function GET(req: NextRequest) {
     const m = Number(r.montant) || 0;
     let st = String(r.status);
     if (st === "disponible" && r.expires_at && new Date(r.expires_at).getTime() <= now) st = "expiree";
+    // Annulée = jamais réellement acquise (commande filleul remboursée) → EXCLUE du total.
+    if (st === "annulee") { counts.annulee++; valeur.annulee += m; continue; }
     counts.total++;
     if (st === "disponible") {
       counts.disponible++; valeur.disponible += m;
@@ -68,12 +70,42 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.filleuls - a.filleuls)
     .slice(0, 10);
 
+  // 4) Récompenses À VÉRIFIER MANUELLEMENT — flaguées par le webhook charge.refunded
+  //    (récompense déjà utilisée sur une commande filleul remboursée, ou remboursement
+  //    partiel ambigu). Un humain tranche au cas par cas → aucune annulation auto ici.
+  const { data: reviewRows } = await supabaseServer
+    .from("parrainage_recompenses")
+    .select("id, parrain_id, montant, status, filleul_order_id, used_on_order_id, annulation_reason, created_at")
+    .eq("annulation_en_attente", true)
+    .order("created_at", { ascending: false });
+  const reviewPids = [...new Set((reviewRows ?? []).map(r => r.parrain_id).filter(Boolean))];
+  const parrainInfoById = new Map<string, { email: string; prenom: string }>();
+  if (reviewPids.length > 0) {
+    const { data: pp } = await supabaseServer
+      .from("profiles").select("id, email, prenom").in("id", reviewPids);
+    for (const p of pp ?? []) parrainInfoById.set(p.id, { email: p.email ?? "", prenom: p.prenom ?? "" });
+  }
+  const aVerifier = (reviewRows ?? []).map(r => {
+    const info = parrainInfoById.get(r.parrain_id) ?? { email: "—", prenom: "" };
+    return {
+      id:               r.id,
+      parrain_email:    info.email,
+      parrain_prenom:   info.prenom,
+      montant:          Number(r.montant) || 0,
+      status:           r.status,
+      reason:           r.annulation_reason ?? "",
+      filleul_order_id: r.filleul_order_id,
+      used_on_order_id: r.used_on_order_id,
+    };
+  });
+
   return Response.json({
     parrainsActifs,
     filleulsTotaux,
     remiseFilleulTotal: round2(remiseFilleulTotal),
     recompenses: counts,
-    valeur: { disponible: round2(valeur.disponible), utilisee: round2(valeur.utilisee), expiree: round2(valeur.expiree) },
+    valeur: { disponible: round2(valeur.disponible), utilisee: round2(valeur.utilisee), expiree: round2(valeur.expiree), annulee: round2(valeur.annulee) },
     topParrains,
+    aVerifier,
   });
 }

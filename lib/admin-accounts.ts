@@ -81,6 +81,9 @@ export async function getAccountsList(): Promise<AccountRow[]> {
       if (!pid) continue;
       const cur = recompByParrain.get(pid) ?? { disponible: 0, total: 0 };
       const m = Number(r.montant) || 0;
+      // 'annulee' (commande filleul remboursée) = jamais réellement gagnée → exclue du
+      // total ET du disponible. 'expiree' reste comptée dans le total (historique).
+      if (r.status === "annulee") { recompByParrain.set(pid, cur); continue; }
       cur.total += m;
       if (r.status === "disponible" && r.expires_at && new Date(r.expires_at).getTime() > now) {
         cur.disponible += m;

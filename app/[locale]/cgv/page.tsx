@@ -98,6 +98,10 @@ Email : contact@milkbebe.fr`,
             title: t("cgv_s12"),
             content: t("cgv_s12_c"),
           },
+          {
+            title: t("cgv_s13"),
+            content: t("cgv_s13_c"),
+          },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: 36, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>
             <h2 style={{ margin: "0 0 14px", fontSize: 20, fontWeight: 900, color: "#1a1410" }}>{section.title}</h2>
@@ -105,11 +109,11 @@ Email : contact@milkbebe.fr`,
           </div>
         ))}
 
-        {/* 13. Programme de parrainage — texte légal + schéma DYNAMIQUE (complément
+        {/* 14. Programme de parrainage — texte légal + schéma DYNAMIQUE (complément
             visuel, ne remplace pas les mentions textuelles). Valeurs live de l'admin. */}
         <div style={{ marginBottom: 36, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>
-          <h2 style={{ margin: "0 0 14px", fontSize: 20, fontWeight: 900, color: "#1a1410" }}>{t("cgv_s13")}</h2>
-          <p style={{ margin: "0 0 22px", fontSize: 15, color: "rgba(26,20,16,0.7)", lineHeight: 1.8, whiteSpace: "pre-line" }}>{t("cgv_s13_c")}</p>
+          <h2 style={{ margin: "0 0 14px", fontSize: 20, fontWeight: 900, color: "#1a1410" }}>{t("cgv_s14")}</h2>
+          <p style={{ margin: "0 0 22px", fontSize: 15, color: "rgba(26,20,16,0.7)", lineHeight: 1.8, whiteSpace: "pre-line" }}>{t("cgv_s14_c")}</p>
           <ParrainageBareme initial={parrainageInitial} variant="light" />
         </div>
       </div>

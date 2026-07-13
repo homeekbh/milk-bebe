@@ -33,6 +33,8 @@ export type Product = {
   slug?:     string;
 };
 
+import { isInternalTraffic } from "@/lib/internal-traffic";
+
 // ── Helpers internes ─────────────────────────────────────────────────────────
 const CURRENCY = "EUR";
 
@@ -59,6 +61,7 @@ function toGa4Item(it: { id: string; name: string; price: number; quantity?: num
 /** Pousse un event GA4 Enhanced Ecommerce dans le dataLayer. */
 function pushDataLayer(event: string, ecommerce: Record<string, any>): void {
   if (typeof window === "undefined") return;
+  if (isInternalTraffic()) return; // trafic interne (tests) → pas de pollution GA4/conversions
   const w = window as any;
   w.dataLayer = w.dataLayer || [];
   // Reset du bloc ecommerce précédent (recommandation GA4) avant le nouvel event.
@@ -69,6 +72,7 @@ function pushDataLayer(event: string, ecommerce: Record<string, any>): void {
 /** Pousse un event GA4 générique (non-ecommerce). */
 function pushEvent(event: string, params: Record<string, any> = {}): void {
   if (typeof window === "undefined") return;
+  if (isInternalTraffic()) return; // trafic interne (tests)
   const w = window as any;
   w.dataLayer = w.dataLayer || [];
   w.dataLayer.push({ event, ...params });
@@ -77,6 +81,7 @@ function pushEvent(event: string, params: Record<string, any> = {}): void {
 /** Appelle fbq('track', …) si le pixel Meta est chargé. */
 function fbqTrack(event: string, params: Record<string, any> = {}): void {
   if (typeof window === "undefined") return;
+  if (isInternalTraffic()) return; // trafic interne (tests) → pas de pollution Meta
   const w = window as any;
   if (typeof w.fbq === "function") {
     try { w.fbq("track", event, params); } catch { /* non bloquant */ }
@@ -110,6 +115,7 @@ function logInternalEvent(payload: {
   metadata?:   Record<string, any>;
 }): void {
   if (typeof window === "undefined") return;
+  if (isInternalTraffic()) return; // trafic interne (tests) → aucune écriture DB
   try {
     fetch("/api/analytics/event", {
       method:  "POST",

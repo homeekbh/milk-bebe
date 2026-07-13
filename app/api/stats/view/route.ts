@@ -1,4 +1,5 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
+import { cookieIsInternal } from "@/lib/internal-traffic";
 import type { NextRequest } from "next/server";
 
 /**
@@ -8,6 +9,8 @@ import type { NextRequest } from "next/server";
  */
 export async function POST(req: NextRequest) {
   try {
+    if (cookieIsInternal(req.headers.get("cookie"))) return Response.json({ ok: true, skipped: "internal" });
+
     const { product_id, slug, name, category, session_id } = await req.json();
     if (!slug) return Response.json({ ok: false });
 

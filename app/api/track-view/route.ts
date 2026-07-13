@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { UAParser }       from "ua-parser-js";
+import { cookieIsInternal } from "@/lib/internal-traffic";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +21,9 @@ function domainOf(referrer?: string | null): string | null {
 
 export async function POST(req: NextRequest) {
   try {
+    // Trafic interne (cookie posé via ?internal=milk2026) → aucun enregistrement.
+    if (cookieIsInternal(req.headers.get("cookie"))) return Response.json({ ok: true, skipped: "internal" });
+
     const b: any = await req.json().catch(() => ({}));
     const page_path = b.page_path ?? b.slug ?? null;
 
@@ -124,6 +128,8 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    if (cookieIsInternal(req.headers.get("cookie"))) return Response.json({ ok: true, skipped: "internal" });
+
     const b: any = await req.json().catch(() => ({}));
     if (!b.session_id || !b.page_path) return Response.json({ ok: true });
 

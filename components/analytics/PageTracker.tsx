@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useRef } from "react";
 import { usePathname } from "next/navigation";
+import { isInternalTraffic, setInternalCookieFromUrl } from "@/lib/internal-traffic";
 
 /**
  * PageTracker — tracking visiteur 1st-party, injecté une seule fois dans le
@@ -30,6 +31,7 @@ function getOrCreate(storage: Storage, key: string): string {
 }
 
 function postView(payload: Record<string, any>) {
+  if (isInternalTraffic()) return; // trafic interne (tests) → aucun enregistrement
   try {
     fetch("/api/track-view", {
       method: "POST",
@@ -42,6 +44,7 @@ function postView(payload: Record<string, any>) {
 
 function patchBehavior(session_id: string, page_path: string, time_on_page: number, scroll_depth: number, clicks_count: number) {
   if (!session_id || !page_path) return;
+  if (isInternalTraffic()) return; // trafic interne (tests) → aucun enregistrement
   try {
     fetch("/api/track-view", {
       method: "PATCH",
@@ -70,6 +73,9 @@ function PageTrackerInner() {
   // ── Listeners globaux : montés une seule fois ───────────────────────────────
   useEffect(() => {
     if (typeof window === "undefined") return;
+
+    // ?internal=milk2026 → pose le cookie d'exclusion (1 an) dès l'entrée sur le site.
+    setInternalCookieFromUrl();
 
     sid.current = getOrCreate(window.sessionStorage, "milk_sid");
     vid.current = getOrCreate(window.localStorage,   "milk_vid");

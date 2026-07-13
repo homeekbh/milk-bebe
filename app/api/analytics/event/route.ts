@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { cookieIsInternal } from "@/lib/internal-traffic";
 
 export const dynamic = "force-dynamic";
 
@@ -44,6 +45,9 @@ function uuidOrNull(v: any): string | null {
 
 export async function POST(req: Request) {
   try {
+    // Trafic interne (cookie posé via ?internal=milk2026) → aucun event enregistré.
+    if (cookieIsInternal(req.headers.get("cookie"))) return Response.json({ ok: true, skipped: "internal" });
+
     const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
     if (rateLimited(ip)) return Response.json({ ok: true, skipped: "rate_limited" });
 

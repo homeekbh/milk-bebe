@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
 import { logActivity } from "@/lib/server/audit";
+import { decideRewardOnRefund } from "@/lib/parrainage-refund";
 import { getParrainageSettings } from "@/lib/parrainage-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -1093,6 +1094,59 @@ export async function POST(req: Request) {
             },
           }
         );
+
+        // ── Anti-abus (étape 22) : cette commande FILLEUL a-t-elle généré une
+        //    récompense chez un parrain ? Si oui, on la traite selon decideRewardOnRefund.
+        //    Exécuté même si `alreadyRefunded` (l'admin ne touche pas aux récompenses) ;
+        //    idempotent via les filtres .eq (rejeu Stripe sans effet).
+        try {
+          const isTotalRefund =
+            charge.refunded === true ||
+            (Number(charge.amount ?? 0) > 0 && Number(charge.amount_refunded ?? 0) >= Number(charge.amount ?? 0));
+
+          const { data: genRewards } = await supabaseServer
+            .from("parrainage_recompenses")
+            .select("id, status, montant, parrain_id, used_on_order_id")
+            .eq("filleul_order_id", order.id);
+
+          for (const rew of genRewards ?? []) {
+            const { action, reason } = decideRewardOnRefund(String(rew.status), isTotalRefund);
+            if (action === "noop") continue;
+
+            if (action === "cancel") {
+              // Annulation automatique (garde .eq status='disponible' = idempotent).
+              const { data: done } = await supabaseServer
+                .from("parrainage_recompenses")
+                .update({ status: "annulee", annulee_at: new Date().toISOString(), annulation_reason: reason })
+                .eq("id", rew.id).eq("status", "disponible")
+                .select("id").maybeSingle();
+              if (done) {
+                await logActivity(
+                  "parrain_recompense_annulee",
+                  `Récompense parrain annulée (commande filleul remboursée) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
+                  { entity_id: rew.id, meta: { reason, filleul_order_id: order.id, parrain_id: rew.parrain_id } },
+                );
+              }
+            } else {
+              // flag_review : cas ambigu (remboursement partiel) ou déjà utilisée →
+              // révision humaine, jamais d'annulation/clawback auto.
+              const { data: done } = await supabaseServer
+                .from("parrainage_recompenses")
+                .update({ annulation_en_attente: true, annulation_reason: reason })
+                .eq("id", rew.id).eq("annulation_en_attente", false)
+                .select("id").maybeSingle();
+              if (done) {
+                await logActivity(
+                  "parrain_recompense_a_verifier",
+                  `Récompense parrain à vérifier (${reason}) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
+                  { entity_id: rew.id, meta: { reason, reward_status: rew.status, filleul_order_id: order.id, parrain_id: rew.parrain_id, used_on_order_id: rew.used_on_order_id } },
+                );
+              }
+            }
+          }
+        } catch (rewErr: any) {
+          process.env.NODE_ENV !== "production" && console.error("[charge.refunded] parrain reward reversal:", rewErr?.message);
+        }
       } else {
         // Aucune commande retrouvée — on log quand même
         await logActivity(

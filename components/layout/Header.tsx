@@ -270,6 +270,13 @@ export default function Header() {
 
           {/* Mobile burger */}
           <div className="milk-burger" style={{ alignItems: "center", gap: 6, flexShrink: 0 }}>
+            {/* Favoris — absent de la barre mobile ET du drawer jusqu'ici : les visiteurs
+                mobile (54 % du trafic) n'avaient AUCUN accès à /favoris. Parité desktop. */}
+            <Link href="/favoris" aria-label="Mes favoris" style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none" }}>
+              <HeartIcon color={C.text} size={22} filled={wishIds.length > 0} />
+              {wishIds.length > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: "#dc2626", color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center", lineHeight: 1.4 }}>{wishIds.length}</span>}
+            </Link>
+
             <Link href="/panier" style={{ position: "relative", display: "grid", placeItems: "center", width: 40, height: 40, borderRadius: 10, textDecoration: "none", animation: cartPulse }}>
               <CartIcon color={C.text} size={22} />
               {totalItems > 0 && <span style={{ position: "absolute", top: 4, right: 4, fontSize: 10, fontWeight: 900, background: C.amber, color: "#fff", borderRadius: 99, padding: "2px 5px", minWidth: 16, textAlign: "center" }}>{totalItems}</span>}

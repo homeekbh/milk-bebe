@@ -44,6 +44,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
   const firstAvail = sizes.find(s => s.available)?.size ?? "";
   const [selectedSize, setSelectedSize] = useState(firstAvail);
   const [added, setAdded] = useState(false);
+  const [everAdded, setEverAdded] = useState(false); // garde le CTA « Voir mon panier » visible
   const [toast, setToast] = useState<string | null>(null);
 
   const showToast = (m: string) => { setToast(m); setTimeout(() => setToast(null), 2500); };
@@ -88,6 +89,11 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
         items: prods.map(p => p.id),
       });
       localStorage.setItem("milk_pack_cart", JSON.stringify(arr));
+      // ⚠️ Prévenir le Header (badge panier) : un write localStorage same-tab ne
+      // déclenche PAS l'event natif "storage". Le Header écoute "milk-pack-cart-changed"
+      // (émis aussi par le panier au retrait/vidage). Sans ce dispatch, le badge ne
+      // montait jamais après l'ajout d'un pack.
+      try { window.dispatchEvent(new Event("milk-pack-cart-changed")); } catch {}
       // Tracking add_to_cart (interne + Meta Pixel) — parité avec CartContext.addToCart.
       // Les packs ne passent pas par CartContext (panier localStorage séparé), donc
       // sans ceci l'event n'était jamais émis (sous-comptage du tunnel). Une seule fois.
@@ -97,6 +103,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
       // produit (vert #2d6a2d, 2500ms). On conserve aussi le toast.
       showToast("Ajouté au panier 🎁");
       setAdded(true); setTimeout(() => setAdded(false), 2500);
+      setEverAdded(true); // révèle le CTA « Voir mon panier » (persistant)
     } catch {}
   }
 
@@ -218,6 +225,12 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
                 style={{ padding: "16px 28px", borderRadius: 14, background: added ? "#2d6a2d" : C.amber, color: added ? "#fff" : C.dark, fontWeight: 950, fontSize: 16, border: "none", cursor: !canBuy ? "not-allowed" : "pointer", opacity: !canBuy ? 0.5 : 1, transition: "all 0.2s" }}>
                 {added ? "✓ Ajouté au panier !" : "🛒 Ajouter au panier"}
               </button>
+              {everAdded && (
+                <Link href="/panier"
+                  style={{ padding: "14px 24px", borderRadius: 14, background: C.dark, color: C.cream, fontWeight: 900, fontSize: 15, textDecoration: "none", textAlign: "center", display: "block" }}>
+                  Voir mon panier →
+                </Link>
+              )}
               <button onClick={toggleFav}
                 style={{ padding: "13px 24px", borderRadius: 14, border: `1.5px solid ${fav ? "rgba(220,38,38,0.3)" : "rgba(26,20,16,0.15)"}`, background: fav ? "rgba(220,38,38,0.05)" : "transparent", color: fav ? "#dc2626" : "rgba(26,20,16,0.55)", fontWeight: 700, fontSize: 15, cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                 <span style={{ fontSize: 18 }}>{fav ? "❤️" : "🤍"}</span>

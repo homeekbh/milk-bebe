@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
+import ParrainageBareme from "@/components/ParrainageBareme";
 
 const DARK = "#1a1410", AMBER = "#c49a4a", CREAM = "#f2ede6";
 
@@ -66,11 +67,6 @@ export default function ParrainageProfil() {
     );
   }
 
-  const paliers = (me.seuils_parrain ?? []).map((x) => `${Math.round(x)}€`);
-  const paliersTxt = paliers.length > 1
-    ? `${paliers.slice(0, -1).join(", ")} puis ${paliers[paliers.length - 1]}`
-    : paliers[0] ?? "60€";
-
   return (
     <div style={{ display: "grid", gap: 20 }}>
       {/* Code parrain — mis en avant (pulse) */}
@@ -84,13 +80,12 @@ export default function ParrainageProfil() {
           <button onClick={copyCode} style={{ padding: "11px 22px", borderRadius: 12, background: AMBER, color: DARK, fontWeight: 900, border: "none", cursor: "pointer", fontSize: 14 }}>{copied ? "✓ Copié !" : "📋 Copier"}</button>
           <button onClick={share} style={{ padding: "11px 22px", borderRadius: 12, background: "transparent", color: CREAM, fontWeight: 800, border: "1px solid rgba(242,237,230,0.25)", cursor: "pointer", fontSize: 14 }}>↗ Partager</button>
         </div>
-        <div style={{ marginTop: 16, fontSize: 12.5, color: "rgba(242,237,230,0.5)", lineHeight: 1.7, textAlign: "left" }}>
-          <p style={{ margin: "0 0 8px" }}>
-            👶 <strong style={{ color: "rgba(242,237,230,0.75)" }}>Ton ami</strong> profite de −{me.montant_recompense.toFixed(0)}€ dès {me.seuil_filleul.toFixed(0)}€ d'achat, avec ton code (un seul code parrain par commande).
-          </p>
-          <p style={{ margin: 0 }}>
-            🎁 <strong style={{ color: "rgba(242,237,230,0.75)" }}>Toi</strong>, tu gagnes {me.montant_recompense.toFixed(0)}€ pour chaque ami qui achète avec ton code — cumulable jusqu'à {me.max_recompenses_par_commande} remises sur une même commande (dès {paliersTxt} d'achat), valables {me.duree_validite_jours} jours chacune.
-          </p>
+        {/* Barème dynamique (lit parrainage_settings en direct via la route publique) */}
+        <div style={{ marginTop: 20 }}>
+          <ParrainageBareme variant="dark" />
+        </div>
+        <div style={{ marginTop: 12, fontSize: 12, color: "rgba(242,237,230,0.45)", lineHeight: 1.6, textAlign: "left" }}>
+          Un seul code parrain par commande. Tes récompenses sont cumulables sur une même commande, dans la limite des paliers atteints.
         </div>
       </div>
 

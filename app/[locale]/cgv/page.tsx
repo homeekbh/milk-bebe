@@ -1,6 +1,12 @@
 ﻿import type { Metadata } from "next";
 import { getAlternates } from "@/i18n/seo";
 import { getTranslations } from "next-intl/server";
+import { getParrainageSettings } from "@/lib/parrainage-server";
+import ParrainageBareme from "@/components/ParrainageBareme";
+
+// ISR : le schéma parrainage lit parrainage_settings en base. On régénère la page
+// toutes les 5 min → un changement de seuil admin s'y reflète sans redéploiement.
+export const revalidate = 300;
 
 export async function generateMetadata({
   params,
@@ -21,6 +27,16 @@ export async function generateMetadata({
 
 ﻿export default async function CGV() {
   const t = await getTranslations("legal");
+  // Valeurs du barème lues côté serveur → passées en `initial` au visuel pour un
+  // rendu immédiat sans flash sur cette page publique (aucune donnée sensible).
+  const p = await getParrainageSettings();
+  const parrainageInitial = {
+    actif:                p.actif,
+    montant_recompense:   p.montant_recompense,
+    seuil_filleul:        p.seuil_filleul,
+    seuils_parrain:       p.seuils_parrain,
+    duree_validite_jours: p.duree_validite_jours,
+  };
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
@@ -88,6 +104,14 @@ Email : contact@milkbebe.fr`,
             <p style={{ margin: 0, fontSize: 15, color: "rgba(26,20,16,0.7)", lineHeight: 1.8, whiteSpace: "pre-line" }}>{section.content}</p>
           </div>
         ))}
+
+        {/* 13. Programme de parrainage — texte légal + schéma DYNAMIQUE (complément
+            visuel, ne remplace pas les mentions textuelles). Valeurs live de l'admin. */}
+        <div style={{ marginBottom: 36, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>
+          <h2 style={{ margin: "0 0 14px", fontSize: 20, fontWeight: 900, color: "#1a1410" }}>{t("cgv_s13")}</h2>
+          <p style={{ margin: "0 0 22px", fontSize: 15, color: "rgba(26,20,16,0.7)", lineHeight: 1.8, whiteSpace: "pre-line" }}>{t("cgv_s13_c")}</p>
+          <ParrainageBareme initial={parrainageInitial} variant="light" />
+        </div>
       </div>
     </div>
   );

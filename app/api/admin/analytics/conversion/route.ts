@@ -33,8 +33,8 @@ export async function GET(req: NextRequest) {
           return q.order("viewed_at", { ascending: true }).range(rf, rt);
         }),
         (lt
-          ? supabaseServer.from("orders").select("status, shipping_status").in("status", VALID_STATUSES).gte("created_at", a).lt("created_at", b).limit(100000)
-          : supabaseServer.from("orders").select("status, shipping_status").in("status", VALID_STATUSES).gte("created_at", a).lte("created_at", b).limit(100000)),
+          ? supabaseServer.from("orders").select("status, shipping_status, is_internal_test").in("status", VALID_STATUSES).gte("created_at", a).lt("created_at", b).limit(100000)
+          : supabaseServer.from("orders").select("status, shipping_status, is_internal_test").in("status", VALID_STATUSES).gte("created_at", a).lte("created_at", b).limit(100000)),
       ]);
       if (ords.error) throw new Error(ords.error.message);
       const botSet    = excludeBots ? botSessionIds(rows) : new Set<string>();

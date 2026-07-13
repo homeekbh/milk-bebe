@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   try {
     const [prodRes, ordRes] = await Promise.all([
       supabaseServer.from("products").select("id, name, slug, stock").gt("stock", 0).limit(100000),
-      supabaseServer.from("orders").select("items, status, shipping_status, amount_total, refund_amount, created_at")
+      supabaseServer.from("orders").select("items, status, shipping_status, amount_total, refund_amount, created_at, is_internal_test")
         .in("status", VALID_STATUSES).gte("created_at", "2024-01-01").limit(200000),
     ]);
     if (prodRes.error) return fail(prodRes.error.message);

@@ -51,6 +51,11 @@ const EXCLUDED_STATUSES = ["remboursee", "annulee", "echec_paiement"];
  * considérée valide tant que shipping_status n'est pas annulee/retour.
  */
 export function isValidOrder(o: OrderForCalc): boolean {
+  // Commande de test interne (Bou/Claude) marquée depuis l'admin → jamais dans le CA
+  // ni les dashboards. N'a d'effet que si la requête a SÉLECTIONNÉ is_internal_test
+  // (sinon undefined → commande conservée : défaut sûr).
+  if (o?.is_internal_test === true) return false;
+
   const s  = String(o?.status ?? "").toLowerCase();
   const sh = String(o?.shipping_status ?? "").toLowerCase();
 

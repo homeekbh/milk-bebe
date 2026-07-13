@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseServer
       .from("orders")
-      .select("customer_email, customer_name, amount_total, refund_amount, status, shipping_status, created_at")
+      .select("customer_email, customer_name, amount_total, refund_amount, status, shipping_status, created_at, is_internal_test")
       .in("status", VALID_STATUSES)
       .gte("created_at", from).lte("created_at", to)
       .limit(100000);

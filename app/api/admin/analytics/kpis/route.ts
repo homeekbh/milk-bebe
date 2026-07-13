@@ -5,7 +5,7 @@ import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const COLS = "amount_total, refund_amount, status, shipping_status, customer_email, created_at";
+const COLS = "amount_total, refund_amount, status, shipping_status, customer_email, created_at, is_internal_test";
 
 function summarize(rows: any[]) {
   const valid   = (rows ?? []).filter(isValidOrder);

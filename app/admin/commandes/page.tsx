@@ -632,6 +632,23 @@ export default function AdminCommandes() {
     setRefundModal(null);
   }
 
+  // === MARQUER / DÉMARQUER « TEST INTERNE » (exclue des dashboards analytics) ===
+  async function toggleInternalTest(order: any) {
+    const next = !order?.is_internal_test;
+    const short = String(order.id).slice(0, 8).toUpperCase();
+    if (!confirm(next
+      ? `Marquer la commande #${short} comme TEST INTERNE ?\nElle sera exclue des dashboards analytics (CA, conversions, top produits/clients).`
+      : `Retirer le marquage « test interne » de la commande #${short} ?\nElle recomptera dans les analytics.`)) return;
+    const res = await adminFetch(`/api/admin/commandes/${order.id}`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ action: "set_internal_test", is_internal_test: next }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(`Erreur: ${data.error ?? `HTTP ${res.status}`}`); return; }
+    await load();
+  }
+
   async function sendCancellationEmail() {
     if (!cancelEmailModal) return;
     const order = orders.find(o => o.id === cancelEmailModal.orderId);
@@ -1395,6 +1412,15 @@ export default function AdminCommandes() {
                             </button>
                           </>
                         )}
+
+                        {/* === MARQUER TEST INTERNE (exclusion analytics) === toujours dispo */}
+                        <button
+                          onClick={() => toggleInternalTest(order)}
+                          title="Exclure/réintégrer cette commande dans les dashboards analytics (CA, conversions). Pour tes propres commandes de test."
+                          style={{ padding: "12px 16px", borderRadius: 12, background: (order as any).is_internal_test ? "#1a1410" : "#f5f0e8", color: (order as any).is_internal_test ? "#c49a4a" : "rgba(26,20,16,0.6)", fontWeight: 800, fontSize: 13, border: "1px solid rgba(26,20,16,0.15)", cursor: "pointer" }}
+                        >
+                          {(order as any).is_internal_test ? "🧪 Test interne (exclue) — réintégrer" : "🧪 Marquer test interne"}
+                        </button>
 
                         {/* "Informer le client" — visible UNIQUEMENT si shipping_status = "annulee" */}
                         {order.shipping_status === "annulee" && (

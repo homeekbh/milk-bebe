@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
     // Toutes les commandes valides (depuis l'origine) pour situer la 1re commande.
     const { data, error } = await supabaseServer
       .from("orders")
-      .select("customer_email, status, shipping_status, created_at")
+      .select("customer_email, status, shipping_status, created_at, is_internal_test")
       .in("status", VALID_STATUSES)
       .gte("created_at", "2024-01-01")
       .limit(200000);

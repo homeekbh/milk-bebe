@@ -5,6 +5,7 @@ export const dynamic  = "force-dynamic";
 export const revalidate = 0;
 
 function isValidOrder(o: any): boolean {
+  if (o?.is_internal_test === true) return false; // commande de test interne → hors CA
   const s  = String(o?.status ?? "").toLowerCase();
   const sh = String(o?.shipping_status ?? "").toLowerCase();
   if (s === "remboursee" || s === "annulee") return false;
@@ -15,7 +16,7 @@ function isValidOrder(o: any): boolean {
 export default async function AdminClients() {
   const { data: orders } = await supabaseServer
     .from("orders")
-    .select("id, customer_email, customer_name, created_at, amount_total, items, shipping_address, shipping_status, status")
+    .select("id, customer_email, customer_name, created_at, amount_total, items, shipping_address, shipping_status, status, is_internal_test")
     .order("created_at", { ascending: false });
 
   // Construire profils clients — comptabilise total ET valides séparément

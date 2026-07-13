@@ -551,7 +551,25 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     return Response.json({ ok: true });
   }
 
-  return Response.json({ error: "Action inconnue", supported: ["cancel_refund", "refund_partial", "mark_delivered"] }, { status: 400 });
+  // === ACTION: set_internal_test — marque/démarque une commande comme test interne ===
+  // Exclue ensuite des dashboards analytics (isValidOrder + filtres is_internal_test).
+  if (action === "set_internal_test") {
+    const flag = Boolean(body?.is_internal_test);
+    const { error } = await supabaseServer.from("orders")
+      .update({ is_internal_test: flag }).eq("id", orderId);
+    if (error) {
+      console.error("[commandes/set_internal_test] update:", error.message);
+      return Response.json({ error: error.message }, { status: 500 });
+    }
+    await logActivity(
+      "commande_test_interne",
+      `Commande #${orderId.slice(0, 8)} ${flag ? "marquée" : "démarquée"} test interne`,
+      { entity_id: orderId, meta: { is_internal_test: flag, customer_email: order.customer_email } },
+    );
+    return Response.json({ ok: true, is_internal_test: flag });
+  }
+
+  return Response.json({ error: "Action inconnue", supported: ["cancel_refund", "refund_partial", "mark_delivered", "set_internal_test"] }, { status: 400 });
 }
 
 /**

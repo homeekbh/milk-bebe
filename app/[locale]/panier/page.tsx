@@ -407,6 +407,18 @@ export default function CartPage() {
   const shipping        = totals.shipping;
   const total           = totals.total;
 
+  // Éligibilité « livraison offerte » INDÉPENDANTE du transporteur choisi. Les options
+  // de livraison s'affichent AVANT qu'un transporteur soit sélectionné (basePrice = 0 →
+  // computeShipping renvoie shippingFree=false). On reproduit ici la même décision de
+  // seuil/promo, sans basePrice, pour barrer le prix + afficher « Gratuit » sur CHAQUE
+  // option dès que la livraison est offerte. Miroir exact de computeShipping :
+  //   - un code offre la livraison → offert ;
+  //   - un code %/€ non cumulable → seuil désactivé (jamais offert par le seuil) ;
+  //   - sinon total après promo ≥ seuil → offert.
+  const freeShippingEligible =
+    !!comboOk?.free_shipping ||
+    ((!comboOk || comboOk.cumulable_avec_livraison !== false) && totalAfterPromo >= freeShippingThreshold);
+
   // ── Parrainage : calcul d'AFFICHAGE (create-session re-valide, seul juge) ──
   const parrainageSettingsForCalc: ParrainageSettings = {
     actif:                        meSettings?.actif ?? meActif,
@@ -1019,7 +1031,18 @@ export default function CartPage() {
                               </div>
                               <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
                             </span>
-                            <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                            {/* Seuil livraison offerte atteint → prix barré + « Gratuit »
+                                pour CHAQUE option (même condition que le total « Offerte »). */}
+                            <span style={{ display: "grid", justifyItems: "end", gap: 1 }}>
+                              {freeShippingEligible ? (
+                                <>
+                                  <span style={{ fontSize: 12, fontWeight: 700, textDecoration: "line-through", color: active ? "rgba(242,237,230,0.55)" : "rgba(26,20,16,0.4)" }}>{opt.price.toFixed(2)} €</span>
+                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>Gratuit</span>
+                                </>
+                              ) : (
+                                <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                              )}
+                            </span>
                           </button>
                         );
                       })}
@@ -1063,7 +1086,18 @@ export default function CartPage() {
                               </div>
                               <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
                             </span>
-                            <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                            {/* Seuil livraison offerte atteint → prix barré + « Gratuit »
+                                pour CHAQUE option (même condition que le total « Offerte »). */}
+                            <span style={{ display: "grid", justifyItems: "end", gap: 1 }}>
+                              {freeShippingEligible ? (
+                                <>
+                                  <span style={{ fontSize: 12, fontWeight: 700, textDecoration: "line-through", color: active ? "rgba(242,237,230,0.55)" : "rgba(26,20,16,0.4)" }}>{opt.price.toFixed(2)} €</span>
+                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>Gratuit</span>
+                                </>
+                              ) : (
+                                <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
+                              )}
+                            </span>
                           </button>
                         );
                       })}

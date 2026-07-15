@@ -149,7 +149,12 @@ export async function GET() {
             title,
             description:  desc,
             link,
-            image:        c?.image_url || p.image_url || FALLBACK_IMG,
+            // Priorité à la VRAIE photo produit (image_url = image principale affichée
+            // sur la fiche/galerie) plutôt qu'à c.image_url (icône ronde 40×40 du sélecteur
+            // de motif, jamais prévue pour un affichage plein cadre). main_image_index est
+            // stocké mais non utilisé par la fiche (elle affiche image_url) → image_url
+            // garantit que le flux = l'image de la page produit.
+            image:        p.image_url || c?.image_url || FALLBACK_IMG,
             price,
             salePrice,
             availability: cStock > 0 ? "in_stock" : "out_of_stock",

@@ -15,7 +15,18 @@ export const dynamic = "force-dynamic";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 const FALLBACK_IMG = `${BASE}/images/home/milk_pieds_chaussettes_logo_sol.webp`;
-const GOOGLE_CATEGORY = "166"; // Vêtements et accessoires > Vêtements pour bébés et tout-petits
+// Google Product Category par type de produit (déduit du préfixe du slug).
+// Plus précis que le générique "166" → meilleur matching / diffusion Merchant.
+function googleCategoryFor(slug: string): string {
+  const s = String(slug ?? "").toLowerCase();
+  if (s.startsWith("body"))      return "5411"; // Bodies bébés
+  if (s.startsWith("pyjama"))    return "5622"; // Ensembles pour bébés et tout-petits
+  if (s.startsWith("gigoteuse")) return "5412"; // Gigoteuses et nids d'ange
+  if (s.startsWith("lange"))     return "5412"; // Gigoteuses et nids d'ange
+  if (s.startsWith("bonnet"))    return "5410";
+  if (s.startsWith("bandeau"))   return "5410";
+  return "166"; // fallback générique si un futur produit ne matche aucun préfixe
+}
 const DEFAULT_SIZES = "Nouveau-né / 0-3 mois / 3-6 mois";
 
 function xmlEscape(s: any): string {
@@ -72,7 +83,7 @@ function shippingWeight(weight_g: any): string {
 function itemXml(opts: {
   id: string; title: string; description: string; link: string; image: string;
   price: string; salePrice?: string; availability: string; color: string;
-  size: string; groupId: string; weight: string;
+  size: string; groupId: string; weight: string; category: string;
 }): string {
   return `    <item>
       <g:id>${xmlEscape(opts.id)}</g:id>
@@ -89,7 +100,7 @@ function itemXml(opts: {
       <g:color>${xmlEscape(opts.color)}</g:color>
       <g:size>${xmlEscape(opts.size)}</g:size>
       <g:item_group_id>${xmlEscape(opts.groupId)}</g:item_group_id>
-      <g:google_product_category>${GOOGLE_CATEGORY}</g:google_product_category>
+      <g:google_product_category>${opts.category}</g:google_product_category>
       <g:identifier_exists>no</g:identifier_exists>
       <g:shipping>
         <g:country>FR</g:country>
@@ -125,12 +136,16 @@ export async function GET() {
           const cName  = c?.name || "Bambou naturel";
           const cStock = Number(c?.stock ?? p.stock ?? 0);
           const cSlug  = colorSlug(cName) || "motif";
+          // Évite le doublon si le slug produit contient déjà le motif (même dédup
+          // que le titre) → g:id "gigoteuse-smileys" au lieu de "gigoteuse-smileys-smileys".
+          const slugAlreadyHasColor = normalizeStr(p.slug).includes(normalizeStr(cSlug));
+          const id = slugAlreadyHasColor ? p.slug : `${p.slug}-${cSlug}`;
           // Évite le doublon si le nom du produit contient déjà le motif.
           const title  = normalizeStr(p.name).includes(normalizeStr(cName))
             ? p.name
             : `${p.name} — ${cName}`;
           items.push(itemXml({
-            id:           `${p.slug}-${cSlug}`,
+            id,
             title,
             description:  desc,
             link,
@@ -142,6 +157,7 @@ export async function GET() {
             size:         sizesLabel(c?.sizes ?? p.sizes),
             groupId:      p.slug,
             weight,
+            category:     googleCategoryFor(p.slug),
           }));
         }
       } else {
@@ -159,6 +175,7 @@ export async function GET() {
           size:         sizesLabel(p.sizes),
           groupId:      p.slug,
           weight,
+          category:     googleCategoryFor(p.slug),
         }));
       }
     }

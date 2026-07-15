@@ -87,9 +87,10 @@ export default function Footer() {
         <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 2 }}>{t("col_support")}</div>
           {[
-            { label: t("link_account"),  href: "/profil" },
-            { label: t("link_shipping"), href: "/livraison" },
-            { label: t("link_faq"),      href: "/faq" },
+            { label: t("link_account"),    href: "/profil" },
+            { label: t("link_shipping"),   href: "/livraison" },
+            { label: t("link_size_guide"), href: "/guide-des-tailles" },
+            { label: t("link_faq"),        href: "/faq" },
             { label: t("link_cgv"),      href: "/cgv" },
             { label: t("link_legal"),    href: "/mentions-legales" },
             { label: t("link_cookies"),  href: "/politique-confidentialite" },

@@ -21,10 +21,33 @@ const intlMiddleware = createMiddleware(routing);
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // 1. /api et /admin : hors i18n → passthrough.
   if (pathname.startsWith("/api") || pathname.startsWith("/admin")) {
     return NextResponse.next();
   }
 
+  const isLocalePrefixed = /^\/(fr|en)(\/|$)/.test(pathname);
+
+  // 2. Racine "/" → on LAISSE next-intl faire la détection de langue (redirect
+  //    TEMPORAIRE vers /fr ou /en selon le navigateur). On ne force JAMAIS un 301
+  //    ici : la cible dépend de l'utilisateur (best practice SEO i18n / x-default).
+  //    C'est aussi la page organique la mieux classée → comportement inchangé.
+  if (pathname === "/") {
+    return intlMiddleware(req);
+  }
+
+  // 3. SEO — toute autre URL SANS préfixe → 301 PERMANENT vers son équivalent /fr.
+  //    Avant : next-intl renvoyait un 307 TEMPORAIRE, donc Google gardait les deux
+  //    URLs (/categorie/X ET /fr/categorie/X) indexées et diluait le signal. Le 301
+  //    consolide définitivement vers /fr (version officielle). Query string préservée.
+  //    ⚠️ Les URLs déjà préfixées /en/... ne sont PAS touchées.
+  if (!isLocalePrefixed) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/fr${pathname}`;
+    return NextResponse.redirect(url, 301);
+  }
+
+  // 4. /fr/... et /en/... → next-intl sert le contenu (200) + gère la locale.
   return intlMiddleware(req);
 }
 

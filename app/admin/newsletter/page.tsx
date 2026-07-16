@@ -93,6 +93,36 @@ function promoStatus(c: PromoCodeLite): "ok" | "expired" | "exhausted" {
   return "ok";
 }
 
+// ── Ancrage d'insertion en mode template ──
+// htmlContent est un document HTML complet : insérer à un offset brut tombe le
+// plus souvent au milieu d'une balise (les 322 premiers caractères du template
+// sont du balisage pur), ce qui casse le tag et fait disparaître l'insertion du
+// DOM. Ces deux helpers rendent la position déterministe.
+
+// Vrai si `pos` tombe à l'intérieur d'une balise : un '<' y est encore ouvert.
+// Comptage suffisant ici — le template ne contient pas de '<' ou '>' littéral
+// dans son texte.
+function isInsideTag(value: string, pos: number): boolean {
+  let opens = 0, closes = 0;
+  for (let i = 0; i < pos; i++) {
+    const ch = value[i];
+    if      (ch === "<") opens++;
+    else if (ch === ">") closes++;
+  }
+  return opens > closes;
+}
+
+// Position structurellement sûre : juste avant </body>, sinon avant </html>,
+// sinon en fin de chaîne.
+function safeHtmlAnchor(value: string): number {
+  const lower = value.toLowerCase();
+  const body = lower.lastIndexOf("</body>");
+  if (body !== -1) return body;
+  const html = lower.lastIndexOf("</html>");
+  if (html !== -1) return html;
+  return value.length;
+}
+
 function Toast({ msg, ok }: { msg: string; ok: boolean }) {
   return (
     <div style={{ position: "fixed", bottom: 28, right: 28, background: ok ? "#16a34a" : "#dc2626", color: "#fff", padding: "13px 22px", borderRadius: 12, fontWeight: 800, fontSize: 14, zIndex: 9999, boxShadow: "0 8px 24px rgba(0,0,0,0.25)", maxWidth: 360 }}>
@@ -251,8 +281,17 @@ export default function NewsletterAdminPage() {
     // textarea), sinon la fin du texte. Jamais 0 par défaut → plus d'insertion
     // parasite en tête du message.
     const focused = typeof document !== "undefined" && document.activeElement === ta;
-    const start = focused ? ta.selectionStart : (lastCursorRef.current?.start ?? value.length);
-    const end   = focused ? ta.selectionEnd   : (lastCursorRef.current?.end   ?? start);
+    let start = focused ? ta.selectionStart : (lastCursorRef.current?.start ?? value.length);
+    let end   = focused ? ta.selectionEnd   : (lastCursorRef.current?.end   ?? start);
+    // Mode template : le contenu est un document HTML complet, un offset non
+    // fiable y casse le balisage. On ne fait confiance au curseur QUE s'il est
+    // vivant (textarea réellement focus) ET hors balise — c'est le cas où Erika
+    // a cliqué dans le cadre pour choisir l'endroit. Sinon (pas de focus, ou
+    // curseur périmé, ou position au milieu d'une balise) on ancre juste avant
+    // </body> : toujours structurellement valide.
+    if (mode === "template" && (!focused || isInsideTag(value, start))) {
+      start = end = safeHtmlAnchor(value);
+    }
     setValue(value.slice(0, start) + insertion + value.slice(end));
     const caret = start + insertion.length;
     lastCursorRef.current = { start: caret, end: caret };
@@ -460,7 +499,7 @@ export default function NewsletterAdminPage() {
             <label style={LBL}>Type de contenu</label>
             <div style={{ display: "inline-flex", background: "#f1ede6", borderRadius: 99, padding: 4, gap: 4 }}>
               {([["simple", "📝 Message simple"], ["template", "🎨 Avec template"]] as const).map(([m, lbl]) => (
-                <button key={m} onClick={() => setMode(m)} style={{ padding: "8px 18px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, background: mode === m ? "#1a1410" : "transparent", color: mode === m ? "#f2ede6" : "rgba(26,20,16,0.55)", transition: "all 0.15s" }}>
+                <button key={m} onClick={() => { setMode(m); lastCursorRef.current = null; }} style={{ padding: "8px 18px", borderRadius: 99, border: "none", cursor: "pointer", fontSize: 13, fontWeight: 800, background: mode === m ? "#1a1410" : "transparent", color: mode === m ? "#f2ede6" : "rgba(26,20,16,0.55)", transition: "all 0.15s" }}>
                   {lbl}
                 </button>
               ))}

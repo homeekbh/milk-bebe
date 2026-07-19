@@ -141,7 +141,10 @@ export default function CheckoutLivraisonPage() {
     ? frModeChosen && (dc!.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
         : /* point relais / locker → un relais doit être sélectionné */ !!state.selectedRelay)
-    : dc?.kind === "international" && isAddressComplete(state.shippingAddress as CheckoutAddress);
+    // International : l'adresse est collectée par Stripe (validée par pays) → aucune
+    // saisie tunnel. Pays livrable (zone) + mode international suffisent ; email/phone
+    // sont déjà exigés à l'étape compte (garde completedSteps ≥ 1).
+    : !!zone && dc?.kind === "international";
 
   const onContinue = () => {
     if (!canContinue) return;
@@ -230,8 +233,13 @@ export default function CheckoutLivraisonPage() {
           <p style={{ margin: "8px 0 0", fontSize: 13, fontWeight: 700, color: "#c49a4a" }}>
             {en ? `Paid delivery — international (Zone ${zone}).` : `Livraison payante à l'international (Zone ${zone}).`}
           </p>
-          <div style={{ marginTop: 18 }}>
-            <CheckoutAddressForm value={state.shippingAddress as CheckoutAddress} onChange={setAddr} country={country} />
+          {/* Pas de saisie d'adresse ici : à l'international, Stripe collecte l'adresse
+              (mieux validée par pays) à l'étape paiement. Le webhook la reprend ensuite
+              pour orders.shipping_address → étiquette Sendcloud. */}
+          <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 13.5, color: "rgba(26,20,16,0.75)", lineHeight: 1.6 }}>
+            📦 {en
+              ? "Your delivery address will be requested at the secure payment step."
+              : "Votre adresse de livraison vous sera demandée à l'étape de paiement sécurisée."}
           </div>
         </div>
       )}

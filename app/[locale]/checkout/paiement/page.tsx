@@ -186,7 +186,10 @@ export default function CheckoutPaiementPage() {
     ? (dc?.kind === "fr" && !!dc.carrier && !!dc.type && (dc.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
         : !!state.selectedRelay))
-    : (!!zone && dc?.kind === "international" && isAddressComplete(state.shippingAddress as CheckoutAddress));
+    // International : adresse collectée par Stripe (pas de saisie tunnel) → pays
+    // livrable + mode international suffisent. Le body n'envoie PAS home_address (ligne
+    // ci-dessous), donc le webhook reprend l'adresse Stripe pour orders.shipping_address.
+    : (!!zone && dc?.kind === "international");
 
   // Garde : panier vide / étape précédente incomplète → rediriger vers l'étape concernée.
   useEffect(() => {

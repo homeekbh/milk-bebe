@@ -35,9 +35,23 @@ export async function PUT(req: Request) {
 
   const body = await req.json();
 
+  // Whitelist STRICTE des champs éditables par l'utilisateur (anti mass-assignment).
+  // supabaseServer = service_role → RLS bypassée : la garde est donc côté code.
+  // On IGNORE tout autre champ du body. EXCLUS d'office : id (fixé depuis le
+  // token), email, is_admin, parrain_code, created_at/updated_at et toute autre
+  // colonne système/legacy de `profiles`.
+  const EDITABLE = [
+    "first_name", "last_name", "phone", "newsletter",
+    "shipping_address", "billing_address", "billing_same",
+  ] as const;
+  const patch: Record<string, unknown> = {};
+  for (const key of EDITABLE) {
+    if (Object.prototype.hasOwnProperty.call(body, key)) patch[key] = body[key];
+  }
+
   const { error } = await supabaseServer
     .from("profiles")
-    .upsert({ id: user.id, ...body }, { onConflict: "id" });
+    .upsert({ id: user.id, ...patch }, { onConflict: "id" });
 
   if (error) return Response.json({ error: error.message }, { status: 500 });
   return Response.json({ ok: true });

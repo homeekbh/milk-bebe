@@ -148,6 +148,21 @@ export default function SuccessPage() {
         })();
       }
 
+      // ── Durcissement PII : nettoyer l'URL du session_id ───────────────────
+      // À ce stade, sessionId a DÉJÀ été lu (variable closure ci-dessus) et le
+      // fetch by-session a été déclenché ; le tracking purchase et GCR utilisent
+      // cette variable, plus jamais l'URL. On retire donc ?session_id=… de l'URL
+      // via history.replaceState (sans recharger) pour fermer le vrai vecteur de
+      // fuite du token opaque : capté dans page_location (GA4/Meta), l'historique
+      // et le référent. N'affecte ni le tracking ni GCR (aucun ne relit l'URL).
+      if (sessionId && typeof window !== "undefined" && window.history?.replaceState) {
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete("session_id");
+          window.history.replaceState(null, "", cleanUrl.pathname + cleanUrl.search + cleanUrl.hash);
+        } catch {}
+      }
+
       // ── Retrait auto des favoris achetés + tracking "purchased" ───────────
       // Le favori a mené à un achat (signal positif). On compare les produits
       // achetés (snapshot panier) au wishlist localStorage, on retire les matches

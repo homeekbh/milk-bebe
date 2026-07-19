@@ -376,7 +376,15 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       : (draft.promo_code ? [draft.promo_code] : []);
     for (const pc of appliedCodes) {
       const { data: promo } = await supabaseServer.from("promo_codes").select("id, uses_count").eq("code", pc).maybeSingle();
-      if (promo) await supabaseServer.from("promo_codes").update({ uses_count: (promo.uses_count ?? 0) + 1 }).eq("id", promo.id);
+      if (!promo) continue;
+      // Incrément ATOMIQUE (élimine la race read-modify-write sur uses_count).
+      // Fallback non-atomique si la RPC est absente (même pattern que
+      // decrement_stock_atomic). Reste dans le bloc exactement-1× (post-claim).
+      const { error: rpcErr } = await supabaseServer.rpc("increment_promo_uses", { p_promo_id: promo.id });
+      if (rpcErr) {
+        process.env.NODE_ENV !== "production" && console.error("[webhook] RPC increment_promo_uses indispo, fallback non-atomique:", rpcErr.message);
+        await supabaseServer.from("promo_codes").update({ uses_count: (promo.uses_count ?? 0) + 1 }).eq("id", promo.id);
+      }
     }
   }
   if (email) await supabaseServer.from("abandoned_carts").update({ converted: true }).eq("email", email.toLowerCase().trim());
@@ -919,10 +927,16 @@ export async function POST(req: Request) {
           const { data: promo } = await supabaseServer
             .from("promo_codes").select("id, uses_count").eq("code", promoCode).single();
           if (promo) {
-            await supabaseServer
-              .from("promo_codes")
-              .update({ uses_count: (promo.uses_count ?? 0) + 1 })
-              .eq("id", promo.id);
+            // Incrément ATOMIQUE (élimine la race read-modify-write). Fallback
+            // non-atomique si la RPC est absente (pattern decrement_stock_atomic).
+            const { error: rpcErr } = await supabaseServer.rpc("increment_promo_uses", { p_promo_id: promo.id });
+            if (rpcErr) {
+              console.error("[stripe-webhook] RPC increment_promo_uses indispo, fallback non-atomique:", rpcErr.message);
+              await supabaseServer
+                .from("promo_codes")
+                .update({ uses_count: (promo.uses_count ?? 0) + 1 })
+                .eq("id", promo.id);
+            }
           }
         }
       }

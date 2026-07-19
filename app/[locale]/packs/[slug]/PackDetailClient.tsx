@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { type Pack, packProducts, packSavings } from "@/components/packs/PackCard";
 import { trackAddToCart, metaAddToCart } from "@/lib/analytics";
@@ -139,15 +140,15 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
           {/* Visuel */}
           <div style={{ borderRadius: 20, overflow: "hidden", background: C.cream, border: "1px solid rgba(26,20,16,0.1)" }}>
             {pack.image_url ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={pack.image_url} alt={pack.title} style={{ width: "100%", display: "block", aspectRatio: "1/1", objectFit: "cover" }} />
+              <div style={{ position: "relative", width: "100%", aspectRatio: "1/1" }}>
+                <Image src={pack.image_url} alt={pack.title} fill sizes="(max-width:900px) 92vw, 520px" style={{ objectFit: "cover" }} priority />
+              </div>
             ) : (
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 2 }}>
                 {prods.slice(0, 4).map((p, i) => (
-                  <div key={p.id} style={{ aspectRatio: "1/1", background: C.taupe, gridColumn: prods.length === 3 && i === 2 ? "1 / -1" : "auto" }}>
+                  <div key={p.id} style={{ position: "relative", aspectRatio: "1/1", background: C.taupe, gridColumn: prods.length === 3 && i === 2 ? "1 / -1" : "auto" }}>
                     {p.image_url
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+                      ? <Image src={p.image_url} alt={p.name} fill sizes="(max-width:900px) 46vw, 260px" style={{ objectFit: "cover" }} />
                       : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontWeight: 950, color: "rgba(26,20,16,0.15)" }}>M!LK</div>}
                   </div>
                 ))}
@@ -169,10 +170,9 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
               <div style={{ display: "grid", gap: 10 }}>
                 {prods.map(p => (
                   <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 12, padding: 10, borderRadius: 12, background: C.cream, border: "1px solid rgba(26,20,16,0.08)" }}>
-                    <div style={{ width: 48, height: 48, borderRadius: 8, overflow: "hidden", background: C.taupe, flexShrink: 0 }}>
+                    <div style={{ position: "relative", width: 48, height: 48, borderRadius: 8, overflow: "hidden", background: C.taupe, flexShrink: 0 }}>
                       {p.image_url
-                        // eslint-disable-next-line @next/next/no-img-element
-                        ? <img src={p.image_url} alt={p.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                        ? <Image src={p.image_url} alt={p.name} fill sizes="48px" style={{ objectFit: "cover" }} />
                         : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontSize: 9, fontWeight: 900, color: "rgba(26,20,16,0.2)" }}>M!LK</div>}
                     </div>
                     <div style={{ fontWeight: 800, fontSize: 14, color: C.dark }}>{p.name}</div>

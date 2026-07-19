@@ -694,7 +694,7 @@ export default function ProductClient({ initialProduct, header }: { initialProdu
                   return (
                     <button key={col.name} onClick={() => { if (!epuise) setCouleur(col.name); }} title={col.name}
                       style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? `3px solid ${DARK}` : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: col.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` : "none" }}>
-                      {col.image_url && <img src={col.image_url} alt={col.name} style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                      {col.image_url && <Image src={col.image_url} alt={col.name} fill sizes="40px" style={{ objectFit: "cover" }} />}
                       {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: AMBER, transform: "rotate(45deg)" }} /></div>}
                     </button>
                   );
@@ -719,7 +719,7 @@ export default function ProductClient({ initialProduct, header }: { initialProdu
                         onMouseEnter={e => { const el = e.currentTarget as HTMLElement; el.style.border = `3px solid ${DARK}`; el.style.boxShadow = `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}`; }}
                         onMouseLeave={e => { const el = e.currentTarget as HTMLElement; el.style.border = "2px solid rgba(0,0,0,0.15)"; el.style.boxShadow = "none"; }}>
                         {motifImg
-                          ? <img src={motifImg} alt={motifLabel} style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+                          ? <Image src={motifImg} alt={motifLabel} fill sizes="40px" style={{ objectFit: "cover" }} />
                           : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 7, fontWeight: 900, color: "rgba(26,20,16,0.3)" }}>M!LK</div>}
                       </button>
                     </Link>

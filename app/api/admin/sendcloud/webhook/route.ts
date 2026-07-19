@@ -47,6 +47,17 @@ function messageMeansDelivered(msg: unknown): boolean {
 }
 
 export async function POST(req: NextRequest) {
+  // Défense en profondeur : token secret en query (?token=…) comparé à
+  // SENDCLOUD_WEBHOOK_TOKEN. Fail-closed : si la variable n'est pas définie OU
+  // si le token est absent/incorrect → 401. (Bou doit définir la variable ET
+  // ajouter ?token=… à l'URL du webhook dans le panel Sendcloud.) La vérif
+  // d'existence de commande ci-dessous reste en place (défense complémentaire).
+  const expectedToken = process.env.SENDCLOUD_WEBHOOK_TOKEN;
+  const providedToken = req.nextUrl.searchParams.get("token");
+  if (!expectedToken || providedToken !== expectedToken) {
+    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  }
+
   try {
     const rawBody = await req.text();
 

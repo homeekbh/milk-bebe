@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
+import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
 import { supabaseServer } from "@/lib/server/supabase";
@@ -13,6 +15,18 @@ export const revalidate = 60;
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", cream: "#f2ede6", taupe: "#e9e1d4" };
+
+// Réduit une URL d'image blog pointant vers NOTRE domaine (milkbebe.fr) en
+// chemin relatif → next/image la traite comme image LOCALE (optimisée, sans
+// remotePattern). Retourne null si l'URL ne matche pas (host externe / autre)
+// → l'appelant retombe sur <img>, pour ne pas casser un futur article à image
+// externe non whitelistée (que next/image refuserait).
+function localBlogImage(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("/")) return url; // déjà relatif
+  const m = url.match(/^https?:\/\/(?:www\.)?milkbebe\.fr(\/.*)$/i);
+  return m ? m[1] : null;
+}
 
 type Post = {
   id: string; slug: string; title: string; excerpt?: string | null; content?: string | null;
@@ -113,10 +127,14 @@ export default async function BlogArticlePage({
   const post = await getPost(slug);
   if (!post) notFound();
 
-  const [recent, html] = await Promise.all([
+  const [recent, rawHtml] = await Promise.all([
     getRecent(slug),
     marked.parse(post.content || "", { breaks: true, gfm: true }),
   ]);
+  // Défense en profondeur : même si le contenu vient de l'admin, on sanitise le
+  // HTML de marked avant dangerouslySetInnerHTML (gfm/breaks conservés côté
+  // marked). isomorphic-dompurify tourne côté serveur (jsdom intégré) → SSR OK.
+  const html = DOMPurify.sanitize(rawHtml as string);
 
   const canonical = `${BASE}/${locale}/blog/${post.slug}`;
   const blogPostingLd = {
@@ -148,6 +166,7 @@ export default async function BlogArticlePage({
   };
 
   const relatedCat = relatedCategory(post);
+  const heroImg = localBlogImage(post.image_url);
 
   // FAQPage JSON-LD si l'article contient une section "## Questions fréquentes".
   const faqItems = extractFaq(post.content || "");
@@ -201,13 +220,17 @@ export default async function BlogArticlePage({
 
         {post.image_url && (
           <div style={{ position: "relative", width: "100%", aspectRatio: "16/9", borderRadius: 20, overflow: "hidden", marginBottom: 36, background: C.taupe }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={post.image_url} alt={post.title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+            {heroImg
+              ? <Image src={heroImg} alt={post.title} fill sizes="(max-width:800px) 92vw, 760px" style={{ objectFit: "cover" }} priority />
+              : (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={post.image_url} alt={post.title} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+              )}
           </div>
         )}
 
         {/* Contenu markdown */}
-        <div className="blog-prose" dangerouslySetInnerHTML={{ __html: html as string }} />
+        <div className="blog-prose" dangerouslySetInnerHTML={{ __html: html }} />
 
         <div style={{ marginTop: 44 }}>
           <Link href="/blog" style={{ display: "inline-block", padding: "13px 26px", borderRadius: 12, background: C.dark, color: C.cream, fontWeight: 900, fontSize: 14, textDecoration: "none" }}>{t("back")}</Link>
@@ -231,22 +254,29 @@ export default async function BlogArticlePage({
         <div style={{ maxWidth: 1100, margin: "0 auto", padding: "48px 4vw 0" }}>
           <h2 style={{ margin: "0 0 20px", fontSize: "clamp(20px,2.5vw,28px)", fontWeight: 950, letterSpacing: -1, color: C.dark }}>{t("recent")}</h2>
           <div className="blog-recent">
-            {recent.map(r => (
-              <Link key={r.id} href={`/blog/${r.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-                <div style={{ borderRadius: 16, overflow: "hidden", background: C.cream, border: "1px solid rgba(26,20,16,0.1)", height: "100%" }}>
-                  <div style={{ position: "relative", aspectRatio: "16/10", background: C.taupe }}>
-                    {r.image_url
-                      // eslint-disable-next-line @next/next/no-img-element
-                      ? <img src={r.image_url} alt={r.title} loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
-                      : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontWeight: 950, color: "rgba(26,20,16,0.15)" }}>M!LK</div>}
+            {recent.map(r => {
+              const rImg = localBlogImage(r.image_url);
+              return (
+                <Link key={r.id} href={`/blog/${r.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+                  <div style={{ borderRadius: 16, overflow: "hidden", background: C.cream, border: "1px solid rgba(26,20,16,0.1)", height: "100%" }}>
+                    <div style={{ position: "relative", aspectRatio: "16/10", background: C.taupe }}>
+                      {r.image_url
+                        ? (rImg
+                            ? <Image src={rImg} alt={r.title} fill sizes="(max-width:760px) 92vw, 340px" style={{ objectFit: "cover" }} />
+                            : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={r.image_url} alt={r.title} loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+                            ))
+                        : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontWeight: 950, color: "rgba(26,20,16,0.15)" }}>M!LK</div>}
+                    </div>
+                    <div style={{ padding: "14px 16px 16px" }}>
+                      {r.category && <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: C.amber, marginBottom: 5 }}>{r.category}</div>}
+                      <div style={{ fontWeight: 900, fontSize: 15, color: C.dark, lineHeight: 1.25 }}>{r.title}</div>
+                    </div>
                   </div>
-                  <div style={{ padding: "14px 16px 16px" }}>
-                    {r.category && <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: C.amber, marginBottom: 5 }}>{r.category}</div>}
-                    <div style={{ fontWeight: 900, fontSize: 15, color: C.dark, lineHeight: 1.25 }}>{r.title}</div>
-                  </div>
-                </div>
-              </Link>
-            ))}
+                </Link>
+              );
+            })}
           </div>
         </div>
       )}

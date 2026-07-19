@@ -103,8 +103,8 @@ function PredictiveSuggestions({ query, products, onSelect }: {
           onMouseLeave={e => (e.currentTarget.style.background = "none")}
         >
           {p.image_url && (
-            <div style={{ width: 36, height: 36, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#2d2419" }}>
-              <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />
+            <div style={{ position: "relative", width: 36, height: 36, borderRadius: 8, overflow: "hidden", flexShrink: 0, background: "#2d2419" }}>
+              <Image src={p.image_url} alt="" fill sizes="36px" style={{ objectFit: "cover" }} />
             </div>
           )}
           <div style={{ flex: 1, minWidth: 0 }}>

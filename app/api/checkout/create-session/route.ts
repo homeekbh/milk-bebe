@@ -494,7 +494,7 @@ export async function POST(req: Request) {
     if (isFrance) {
       if (delivery_type === "home") {
         sessionParams.shipping_address_collection = {
-          allowed_countries: ["FR", "BE", "CH", "LU", "MC"],
+          allowed_countries: ["FR"],
         };
       }
     } else {

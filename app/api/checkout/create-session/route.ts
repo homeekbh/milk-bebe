@@ -7,9 +7,12 @@ import {
   isDeliveryCombinationAllowed,
   getDeliveryPrice,
   deliveryLabel,
+  getZoneForCountry,
+  getInternationalShippingPrice,
+  isFreeShippingEligibleZone,
 } from "@/lib/delivery-config";
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
-import { computeCartTotals } from "@/lib/cart-totals";
+import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
 import { computeParrainage } from "@/lib/parrainage";
 import { getParrainageSettings, validateParrainCode, listUsableRewards, getUserFromRequest } from "@/lib/parrainage-server";
 
@@ -72,6 +75,7 @@ export async function POST(req: Request) {
       carrier,
       relay,
       home_address,
+      country,
       locale,
     } = await req.json();
 
@@ -93,22 +97,38 @@ export async function POST(req: Request) {
       return Response.json({ error: "Panier vide" }, { status: 400 });
     }
 
-    // ── Validation transporteur + mode de livraison ──────────────────────────
-    if (!carrier || !ALLOWED_CARRIERS.includes(carrier)) {
-      return Response.json({ error: `Transporteur invalide (autorisés: ${ALLOWED_CARRIERS.join(", ")})` }, { status: 400 });
+    // ── ZONE DE LIVRAISON (serveur — JAMAIS confiance au client) ──────────────
+    // Pays absent du body → "FR" (comportement prod actuel INCHANGÉ). Pays non
+    // desservi → rejet dur : aucune session Stripe créée, même si le body est forgé.
+    // isFreeShippingEligibleZone est true UNIQUEMENT pour "FR" → garde unique
+    // pour tout le branchement domestique vs international.
+    const shippingCountry = String(country ?? "").trim().toUpperCase() || "FR";
+    const shippingZone    = getZoneForCountry(shippingCountry);
+    if (shippingZone === null) {
+      return Response.json({ error: "Pays non desservi" }, { status: 400 });
     }
-    if (!delivery_type || !ALLOWED_DELIVERY_TYPES.includes(delivery_type)) {
-      return Response.json({ error: `Mode de livraison invalide (autorisés: ${ALLOWED_DELIVERY_TYPES.join(", ")})` }, { status: 400 });
-    }
-    if (!isDeliveryCombinationAllowed(carrier, delivery_type)) {
-      return Response.json({ error: `Combinaison ${carrier}/${delivery_type} non disponible` }, { status: 400 });
-    }
-    if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
-      return Response.json({ error: "Point relais manquant" }, { status: 400 });
-    }
-    if (delivery_type === "home") {
-      if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
-        return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
+    const isFrance = isFreeShippingEligibleZone(shippingZone);
+
+    // ── Validation transporteur + mode de livraison — FRANCE UNIQUEMENT ───────
+    // À l'international, carrier / delivery_type / relay sont IGNORÉS (port fixe
+    // de zone, pas de point relais hors France dans ce lot).
+    if (isFrance) {
+      if (!carrier || !ALLOWED_CARRIERS.includes(carrier)) {
+        return Response.json({ error: `Transporteur invalide (autorisés: ${ALLOWED_CARRIERS.join(", ")})` }, { status: 400 });
+      }
+      if (!delivery_type || !ALLOWED_DELIVERY_TYPES.includes(delivery_type)) {
+        return Response.json({ error: `Mode de livraison invalide (autorisés: ${ALLOWED_DELIVERY_TYPES.join(", ")})` }, { status: 400 });
+      }
+      if (!isDeliveryCombinationAllowed(carrier, delivery_type)) {
+        return Response.json({ error: `Combinaison ${carrier}/${delivery_type} non disponible` }, { status: 400 });
+      }
+      if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
+        return Response.json({ error: "Point relais manquant" }, { status: 400 });
+      }
+      if (delivery_type === "home") {
+        if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
+          return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
+        }
       }
     }
 
@@ -282,25 +302,42 @@ export async function POST(req: Request) {
     // Alias 1er code (compat aval : nom de coupon, draft.promo_code).
     const serverPromoCode = serverPromoCodes[0] ?? "";
 
-    // ── Calcul UNIFIÉ produits+packs (seuil livraison sur le TOTAL APRÈS PROMO)
-    //    via computeCartTotals — MÊME fonction que le panier (affiché = facturé).
+    // ── PORT : France = matrice transporteur + seuil 60€ (computeCartTotals,
+    //    MÊME fonction que le panier, INCHANGÉ) ; international = port FIXE de zone,
+    //    JAMAIS gratuit. freeShipThreshold est calculé dans les DEUX cas car
+    //    computeParrainage (plus bas) s'en sert aussi.
     const freeShipThreshold = await getFreeShippingThreshold();
-    const basePrice         = getDeliveryPrice(carrier, delivery_type);
-    const totals = computeCartTotals({
-      productsSubtotal,
-      packsSubtotal,
-      discount: serverDiscount,
-      basePrice,
-      freeShippingThreshold: freeShipThreshold,
-      promo: serverPromoForCS,
-    });
-    const deliveryCost = totals.shipping;
+    let deliveryCost: number;
+    let shippingLineLabel: string;
+    if (isFrance) {
+      const basePrice = getDeliveryPrice(carrier, delivery_type);
+      const totals = computeCartTotals({
+        productsSubtotal,
+        packsSubtotal,
+        discount: serverDiscount,
+        basePrice,
+        freeShippingThreshold: freeShipThreshold,
+        promo: serverPromoForCS,
+      });
+      deliveryCost      = totals.shipping;
+      shippingLineLabel = deliveryLabel(carrier, delivery_type);
+    } else {
+      // International : port de zone (11,90 / 14,90 / 18,90), toujours facturé.
+      const intlTotals = computeInternationalCartTotals({
+        productsSubtotal,
+        packsSubtotal,
+        discount:  serverDiscount,
+        zonePrice: getInternationalShippingPrice(shippingCountry) ?? 0,
+      });
+      deliveryCost      = intlTotals.shipping;
+      shippingLineLabel = `Livraison internationale (Zone ${shippingZone})`;
+    }
 
     if (deliveryCost > 0) {
       lineItems.push({
         price_data: {
           currency:     "eur",
-          product_data: { name: deliveryLabel(carrier, delivery_type) },
+          product_data: { name: shippingLineLabel },
           unit_amount:  Math.round(deliveryCost * 100),
         },
         quantity: 1,
@@ -408,11 +445,14 @@ export async function POST(req: Request) {
         promo_code:  serverPromoCode || null, // 1er code (compat)
         promo_codes: serverPromoCodes,        // tous les codes appliqués (cumul)
         delivery: {
-          carrier, delivery_type,
+          carrier:        isFrance ? carrier : null,
+          delivery_type:  isFrance ? delivery_type : null,
+          country:        shippingCountry,
+          shipping_zone:  shippingZone,
           delivery_price: deliveryCost,
           customer_phone: String(customer_phone ?? "").slice(0, 30),
-          relay: relay ? { id: relay.id, name: relay.name, street: relay.street, city: relay.city, postal_code: relay.postal_code, type: relay.type } : null,
-          home_address: home_address ?? null,
+          relay: isFrance && relay ? { id: relay.id, name: relay.name, street: relay.street, city: relay.city, postal_code: relay.postal_code, type: relay.type } : null,
+          home_address: isFrance ? (home_address ?? null) : null,
         },
         guest_email: customer_email ?? null,
         locale:      safeLocale,
@@ -446,12 +486,22 @@ export async function POST(req: Request) {
       // par valeur sur un panier mixte). Le webhook lit pending_orders par cet id.
       metadata: {
         pending_order_id: pendingOrderId,
+        shipping_zone:    shippingZone,
+        country:          shippingCountry,
       },
     };
 
-    if (delivery_type === "home") {
+    if (isFrance) {
+      if (delivery_type === "home") {
+        sessionParams.shipping_address_collection = {
+          allowed_countries: ["FR", "BE", "CH", "LU", "MC"],
+        };
+      }
+    } else {
+      // International : Stripe collecte l'adresse de livraison du pays sélectionné
+      // (aucun point relais / retrait hors France dans ce lot).
       sessionParams.shipping_address_collection = {
-        allowed_countries: ["FR", "BE", "CH", "LU", "MC"],
+        allowed_countries: [shippingCountry],
       };
     }
 

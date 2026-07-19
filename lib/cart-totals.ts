@@ -54,3 +54,29 @@ export function computeCartTotals(i: CartTotalsInput): CartTotals {
     total:        totalAfterPromo + dec.shipping,
   };
 }
+
+/**
+ * Variante INTERNATIONALE : port FIXE de zone, JAMAIS gratuit (aucun seuil de
+ * gratuité hors France — cf. isFreeShippingEligibleZone). NE touche PAS
+ * computeCartTotals (chemin France). Le crédit promo/parrainage est déjà retiré
+ * par l'appelant via `discount`, exactement comme pour computeCartTotals ; on ne
+ * fait qu'ajouter le port de zone.
+ */
+export function computeInternationalCartTotals(i: {
+  productsSubtotal: number;
+  packsSubtotal:    number;
+  discount:         number;
+  zonePrice:        number; // getInternationalShippingPrice(country) — toujours facturé
+}): CartTotals {
+  const subtotal        = (Number(i.productsSubtotal) || 0) + (Number(i.packsSubtotal) || 0);
+  const totalAfterPromo = Math.max(0, subtotal - (Number(i.discount) || 0));
+  const shipping        = Math.max(0, Number(i.zonePrice) || 0);
+  return {
+    subtotal,
+    totalAfterPromo,
+    shipping,
+    shippingFree: false,          // international : jamais offert
+    reason:       "below-threshold",
+    total:        totalAfterPromo + shipping,
+  };
+}

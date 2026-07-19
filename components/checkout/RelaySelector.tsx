@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Carrier, DeliveryType } from "@/lib/delivery-config";
+import { useLocale } from "next-intl";
+import { isDomTom, domTomMessage, type Carrier, type DeliveryType } from "@/lib/delivery-config";
 
 /**
  * Sélecteur de point relais / locker — EXTRAIT de /panier (refactoring pur, Lot
@@ -44,6 +45,7 @@ export default function RelaySelector({
   postalSearch,
   onPostalSearchChange,
   resetKey,
+  blockDomTom = false,
 }: {
   carrier: Carrier | null;
   deliveryType: DeliveryType | null;
@@ -54,7 +56,11 @@ export default function RelaySelector({
   postalSearch: string;
   onPostalSearchChange: (v: string) => void;
   resetKey: number;
+  // Opt-in : refuser les CP DOM-TOM (97xxx / 98xxx) AVANT la recherche. Par défaut
+  // FALSE → /panier (prod) reste STRICTEMENT inchangé ; le tunnel l'active.
+  blockDomTom?: boolean;
 }) {
+  const en = useLocale() === "en";
   const [searching,      setSearching]      = useState(false);
   const [searchResults,  setSearchResults]  = useState<ServicePoint[]>([]);
   const [searchError,    setSearchError]    = useState("");
@@ -75,6 +81,11 @@ export default function RelaySelector({
     const cp = postalSearch.trim();
     if (!/^\d{4,5}$/.test(cp)) {
       setSearchError("Code postal invalide (4 ou 5 chiffres)");
+      return;
+    }
+    // DOM-TOM (97xxx / 98xxx) : refus AVANT tout appel /api/servicepoints.
+    if (blockDomTom && isDomTom(cp)) {
+      setSearchError(domTomMessage(en));
       return;
     }
     if (!carrier) {

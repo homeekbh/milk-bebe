@@ -1,6 +1,7 @@
 "use client";
 
 import { useLocale } from "next-intl";
+import { isDomTom, domTomMessage } from "@/lib/delivery-config";
 
 /**
  * Formulaire d'adresse du tunnel (FR domicile + international). Contrôlé :
@@ -18,7 +19,11 @@ export type CheckoutAddress = {
 };
 
 export function isAddressComplete(a: CheckoutAddress | null | undefined): boolean {
-  return !!(a && a.name?.trim() && a.line1?.trim() && a.postal_code?.trim() && a.city?.trim());
+  if (!(a && a.name?.trim() && a.line1?.trim() && a.postal_code?.trim() && a.city?.trim())) return false;
+  // DOM-TOM (CP 97xxx / 98xxx) non livrés → adresse INVALIDE tant que le CP l'est.
+  // (Ce formulaire n'est utilisé que pour le domicile FRANCE ; l'international n'a
+  //  plus de saisie d'adresse dans le tunnel.)
+  return !isDomTom(a.postal_code ?? "");
 }
 
 const LBL: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 };
@@ -35,6 +40,7 @@ export default function CheckoutAddressForm({
 }) {
   const en = useLocale() === "en";
   const v = value ?? {};
+  const cpDomTom = isDomTom(v.postal_code ?? "");
 
   let countryName = country;
   try { countryName = new Intl.DisplayNames([en ? "en" : "fr"], { type: "region" }).of(country) ?? country; } catch {}
@@ -56,8 +62,23 @@ export default function CheckoutAddressForm({
       {field("name",  en ? "Full name" : "Nom complet")}
       {field("line1", en ? "Address" : "Adresse")}
       {field("line2", en ? "Address line 2 (optional)" : "Complément (optionnel)")}
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
-        {field("postal_code", en ? "Postal code" : "Code postal")}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, alignItems: "start" }}>
+        <div>
+          <label style={LBL} htmlFor="addr-postal_code">{en ? "Postal code" : "Code postal"}</label>
+          <input
+            id="addr-postal_code"
+            inputMode="numeric"
+            maxLength={5}
+            value={(v.postal_code as string) ?? ""}
+            onChange={e => onChange({ postal_code: e.target.value })}
+            style={{ ...INP, ...(cpDomTom ? { borderColor: "#ef4444" } : {}) }}
+          />
+          {cpDomTom && (
+            <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 700, lineHeight: 1.4 }}>
+              {domTomMessage(en)}
+            </div>
+          )}
+        </div>
         {field("city", en ? "City" : "Ville")}
       </div>
       <div>

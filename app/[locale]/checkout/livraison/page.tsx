@@ -217,6 +217,7 @@ export default function CheckoutLivraisonPage() {
                 postalSearch={relayPostalSearch}
                 onPostalSearchChange={setRelayPostalSearch}
                 resetKey={relayResetKey}
+                blockDomTom
               />
             </div>
           )}

@@ -74,6 +74,31 @@ export function deliveryLabel(carrier: string, type: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+//                              DOM-TOM (non livrés)
+// ─────────────────────────────────────────────────────────────────────────────
+/**
+ * DOM-TOM & COM : Guadeloupe (971), Martinique (972), Guyane (973), Réunion (974),
+ * St-Pierre-et-Miquelon (975), Mayotte (976), St-Barthélemy / St-Martin (977/978),
+ * Wallis-et-Futuna (986), Polynésie française (987), Nouvelle-Calédonie (988). Tous
+ * ont un code postal en 97xxx / 98xxx → 5 chiffres, préfixe "97" ou "98". Livraison
+ * NON assurée (coût trop élevé).
+ *
+ * SOURCE UNIQUE réutilisée sur le CHEMIN FRANCE du tunnel : RelaySelector (recherche
+ * point relais) + CheckoutAddressForm (adresse domicile). N'affecte PAS
+ * l'international (CP étrangers non concernés, et plus de saisie CP à l'international).
+ */
+export function isDomTom(postalCode: string): boolean {
+  return /^(97|98)\d{3}$/.test(String(postalCode ?? "").trim());
+}
+
+/** Libellé UNIQUE (FR + EN) affiché quand un CP DOM-TOM est saisi (relais + domicile). */
+export function domTomMessage(en: boolean): string {
+  return en
+    ? "We don't ship to French overseas territories yet (Guadeloupe, Martinique, Réunion…)."
+    : "Nous ne livrons pas encore vers les DOM-TOM (Guadeloupe, Martinique, Réunion…).";
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 //                              computeShipping
 // ─────────────────────────────────────────────────────────────────────────────
 

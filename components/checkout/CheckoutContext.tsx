@@ -14,10 +14,15 @@ import { useCart } from "@/context/CartContext";
  * pages (formulaires, sélecteur de pays, résumé) arrive aux lots suivants.
  */
 
+// FR : transporteur + type (+ relais quand applicable). International : marqueur
+// de zone + prix fixe (un seul mode, pas de transporteur au choix).
 export type CheckoutDeliveryChoice = {
-  carrier: "mondial_relay" | "colissimo" | null;
-  type:    "point_relais" | "locker" | "home" | null;
-  relay:   Record<string, unknown> | null;
+  kind:     "fr" | "international";
+  carrier?: "mondial_relay" | "colissimo" | null;
+  type?:    "point_relais" | "locker" | "home" | null;
+  relay?:   Record<string, unknown> | null;
+  zone?:    string;
+  price?:   number;
 };
 
 export type CheckoutState = {

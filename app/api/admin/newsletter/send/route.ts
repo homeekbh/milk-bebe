@@ -6,6 +6,15 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { Resend } from "resend";
 import { supabaseServer } from "@/lib/server/supabase";
 
+function escapeHtml(s: string): string {
+  return String(s ?? "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 /**
  * Envoi d'une newsletter à tous les abonnés actifs.
  *
@@ -42,10 +51,21 @@ export async function POST(req: NextRequest) {
   const resend = new Resend(process.env.RESEND_API_KEY);
   const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-  // Pré-header (texte d'aperçu) masqué injecté en tête du HTML.
-  const baseHtml = preview_text
-    ? `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${preview_text}</div>${html}`
-    : html;
+  // Pré-header (texte d'aperçu) masqué. Injecté À L'INTÉRIEUR du body, juste
+  // après la balise <body...> : placer du contenu AVANT <!DOCTYPE html> est
+  // invalide et casse l'aperçu chez certains clients mail. preview_text est
+  // échappé (contenu utilisateur). Fallback (aucune <body> trouvée) : ancien
+  // préfixe, pour ne jamais perdre le preheader.
+  let baseHtml = html;
+  if (preview_text) {
+    const preheader = `<div style="display:none;max-height:0;overflow:hidden;opacity:0;">${escapeHtml(preview_text)}</div>`;
+    // Remplacement par FONCTION : la forme chaîne interprète les séquences $…
+    // ($&, $', $$, $1) — or preheader contient du texte utilisateur (échappé mais
+    // pas pour $) qui les corromprait. La fonction insère le texte tel quel.
+    baseHtml = /<body[^>]*>/i.test(html)
+      ? html.replace(/<body[^>]*>/i, (bodyTag: string) => `${bodyTag}${preheader}`)
+      : `${preheader}${html}`;
+  }
 
   // Destinataires + token (génère un token manquant, best-effort).
   const recipients: { email: string; token: string }[] = [];

@@ -593,14 +593,9 @@
     "subtitle": "Tout ce que vous devez savoir",
     "delivery_title": "Livraison Colissimo / La Poste",
     "delivery_summary": "Point Relais : 6,82€ · Domicile : 8,66€ · Offerte dès {amount}€ d'achat",
-    "zone_france": "France métropolitaine",
-    "zone_benelux": "Belgique, Luxembourg",
-    "zone_swiss": "Suisse",
-    "zone_monaco": "Monaco",
+    "zone_france": "France métropolitaine (hors DOM-TOM)",
     "delay": "2-3 jours ouvrés",
     "free_from": "Offerte dès {amount}€",
-    "free_from_80": "Offerte dès 80€",
-    "free_from_100": "Offerte dès 100€",
     "delivery_note": "Les commandes passées avant 14h (jours ouvrés) sont expédiées le jour même via Colissimo / La Poste. Un email avec le numéro de suivi vous est envoyé dès l'expédition.",
     "returns_title": "Retours sous 14 jours",
     "returns_summary": "Frais de retour à la charge du client (Colissimo recommandé)",
@@ -643,7 +638,7 @@
     "cgv_s6": "6. Paiement",
     "cgv_s6_c": "Le paiement s'effectue en ligne via la plateforme sécurisée Stripe ; les données bancaires ne transitent jamais par nos serveurs. Moyens de paiement acceptés : carte bancaire (Visa, Mastercard), Apple Pay, Google Pay, PayPal et Klarna. Les moyens réellement disponibles peuvent varier selon votre appareil, votre navigateur et votre éligibilité.\n\nPaiement différé ou en plusieurs fois (Klarna) : Klarna est un prestataire de paiement tiers proposant, selon votre éligibilité et présenté au moment du paiement, le paiement différé et/ou fractionné (par exemple en 3 ou 4 fois sans frais). M!LK (EKBH SASU) n'est pas le prêteur : les conditions de paiement différé ou fractionné relèvent du contrat conclu entre vous et Klarna et sont régies par les conditions générales de Klarna, consultables via le lien « En savoir plus » affiché par Klarna au moment du paiement. En cas de remboursement d'une commande réglée via Klarna, le remboursement est effectué par le même circuit que le paiement initial (via Klarna) ; les délais de mise à disposition peuvent différer de ceux d'un remboursement par carte.",
     "cgv_s7": "7. Livraison",
-    "cgv_s7_c": "Les commandes sont expédiées via Colissimo / La Poste en France métropolitaine, Belgique, Suisse, Luxembourg et Monaco. Le délai de livraison est de 2 à 3 jours ouvrés en France métropolitaine. La livraison est offerte dès 60€ d'achat. En dessous : 6,82€ en Point Relais Colissimo, 8,66€ à domicile. Un numéro de suivi est communiqué par email dès l'expédition.",
+    "cgv_s7_c": "Les commandes sont expédiées via Colissimo / La Poste en France métropolitaine (hors DOM-TOM). Le délai de livraison est de 2 à 3 jours ouvrés. La livraison est offerte dès 60€ d'achat. En dessous : 6,82€ en Point Relais Colissimo, 8,66€ à domicile. Un numéro de suivi est communiqué par email dès l'expédition.",
     "cgv_s8": "8. Droit de rétractation",
     "cgv_s8_c": "Conformément à l'article L221-18 du Code de la consommation, vous disposez d'un délai de 14 jours à compter de la réception de votre commande pour exercer votre droit de rétractation, sans avoir à justifier de motifs ni à payer de pénalités. Les frais de retour sont à la charge du client.",
     "cgv_s9": "9. Retours et remboursements",
@@ -682,7 +677,7 @@
         "section": "Livraison & délais",
         "questions": [
           { "q": "Quels sont les délais de livraison ?", "r": "Commandes passées avant 16h : expédition le jour même (jours ouvrés). Colissimo : 2-3 jours ouvrés (domicile ou point relais). Un email avec le numéro de suivi est envoyé dès l'expédition." },
-          { "q": "La livraison est-elle gratuite ?", "r": "Oui, livraison offerte dès 60€ d'achat. En dessous, les frais de port sont affichés au moment du paiement." },
+          { "q": "La livraison est-elle gratuite ?", "r": "Oui, livraison offerte dès 60€ en France métropolitaine (hors DOM-TOM). En dessous, les frais de port sont affichés au moment du paiement." },
           { "q": "Livrez-vous en dehors de la France ?", "r": "Pour le moment, nous livrons uniquement en France métropolitaine. La livraison internationale arrive prochainement." },
           { "q": "Puis-je suivre ma commande ?", "r": "Oui. Un email avec le numéro de suivi Colissimo est envoyé dès l'expédition. Suivi sur laposte.fr ou dans votre espace profil." }
         ]

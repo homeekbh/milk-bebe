@@ -21,7 +21,7 @@ export async function generateMetadata({
       : "Bodies & Pyjamas bébé bambou OEKO-TEX | M!LK",
   },
   description:
-    "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX Standard 100. 3× plus doux que le coton, thermorégulateur, antibactérien. Idéal peaux sensibles, eczéma. Cadeau naissance parfait. Livraison offerte dès 60€. Marque française.",
+    "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX Standard 100. 3× plus doux que le coton, thermorégulateur, antibactérien. Idéal peaux sensibles, eczéma. Cadeau naissance parfait. Livraison offerte dès 60€ en France métropolitaine. Marque française.",
   keywords: [
     "body nourrisson bambou", "body bébé naissance bambou", "body bébé 0 3 mois bambou",
     "body bébé nouveau né bambou", "body bébé 0 6 mois", "body bébé manches longues bambou",

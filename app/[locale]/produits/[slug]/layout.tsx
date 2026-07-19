@@ -18,12 +18,12 @@ const CATEGORY_TITLE_MAP: Record<string, (name: string) => string> = {
   accessoires: (n) => `${n} — Accessoire bébé bambou OEKO-TEX`,
 };
 const CATEGORY_DESC_MAP: Record<string, (name: string) => string> = {
-  pyjamas:    (n) => `${n} en bambou certifié OEKO-TEX. Pyjama bébé ultra-doux, grenouillère nourrisson thermorégulante. Double zip + moufles intégrées. Livraison offerte dès 60€.`,
-  bodies:     (n) => `${n} en bambou certifié OEKO-TEX. Body bébé ultra-doux, body nourrisson hypoallergénique. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€.`,
-  gigoteuses: (n) => `${n} en bambou certifié OEKO-TEX. Gigoteuse bébé respirante, turbulette nourrisson 0-3 mois. À nouer, zéro bouton. Livraison offerte dès 60€.`,
-  langes:     (n) => `${n} en bambou certifié OEKO-TEX. Lange bébé 120×120 cm, emmaillotage nourrisson. Multi-usage. Livraison offerte dès 60€.`,
-  bonnet:     (n) => `${n} en bambou certifié OEKO-TEX. Bonnet bébé ultra-doux, bonnet nourrisson anatomique. Livraison offerte dès 60€.`,
-  accessoires:(n) => `${n} en bambou certifié OEKO-TEX. Accessoire bébé doux et hypoallergénique. Livraison offerte dès 60€.`,
+  pyjamas:    (n) => `${n} en bambou certifié OEKO-TEX. Pyjama bébé ultra-doux, grenouillère nourrisson thermorégulante. Double zip + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.`,
+  bodies:     (n) => `${n} en bambou certifié OEKO-TEX. Body bébé ultra-doux, body nourrisson hypoallergénique. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.`,
+  gigoteuses: (n) => `${n} en bambou certifié OEKO-TEX. Gigoteuse bébé respirante, turbulette nourrisson 0-3 mois. À nouer, zéro bouton. Livraison offerte dès 60€ en France métropolitaine.`,
+  langes:     (n) => `${n} en bambou certifié OEKO-TEX. Lange bébé 120×120 cm, emmaillotage nourrisson. Multi-usage. Livraison offerte dès 60€ en France métropolitaine.`,
+  bonnet:     (n) => `${n} en bambou certifié OEKO-TEX. Bonnet bébé ultra-doux, bonnet nourrisson anatomique. Livraison offerte dès 60€ en France métropolitaine.`,
+  accessoires:(n) => `${n} en bambou certifié OEKO-TEX. Accessoire bébé doux et hypoallergénique. Livraison offerte dès 60€ en France métropolitaine.`,
 };
 const CATEGORY_KEYWORDS: Record<string, string[]> = {
   pyjamas:    ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "pyjama bébé 0-6 mois"],
@@ -77,7 +77,7 @@ export async function generateMetadata(
 
   const description = product.seo_description
     ?? CATEGORY_DESC_MAP[catSlug]?.(product.name)
-    ?? `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€.`;
+    ?? `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€ en France métropolitaine.`;
 
   const url = `${BASE}/${locale}/produits/${product.slug}`;
 

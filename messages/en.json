@@ -593,14 +593,9 @@
     "subtitle": "Everything you need to know",
     "delivery_title": "Colissimo / La Poste delivery",
     "delivery_summary": "Pickup point: €6.82 · Home: €8.66 · Free from €{amount}",
-    "zone_france": "Mainland France",
-    "zone_benelux": "Belgium, Luxembourg",
-    "zone_swiss": "Switzerland",
-    "zone_monaco": "Monaco",
+    "zone_france": "Mainland France (excl. overseas territories)",
     "delay": "2-3 business days",
     "free_from": "Free from €{amount}",
-    "free_from_80": "Free from €80",
-    "free_from_100": "Free from €100",
     "delivery_note": "Orders placed before 2pm (business days) ship the same day via Colissimo / La Poste. An email with the tracking number is sent as soon as your order ships.",
     "returns_title": "Returns within 14 days",
     "returns_summary": "Return shipping at the customer's expense (Colissimo recommended)",
@@ -643,7 +638,7 @@
     "cgv_s6": "6. Payment",
     "cgv_s6_c": "Payment is made online via the secure Stripe platform; card details never pass through our servers. Accepted payment methods: bank card (Visa, Mastercard), Apple Pay, Google Pay, PayPal and Klarna. The methods actually available may vary depending on your device, browser and eligibility.\n\nDeferred or instalment payment (Klarna): Klarna is a third-party payment provider offering, subject to your eligibility and shown at the time of payment, deferred and/or instalment payment (for example in 3 or 4 interest-free instalments). M!LK (EKBH SASU) is not the lender: the terms of deferred or instalment payment are governed by the contract between you and Klarna and by Klarna's own general terms and conditions, available via the \"Learn more\" link displayed by Klarna at the time of payment. If an order paid via Klarna is refunded, the refund is processed through the same channel as the original payment (via Klarna); the time taken for the funds to be made available may differ from that of a card refund.",
     "cgv_s7": "7. Delivery",
-    "cgv_s7_c": "Orders are shipped via Colissimo / La Poste to mainland France, Belgium, Switzerland, Luxembourg and Monaco. Delivery takes 2 to 3 business days in mainland France. Delivery is free from €60. Below that: €6.82 at a Colissimo pickup point, €8.66 to your home. A tracking number is sent by email as soon as the order ships.",
+    "cgv_s7_c": "Orders are shipped via Colissimo / La Poste to mainland France (excl. overseas territories). Delivery takes 2 to 3 business days. Delivery is free from €60. Below that: €6.82 at a Colissimo pickup point, €8.66 to your home. A tracking number is sent by email as soon as the order ships.",
     "cgv_s8": "8. Right of withdrawal",
     "cgv_s8_c": "In accordance with article L221-18 of the French Consumer Code, you have 14 days from receipt of your order to exercise your right of withdrawal, without having to justify a reason or pay penalties. Return shipping is at the customer's expense.",
     "cgv_s9": "9. Returns and refunds",
@@ -682,7 +677,7 @@
         "section": "Shipping & delivery times",
         "questions": [
           { "q": "What are the delivery times?", "r": "Orders placed before 4pm: same-day shipping (business days). Colissimo: 2-3 business days (home or pickup point). An email with the tracking number is sent as soon as the order ships." },
-          { "q": "Is delivery free?", "r": "Yes, free delivery from €60. Below that, shipping fees are shown at checkout." },
+          { "q": "Is delivery free?", "r": "Yes, free delivery from €60 in mainland France (excl. overseas territories). Below that, shipping fees are shown at checkout." },
           { "q": "Do you ship outside France?", "r": "For now, we only ship within mainland France. International shipping is coming soon." },
           { "q": "Can I track my order?", "r": "Yes. An email with the Colissimo tracking number is sent as soon as the order ships. Track it on laposte.fr or in your profile area." }
         ]

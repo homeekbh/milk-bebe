@@ -33,7 +33,7 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
     title:    "Gigoteuses nourrisson",
     subtitle: "Sommeil sécurisé toute la nuit — bambou OEKO-TEX",
     seoTitle: "Gigoteuse bambou bébé 0-6 mois | Douce et thermorégulante",
-    seoDesc:  "Gigoteuse à nouer en bambou certifié OEKO-TEX pour bébé 0-6 mois. Ultra-douce, thermorégulante, sommeil serein sans zip ni bouton. Livraison offerte dès 60€.",
+    seoDesc:  "Gigoteuse à nouer en bambou certifié OEKO-TEX pour bébé 0-6 mois. Ultra-douce, thermorégulante, sommeil serein sans zip ni bouton. Livraison offerte dès 60€ en France métropolitaine.",
     keywords: ["gigoteuse bambou", "gigoteuse bébé", "gigoteuse à nouer", "turbulette bambou", "sac de couchage bébé bambou", "gigoteuse OEKO-TEX"],
   },
   accessoires: {
@@ -47,7 +47,7 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
     title:    "Langes & Swaddles",
     subtitle: "L'emmaillotage qui calme bébé en quelques minutes — bambou OEKO-TEX",
     seoTitle: "Lange bébé bambou | Mousseline OEKO-TEX",
-    seoDesc:  "Langes et carrés de mousseline en bambou OEKO-TEX pour bébé. Ultra-absorbants, lavables, multifonctions. Livraison offerte dès 60€.",
+    seoDesc:  "Langes et carrés de mousseline en bambou OEKO-TEX pour bébé. Ultra-absorbants, lavables, multifonctions. Livraison offerte dès 60€ en France métropolitaine.",
     keywords: ["lange bambou bébé", "carré mousseline bébé", "lange OEKO-TEX", "mousseline bébé bambou"],
   },
 };
@@ -75,7 +75,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   bodies: {
     fr: {
       seoTitle: "Body bébé bambou OEKO-TEX — Body nourrisson ultra-doux 0-6 mois",
-      seoDesc:  "Body bébé en bambou certifié OEKO-TEX. Ultra-doux, hypoallergénique, pour peaux sensibles. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€.",
+      seoDesc:  "Body bébé en bambou certifié OEKO-TEX. Ultra-doux, hypoallergénique, pour peaux sensibles. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["body bébé", "body nourrisson", "body bambou bébé", "body bébé peau sensible", "body bébé OEKO-TEX", "body bébé doux", "body naissance"],
       h1: "Bodies bébé bambou",
     },
@@ -89,7 +89,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   pyjamas: {
     fr: {
       seoTitle: "Pyjama bébé bambou OEKO-TEX — Grenouillère nourrisson ultra-douce 0-6 mois",
-      seoDesc:  "Pyjama bébé en bambou certifié OEKO-TEX. Grenouillère nourrisson ultra-douce, thermorégulante. Double zip inversé + moufles intégrées. Livraison offerte dès 60€.",
+      seoDesc:  "Pyjama bébé en bambou certifié OEKO-TEX. Grenouillère nourrisson ultra-douce, thermorégulante. Double zip inversé + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "grenouillère nourrisson", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "turbulette pyjama"],
       h1: "Pyjamas bébé bambou",
     },
@@ -103,7 +103,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   gigoteuses: {
     fr: {
       seoTitle: "Gigoteuse bébé bambou — Turbulette nourrisson 0-3 mois à nouer",
-      seoDesc:  "Gigoteuse bébé en bambou certifié OEKO-TEX. Turbulette nourrisson respirante, à nouer. Zéro bouton, change facile la nuit. Livraison offerte dès 60€.",
+      seoDesc:  "Gigoteuse bébé en bambou certifié OEKO-TEX. Turbulette nourrisson respirante, à nouer. Zéro bouton, change facile la nuit. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "turbulette 0-3 mois", "gigoteuse bébé respirante", "gigoteuse sans bouton"],
       h1: "Gigoteuses bébé bambou",
     },
@@ -117,7 +117,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   langes: {
     fr: {
       seoTitle: "Lange bébé bambou OEKO-TEX — Emmaillotage nourrisson 120x120 cm",
-      seoDesc:  "Lange bébé en bambou certifié OEKO-TEX. 120×120 cm, multi-usage : emmaillotage, couverture, protection soleil. Livraison offerte dès 60€.",
+      seoDesc:  "Lange bébé en bambou certifié OEKO-TEX. 120×120 cm, multi-usage : emmaillotage, couverture, protection soleil. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["lange bébé", "lange emmaillotage", "lange bambou", "emmaillotage nourrisson", "lange bébé 120x120", "couverture emmaillotage"],
       h1: "Langes bébé bambou",
     },
@@ -131,7 +131,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   accessoires: {
     fr: {
       seoTitle: "Accessoires bébé bambou OEKO-TEX — Bonnets, Bandeaux nourrisson",
-      seoDesc:  "Accessoires bébé en bambou certifié OEKO-TEX. Bonnets et bandeaux nourrisson ultra-doux. Livraison offerte dès 60€.",
+      seoDesc:  "Accessoires bébé en bambou certifié OEKO-TEX. Bonnets et bandeaux nourrisson ultra-doux. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["accessoire bébé", "bonnet bébé", "bandeau bébé", "accessoire nourrisson", "bonnet bambou bébé"],
       h1: "Accessoires bébé bambou",
     },
@@ -145,7 +145,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   bonnet: {
     fr: {
       seoTitle: "Bonnet bébé bambou OEKO-TEX — Bonnet nourrisson ultra-doux",
-      seoDesc:  "Bonnet bébé en bambou certifié OEKO-TEX. Ultra-doux, anatomique, pour les premières heures. Livraison offerte dès 60€.",
+      seoDesc:  "Bonnet bébé en bambou certifié OEKO-TEX. Ultra-doux, anatomique, pour les premières heures. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["bonnet bébé", "bonnet nourrisson", "bonnet bambou bébé", "bonnet naissance", "bonnet bébé doux"],
       h1: "Bonnets bébé bambou",
     },

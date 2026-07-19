@@ -19,14 +19,14 @@ export async function generateMetadata({
   // layout l'ajoute) → rendu "Coffrets de naissance bambou | Cadeau bébé | M!LK".
   title: "Coffrets de naissance bambou | Cadeau bébé",
   description:
-    "Coffrets de naissance en bambou OEKO-TEX : le cadeau bébé qui sert vraiment. Doux, unisexe, emballé avec soin. Livraison offerte dès 60€.",
+    "Coffrets de naissance en bambou OEKO-TEX : le cadeau bébé qui sert vraiment. Doux, unisexe, emballé avec soin. Livraison offerte dès 60€ en France métropolitaine.",
   alternates: getAlternates(locale, "/packs"),
   openGraph: {
     type:        "website",
     url:         `${BASE_URL}/${locale}/packs`,
     siteName:    "M!LK",
     title:       "Coffrets de naissance en bambou — M!LK",
-    description: "Coffrets de naissance en bambou OEKO-TEX : le cadeau bébé qui sert vraiment. Doux, unisexe, emballé avec soin. Livraison offerte dès 60€.",
+    description: "Coffrets de naissance en bambou OEKO-TEX : le cadeau bébé qui sert vraiment. Doux, unisexe, emballé avec soin. Livraison offerte dès 60€ en France métropolitaine.",
     images:      [{ url: `${BASE_URL}/images/og/milk-og-homepage.jpg`, width: 1200, height: 630 }],
   },
   };

@@ -151,3 +151,80 @@ export function computeShipping(params: {
   // 4. Default : port payant
   return { shipping: basePrice, shippingFree: false, reason: "below-threshold" };
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+//                   ZONES DE LIVRAISON — FONDATION (code INERTE)
+// ─────────────────────────────────────────────────────────────────────────────
+// ⚠️ Rien du tunnel (panier / create-session / UI) n'appelle encore ce bloc :
+// c'est une fondation posée pour un lot go-live international ultérieur. La FRANCE
+// reste gérée par la matrice DELIVERY_PRICES ci-dessus (avec seuil de gratuité).
+// L'INTERNATIONAL est TOUJOURS payant — aucun seuil de livraison offerte hors FR.
+
+export type ShippingZone = "FR" | "EU" | "EUROPE_NON_EU" | "UK";
+
+/**
+ * Pays livrables → zone. EXHAUSTIF : tout code ISO-2 ABSENT de cette table = NON
+ * livrable (US, CA, RU, DOM-TOM, Maghreb, Afrique, Asie… ne sont volontairement
+ * PAS listés). La France est mappée "FR" pour la cohérence des helpers, mais son
+ * tarif réel vient de DELIVERY_PRICES, pas d'INTERNATIONAL_ZONE_PRICES.
+ */
+export const COUNTRY_TO_ZONE: Record<string, ShippingZone> = {
+  FR: "FR",
+  // UE (27, hors FR) → "EU"
+  AT: "EU", BE: "EU", BG: "EU", HR: "EU", CY: "EU", CZ: "EU", DK: "EU",
+  EE: "EU", FI: "EU", DE: "EU", GR: "EU", HU: "EU", IE: "EU", IT: "EU",
+  LV: "EU", LT: "EU", LU: "EU", MT: "EU", NL: "EU", PL: "EU", PT: "EU",
+  RO: "EU", SK: "EU", SI: "EU", ES: "EU", SE: "EU",
+  // Europe hors-UE → "EUROPE_NON_EU" (PAS de Russie, PAS du Royaume-Uni)
+  CH: "EUROPE_NON_EU", NO: "EUROPE_NON_EU", IS: "EUROPE_NON_EU",
+  // Royaume-Uni → "UK"
+  GB: "UK",
+};
+
+/**
+ * Prix TTC (€) de la livraison INTERNATIONALE par zone. FR n'a pas de tarif ici
+ * (placeholder 0) : la France passe par DELIVERY_PRICES + seuil de gratuité, et
+ * getInternationalShippingPrice() renvoie null pour FR (cf. helper).
+ */
+export const INTERNATIONAL_ZONE_PRICES: Record<ShippingZone, number> = {
+  FR:            0,     // placeholder — la France NE se facture PAS via ce prix
+  EU:            11.90,
+  EUROPE_NON_EU: 14.90,
+  UK:            18.90,
+};
+
+const normalizeCountryCode = (country: string): string => String(country ?? "").trim().toUpperCase();
+
+/** Zone d'un pays (ISO-2, casse/espaces normalisés), ou null si non livrable. */
+export function getZoneForCountry(country: string): ShippingZone | null {
+  return COUNTRY_TO_ZONE[normalizeCountryCode(country)] ?? null;
+}
+
+/** Le pays est-il livrable ? */
+export function isCountryDeliverable(country: string): boolean {
+  return getZoneForCountry(country) !== null;
+}
+
+/**
+ * Prix TTC de la livraison internationale d'un pays, ou null si non livrable.
+ * Renvoie AUSSI null pour la France : elle relève de la matrice domestique
+ * (DELIVERY_PRICES + seuil), jamais de ce helper.
+ */
+export function getInternationalShippingPrice(country: string): number | null {
+  const zone = getZoneForCountry(country);
+  if (!zone || zone === "FR") return null;
+  return INTERNATIONAL_ZONE_PRICES[zone];
+}
+
+/** Liste des pays livrables avec leur zone (utilitaire / tests / futur UI). */
+export function listDeliverableCountries(): { code: string; zone: ShippingZone }[] {
+  return Object.entries(COUNTRY_TO_ZONE).map(([code, zone]) => ({ code, zone }));
+}
+
+/**
+ * Éligible au seuil de livraison OFFERTE ? UNIQUEMENT la France ("FR").
+ * L'international est TOUJOURS payant — aucun seuil de gratuité hors FR.
+ */
+export function isFreeShippingEligibleZone(zone: ShippingZone): boolean {
+  return zone === "FR";
+}

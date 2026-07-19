@@ -11,10 +11,10 @@ export async function generateMetadata({
   const { locale } = await params;
   return {
   title:       "Livraison & Retours",
-  description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
+  description: "Livraison Colissimo offerte dès 60€ en France métropolitaine (hors DOM-TOM). Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   openGraph: {
     title:       "Livraison & Retours — M!LK",
-    description: "Livraison Colissimo offerte dès 60€ en France, Belgique, Suisse, Luxembourg et Monaco. Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
+    description: "Livraison Colissimo offerte dès 60€ en France métropolitaine (hors DOM-TOM). Délai 2-3 jours ouvrés. Retours sous 14 jours (frais client).",
   },
   alternates: getAlternates(locale, "/livraison"),
   };
@@ -54,9 +54,6 @@ async function getFreeShipThreshold(): Promise<number> {
           <div style={{ display: "grid", gap: 16, marginBottom: 28 }}>
             {[
               { label: t("zone_france"),  delay: t("delay"), price: t("free_from", { amount: FREE }) },
-              { label: t("zone_benelux"), delay: t("delay"), price: t("free_from_80") },
-              { label: t("zone_swiss"),   delay: t("delay"), price: t("free_from_100") },
-              { label: t("zone_monaco"),  delay: t("delay"), price: t("free_from", { amount: FREE }) },
             ].map(zone => (
               <div key={zone.label} style={{ background: "#fff", borderRadius: 14, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.07)", display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12, alignItems: "center" }}>
                 <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410" }}>{zone.label}</div>

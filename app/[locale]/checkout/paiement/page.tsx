@@ -12,13 +12,13 @@ import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-to
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
 import { combinePromos } from "@/lib/promo-combine";
 import PromoParrainInput from "@/components/checkout/PromoParrainInput";
+// (analytics begin_checkout/InitiateCheckout déplacés à l'entrée du tunnel — cf. /panier goToCheckout)
 import {
   getDeliveryPrice,
   deliveryLabel,
   getZoneForCountry,
   getInternationalShippingPrice,
 } from "@/lib/delivery-config";
-import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 
 const DEFAULT_THRESHOLD = 60;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -215,15 +215,10 @@ export default function CheckoutPaiementPage() {
     setError("");
     if (!canPay) return;
 
-    // Tracking (non bloquant), comme /panier.
-    const cartValue = items.reduce((a, it) => a + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
-    const numItems  = items.reduce((a, it) => a + (Number(it.quantity) || 1), 0);
-    trackBeginCheckout(
-      items.map(it => ({ id: it.id, name: it.name, price: it.price, quantity: it.quantity, category: it.category_slug, variant: it.taille ?? it.couleur, slug: it.slug })),
-      cartValue,
-      state.promoCodes.length > 0 ? state.promoCodes.map(p => p.code).join("+") : undefined,
-    );
-    metaInitiateCheckout(cartValue, numItems);
+    // NB : begin_checkout (GA4) + InitiateCheckout (Meta) sont émis à l'ENTRÉE du
+    // tunnel (clic « Valider » du panier → goToCheckout), pas ici — pour mesurer le
+    // funnel complet (abandons Compte/Livraison inclus) et donner le signal Meta plus
+    // tôt. Ne PAS les ré-émettre à l'étape paiement (sinon double comptage).
     if (!user && emailForOrder) { try { localStorage.setItem("milk_guest_email", emailForOrder.toLowerCase()); } catch {} }
 
     const isRelayType = isFrance && dc?.kind === "fr" && (dc.type === "point_relais" || dc.type === "locker");

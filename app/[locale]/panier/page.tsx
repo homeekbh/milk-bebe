@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
+import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 
 // Ligne pack au panier (lue depuis localStorage milk_pack_cart, groupée par
 // pack_id + size en quantité).
@@ -336,6 +337,21 @@ export default function CartPage() {
   // ne relirait JAMAIS ce write, et les codes seraient perdus. Voir l'avertissement
   // détaillé dans checkout/layout.tsx AVANT de toucher au montage du Provider.
   function goToCheckout() {
+    // ── Analytics à l'ENTRÉE du tunnel (une émission par clic « Valider ») ──────
+    // begin_checkout (GA4) + InitiateCheckout (Meta). Émis ICI, et NON à l'étape
+    // paiement, pour mesurer le funnel complet (abandons Compte/Livraison inclus) et
+    // donner le signal Meta au plus tôt (optimisation pub). Non bloquant. Le bouton
+    // « Valider » n'existe que si le panier est non vide → pas d'émission à vide.
+    const cartValue = items.reduce((a, it) => a + (Number(it.price) || 0) * (Number(it.quantity) || 1), 0);
+    const numItems  = items.reduce((a, it) => a + (Number(it.quantity) || 1), 0);
+    trackBeginCheckout(
+      items.map(it => ({ id: it.id, name: it.name, price: it.price, quantity: it.quantity, category: it.category_slug, variant: it.taille ?? it.couleur, slug: it.slug })),
+      cartValue,
+      promoCodes.length > 0 ? promoCodes.map(p => p.code).join("+") : undefined,
+    );
+    metaInitiateCheckout(cartValue, numItems);
+
+    // ── Pont d'état : codes → sessionStorage (cf. bloc au-dessus) ───────────────
     try {
       const KEY = "milk_checkout_state";
       let existing: Record<string, unknown> = {};

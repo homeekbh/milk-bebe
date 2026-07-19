@@ -10,6 +10,7 @@ import {
   getZoneForCountry,
   getInternationalShippingPrice,
   isFreeShippingEligibleZone,
+  isDomTom,
 } from "@/lib/delivery-config";
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
@@ -129,6 +130,16 @@ export async function POST(req: Request) {
         if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
           return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
         }
+      }
+      // Garde-fou DOM-TOM (97xxx / 98xxx) : livraison non assurée. CP pris de l'adresse
+      // domicile OU du relais choisi. Chemin FRANCE uniquement (l'international n'a pas
+      // de CP tunnel). Défense en profondeur : rejette même un body forgé, comme le
+      // rejet des pays non desservis. Aucune session Stripe créée.
+      const frPostalCode = delivery_type === "home"
+        ? String(home_address?.postal_code ?? "")
+        : String(relay?.postal_code ?? "");
+      if (isDomTom(frPostalCode)) {
+        return Response.json({ error: "Livraison non disponible vers les DOM-TOM" }, { status: 400 });
       }
     }
 

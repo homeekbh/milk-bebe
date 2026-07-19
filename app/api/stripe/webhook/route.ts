@@ -247,11 +247,23 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     .select().single();
   if (orderErr) process.env.NODE_ENV !== "production" && console.error("[webhook] unified order upsert:", orderErr.message);
 
-  // Best-effort (colonnes optionnelles) : carrier + téléphone.
+  // Best-effort (colonnes optionnelles) : carrier + téléphone + pays/zone.
   if (orderData?.id) {
     const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
     if (delivery.customer_phone) { try { await supabaseServer.from("orders").update({ customer_phone: String(delivery.customer_phone).trim() }).eq("id", orderData.id); } catch {} }
+    // Pays + zone de livraison (orders.shipping_country / shipping_zone), écrits par
+    // create-session dans draft.delivery. Best-effort : si les colonnes manquent,
+    // l'update échoue silencieusement sans casser l'upsert principal déjà réussi.
+    // Prépare create-label (Sendcloud) à choisir le transporteur international (lot ultérieur).
+    if (delivery.country || delivery.shipping_zone) {
+      try {
+        await supabaseServer.from("orders").update({
+          shipping_country: delivery.country ? String(delivery.country) : null,
+          shipping_zone:    delivery.shipping_zone ? String(delivery.shipping_zone) : null,
+        }).eq("id", orderData.id);
+      } catch {}
+    }
   }
 
   // ── Claim ATOMIQUE du draft (pending→consumed) → effets de bord exactement-1×.

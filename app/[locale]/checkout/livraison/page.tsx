@@ -7,6 +7,7 @@ import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import CountrySelector from "@/components/checkout/CountrySelector";
+import RelaySelector from "@/components/checkout/RelaySelector";
 import CheckoutAddressForm, { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
 import {
   DELIVERY_PRICES,
@@ -69,6 +70,14 @@ export default function CheckoutLivraisonPage() {
       .catch(() => {});
   }, []);
 
+  // État LOCAL du sélecteur de relais FR (éphémère). Le relais CHOISI, lui, vit
+  // dans le CheckoutContext (state.selectedRelay → persisté sessionStorage). open
+  // + resetKey pilotés comme /panier : reset TOTAL au changement de mode, « Changer »
+  // garde les résultats (n'incrémente pas resetKey).
+  const [relayOpen,         setRelayOpen]         = useState(false);
+  const [relayPostalSearch, setRelayPostalSearch] = useState("");
+  const [relayResetKey,     setRelayResetKey]     = useState(0);
+
   const country = state.country || "FR";
   const zone    = getZoneForCountry(country);
   const isFrance = zone === "FR";
@@ -93,12 +102,18 @@ export default function CheckoutLivraisonPage() {
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const onCountryChange = (c: string) => {
-    // Changement de zone → on ré-choisit le mode (le choix précédent n'a plus de sens).
-    update({ country: c, deliveryChoice: null });
+    // Changement de zone → on ré-choisit le mode (+ on oublie le relais FR éventuel).
+    update({ country: c, deliveryChoice: null, selectedRelay: null });
+    setRelayOpen(false);
   };
 
   const selectFrMode = (carrier: Carrier, type: DeliveryType) => {
-    update({ deliveryChoice: { kind: "fr", carrier, type, relay: null } });
+    const isRelay = type === "point_relais" || type === "locker";
+    // Équivalent de switchDelivery (/panier) : reset du relais + reset TOTAL de la
+    // recherche (resetKey) + ouverture de la modale pour un mode relais/locker.
+    update({ deliveryChoice: { kind: "fr", carrier, type, relay: null }, selectedRelay: null });
+    setRelayResetKey(k => k + 1);
+    setRelayOpen(isRelay);
   };
 
   const setAddr = (patch: Partial<CheckoutAddress>) => {
@@ -125,7 +140,7 @@ export default function CheckoutLivraisonPage() {
   const canContinue = isFrance
     ? frModeChosen && (dc!.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
-        : /* relais : sélecteur STUBBÉ → non complétable pour l'instant */ false)
+        : /* point relais / locker → un relais doit être sélectionné */ !!state.selectedRelay)
     : dc?.kind === "international" && isAddressComplete(state.shippingAddress as CheckoutAddress);
 
   const onContinue = () => {
@@ -181,17 +196,25 @@ export default function CheckoutLivraisonPage() {
             </p>
           )}
 
-          {/* FR domicile → adresse ; FR relais → stub */}
+          {/* FR domicile → adresse ; FR point relais / locker → RelaySelector partagé */}
           {dc?.kind === "fr" && dc.type === "home" && (
             <div style={{ marginTop: 18 }}>
               <CheckoutAddressForm value={state.shippingAddress as CheckoutAddress} onChange={setAddr} country={country} />
             </div>
           )}
-          {isRelayType && (
-            <div style={{ marginTop: 18, padding: "14px 16px", borderRadius: 12, background: "#f7f5f1", border: "1px dashed rgba(26,20,16,0.25)", fontSize: 14, color: "rgba(26,20,16,0.6)" }}>
-              {en
-                ? "Pickup point selection — coming in a next lot (relay picker not yet wired here)."
-                : "Sélection du point relais — à venir dans un prochain lot (sélecteur relais pas encore branché ici)."}
+          {isRelayType && dc?.kind === "fr" && (
+            <div style={{ marginTop: 18 }}>
+              <RelaySelector
+                carrier={dc.carrier ?? null}
+                deliveryType={dc.type ?? null}
+                value={state.selectedRelay}
+                onChange={relay => update({ selectedRelay: relay })}
+                open={relayOpen}
+                onOpenChange={setRelayOpen}
+                postalSearch={relayPostalSearch}
+                onPostalSearchChange={setRelayPostalSearch}
+                resetKey={relayResetKey}
+              />
             </div>
           )}
         </div>

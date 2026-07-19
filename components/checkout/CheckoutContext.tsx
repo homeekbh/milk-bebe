@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/context/CartContext";
+import type { ServicePoint } from "@/components/checkout/RelaySelector";
 
 /**
  * État PARTAGÉ du nouveau tunnel checkout (panier → compte → livraison → paiement).
@@ -31,6 +32,7 @@ export type CheckoutState = {
   phone:           string;
   country:         string;                          // défaut "FR"
   deliveryChoice:  CheckoutDeliveryChoice | null;   // FR : transporteur/type/relais
+  selectedRelay:   ServicePoint | null;             // FR point relais / locker choisi
   promoCodes:      string[];
   parrainData:     { parrainCode: string } | null;
   selectedRewards: string[];
@@ -46,6 +48,7 @@ const DEFAULT_STATE: CheckoutState = {
   phone:           "",
   country:         "FR",
   deliveryChoice:  null,
+  selectedRelay:   null,
   promoCodes:      [],
   parrainData:     null,
   selectedRewards: [],

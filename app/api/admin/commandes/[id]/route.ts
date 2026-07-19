@@ -144,70 +144,6 @@ async function sendCancellationEmailWithRetry(opts: {
 }
 
 /**
- * Email client pour remboursement partiel.
- * Inline (pas de template dédié) car le cas est suffisamment simple.
- */
-async function sendRefundPartialEmail(opts: {
-  email:        string;
-  prenom:       string;
-  order_number: string;
-  amount:       number;
-  reason:       string | null;
-}): Promise<boolean> {
-  const numero = opts.order_number.slice(0,8).toUpperCase();
-  const reasonBlock = opts.reason
-    ? `<div style="background:#2a2018;border-radius:14px;padding:18px;margin:18px 0">
-         <div style="font-size:11px;font-weight:800;letter-spacing:1.5px;text-transform:uppercase;color:#c49a4a;margin-bottom:6px">Motif</div>
-         <div style="color:#f2ede6;font-size:14px;line-height:1.6;white-space:pre-wrap">${opts.reason.replace(/[<>&]/g, c => ({"<":"&lt;",">":"&gt;","&":"&amp;"} as any)[c])}</div>
-       </div>`
-    : "";
-
-  try {
-    const { error } = await resend.emails.send({
-      from:    "M!LK <contact@milkbebe.fr>",
-      to:      opts.email,
-      subject: `Remboursement partiel — commande #${numero}`,
-      html: `<!DOCTYPE html>
-<html lang="fr">
-<body style="margin:0;padding:0;background:#1a1410;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">
-  <div style="max-width:560px;margin:0 auto;padding:40px 20px">
-    <div style="text-align:center;margin-bottom:32px">
-      <div style="display:inline-block;background:#c49a4a;border-radius:12px;padding:14px 28px">
-        <span style="color:#1a1410;font-weight:950;font-size:24px;letter-spacing:-1px">M!LK</span>
-      </div>
-    </div>
-    <div style="background:#2a2018;border-radius:20px;padding:32px;border:1px solid rgba(242,237,230,0.08)">
-      <h1 style="margin:0 0 14px;color:#f2ede6;font-size:22px;font-weight:950;letter-spacing:-0.5px">
-        ${opts.prenom ? `${opts.prenom}, un` : "Un"} remboursement partiel a été effectué
-      </h1>
-      <p style="margin:0 0 14px;color:rgba(242,237,230,0.7);font-size:15px;line-height:1.7">
-        Sur votre commande <strong style="color:#f2ede6">#${numero}</strong>, nous venons de procéder à un remboursement de :
-      </p>
-      <div style="text-align:center;margin:22px 0">
-        <span style="display:inline-block;background:#c49a4a;color:#1a1410;font-weight:950;font-size:28px;padding:14px 28px;border-radius:14px">
-          ${opts.amount.toFixed(2)} €
-        </span>
-      </div>
-      ${reasonBlock}
-      <p style="margin:14px 0 0;color:rgba(242,237,230,0.55);font-size:13px;line-height:1.7">
-        Le remboursement apparaîtra sur votre moyen de paiement initial sous <strong style="color:#f2ede6">3 à 5 jours ouvrés</strong>.
-        Pour toute question : <a href="mailto:contact@milkbebe.fr" style="color:#c49a4a;font-weight:700">contact@milkbebe.fr</a>
-      </p>
-    </div>
-    <div style="text-align:center;margin-top:24px;color:rgba(242,237,230,0.2);font-size:12px">
-      M!LK — Essentiels bébé en bambou premium
-    </div>
-  </div>
-</body>
-</html>`,
-    });
-    return !error;
-  } catch {
-    return false;
-  }
-}
-
-/**
  * Extrait la taille depuis le nom (ex: "Body éclairs — 0-3 mois" → "0-3 mois")
  */
 function extractTailleFromName(name: string): string | null {
@@ -459,6 +395,21 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     const cumul          = previousRefund + amount;
     const newStatus      = cumul >= Number(order.amount_total ?? 0) ? "remboursee" : "rembours_partiel";
 
+    // VISIBILITÉ (edge du design hybride, pas de correction) : un remboursement
+    // antérieur existe (refund_id présent) mais n'est pas encore reflété dans
+    // refund_amount — le webhook charge.refunded ne l'a pas encore enregistré.
+    // Donc previousRefund/cumul ci-dessus sont potentiellement périmés (le
+    // passage au total peut être manqué → annulation Sendcloud éventuellement
+    // sautée). Le statut final et l'email convergent quand même via le webhook.
+    // On trace uniquement, pour repérer le cas s'il se produit.
+    if (order.refund_id != null && previousRefund === 0) {
+      await logActivity(
+        "commande_refund_cumul_perime",
+        `Refund partiel sur #${orderId.slice(0,8)} — cumul possiblement périmé (remboursement antérieur pas encore enregistré par le webhook)`,
+        { entity_id: orderId, meta: { refund_id_precedent: order.refund_id, refund_amount_vu: previousRefund, amount, cumul_calcule: cumul, client_email: order.customer_email } },
+      );
+    }
+
     // Étape 1 — garanti : status seulement
     const { error: updateErr1 } = await supabaseServer.from("orders").update({
       status: newStatus,
@@ -473,14 +424,18 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       }, { status: 500 });
     }
 
-    // Étape 2 — best-effort : colonnes optionnelles
+    // Étape 2 — best-effort : on n'écrit QUE refund_id (référence Stripe).
+    // refund_amount / refunded_at ET l'email partiel sont désormais du ressort
+    // EXCLUSIF du webhook charge.refunded. En NE pré-écrivant PAS refund_amount,
+    // on garantit qu'au 1er charge.refunded il vaut encore sa valeur antérieure
+    // → newRefundTotal > refund_amount → le webhook écrit le montant ET envoie
+    // l'email partiel exactement 1×. Sur rejeu, newRefundTotal <= refund_amount
+    // → skip. (Écrire refund_amount ici rendrait le webhook muet → 0 email.)
     const { error: updateErr2 } = await supabaseServer.from("orders").update({
-      refund_id:     refund.id,
-      refund_amount: cumul,
-      refunded_at:   new Date().toISOString(),
+      refund_id: refund.id,
     }).eq("id", orderId);
     if (updateErr2) {
-      console.warn("[commandes/refund_partial] Colonnes optionnelles non disponibles. ALTER TABLE à exécuter:", updateErr2.message);
+      console.warn("[commandes/refund_partial] refund_id non persisté (colonne manquante?):", updateErr2.message);
     }
 
     // Si le cumul atteint le total → annulation totale via remboursements
@@ -494,18 +449,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         .eq("id", orderId);
     }
 
-    // Envoyer email client (best-effort, sans retry — le contexte est moins
-    // critique que cancel_refund car la commande reste valide)
-    let emailSent = false;
-    if (order.customer_email) {
-      emailSent = await sendRefundPartialEmail({
-        email:        order.customer_email,
-        prenom:       order.customer_name?.split(" ")[0] ?? "",
-        order_number: orderId,
-        amount,
-        reason:       body?.reason ?? null,
-      });
-    }
+    // L'email client partiel n'est PLUS envoyé ici : c'est le webhook
+    // charge.refunded qui l'envoie (via /api/emails/refund-partial), pour TOUS
+    // les canaux (admin, dashboard Stripe, chargeback) et sans risque de double
+    // envoi — cf. la note sur refund_amount ci-dessus.
 
     await logActivity("commande_remboursee_partielle", `Remboursement partiel ${amount.toFixed(2)} € sur #${orderId.slice(0,8)}`, {
       entity_id: orderId,
@@ -514,14 +461,14 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         amount,
         cumul,
         reason:      body?.reason ?? null,
-        email_sent:  emailSent,
+        email:       "délégué au webhook charge.refunded",
         client_email: order.customer_email,
         sendcloud_cancel_ok:    sendcloudCancel.ok,
         sendcloud_cancel_error: sendcloudCancel.error,
       },
     });
 
-    return Response.json({ ok: true, refund_id: refund.id, amount, cumul, email_sent: emailSent });
+    return Response.json({ ok: true, refund_id: refund.id, amount, cumul, email_via_webhook: true });
   }
 
   // === ACTION: mark_delivered ===

@@ -478,6 +478,92 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
   if (error) process.env.NODE_ENV !== "production" && console.error("[webhook] abandoned_carts (expired) upsert:", error.message);
 }
 
+// Statuts « commande déjà payée / terminale » : on ne les écrase JAMAIS avec
+// echec_paiement (un payment_intent.payment_failed peut concerner une tentative
+// distincte alors que la commande est déjà payée). Couvre les deux vocabulaires
+// (status commande + shipping_status) par prudence.
+const PAID_OR_TERMINAL_STATUSES = new Set([
+  "payee", "paid", "remboursee", "rembours_partiel",
+  "litige", "litige_gagne", "annulee",
+  "en_preparation", "expediee", "livree",
+]);
+
+// Retrouve la commande liée à un paiement Stripe : d'abord via
+// stripe_payment_intent_id (colonne persistée par checkout.session.completed),
+// sinon en remontant à la session Checkout associée au payment_intent.
+// Factorisé pour charge.refunded, payment_intent.payment_failed et les litiges.
+async function findOrderByPaymentIntent(piId: string | null): Promise<any | null> {
+  if (!piId) return null;
+  const cols = "id, amount_total, customer_email, stripe_session_id, status, refund_amount";
+
+  const { data: byPi } = await supabaseServer
+    .from("orders").select(cols)
+    .eq("stripe_payment_intent_id", piId).maybeSingle();
+  if (byPi) return byPi;
+
+  try {
+    const sessions = await stripe.checkout.sessions.list({ payment_intent: piId, limit: 1 });
+    const sid = sessions.data[0]?.id;
+    if (sid) {
+      const { data: bySid } = await supabaseServer
+        .from("orders").select(cols)
+        .eq("stripe_session_id", sid).maybeSingle();
+      if (bySid) return bySid;
+    }
+  } catch {}
+  return null;
+}
+
+// Anti-abus parrainage (étape 22) : quand une commande FILLEUL est remboursée
+// (refund total/partiel) ou que son litige est PERDU, on applique decideRewardOnRefund
+// à chaque récompense parrain générée par cette commande. Idempotent : les filtres
+// .eq (status='disponible' / annulation_en_attente=false) rendent le rejeu sans effet.
+async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): Promise<void> {
+  try {
+    const { data: genRewards } = await supabaseServer
+      .from("parrainage_recompenses")
+      .select("id, status, montant, parrain_id, used_on_order_id")
+      .eq("filleul_order_id", orderId);
+
+    for (const rew of genRewards ?? []) {
+      const { action, reason } = decideRewardOnRefund(String(rew.status), isTotalRefund);
+      if (action === "noop") continue;
+
+      if (action === "cancel") {
+        const { data: done } = await supabaseServer
+          .from("parrainage_recompenses")
+          .update({ status: "annulee", annulee_at: new Date().toISOString(), annulation_reason: reason })
+          .eq("id", rew.id).eq("status", "disponible")
+          .select("id").maybeSingle();
+        if (done) {
+          await logActivity(
+            "parrain_recompense_annulee",
+            `Récompense parrain annulée (commande filleul remboursée) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
+            { entity_id: rew.id, meta: { reason, filleul_order_id: orderId, parrain_id: rew.parrain_id } },
+          );
+        }
+      } else {
+        // flag_review : cas ambigu (remboursement partiel) ou déjà utilisée →
+        // révision humaine, jamais d'annulation/clawback auto.
+        const { data: done } = await supabaseServer
+          .from("parrainage_recompenses")
+          .update({ annulation_en_attente: true, annulation_reason: reason })
+          .eq("id", rew.id).eq("annulation_en_attente", false)
+          .select("id").maybeSingle();
+        if (done) {
+          await logActivity(
+            "parrain_recompense_a_verifier",
+            `Récompense parrain à vérifier (${reason}) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
+            { entity_id: rew.id, meta: { reason, reward_status: rew.status, filleul_order_id: orderId, parrain_id: rew.parrain_id, used_on_order_id: rew.used_on_order_id } },
+          );
+        }
+      }
+    }
+  } catch (rewErr: any) {
+    process.env.NODE_ENV !== "production" && console.error("[reverseReferralRewards]", rewErr?.message);
+  }
+}
+
 export async function POST(req: Request) {
   const body        = await req.text();
   const headersList = await headers();
@@ -942,47 +1028,50 @@ export async function POST(req: Request) {
       // On essaie de retrouver la commande via stripe_payment_intent_id si stocké,
       // sinon via le stripe_session_id en remontant à la session (paiement échoué
       // = il peut quand même y avoir une session associée).
-      let order: any = null;
-
-      // Première tentative : colonne stripe_payment_intent_id si elle existe
-      const { data: byPi } = await supabaseServer
-        .from("orders").select("id, amount_total, customer_email, stripe_session_id")
-        .eq("stripe_payment_intent_id", pi.id).maybeSingle();
-      if (byPi) order = byPi;
-
-      // Deuxième tentative : remonter via la session liée à ce payment_intent
-      if (!order) {
-        try {
-          const sessions = await stripe.checkout.sessions.list({ payment_intent: pi.id, limit: 1 });
-          const sid = sessions.data[0]?.id;
-          if (sid) {
-            const { data: bySid } = await supabaseServer
-              .from("orders").select("id, amount_total, customer_email, stripe_session_id")
-              .eq("stripe_session_id", sid).maybeSingle();
-            if (bySid) order = bySid;
-          }
-        } catch {}
-      }
+      const order = await findOrderByPaymentIntent(pi.id);
 
       if (order) {
-        await supabaseServer.from("orders").update({
-          status: "echec_paiement",
-        }).eq("id", order.id);
+        // GARDE : ne JAMAIS écraser une commande déjà payée/terminale. Un
+        // payment_intent.payment_failed peut concerner une tentative distincte
+        // (nouvel essai de carte) alors que la commande a finalement été payée
+        // via checkout.session.completed (status="payee").
+        const currentStatus = String(order.status ?? "").toLowerCase();
+        if (PAID_OR_TERMINAL_STATUSES.has(currentStatus)) {
+          await logActivity(
+            "commande_echec_paiement",
+            `Paiement échoué IGNORÉ (commande déjà en statut "${currentStatus}") — #${String(order.id).slice(0, 8).toUpperCase()}`,
+            {
+              entity_id: order.id,
+              meta: {
+                payment_intent_id: pi.id,
+                current_status:    currentStatus,
+                error_code:        pi.last_payment_error?.code ?? null,
+                error_message:     pi.last_payment_error?.message ?? null,
+                amount:            (pi.amount ?? 0) / 100,
+                customer_email:    order.customer_email,
+              },
+            }
+          );
+        } else {
+          await supabaseServer.from("orders").update({
+            status: "echec_paiement",
+          }).eq("id", order.id);
 
-        await logActivity(
-          "commande_echec_paiement",
-          `Paiement échoué pour commande #${String(order.id).slice(0, 8).toUpperCase()}`,
-          {
-            entity_id: order.id,
-            meta: {
-              payment_intent_id: pi.id,
-              error_code:        pi.last_payment_error?.code ?? null,
-              error_message:     pi.last_payment_error?.message ?? null,
-              amount:            (pi.amount ?? 0) / 100,
-              customer_email:    order.customer_email,
-            },
-          }
-        );
+          await logActivity(
+            "commande_echec_paiement",
+            `Paiement échoué pour commande #${String(order.id).slice(0, 8).toUpperCase()}`,
+            {
+              entity_id: order.id,
+              meta: {
+                payment_intent_id: pi.id,
+                error_code:        pi.last_payment_error?.code ?? null,
+                error_message:     pi.last_payment_error?.message ?? null,
+                amount:            (pi.amount ?? 0) / 100,
+                customer_email:    order.customer_email,
+              },
+            }
+          );
+        }
       } else {
         // Aucune commande retrouvée (cas normal : la session n'a jamais été completée,
         // donc l'order n'existe pas en base). On log quand même l'événement.
@@ -1020,149 +1109,206 @@ export async function POST(req: Request) {
         ? charge.payment_intent
         : charge.payment_intent?.id ?? null;
 
-      let order: any = null;
+      const order = await findOrderByPaymentIntent(piId);
+      // Stripe envoie amount_refunded CUMULÉ sur la charge (tous refunds confondus).
+      const newRefundTotal = (charge.amount_refunded ?? 0) / 100;
 
-      if (piId) {
-        // Tentative via stripe_payment_intent_id si stocké
-        const { data: byPi } = await supabaseServer
-          .from("orders").select("id, amount_total, customer_email, stripe_session_id, status")
-          .eq("stripe_payment_intent_id", piId).maybeSingle();
-        if (byPi) order = byPi;
+      if (!order) {
+        // Aucune commande retrouvée — on log quand même.
+        await logActivity(
+          "commande_remboursee",
+          `Remboursement reçu (aucune commande associée) — ${newRefundTotal.toFixed(2)} €`,
+          { meta: { charge_id: charge.id, payment_intent_id: piId, amount_refunded: newRefundTotal } },
+        );
+      } else {
+        // Total vs partiel — pilote le routage email ET le parrainage.
+        const isTotalRefund =
+          charge.refunded === true ||
+          (Number(charge.amount ?? 0) > 0 && Number(charge.amount_refunded ?? 0) >= Number(charge.amount ?? 0));
 
-        // Fallback : remonter via la session
-        if (!order) {
-          try {
-            const sessions = await stripe.checkout.sessions.list({ payment_intent: piId, limit: 1 });
-            const sid = sessions.data[0]?.id;
-            if (sid) {
-              const { data: bySid } = await supabaseServer
-                .from("orders").select("id, amount_total, customer_email, stripe_session_id, status")
-                .eq("stripe_session_id", sid).maybeSingle();
-              if (bySid) order = bySid;
-            }
-          } catch {}
-        }
-      }
+        // IDEMPOTENCE PAR MONTANT : si le cumul remboursé ne DÉPASSE pas ce qu'on a
+        // déjà enregistré, aucun nouveau montant à traiter — soit c'est un rejeu
+        // Stripe, soit l'admin a déjà écrit refund_amount (+ envoyé son email).
+        // → pas d'update, pas d'email. (Le parrainage, lui, reste rejoué : idempotent.)
+        const alreadyRecorded = Number(order.refund_amount ?? 0);
+        if (newRefundTotal > alreadyRecorded) {
+          const newStatus = isTotalRefund ? "remboursee" : "rembours_partiel";
 
-      const refundAmount = (charge.amount_refunded ?? 0) / 100;
-
-      if (order) {
-        // Ne pas écraser si déjà remboursée (évite race condition avec notre endpoint admin)
-        const alreadyRefunded = String(order.status ?? "").toLowerCase() === "remboursee";
-        let emailSent = false;
-
-        if (!alreadyRefunded) {
           await supabaseServer.from("orders").update({
-            status:        "remboursee",
-            refund_amount: refundAmount,
+            status:        newStatus,
+            refund_amount: newRefundTotal,
             refunded_at:   new Date().toISOString(),
           }).eq("id", order.id);
 
-          // #10 — refund créé hors de notre admin (dashboard Stripe ou chargeback)
-          // → envoyer l'email annulation au client automatiquement, sinon il
-          // reçoit l'argent sans aucune notification de notre part.
+          // EXACTEMENT 1 email client par nouveau remboursement :
+          //   total   → /api/emails/cancellation   (commande annulée)
+          //   partiel → /api/emails/refund-partial (commande conservée)
+          let emailSent = false;
           if (order.customer_email) {
+            const endpoint = isTotalRefund ? "cancellation" : "refund-partial";
+            const payload  = isTotalRefund
+              ? { email: order.customer_email, order_number: order.id }
+              : { email: order.customer_email, order_number: order.id, refund_amount: newRefundTotal, order_total: Number(order.amount_total ?? 0) };
             try {
-              const res = await fetch(`${BASE}/api/emails/cancellation`, {
+              const res = await fetch(`${BASE}/api/emails/${endpoint}`, {
                 method:  "POST",
                 headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-                body:    JSON.stringify({
-                  email:        order.customer_email,
-                  order_number: order.id,
-                }),
+                body:    JSON.stringify(payload),
               });
               emailSent = res.ok;
             } catch (e) {
-              process.env.NODE_ENV !== "production" && console.error("[stripe-webhook] auto cancellation email error:", e);
+              process.env.NODE_ENV !== "production" && console.error("[stripe-webhook] refund email error:", e);
             }
           }
-        }
 
-        await logActivity(
-          "commande_remboursee",
-          `Commande #${String(order.id).slice(0, 8).toUpperCase()} remboursée — ${refundAmount.toFixed(2)} €`,
-          {
-            entity_id: order.id,
-            meta: {
-              charge_id:         charge.id,
-              payment_intent_id: piId,
-              amount_refunded:   refundAmount,
-              currency:          charge.currency,
-              customer_email:    order.customer_email,
-              source:            alreadyRefunded ? "stripe_webhook_after_admin_action" : "stripe_webhook",
-              email_sent:        emailSent,
-            },
-          }
-        );
-
-        // ── Anti-abus (étape 22) : cette commande FILLEUL a-t-elle généré une
-        //    récompense chez un parrain ? Si oui, on la traite selon decideRewardOnRefund.
-        //    Exécuté même si `alreadyRefunded` (l'admin ne touche pas aux récompenses) ;
-        //    idempotent via les filtres .eq (rejeu Stripe sans effet).
-        try {
-          const isTotalRefund =
-            charge.refunded === true ||
-            (Number(charge.amount ?? 0) > 0 && Number(charge.amount_refunded ?? 0) >= Number(charge.amount ?? 0));
-
-          const { data: genRewards } = await supabaseServer
-            .from("parrainage_recompenses")
-            .select("id, status, montant, parrain_id, used_on_order_id")
-            .eq("filleul_order_id", order.id);
-
-          for (const rew of genRewards ?? []) {
-            const { action, reason } = decideRewardOnRefund(String(rew.status), isTotalRefund);
-            if (action === "noop") continue;
-
-            if (action === "cancel") {
-              // Annulation automatique (garde .eq status='disponible' = idempotent).
-              const { data: done } = await supabaseServer
-                .from("parrainage_recompenses")
-                .update({ status: "annulee", annulee_at: new Date().toISOString(), annulation_reason: reason })
-                .eq("id", rew.id).eq("status", "disponible")
-                .select("id").maybeSingle();
-              if (done) {
-                await logActivity(
-                  "parrain_recompense_annulee",
-                  `Récompense parrain annulée (commande filleul remboursée) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
-                  { entity_id: rew.id, meta: { reason, filleul_order_id: order.id, parrain_id: rew.parrain_id } },
-                );
-              }
-            } else {
-              // flag_review : cas ambigu (remboursement partiel) ou déjà utilisée →
-              // révision humaine, jamais d'annulation/clawback auto.
-              const { data: done } = await supabaseServer
-                .from("parrainage_recompenses")
-                .update({ annulation_en_attente: true, annulation_reason: reason })
-                .eq("id", rew.id).eq("annulation_en_attente", false)
-                .select("id").maybeSingle();
-              if (done) {
-                await logActivity(
-                  "parrain_recompense_a_verifier",
-                  `Récompense parrain à vérifier (${reason}) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
-                  { entity_id: rew.id, meta: { reason, reward_status: rew.status, filleul_order_id: order.id, parrain_id: rew.parrain_id, used_on_order_id: rew.used_on_order_id } },
-                );
-              }
+          await logActivity(
+            "commande_remboursee",
+            `Commande #${String(order.id).slice(0, 8).toUpperCase()} ${isTotalRefund ? "remboursée" : "remboursée partiellement"} — ${newRefundTotal.toFixed(2)} €`,
+            {
+              entity_id: order.id,
+              meta: {
+                charge_id:         charge.id,
+                payment_intent_id: piId,
+                amount_refunded:   newRefundTotal,
+                is_total_refund:   isTotalRefund,
+                new_status:        newStatus,
+                currency:          charge.currency,
+                customer_email:    order.customer_email,
+                email_sent:        emailSent,
+                source:            "stripe_webhook",
+              },
             }
-          }
-        } catch (rewErr: any) {
-          process.env.NODE_ENV !== "production" && console.error("[charge.refunded] parrain reward reversal:", rewErr?.message);
+          );
+        } else {
+          // Rien de nouveau (rejeu, ou remboursement déjà enregistré par l'admin).
+          process.env.NODE_ENV !== "production" &&
+            console.log(`[charge.refunded] cumul ${newRefundTotal.toFixed(2)} ≤ enregistré ${alreadyRecorded.toFixed(2)} → pas d'update/email`);
         }
-      } else {
-        // Aucune commande retrouvée — on log quand même
-        await logActivity(
-          "commande_remboursee",
-          `Remboursement reçu (aucune commande associée) — ${refundAmount.toFixed(2)} €`,
-          {
-            meta: {
-              charge_id:         charge.id,
-              payment_intent_id: piId,
-              amount_refunded:   refundAmount,
-            },
-          }
-        );
+
+        // ── Anti-abus parrainage — CONSERVÉ tel quel : exécuté à CHAQUE
+        //    charge.refunded (même déclenché par une action admin — l'admin ne
+        //    touche pas aux récompenses), idempotent via les filtres .eq.
+        await reverseReferralRewards(order.id, isTotalRefund);
       }
     } catch (err: any) {
       process.env.NODE_ENV !== "production" && console.error("❌ charge.refunded handler:", err.message);
+    }
+  }
+
+  // ── charge.dispute.created / .closed — litiges & chargebacks ──────────────
+  // created : on bascule la commande en "litige" et on ALERTE l'admin (aucune
+  // action auto sur stock/parrainage — un litige n'est pas un remboursement).
+  // closed  : "lost" = fonds repris → traiter comme remboursement total ;
+  //           "won" = litige gagné → statut "litige_gagne".
+  if (event.type === "charge.dispute.created") {
+    const dispute = event.data.object as Stripe.Dispute;
+    process.env.NODE_ENV !== "production" && console.warn("⚠️ Dispute created:", dispute.id, dispute.reason);
+
+    try {
+      const piId = typeof dispute.payment_intent === "string"
+        ? dispute.payment_intent
+        : dispute.payment_intent?.id ?? null;
+      const order  = await findOrderByPaymentIntent(piId);
+      const amount = (dispute.amount ?? 0) / 100;
+
+      if (order) {
+        // Idempotent : ne réécrit pas un statut déjà en litige.
+        if (String(order.status ?? "").toLowerCase() !== "litige") {
+          await supabaseServer.from("orders").update({ status: "litige" }).eq("id", order.id);
+        }
+
+        await logActivity(
+          "commande_litige",
+          `Litige/chargeback ouvert — commande #${String(order.id).slice(0, 8).toUpperCase()} — ${amount.toFixed(2)} €`,
+          {
+            entity_id: order.id,
+            meta: { dispute_id: dispute.id, payment_intent_id: piId, amount, reason: dispute.reason, dispute_status: dispute.status, customer_email: order.customer_email },
+          }
+        );
+
+        // Alerte admin (modèle "pack vendu") — aucune action auto stock/parrainage.
+        if (ADMIN_EMAILS.length > 0) {
+          const numero = String(order.id).slice(0, 8).toUpperCase();
+          try {
+            await resend.emails.send({
+              from:    "M!LK <contact@milkbebe.fr>",
+              to:      ADMIN_EMAILS,
+              subject: `⚠️ Litige/chargeback — commande #${numero} — ${amount.toFixed(2)} €`,
+              html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Litige ouvert (chargeback)</h2><p>Commande <strong>#${numero}</strong> — <strong>${order.customer_email ?? "?"}</strong></p><p>Montant contesté : <strong>${amount.toFixed(2)} €</strong><br>Motif Stripe : <strong>${dispute.reason ?? "—"}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">Aucune action automatique (stock/parrainage) n'a été prise. À traiter dans Stripe <strong>avant la date limite de réponse</strong>.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+            });
+          } catch (e) {
+            process.env.NODE_ENV !== "production" && console.error("[charge.dispute.created] admin alert email:", e);
+          }
+        }
+      } else {
+        await logActivity(
+          "commande_litige",
+          `Litige/chargeback ouvert (aucune commande associée) — ${amount.toFixed(2)} €`,
+          { meta: { dispute_id: dispute.id, payment_intent_id: piId, amount, reason: dispute.reason } },
+        );
+      }
+    } catch (err: any) {
+      process.env.NODE_ENV !== "production" && console.error("❌ charge.dispute.created handler:", err.message);
+    }
+  }
+
+  if (event.type === "charge.dispute.closed") {
+    const dispute = event.data.object as Stripe.Dispute;
+    const outcome = String(dispute.status ?? ""); // "won" | "lost" | "warning_closed" | …
+    process.env.NODE_ENV !== "production" && console.warn("⚖️ Dispute closed:", dispute.id, outcome);
+
+    try {
+      const piId = typeof dispute.payment_intent === "string"
+        ? dispute.payment_intent
+        : dispute.payment_intent?.id ?? null;
+      const order  = await findOrderByPaymentIntent(piId);
+      const amount = (dispute.amount ?? 0) / 100;
+
+      if (order) {
+        const numero = String(order.id).slice(0, 8).toUpperCase();
+
+        if (outcome === "lost") {
+          // Litige PERDU = fonds définitivement repris → équivalent remboursement total.
+          // Idempotent : ne réécrit pas un statut déjà remboursee.
+          if (String(order.status ?? "").toLowerCase() !== "remboursee") {
+            await supabaseServer.from("orders").update({
+              status:      "remboursee",
+              refunded_at: new Date().toISOString(),
+            }).eq("id", order.id);
+          }
+          await reverseReferralRewards(order.id, true);
+          await logActivity(
+            "commande_litige",
+            `Litige PERDU (chargeback) — commande #${numero} — ${amount.toFixed(2)} €`,
+            { entity_id: order.id, meta: { dispute_id: dispute.id, payment_intent_id: piId, amount, outcome, customer_email: order.customer_email } },
+          );
+        } else if (outcome === "won") {
+          // Litige GAGNÉ. Idempotent : ne bascule que depuis "litige".
+          if (String(order.status ?? "").toLowerCase() === "litige") {
+            await supabaseServer.from("orders").update({ status: "litige_gagne" }).eq("id", order.id);
+          }
+          await logActivity(
+            "commande_litige",
+            `Litige GAGNÉ — commande #${numero}`,
+            { entity_id: order.id, meta: { dispute_id: dispute.id, payment_intent_id: piId, amount, outcome, customer_email: order.customer_email } },
+          );
+        } else {
+          // Autre issue (warning_closed, etc.) → log seulement.
+          await logActivity(
+            "commande_litige",
+            `Litige clôturé (${outcome}) — commande #${numero}`,
+            { entity_id: order.id, meta: { dispute_id: dispute.id, payment_intent_id: piId, amount, outcome, customer_email: order.customer_email } },
+          );
+        }
+      } else {
+        await logActivity(
+          "commande_litige",
+          `Litige clôturé (${outcome}, aucune commande associée)`,
+          { meta: { dispute_id: dispute.id, payment_intent_id: piId, amount, outcome } },
+        );
+      }
+    } catch (err: any) {
+      process.env.NODE_ENV !== "production" && console.error("❌ charge.dispute.closed handler:", err.message);
     }
   }
 

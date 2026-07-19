@@ -10,6 +10,8 @@ import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
+import { combinePromos } from "@/lib/promo-combine";
+import PromoParrainInput from "@/components/checkout/PromoParrainInput";
 import {
   getDeliveryPrice,
   deliveryLabel,
@@ -110,9 +112,12 @@ export default function CheckoutPaiementPage() {
   const packsSubtotal = packs.reduce((s, p) => s + (Number(p.price) || 0) * (Number(p.quantity) || 0), 0);
   const subtotal = productsSubtotal + packsSubtotal;
 
-  // Promo / code parrain : PAS ENCORE collectés dans le tunnel (lot futur) → 0 ici.
-  // Le body les transmet quand même (vides) ; create-session re-valide de toute façon.
-  const promoDiscount = 0;
+  // Codes promo cumulés (saisis via <PromoParrainInput>) → remise MIROIR calculée
+  // par la MÊME fonction pure que /panier & create-session (combinePromos). Le
+  // serveur re-valide tout : l'affiché reste == le facturé.
+  const combo   = state.promoCodes.length > 0 ? combinePromos(state.promoCodes, subtotal) : null;
+  const comboOk = combo && combo.valid ? combo : null;
+  const promoDiscount = comboOk ? comboOk.totalDiscount : 0;
 
   const country  = state.country || "FR";
   const zone     = getZoneForCountry(country);
@@ -125,7 +130,9 @@ export default function CheckoutPaiementPage() {
   if (isFrance && dc?.kind === "fr" && dc.carrier && dc.type) {
     const totals = computeCartTotals({
       productsSubtotal, packsSubtotal, discount: promoDiscount,
-      basePrice: getDeliveryPrice(dc.carrier, dc.type), freeShippingThreshold: threshold, promo: null,
+      basePrice: getDeliveryPrice(dc.carrier, dc.type), freeShippingThreshold: threshold,
+      // Le cumul agrège free_shipping (≥ 1 code l'offre) + cumulable_avec_livraison.
+      promo: comboOk ? { free_shipping: comboOk.free_shipping, cumulable_avec_livraison: comboOk.cumulable_avec_livraison } : null,
     });
     shipping = totals.shipping;
     shippingFree = totals.shippingFree;
@@ -142,8 +149,8 @@ export default function CheckoutPaiementPage() {
   // Parrainage (méca 2) — même calcul d'affichage que /panier.
   const parrainageSettingsForCalc: ParrainageSettings = {
     actif:                        meSettings?.actif ?? meActif,
-    montant_recompense:           meSettings?.montant_recompense ?? 5,
-    seuil_filleul:                meSettings?.seuil_filleul ?? 60,
+    montant_recompense:           state.parrainData?.montant_recompense ?? meSettings?.montant_recompense ?? 5,
+    seuil_filleul:                state.parrainData?.seuil_filleul ?? meSettings?.seuil_filleul ?? 60,
     seuils_parrain:               meSettings?.seuils_parrain ?? [60, 80, 90, 100],
     max_recompenses_par_commande: meSettings?.max_recompenses_par_commande ?? 4,
     duree_validite_jours:         meSettings?.duree_validite_jours ?? 30,
@@ -211,7 +218,7 @@ export default function CheckoutPaiementPage() {
     trackBeginCheckout(
       items.map(it => ({ id: it.id, name: it.name, price: it.price, quantity: it.quantity, category: it.category_slug, variant: it.taille ?? it.couleur, slug: it.slug })),
       cartValue,
-      state.promoCodes.length > 0 ? state.promoCodes.join("+") : undefined,
+      state.promoCodes.length > 0 ? state.promoCodes.map(p => p.code).join("+") : undefined,
     );
     metaInitiateCheckout(cartValue, numItems);
     if (!user && emailForOrder) { try { localStorage.setItem("milk_guest_email", emailForOrder.toLowerCase()); } catch {} }
@@ -222,9 +229,9 @@ export default function CheckoutPaiementPage() {
     const body = {
       items,
       packs: packs.map(p => ({ pack_id: p.pack_id, size: p.size, quantity: p.quantity })),
-      promo_codes:    state.promoCodes,
-      promo_code:     state.promoCodes[0] ?? null,
-      parrain_code:   state.parrainData?.parrainCode ?? null,
+      promo_codes:    state.promoCodes.map(p => p.code),
+      promo_code:     state.promoCodes[0]?.code ?? null,
+      parrain_code:   state.parrainData?.code ?? null,
       reward_ids:     state.selectedRewards,
       customer_email: emailForOrder,
       customer_phone: state.phone.trim(),
@@ -276,6 +283,22 @@ export default function CheckoutPaiementPage() {
         {en ? "Step 3 — Payment" : "Étape 3 — Paiement"}
       </h1>
 
+      {/* ── Codes promo + parrain (saisie tunnel) — au-dessus du récap pour que
+             l'effet sur le TOTAL soit visible immédiatement. ── */}
+      <div style={{ marginBottom: 16 }}>
+        <PromoParrainInput
+          subtotal={subtotal}
+          parrain={{
+            active:     meSettings?.actif ?? meActif,
+            applicable: parrainageCalc.parrainApplicable,
+            shortfall:  parrainageCalc.parrainShortfall,
+            discount:   parrainDiscount,
+            montant:    parrainageSettingsForCalc.montant_recompense,
+            seuil:      parrainageSettingsForCalc.seuil_filleul,
+          }}
+        />
+      </div>
+
       {/* ── Récapitulatif (lecture seule) ── */}
       <div style={{ ...card, marginBottom: 16 }}>
         <div style={{ fontWeight: 900, fontSize: 16, marginBottom: 14, color: "#1a1410" }}>
@@ -307,6 +330,12 @@ export default function CheckoutPaiementPage() {
           <div style={{ ...rowBetween, fontSize: 14, color: "rgba(26,20,16,0.7)" }}>
             <span>{en ? "Subtotal" : "Sous-total"}</span><span style={{ fontWeight: 700 }}>{fmt(subtotal)}</span>
           </div>
+          {comboOk?.entries.map(e => (
+            <div key={e.code} style={{ ...rowBetween, fontSize: 14, color: "#16a34a" }}>
+              <span style={{ fontWeight: 700 }}>Code {e.code}</span>
+              <span style={{ fontWeight: 800 }}>{e.discount > 0 ? `− ${fmt(e.discount)}` : (en ? "Free shipping" : "Livraison offerte")}</span>
+            </div>
+          ))}
           {parrainDiscount > 0 && (
             <div style={{ ...rowBetween, fontSize: 14, color: "#16a34a" }}>
               <span style={{ fontWeight: 700 }}>{en ? "Referral code" : "Code parrain"}</span>

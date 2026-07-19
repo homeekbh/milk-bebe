@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/context/CartContext";
 import type { ServicePoint } from "@/components/checkout/RelaySelector";
+import type { ValidatedPromo } from "@/lib/promo-combine";
 
 /**
  * État PARTAGÉ du nouveau tunnel checkout (panier → compte → livraison → paiement).
@@ -37,8 +38,11 @@ export type CheckoutState = {
   country:         string;                          // défaut "FR"
   deliveryChoice:  CheckoutDeliveryChoice | null;   // FR : transporteur/type/relais
   selectedRelay:   ServicePoint | null;             // FR point relais / locker choisi
-  promoCodes:      string[];
-  parrainData:     { parrainCode: string } | null;
+  // Codes promo cumulés (objets VALIDÉS, entrée de combinePromos) + code parrain
+  // validé — mêmes formes que /panier. Saisis via <PromoParrainInput>. Le serveur
+  // (create-session) reste seul juge : il re-valide tout à partir des codes.
+  promoCodes:      ValidatedPromo[];
+  parrainData:     { code: string; montant_recompense: number; seuil_filleul: number } | null;
   selectedRewards:  string[];                        // IDs des récompenses cochées
   availableRewards: CheckoutReward[];                // récompenses dispo (compte connecté)
   shippingAddress: Record<string, unknown> | null;

@@ -26,6 +26,10 @@ export type CheckoutDeliveryChoice = {
   price?:   number;
 };
 
+// Récompense parrainage utilisable (chargée depuis /api/parrainage/me quand le
+// client est connecté) — sert au calcul du total à l'étape paiement.
+export type CheckoutReward = { id: string; montant: number; days_left: number };
+
 export type CheckoutState = {
   email:           string;
   guestEmail:      string;
@@ -35,7 +39,8 @@ export type CheckoutState = {
   selectedRelay:   ServicePoint | null;             // FR point relais / locker choisi
   promoCodes:      string[];
   parrainData:     { parrainCode: string } | null;
-  selectedRewards: string[];
+  selectedRewards:  string[];                        // IDs des récompenses cochées
+  availableRewards: CheckoutReward[];                // récompenses dispo (compte connecté)
   shippingAddress: Record<string, unknown> | null;
   completedSteps:  number;                           // progression (gardes de nav)
 };
@@ -51,7 +56,8 @@ const DEFAULT_STATE: CheckoutState = {
   selectedRelay:   null,
   promoCodes:      [],
   parrainData:     null,
-  selectedRewards: [],
+  selectedRewards:  [],
+  availableRewards: [],
   shippingAddress: null,
   completedSteps:  0,
 };

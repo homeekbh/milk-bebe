@@ -1,23 +1,11 @@
-﻿"use client";
+"use client";
 
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { useLocale } from "next-intl";
-import { Link } from "@/i18n/navigation";
-import { useRouter } from "next/navigation";
-import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
-import { computeCartTotals } from "@/lib/cart-totals";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useRouter } from "@/i18n/navigation";
 import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
-import {
-  DELIVERY_DELAY,
-  getDeliveryPrice,
-  isDeliveryCombinationAllowed,
-  type Carrier,
-  type DeliveryType,
-} from "@/lib/delivery-config";
-import RelaySelector, { type ServicePoint } from "@/components/checkout/RelaySelector";
 
 // Ligne pack au panier (lue depuis localStorage milk_pack_cart, groupée par
 // pack_id + size en quantité).
@@ -28,14 +16,6 @@ type PackLine = {
 
 // Seuil par défaut si /api/settings/public échoue (chargement réseau)
 const DEFAULT_FREE_SHIPPING_THRESHOLD = 60;
-
-type HomeAddress = {
-  name:        string;
-  line1:       string;
-  postal_code: string;
-  city:        string;
-  country:     string;
-};
 
 // Mappe la réponse de /api/promo/validate → ValidatedPromo (entrée de combinePromos).
 // Le `discount` renvoyé par l'API est ignoré : il est RECALCULÉ par combinePromos
@@ -54,13 +34,18 @@ function toValidatedPromo(d: any): ValidatedPromo {
   };
 }
 
+/**
+ * /panier = UNIQUEMENT le panier : produits + packs + codes promo/parrain + phrase
+ * d'info livraison + bouton « Valider ». Le choix de livraison, la collecte
+ * compte/email/téléphone et le paiement vivent désormais dans le tunnel /checkout/*.
+ * « Valider » écrit les codes saisis ici dans le CheckoutContext (pont sessionStorage)
+ * puis navigue vers /checkout/compte.
+ */
 export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
   const { user, session } = useAuth();
-  const router    = useRouter();
-  const locale    = useLocale();
+  const router = useRouter();
 
-  const [loading,       setLoading]       = useState(false);
   const [promoCode,     setPromoCode]     = useState("");             // champ de saisie
   const [promoCodes,    setPromoCodes]    = useState<ValidatedPromo[]>([]); // codes appliqués (cumul)
   const [promoError,    setPromoError]    = useState("");
@@ -71,42 +56,9 @@ export default function CartPage() {
   const [parrainData,    setParrainData]    = useState<{ code: string; montant_recompense: number; seuil_filleul: number } | null>(null);
   const [parrainError,   setParrainError]   = useState("");
   const [parrainLoading, setParrainLoading] = useState(false);
-  // Données du compte connecté (récompenses utilisables + réglages complets).
-  const [meRewards,      setMeRewards]      = useState<{ id: string; montant: number; days_left: number }[]>([]);
+  // Réglages du programme (montant/seuil + actif) pour l'affichage du code parrain.
   const [meSettings,     setMeSettings]     = useState<ParrainageSettings | null>(null);
   const [meActif,        setMeActif]        = useState(true);
-  const [selectedRewardIds, setSelectedRewardIds] = useState<string[]>([]);
-  const [guestEmail,    setGuestEmail]    = useState("");
-  const [guestError,    setGuestError]    = useState("");
-  const [checkoutError, setCheckoutError] = useState("");
-
-  // ── Livraison : 2 carriers × jusqu'à 3 options ──────────────────────────
-  // Carrier + deliveryType bougent toujours ensemble. On les expose en deux
-  // states pour faciliter le rendu mais ils sont contraints par DELIVERY_PRICES.
-  const [carrier,         setCarrier]         = useState<Carrier | null>(null);
-  const [deliveryType,    setDeliveryType]    = useState<DeliveryType | null>(null);
-  // postalSearch + selectedRelay : PERSISTÉS dans milk_delivery_choice → restent
-  // ici (contrôlés), passés au RelaySelector. L'état de recherche éphémère
-  // (résultats, erreurs, saisie manuelle) vit dans RelaySelector.
-  const [postalSearch,    setPostalSearch]    = useState("");
-  const [selectedRelay,   setSelectedRelay]   = useState<ServicePoint | null>(null);
-  // Incrémenté à chaque changement de mode → réinitialise la recherche du RelaySelector
-  // (équivalent des resets que faisait switchDelivery avant extraction).
-  const [relayResetKey,   setRelayResetKey]   = useState(0);
-  const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
-  // Téléphone obligatoire (exigé par Sendcloud pour tous les transporteurs).
-  // Format français : 10 chiffres minimum (06/07/+33...).
-  const [customerPhone,   setCustomerPhone]   = useState("");
-  const [phoneError,      setPhoneError]      = useState("");
-  // Parcours en 2 étapes : 1 = compte + téléphone, 2 = choix de livraison + paiement.
-  // Toutes les données (email, téléphone, promo, livraison) restent en state → aucun
-  // reset au changement d'étape. deliveryRef : cible du scroll fluide vers l'étape 2.
-  const [step, setStep] = useState<1 | 2>(1);
-  const deliveryRef = useRef<HTMLDivElement>(null);
-  // Modale isolée pour la sélection du point relais / locker.
-  // Évite que le widget de recherche perturbe le layout principal
-  // (et corrige le crash "Application error" observé en inline).
-  const [relayModalOpen,  setRelayModalOpen]  = useState(false);
 
   // Seuil livraison offerte — lu depuis /api/settings/public au mount (cache
   // CDN 60s). Default DEFAULT_FREE_SHIPPING_THRESHOLD si l'API échoue.
@@ -123,7 +75,7 @@ export default function CartPage() {
 
   // ── Packs : lus depuis localStorage milk_pack_cart (store séparé, pas de
   //    migration) et groupés par pack_id + size en quantité. Affichés dans la
-  //    MÊME liste que les produits, inclus dans le total/promo/livraison. ──────
+  //    MÊME liste que les produits, inclus dans le total/promo. ────────────────
   const [packs, setPacks] = useState<PackLine[]>([]);
   useEffect(() => {
     try {
@@ -163,74 +115,6 @@ export default function CartPage() {
     try { localStorage.removeItem("milk_pack_cart"); } catch {}
     setPacks([]);                                         // packs (state local)
     try { window.dispatchEvent(new Event("milk-pack-cart-changed")); } catch {}
-  }
-
-  // Charger depuis localStorage au mount.
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem("milk_delivery_choice");
-      if (!raw) return;
-      const d = JSON.parse(raw);
-      // Valider que la combinaison carrier/deliveryType existe dans la matrice
-      const c = d.carrier as Carrier | undefined;
-      const t = d.deliveryType as DeliveryType | undefined;
-      if (c && t && isDeliveryCombinationAllowed(c, t)) {
-        setCarrier(c);
-        setDeliveryType(t);
-      }
-      if (d.selectedRelay) {
-        // Sanitization défensive : un selectedRelay legacy depuis Sendcloud
-        // peut contenir un opening_hours OBJET (clés "1", "2", "B"...) qui
-        // provoque React error #31 au rendu. On force string|null partout.
-        const sr = d.selectedRelay;
-        setSelectedRelay({
-          id:            String(sr.id ?? ""),
-          name:          String(sr.name ?? ""),
-          street:        String(sr.street ?? ""),
-          city:          String(sr.city ?? ""),
-          postal_code:   String(sr.postal_code ?? ""),
-          distance:      typeof sr.distance === "number" ? sr.distance : null,
-          opening_hours: typeof sr.opening_hours === "string" ? sr.opening_hours : null,
-        });
-      }
-      if (d.homeAddress)    setHomeAddress(d.homeAddress);
-      if (d.postalSearch)   setPostalSearch(d.postalSearch);
-      if (d.customerPhone)  setCustomerPhone(String(d.customerPhone));
-    } catch {}
-  }, []);
-
-  // Sauvegarder dans localStorage à chaque changement
-  useEffect(() => {
-    try {
-      localStorage.setItem("milk_delivery_choice", JSON.stringify({
-        carrier, deliveryType, selectedRelay, homeAddress, postalSearch, customerPhone,
-      }));
-    } catch {}
-  }, [carrier, deliveryType, selectedRelay, homeAddress, postalSearch, customerPhone]);
-
-  // Validation téléphone : 10 chiffres min, accepte 06/07/01-05/+33...
-  function isValidPhone(p: string): boolean {
-    const digits = String(p ?? "").replace(/[^\d+]/g, "");
-    // +33 suivi de 9 chiffres OU 10 chiffres exactement
-    return /^\+33[1-9]\d{8}$/.test(digits) || /^0[1-9]\d{8}$/.test(digits);
-  }
-
-  // Sélectionne une option (carrier + type) parmi la matrice DELIVERY_PRICES.
-  // Reset systématique du relais sélectionné quand on change (un PR Mondial
-  // Relay n'est pas valide pour Colissimo, et inversement) + reset de la recherche
-  // du RelaySelector via relayResetKey (remplace les anciens setSearchResults/…).
-  // Pour point_relais et locker → ouvre directement la modale de sélection.
-  function switchDelivery(c: Carrier, t: DeliveryType) {
-    setCarrier(c);
-    setDeliveryType(t);
-    setCheckoutError("");
-    setSelectedRelay(null);
-    setRelayResetKey(k => k + 1);
-    if (t === "point_relais" || t === "locker") {
-      setRelayModalOpen(true);
-    } else {
-      setRelayModalOpen(false);
-    }
   }
 
   const productsSubtotal = items.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
@@ -293,35 +177,12 @@ export default function CartPage() {
     if (promoCodes.length > 0) recheckPromos(subtotal, promoCodes);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [subtotal]); // ✅ Se déclenche à chaque changement de sous-total
-  // Prix livraison depuis la matrice. 0 si carrier/type pas encore choisis.
-  const basePrice = (carrier && deliveryType) ? getDeliveryPrice(carrier, deliveryType) : 0;
 
-  // ⚠️ Calcul UNIFIÉ (produits + packs) via computeCartTotals() — même fonction
-  // pure que /api/checkout/create-session (l'affiché = le facturé). Le seuil
-  // livraison est évalué sur le TOTAL APRÈS PROMO (décision actée).
-  const totals = computeCartTotals({
-    productsSubtotal,
-    packsSubtotal,
-    discount,
-    basePrice,
-    freeShippingThreshold,
-    // Cumul : le combo agrège free_shipping (au moins un code l'offre) et
-    // cumulable_avec_livraison (tous les codes autorisent le seuil auto).
-    promo: comboOk ? {
-      free_shipping:            comboOk.free_shipping,
-      cumulable_avec_livraison: comboOk.cumulable_avec_livraison,
-    } : null,
-  });
-  const totalAfterPromo = totals.totalAfterPromo;
-  const shippingFree    = totals.shippingFree;
-  const shipping        = totals.shipping;
-  const total           = totals.total;
+  // Total après promo (= base du seuil de livraison offerte). Le PORT n'est plus
+  // affiché ici : il est calculé à l'étape livraison du tunnel.
+  const totalAfterPromo = Math.max(0, subtotal - discount);
 
-  // Éligibilité « livraison offerte » INDÉPENDANTE du transporteur choisi. Les options
-  // de livraison s'affichent AVANT qu'un transporteur soit sélectionné (basePrice = 0 →
-  // computeShipping renvoie shippingFree=false). On reproduit ici la même décision de
-  // seuil/promo, sans basePrice, pour barrer le prix + afficher « Gratuit » sur CHAQUE
-  // option dès que la livraison est offerte. Miroir exact de computeShipping :
+  // Éligibilité « livraison offerte » (France métropolitaine). Miroir de computeShipping :
   //   - un code offre la livraison → offert ;
   //   - un code %/€ non cumulable → seuil désactivé (jamais offert par le seuil) ;
   //   - sinon total après promo ≥ seuil → offert.
@@ -330,6 +191,9 @@ export default function CartPage() {
     ((!comboOk || comboOk.cumulable_avec_livraison !== false) && totalAfterPromo >= freeShippingThreshold);
 
   // ── Parrainage : calcul d'AFFICHAGE (create-session re-valide, seul juge) ──
+  // Les récompenses (méca 2) sont sélectionnées à l'étape paiement du tunnel :
+  // ici rewardsAvailableCount / rewardsSelectedCount = 0 (seul le code parrain
+  // méca 1 est affiché au panier).
   const parrainageSettingsForCalc: ParrainageSettings = {
     actif:                        meSettings?.actif ?? meActif,
     montant_recompense:           parrainData?.montant_recompense ?? meSettings?.montant_recompense ?? 5,
@@ -349,67 +213,30 @@ export default function CartPage() {
     promoDiscount:         discount,
     freeShippingThreshold,
     hasValidParrainCode:   !!parrainData,
-    rewardsAvailableCount: meRewards.length,
-    rewardsSelectedCount:  selectedRewardIds.length,
+    rewardsAvailableCount: 0,
+    rewardsSelectedCount:  0,
     cartCategorySlugs:     cartCatSlugs,
   });
   const parrainDiscount = parrainageCalc.parrainDiscount;
-  const rewardDiscount  = parrainageCalc.rewardDiscount;
-  const grandTotal      = Math.max(0, total - parrainDiscount - rewardDiscount);
+  const grandTotal      = Math.max(0, totalAfterPromo - parrainDiscount);
 
-  // Barre "il te reste X€" : calculée sur le TOTAL APRÈS PROMO (même base que le
-  // port réel). Si un code repasse sous 60€, le port réapparaît avec la barre.
-  // Promo non cumulable → seuil désactivé → barre masquée (pas de fausse promesse).
+  // Barre « il te reste X€ » : calculée sur le TOTAL APRÈS PROMO (même base que le
+  // port réel du tunnel). Promo non cumulable → seuil désactivé → barre masquée.
   const promoBlocksThreshold = !!comboOk && comboOk.cumulable_avec_livraison === false && !comboOk.free_shipping;
   // « Plus que X€ » = montant de PRODUITS à AJOUTER (prix AVANT promo) pour franchir
-  // le seuil APRÈS remise — et non le simple écart post-promo. Car ce qu'on ajoute est
-  // lui aussi remisé. Cumul (ordre fixe→%) : seuls les codes % font grossir la base ;
-  // les € fixes ne scalent pas avec l'ajout. On divise donc l'écart par le facteur
-  // pourcentage COMPOSÉ ∏(1 − pᵢ) des codes % du combo (=1 si aucun % → écart brut).
-  // Ex. un seul −30% → gap / 0,70 ; deux codes −20% + −10% → gap / (0,80 × 0,90).
+  // le seuil APRÈS remise. On divise l'écart par le facteur pourcentage COMPOSÉ des
+  // codes % du combo (=1 si aucun %).
   const percentFactor = (comboOk?.entries ?? [])
     .filter(e => e.type === "percent")
     .reduce((f, e) => f * (1 - Math.min(Math.max((Number(e.value) || 0) / 100, 0), 0.99)), 1);
   const gap = Math.max(0, freeShippingThreshold - totalAfterPromo);
-  let remaining: number;
-  if (promoBlocksThreshold) {
-    remaining = 0;
-  } else {
-    remaining = Math.round((gap / percentFactor) * 100) / 100;
-  }
+  const remaining = promoBlocksThreshold ? 0 : Math.round((gap / percentFactor) * 100) / 100;
   const pct = promoBlocksThreshold ? 0 : Math.min(100, (totalAfterPromo / freeShippingThreshold) * 100);
 
-  // Livraison complétée ?
-  const homeComplete    = !!(homeAddress.name.trim() && homeAddress.line1.trim() && /^\d{4,5}$/.test(homeAddress.postal_code) && homeAddress.city.trim());
-  const phoneOk         = isValidPhone(customerPhone);
-  const deliveryReady   =
-    !carrier || !deliveryType                                    ? false        :
-    !phoneOk                                                      ? false        :  // téléphone obligatoire dans tous les cas
-    deliveryType === "home"                                      ? homeComplete :
-    (deliveryType === "point_relais" || deliveryType === "locker") ? !!selectedRelay :
-    false;
-
-  // Email requis pour payer : connecté (user.email connu) OU invité avec email valide.
-  const emailReady   = !!user || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(guestEmail.trim());
-  const cartNonEmpty = (items.length + packs.length) > 0; // items OU packs (pack seul compte)
-  // Étape 1 (compte + téléphone) prête → active le bouton « Passer au paiement » qui
-  // révèle l'étape 2 (livraison). NE crée PAS de session Stripe.
-  const step1Ready    = emailReady && phoneOk && cartNonEmpty;
-  // Paiement final (étape 2) : étape 1 OK + livraison complète (deliveryReady inclut phoneOk).
-  const finalPayReady = step1Ready && deliveryReady;
-
-  // Passage à l'étape 2 → scroll fluide vers le bloc livraison qui vient d'apparaître.
+  // Sauvegarde panier abandonné — compte connecté uniquement (l'email invité est
+  // désormais collecté à l'étape compte du tunnel, plus au panier).
   useEffect(() => {
-    if (step === 2) deliveryRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, [step]);
-
-  // Sauvegarde panier abandonné — connecté (user.email) OU invité (guestEmail valide).
-  // Sans email exploitable, la quasi-totalité des visiteurs (achat invité) n'était
-  // jamais enregistrée dans abandoned_carts, donc jamais relancée.
-  useEffect(() => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const guest = guestEmail.trim();
-    const email = user?.email ?? (guest && emailRegex.test(guest) ? guest : "");
+    const email = user?.email ?? "";
     if (!email || items.length === 0) return;
     const timeout = setTimeout(() => {
       fetch("/api/cart/save", {
@@ -419,7 +246,7 @@ export default function CartPage() {
       }).catch(e => process.env.NODE_ENV !== "production" && console.error("Cart save error:", e));
     }, 3000);
     return () => clearTimeout(timeout);
-  }, [items, user, subtotal, guestEmail]);
+  }, [items, user, subtotal]);
 
   async function applyPromo() {
     const code = promoCode.trim().toUpperCase();
@@ -459,17 +286,16 @@ export default function CartPage() {
   // le cumul (permet d'en ajouter un 2e). Un code exclusif masque le champ.
   const canAddPromo = promoCodes.length === 0 || promoCodes.every(p => p.cumulable);
 
-  // ── Parrainage : récompenses + réglages du compte connecté ────────────────
+  // ── Parrainage : réglages du compte connecté (montant/seuil pour l'affichage) ──
   useEffect(() => {
     const token = session?.access_token;
-    if (!token) { setMeRewards([]); setMeSettings(null); return; }
+    if (!token) { setMeSettings(null); return; }
     fetch("/api/parrainage/me", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => (r.ok ? r.json() : null))
       .then((d: any) => {
         if (!d || d.error) return;
         setMeActif(d.actif !== false);
         if (d.settings) setMeSettings(d.settings as ParrainageSettings);
-        setMeRewards(Array.isArray(d.rewards_usable) ? d.rewards_usable : []);
       })
       .catch(() => {});
   }, [session?.access_token]);
@@ -482,7 +308,7 @@ export default function CartPage() {
       const res = await fetch("/api/parrainage/validate", {
         method:  "POST",
         headers: { "Content-Type": "application/json", ...(token ? { Authorization: `Bearer ${token}` } : {}) },
-        body:    JSON.stringify({ code: parrainCode.trim(), email: user?.email ?? (guestEmail.trim() || null) }),
+        body:    JSON.stringify({ code: parrainCode.trim(), email: user?.email ?? null }),
       });
       const data = await res.json();
       if (!data.valid) throw new Error(data.error ?? "Code parrain invalide");
@@ -495,109 +321,22 @@ export default function CartPage() {
   }
 
   function removeParrain() { setParrainData(null); setParrainCode(""); setParrainError(""); }
-  function toggleReward(id: string) {
-    setSelectedRewardIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]));
-  }
 
-  async function handleCheckout() {
-    if ((items.length === 0 && packs.length === 0) || loading) return;
-    setGuestError("");
-    setCheckoutError("");
-
-    // Guest checkout : valider email si non connecté
-    if (!user) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!guestEmail.trim() || !emailRegex.test(guestEmail.trim())) {
-        setGuestError("Saisis un email valide pour continuer.");
-        setCheckoutError("Saisis un email valide pour continuer.");
-        return;
-      }
-    }
-
-    // Vérifier téléphone
-    if (!isValidPhone(customerPhone)) {
-      setPhoneError("Numéro de téléphone obligatoire (10 chiffres).");
-      setCheckoutError("Veuillez saisir un numéro de téléphone valide.");
-      return;
-    }
-    // Vérifier que la livraison est complète
-    if (!deliveryReady) {
-      setCheckoutError("Veuillez compléter votre choix de livraison.");
-      return;
-    }
-
-    // Tracking begin_checkout (GA4) + InitiateCheckout (Meta) — non bloquant.
-    const cartValue = items.reduce((a, it) => a + (it.price ?? 0) * (it.quantity ?? 1), 0);
-    const numItems  = items.reduce((a, it) => a + (it.quantity ?? 1), 0);
-    trackBeginCheckout(
-      items.map(it => ({
-        id:       it.id,
-        name:     it.name,
-        price:    it.price,
-        quantity: it.quantity,
-        category: it.category_slug,
-        variant:  it.taille ?? it.couleur,
-        slug:     it.slug,
-      })),
-      cartValue,
-      promoCodes.length > 0 ? promoCodes.map(p => p.code).join("+") : undefined,
-    );
-    metaInitiateCheckout(cartValue, numItems);
-    // ✅ Sauvegarder l'email guest pour la success page (conversion panier abandonné)
-    if (!user && guestEmail.trim()) {
-      try { localStorage.setItem("milk_guest_email", guestEmail.trim().toLowerCase()); } catch {}
-    }
-    setLoading(true);
+  // ── PONT D'ÉTAT panier → tunnel ────────────────────────────────────────────
+  // « Valider » : écrit les codes promo (ValidatedPromo[]) + le code parrain saisis
+  // ici dans sessionStorage sous la clé milk_checkout_state — MÊME format que celui
+  // hydraté par le CheckoutContext. Merge NON destructif (préserve un état tunnel
+  // déjà présent : email, téléphone, pays, livraison…). Les produits/packs, eux, sont
+  // relus par le Context depuis milk_cart_v2 / milk_pack_cart. Puis on navigue vers
+  // l'étape compte.
+  function goToCheckout() {
     try {
-      const isRelayType = deliveryType === "point_relais" || deliveryType === "locker";
-      const res  = await fetch("/api/checkout/create-session", {
-        method:  "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Token pour identifier le compte (récompenses méca 2 — serveur only).
-          ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
-        },
-        body:    JSON.stringify({
-          items,
-          // Packs : envoyés en sélection (pack_id + taille choisie + qty). Le
-          // serveur recalcule le forfait + les tailles par pièce depuis la base.
-          packs: packs.map(p => ({ pack_id: p.pack_id, size: p.size, quantity: p.quantity })),
-          // ⚠️ promo_code / parrain_code / reward_ids : TOUT est RE-VALIDÉ et
-          // RE-CALCULÉ côté serveur (validatePromoCode + validateParrainCode +
-          // computeParrainage). Le client ne peut forger aucune remise.
-          // Cumul : liste de TOUS les codes appliqués. create-session re-valide et
-          // recombine (dégradation gracieuse). `promo_code` (1er) laissé pour compat.
-          promo_codes:    promoCodes.map(p => p.code),
-          promo_code:     promoCodes[0]?.code ?? null,
-          parrain_code:   parrainData?.code  ?? null,
-          reward_ids:     selectedRewardIds,
-          customer_email: user?.email ?? guestEmail.trim(),
-          customer_phone: customerPhone.trim(),
-          carrier,
-          delivery_type:  deliveryType,
-          relay:          isRelayType && selectedRelay ? {
-            id:          selectedRelay.id,
-            name:        selectedRelay.name,
-            street:      selectedRelay.street,
-            city:        selectedRelay.city,
-            postal_code: selectedRelay.postal_code,
-            type:        deliveryType,
-          } : null,
-          home_address:   deliveryType === "home" ? homeAddress : null,
-          locale,
-        }),
-      });
-      const data = await res.json();
-      if (data.url) {
-        window.location.href = data.url;
-        return;
-      }
-      setCheckoutError(data.error ?? "Erreur lors du paiement. Réessaie.");
-    } catch (e: any) {
-      setCheckoutError(e?.message ?? "Erreur réseau. Réessaie.");
-    } finally {
-      setLoading(false);
-    }
+      const KEY = "milk_checkout_state";
+      let existing: Record<string, unknown> = {};
+      try { existing = JSON.parse(sessionStorage.getItem(KEY) ?? "{}") || {}; } catch {}
+      sessionStorage.setItem(KEY, JSON.stringify({ ...existing, promoCodes, parrainData }));
+    } catch {}
+    router.push("/checkout/compte");
   }
 
   return (
@@ -632,21 +371,17 @@ export default function CartPage() {
             {/* ── Articles ── */}
             <div style={{ display: "grid", gap: 12 }}>
 
-              {/* Barre livraison gratuite — 3 états :
-                  - promo code-driven      : "Livraison offerte avec ton code promo"
-                  - seuil atteint sur BRUT : "Livraison offerte"
-                  - sinon                  : barre de progression vers le seuil */}
+              {/* Phrase d'info livraison (remplace le détail transporteurs — le prix
+                  de port est affiché à l'étape livraison du tunnel). */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                {comboOk?.free_shipping ? (
+                {freeShippingEligible ? (
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
-                    ✓ Livraison offerte avec ton code promo !
+                    ✓ Livraison offerte en France métropolitaine
                   </div>
-                ) : shippingFree ? (
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>✓ Livraison offerte !</div>
                 ) : remaining > 0 ? (
                   <>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
-                      Plus que <strong>{remaining.toFixed(2)} €</strong> pour la livraison offerte
+                      Plus que <strong>{remaining.toFixed(2)} €</strong> pour la livraison offerte en France métropolitaine
                     </div>
                     <div style={{ height: 6, background: "#ede8df", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: "#c49a4a", borderRadius: 99, transition: "width 0.4s ease" }} />
@@ -654,7 +389,7 @@ export default function CartPage() {
                   </>
                 ) : (
                   <div style={{ fontSize: 14, fontWeight: 700, color: "rgba(26,20,16,0.55)" }}>
-                    Livraison : <strong style={{ color: "#1a1410" }}>{shipping.toFixed(2)} €</strong>
+                    Livraison calculée à l'étape suivante.
                   </div>
                 )}
               </div>
@@ -798,51 +533,6 @@ export default function CartPage() {
                 )}
               </div>
               )}
-
-              {/* Mes récompenses parrainage (compte connecté) — barème PROGRESSIF */}
-              {user && meActif && meRewards.length > 0 && (
-                <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Mes récompenses parrainage 🎉</div>
-                  <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
-                    {parrainageCalc.rewardsUnlocked > 0
-                      ? `Coche jusqu'à ${parrainageCalc.rewardsUnlocked} récompense${parrainageCalc.rewardsUnlocked > 1 ? "s" : ""} sur cette commande — débloquées par paliers.`
-                      : `Ajoute ${parrainageCalc.rewardsShortfall.toFixed(2)} € pour débloquer ta 1ʳᵉ récompense.`}
-                  </div>
-                  <div style={{ display: "grid", gap: 8 }}>
-                    {meRewards.map((r, i) => {
-                      const tier         = parrainageSettingsForCalc.seuils_parrain[i]; // seuil de la position i
-                      const tierUnlocked = i < parrainageCalc.rewardsUnlocked;          // débloquée (barème + plafond max)
-                      const checked      = selectedRewardIds.includes(r.id);
-                      const capReached   = !checked && selectedRewardIds.length >= parrainageCalc.rewardsUnlocked;
-                      const disabled     = !tierUnlocked || capReached;
-                      const manque       = tier != null ? Math.max(0, tier - parrainageCalc.totalApresParrain) : 0;
-                      const ord          = i === 0 ? "1ʳᵉ" : `${i + 1}ᵉ`;
-                      return (
-                        <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: disabled ? "rgba(26,20,16,0.04)" : "#ede8df", opacity: disabled ? 0.55 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
-                          <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleReward(r.id)} />
-                          <span style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>− {r.montant.toFixed(2)} €</span>
-                          {!tierUnlocked && tier != null ? (
-                            <span style={{ marginLeft: "auto", fontSize: 12, color: "#b45309", fontWeight: 700, textAlign: "right" }}>
-                              ajoute {manque.toFixed(2)} € pour débloquer la {ord} remise
-                            </span>
-                          ) : !tierUnlocked && tier == null ? (
-                            <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
-                              max {parrainageSettingsForCalc.max_recompenses_par_commande} / commande
-                            </span>
-                          ) : (
-                            <span style={{ marginLeft: "auto", fontSize: 12, color: r.days_left <= 7 ? "#b45309" : "rgba(26,20,16,0.45)", fontWeight: 600 }}>
-                              expire dans {r.days_left} j
-                            </span>
-                          )}
-                        </label>
-                      );
-                    })}
-                  </div>
-                  <div style={{ marginTop: 10, fontSize: 11.5, color: "rgba(26,20,16,0.4)", lineHeight: 1.5 }}>
-                    Les remises finales sont confirmées au paiement.
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* ── Récapitulatif ── */}
@@ -867,308 +557,21 @@ export default function CartPage() {
                       <span style={{ fontWeight: 800 }}>− {parrainDiscount.toFixed(2)} €</span>
                     </div>
                   )}
-                  {rewardDiscount > 0 && (
-                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Récompenses ({parrainageCalc.rewardsUsable})</span>
-                      <span style={{ fontWeight: 800 }}>− {rewardDiscount.toFixed(2)} €</span>
-                    </div>
-                  )}
-                  <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
-                    <span>Livraison</span>
-                    {!carrier || !deliveryType ? (
-                      <span style={{ fontWeight: 700, color: "rgba(26,20,16,0.4)", fontStyle: "italic" }}>
-                        À calculer
-                      </span>
-                    ) : shippingFree ? (
-                      <span style={{ fontWeight: 700, color: "#16a34a" }}>
-                        Offerte
-                      </span>
-                    ) : (
-                      <span style={{ fontWeight: 700 }}>
-                        {shipping.toFixed(2)} €
-                      </span>
-                    )}
-                  </div>
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
-                    <span>Total TTC</span>
+                    <span>Total <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.45)" }}>(hors livraison)</span></span>
                     <span>{grandTotal.toFixed(2)} €</span>
                   </div>
+                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
+                    Livraison choisie et calculée à l'étape suivante.
+                  </div>
                 </div>
 
-                {/* ══ ÉTAPE 2 : choix de livraison + confirmation (révélée au clic étape 1) ══ */}
-                {step === 2 && (
-                <div ref={deliveryRef}>
-                {/* ── MODE DE LIVRAISON ── 2 transporteurs × 5 options ───── */}
-                <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
-
-                  {/* Section Mondial Relay — 3 options, badge "Le moins cher" sur Point Relais */}
-                  <div style={{ marginBottom: 16 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                        📦 Mondial Relay
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>{DELIVERY_DELAY.mondial_relay}</div>
-                    </div>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {([
-                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Retrait chez un commerçant", price: getDeliveryPrice("mondial_relay", "point_relais"), badge: "Le moins cher" },
-                        { type: "locker"       as const, icon: "🔒", label: "Locker",           sub: "Consigne automatique 24/7",  price: getDeliveryPrice("mondial_relay", "locker"), badge: null },
-                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",       price: getDeliveryPrice("mondial_relay", "home"),   badge: null },
-                      ]).map(opt => {
-                        const active = carrier === "mondial_relay" && deliveryType === opt.type;
-                        return (
-                          <button
-                            key={`mr-${opt.type}`}
-                            onClick={() => switchDelivery("mondial_relay", opt.type)}
-                            style={{
-                              display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
-                              padding: "11px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                              border: `2px solid ${active ? "#1a1410" : "rgba(26,20,16,0.1)"}`,
-                              background: active ? "#1a1410" : "#fff", color: active ? "#f2ede6" : "#1a1410",
-                              fontFamily: "inherit", position: "relative",
-                            }}>
-                            <span style={{ fontSize: 20 }}>{opt.icon}</span>
-                            <span>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                <span style={{ fontSize: 14, fontWeight: 800 }}>{opt.label}</span>
-                                {opt.badge && (
-                                  <span style={{ padding: "1px 7px", borderRadius: 99, background: active ? "rgba(196,154,74,0.2)" : "#dcfce7", color: active ? "#c49a4a" : "#166534", fontSize: 10, fontWeight: 800, letterSpacing: 0.5 }}>
-                                    {opt.badge}
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
-                            </span>
-                            {/* Seuil livraison offerte atteint → prix barré + « Gratuit »
-                                pour CHAQUE option (même condition que le total « Offerte »). */}
-                            <span style={{ display: "grid", justifyItems: "end", gap: 1 }}>
-                              {freeShippingEligible ? (
-                                <>
-                                  <span style={{ fontSize: 12, fontWeight: 700, textDecoration: "line-through", color: active ? "rgba(242,237,230,0.55)" : "rgba(26,20,16,0.4)" }}>{opt.price.toFixed(2)} €</span>
-                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>Gratuit</span>
-                                </>
-                              ) : (
-                                <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
-                              )}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Section Colissimo — 2 options, badge "Le plus rapide" sur les 2 */}
-                  <div style={{ marginBottom: 14 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                      <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                        🚀 Colissimo / La Poste
-                      </div>
-                      <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>{DELIVERY_DELAY.colissimo}</div>
-                    </div>
-                    <div style={{ display: "grid", gap: 6 }}>
-                      {([
-                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Bureau de Poste ou commerçant", price: getDeliveryPrice("colissimo", "point_relais"), badge: "Le plus rapide" },
-                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",          price: getDeliveryPrice("colissimo", "home"),         badge: "Le plus rapide" },
-                      ]).map(opt => {
-                        const active = carrier === "colissimo" && deliveryType === opt.type;
-                        return (
-                          <button
-                            key={`col-${opt.type}`}
-                            onClick={() => switchDelivery("colissimo", opt.type)}
-                            style={{
-                              display: "grid", gridTemplateColumns: "auto 1fr auto", gap: 10, alignItems: "center",
-                              padding: "11px 14px", borderRadius: 12, cursor: "pointer", textAlign: "left",
-                              border: `2px solid ${active ? "#1a1410" : "rgba(26,20,16,0.1)"}`,
-                              background: active ? "#1a1410" : "#fff", color: active ? "#f2ede6" : "#1a1410",
-                              fontFamily: "inherit",
-                            }}>
-                            <span style={{ fontSize: 20 }}>{opt.icon}</span>
-                            <span>
-                              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                                <span style={{ fontSize: 14, fontWeight: 800 }}>{opt.label}</span>
-                                {opt.badge && (
-                                  <span style={{ padding: "1px 7px", borderRadius: 99, background: active ? "rgba(196,154,74,0.2)" : "#dbeafe", color: active ? "#c49a4a" : "#1e40af", fontSize: 10, fontWeight: 800, letterSpacing: 0.5 }}>
-                                    {opt.badge}
-                                  </span>
-                                )}
-                              </div>
-                              <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>{opt.sub}</div>
-                            </span>
-                            {/* Seuil livraison offerte atteint → prix barré + « Gratuit »
-                                pour CHAQUE option (même condition que le total « Offerte »). */}
-                            <span style={{ display: "grid", justifyItems: "end", gap: 1 }}>
-                              {freeShippingEligible ? (
-                                <>
-                                  <span style={{ fontSize: 12, fontWeight: 700, textDecoration: "line-through", color: active ? "rgba(242,237,230,0.55)" : "rgba(26,20,16,0.4)" }}>{opt.price.toFixed(2)} €</span>
-                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>Gratuit</span>
-                                </>
-                              ) : (
-                                <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
-                              )}
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-
-                  {/* Sélecteur de point relais / locker — extrait en composant
-                      partagé (récap + bouton « choisir » + modale de recherche). */}
-                  <RelaySelector
-                    carrier={carrier}
-                    deliveryType={deliveryType}
-                    value={selectedRelay}
-                    onChange={setSelectedRelay}
-                    open={relayModalOpen}
-                    onOpenChange={setRelayModalOpen}
-                    postalSearch={postalSearch}
-                    onPostalSearchChange={setPostalSearch}
-                    resetKey={relayResetKey}
-                  />
-
-                  {/* Adresse domicile */}
-                  {deliveryType === "home" && (
-                    <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 8, marginBottom: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>🏠 Adresse de livraison</div>
-                      <input type="text" autoComplete="name" placeholder="Prénom Nom"
-                        value={homeAddress.name} onChange={e => setHomeAddress(a => ({ ...a, name: e.target.value }))}
-                        style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
-                      <input type="text" autoComplete="street-address" placeholder="Adresse complète"
-                        value={homeAddress.line1} onChange={e => setHomeAddress(a => ({ ...a, line1: e.target.value }))}
-                        style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
-                      <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 8 }}>
-                        <input type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="CP"
-                          value={homeAddress.postal_code} onChange={e => setHomeAddress(a => ({ ...a, postal_code: e.target.value.replace(/\D/g, "") }))}
-                          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontFamily: "monospace", outline: "none", background: "#fff" }} />
-                        <input type="text" autoComplete="address-level2" placeholder="Ville"
-                          value={homeAddress.city} onChange={e => setHomeAddress(a => ({ ...a, city: e.target.value }))}
-                          style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
-                      </div>
-                    </div>
-                  )}
-                </div>{/* fin « Mode de livraison » */}
-
-                {checkoutError && (
-                  <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
-                    ⚠ {checkoutError}
-                  </div>
-                )}
-                {!deliveryReady && deliveryType && (
-                  <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                    Veuillez compléter votre choix de livraison
-                  </div>
-                )}
-                <button onClick={handleCheckout} disabled={loading || !finalPayReady}
-                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || !finalPayReady) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || !finalPayReady) ? "not-allowed" : "pointer", marginBottom: 10 }}>
-                  {loading ? "Redirection..." : "Confirmer et payer →"}
+                {/* « Valider » → pont d'état (codes → CheckoutContext) + tunnel /checkout/compte */}
+                <button onClick={goToCheckout}
+                  style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: "pointer", marginBottom: 12 }}>
+                  Valider →
                 </button>
-                <button onClick={() => { setCheckoutError(""); setStep(1); }}
-                  style={{ width: "100%", padding: "11px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }}>
-                  ← Modifier mes informations
-                </button>
-                </div>
-                )}{/* fin étape 2 */}
-
-                {/* ══ ÉTAPE 1 : compte + téléphone ══ */}
-                {step === 1 && (
-                <>
-                  {/* Choix compte / invité — « Créer un compte » mis en avant (recommandé),
-                      paiement invité toujours possible. Au-dessus du bouton de l'étape 1. */}
-                  {!user && (
-                    <div style={{ background: "#1a1410", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(196,154,74,0.3)", marginBottom: 10 }}>
-                      {/* Option recommandée : créer un compte (amber + pulse doux) */}
-                      <Link href="/inscription?redirect=/panier"
-                        style={{ display: "block", padding: "14px 18px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, textDecoration: "none", textAlign: "center", animation: "milk-cart-glow 1.8s ease-in-out infinite" }}>
-                        Créer un compte →
-                      </Link>
-                      <div style={{ fontSize: 12, color: "rgba(242,237,230,0.6)", marginTop: 8, textAlign: "center", lineHeight: 1.5 }}>
-                        ✨ Recommandé — suivi de commande, historique et avantages membres.
-                      </div>
-
-                      {/* Séparateur */}
-                      <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 14px" }}>
-                        <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.12)" }} />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.4)" }}>ou</span>
-                        <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.12)" }} />
-                      </div>
-
-                      {/* Option neutre : payer sans compte */}
-                      <div style={{ fontSize: 14, fontWeight: 800, color: "#f2ede6", marginBottom: 4 }}>
-                        Payer sans créer de compte
-                      </div>
-                      <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 12, lineHeight: 1.6 }}>
-                        Entre ton email pour recevoir la confirmation et suivre ta livraison.
-                      </div>
-                      <input
-                        type="email"
-                        inputMode="email"
-                        autoComplete="email"
-                        value={guestEmail}
-                        onChange={e => { setGuestEmail(e.target.value); setGuestError(""); }}
-                        placeholder="ton@email.fr"
-                        style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: guestError ? "1.5px solid #ef4444" : "1px solid rgba(242,237,230,0.15)", fontSize: 14, fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "#f2ede6", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
-                      />
-                      {guestError && (
-                        <div style={{ fontSize: 13, color: "#f87171", fontWeight: 700, marginBottom: 8 }}>⚠ {guestError}</div>
-                      )}
-                      <Link href="/connexion?redirect=/panier"
-                        style={{ display: "inline-block", marginTop: 2, color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "underline" }}>
-                        J'ai déjà un compte
-                      </Link>
-                    </div>
-                  )}
-
-                  {/* Téléphone — obligatoire (Sendcloud exige phone_number). En étape 1,
-                      affiché sans condition transporteur (collecté avant la livraison). */}
-                  <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 6, marginBottom: 10 }}>
-                    <label style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
-                      📞 Numéro de téléphone <span style={{ color: "#b91c1c" }}>*</span>
-                    </label>
-                    <input
-                      type="tel"
-                      inputMode="tel"
-                      autoComplete="tel"
-                      placeholder="Ex : 06 12 34 56 78"
-                      value={customerPhone}
-                      onChange={e => { setCustomerPhone(e.target.value); setPhoneError(""); }}
-                      onBlur={() => {
-                        if (customerPhone && !isValidPhone(customerPhone)) {
-                          setPhoneError("Format invalide (10 chiffres, ex : 06 12 34 56 78 ou +33 6 12 34 56 78)");
-                        }
-                      }}
-                      style={{ padding: "10px 12px", borderRadius: 8, border: phoneError ? "1.5px solid #b91c1c" : "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }}
-                    />
-                    {phoneError && (
-                      <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>⚠ {phoneError}</div>
-                    )}
-                    <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", lineHeight: 1.5 }}>
-                      Utilisé par le transporteur pour vous prévenir en cas de problème de livraison.
-                    </div>
-                  </div>
-
-                  {checkoutError && (
-                    <div role="alert" style={{ background: "#fee2e2", border: "1px solid #fca5a5", color: "#b91c1c", borderRadius: 10, padding: "10px 14px", fontSize: 13, fontWeight: 700, marginBottom: 10 }}>
-                      ⚠ {checkoutError}
-                    </div>
-                  )}
-                  {!emailReady && cartNonEmpty && (
-                    <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                      Saisis ton email ci-dessus pour continuer.
-                    </div>
-                  )}
-                  {emailReady && !phoneOk && cartNonEmpty && (
-                    <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                      Saisis un numéro de téléphone valide pour continuer.
-                    </div>
-                  )}
-                  <button onClick={() => { setCheckoutError(""); setStep(2); }} disabled={!step1Ready}
-                    style={{ width: "100%", padding: "16px", borderRadius: 14, background: !step1Ready ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: !step1Ready ? "not-allowed" : "pointer", marginBottom: 12 }}>
-                    Passer au paiement →
-                  </button>
-                </>
-                )}{/* fin étape 1 */}
 
                 <button onClick={handleClearCart}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>

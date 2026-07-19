@@ -15,6 +15,8 @@ function escapeHtml(s: string): string {
     .replace(/'/g, "&#39;");
 }
 
+const sleep = (ms: number) => new Promise<void>(r => setTimeout(r, ms));
+
 /**
  * Envoi d'une newsletter à tous les abonnés actifs.
  *
@@ -79,40 +81,97 @@ export async function POST(req: NextRequest) {
     recipients.push({ email: s.email, token });
   }
 
-  const BATCH = 100; // resend.batch.send : max 100 emails distincts par appel
-  let sent = 0;
-  let failed = 0;
+  const RESEND_BATCH = 100; // resend.batch.send : max 100 emails distincts par appel
+  const MAX_ATTEMPTS = 3;   // tentatives par tranche (échec global ou par-email)
 
-  for (let i = 0; i < recipients.length; i += BATCH) {
-    const slice = recipients.slice(i, i + BATCH);
-    const payloads = slice.map(r => {
-      const unsubUrl = `${BASE}/api/newsletter/unsubscribe?token=${r.token}`;
-      const personalizedHtml = baseHtml.replace(/\{\{UNSUB_LINK\}\}/g, unsubUrl);
-      return {
-        from:    "M!LK <contact@milkbebe.fr>",
-        to:      [r.email],
-        subject,
-        html:    personalizedHtml,
-        replyTo: "contact@milkbebe.fr",
-      };
-    });
-    try {
-      const { error: batchErr } = await resend.batch.send(payloads);
-      if (batchErr) failed += slice.length;
-      else          sent   += slice.length;
-    } catch {
-      failed += slice.length;
+  // Personnalisation par destinataire (UNSUB_LINK tokenisé). Remplacement par
+  // FONCTION (cohérence avec le preheader) : n'interprète pas les séquences $ de
+  // l'URL de remplacement — inoffensif ici (URL sans $) mais uniforme.
+  const buildPayload = (r: { email: string; token: string }) => {
+    const unsubUrl = `${BASE}/api/newsletter/unsubscribe?token=${r.token}`;
+    return {
+      from:    "M!LK <contact@milkbebe.fr>",
+      to:      [r.email],
+      subject,
+      html:    baseHtml.replace(/\{\{UNSUB_LINK\}\}/g, () => unsubUrl),
+      replyTo: "contact@milkbebe.fr",
+    };
+  };
+
+  let sent = 0;
+  const failures: { email: string; error: string }[] = [];
+
+  for (let i = 0; i < recipients.length; i += RESEND_BATCH) {
+    // On ne retente QUE les adresses encore en échec (les OK sont retirées de
+    // `pending`) → jamais de renvoi à un destinataire déjà servi = pas de doublon.
+    let pending  = recipients.slice(i, i + RESEND_BATCH);
+    let idemKey  = randomUUID(); // clé stable pour CE set → retry same-set dédupliqué par Resend
+    let lastError = "échec d'envoi";
+
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS && pending.length > 0; attempt++) {
+      let topError: string | null = null;
+      let perEmailErrors: { index: number; message: string }[] = [];
+
+      try {
+        // batchValidation:'permissive' → Resend ENVOIE les adresses valides et
+        // renvoie les invalides dans data.errors[{index,message}], au lieu de
+        // rejeter tout le lot pour une seule mauvaise adresse (mode 'strict').
+        // idempotencyKey → retry sûr du même set sans double envoi.
+        const resp = await resend.batch.send(pending.map(buildPayload), {
+          batchValidation: "permissive",
+          idempotencyKey:  idemKey,
+        });
+        if (resp.error) {
+          topError = resp.error.message || "erreur batch Resend";
+        } else {
+          const ok = resp.data as { data: { id: string }[]; errors?: { index: number; message: string }[] };
+          perEmailErrors = ok?.errors ?? [];
+        }
+      } catch (e: any) {
+        topError = e?.message || "exception réseau";
+      }
+
+      if (topError) {
+        // Échec GLOBAL (transitoire : rate limit / 5xx / réseau) → on retente le
+        // MÊME set (même clé d'idempotence) après un backoff qui absorbe un
+        // éventuel rate limit Resend. `pending` inchangé.
+        lastError = topError;
+        if (attempt < MAX_ATTEMPTS) await sleep(attempt * 800);
+        continue;
+      }
+
+      // Succès (permissif) : tout ce qui n'est PAS dans perEmailErrors est envoyé.
+      const failedByIdx = new Map(perEmailErrors.map(e => [e.index, e.message] as const));
+      const stillFailing: typeof pending = [];
+      pending.forEach((r, idx) => {
+        if (failedByIdx.has(idx)) { stillFailing.push(r); lastError = failedByIdx.get(idx) || lastError; }
+        else sent++;
+      });
+
+      if (stillFailing.length === 0) { pending = []; break; }
+
+      // Adresses encore en échec → set plus petit = NOUVELLE clé d'idempotence
+      // (nouvelle opération ; ces adresses n'ont PAS été envoyées → pas de doublon).
+      pending = stillFailing;
+      idemKey = randomUUID();
+      if (attempt < MAX_ATTEMPTS) await sleep(attempt * 800);
     }
+
+    // Ce qui reste après MAX_ATTEMPTS = échecs définitifs.
+    for (const r of pending) failures.push({ email: r.email, error: lastError });
   }
 
-  // Trace dans le journal d'activité (best-effort)
+  const failed = failures.length;
+
+  // Trace dans le journal d'activité (best-effort) — inclut la LISTE précise des
+  // adresses en échec, pour que l'admin sache QUI relancer sans re-spammer tout le monde.
   try {
     await supabaseServer.from("activity_log").insert([{
       type:    "newsletter_send",
-      message: `Newsletter envoyée : "${subject}" — ${sent}/${recipients.length} OK`,
-      meta:    { subject, sent, failed, total: recipients.length },
+      message: `Newsletter envoyée : "${subject}" — ${sent}/${recipients.length} OK${failed ? ` — ${failed} échec(s)` : ""}`,
+      meta:    { subject, sent, failed, total: recipients.length, failed_emails: failures },
     }]);
   } catch {}
 
-  return NextResponse.json({ ok: true, sent, failed, total: recipients.length });
+  return NextResponse.json({ ok: true, sent, failed, total: recipients.length, failed_emails: failures });
 }

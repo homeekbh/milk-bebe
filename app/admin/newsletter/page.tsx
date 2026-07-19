@@ -177,9 +177,9 @@ export default function NewsletterAdminPage() {
     lastCursorRef.current = { start: ta.selectionStart, end: ta.selectionEnd };
   };
 
-  const showToast = (msg: string, ok = true) => {
+  const showToast = (msg: string, ok = true, durationMs = 4000) => {
     setToast({ msg, ok });
-    setTimeout(() => setToast(null), 4000);
+    setTimeout(() => setToast(null), durationMs);
   };
 
   useEffect(() => { load(); }, []);
@@ -412,11 +412,21 @@ export default function NewsletterAdminPage() {
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
       const n = data.sent ?? actifs;
-      showToast(
-        `✓ Newsletter envoyée à ${n} abonné${n > 1 ? "s" : ""}` +
-        (data.failed ? ` — ${data.failed} échec${data.failed > 1 ? "s" : ""}` : ""),
-        true
-      );
+      const fails: { email: string; error: string }[] = Array.isArray(data.failed_emails) ? data.failed_emails : [];
+      if (fails.length === 0) {
+        showToast(`✓ Newsletter envoyée à ${n} abonné${n > 1 ? "s" : ""}`, true);
+      } else {
+        // Adresses à relancer affichées directement (les 12 premières) pour ne
+        // pas avoir à rouvrir le journal. Toast rouge + durée allongée : une
+        // relance ciblée est requise. Liste complète aussi dans activity_log.
+        const shown = fails.slice(0, 12).map(f => f.email).join(", ");
+        const extra = fails.length > 12 ? ` +${fails.length - 12} autre${fails.length - 12 > 1 ? "s" : ""}` : "";
+        showToast(
+          `✓ Envoyée à ${n} abonné${n > 1 ? "s" : ""} — ${fails.length} échec${fails.length > 1 ? "s" : ""} à relancer : ${shown}${extra}`,
+          false,
+          12000
+        );
+      }
     } catch (e: unknown) {
       showToast("✕ " + (e instanceof Error ? e.message : "Erreur d'envoi"), false);
     } finally {

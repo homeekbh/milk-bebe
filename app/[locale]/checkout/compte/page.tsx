@@ -90,6 +90,23 @@ export default function CheckoutComptePage() {
     setLoading(true);
     const { data, error: e } = await supabase.auth.signUp({ email: email.trim(), password });
     if (e || !data.user) { setError(t(authErrorKey(e?.message))); setLoading(false); return; }
+    // Ligne profiles MINIMALE (comme /inscription) → le trigger trg_set_parrain_code
+    // génère le parrain_code. Évite un compte auth sans profil ni code parrain.
+    // Best-effort : n'échoue PAS le flux si l'insert rate. Nom vides (non collectés
+    // au checkout) → complétables dans /profil. UNIQUEMENT sur ce chemin "créer un
+    // compte" : ni la connexion (profil déjà présent) ni l'invité (pas de compte).
+    const { error: pErr } = await supabase.from("profiles").insert([{
+      id:         data.user.id,
+      email:      email.trim(),
+      first_name: "",
+      last_name:  "",
+      prenom:     "",
+      nom:        "",
+      phone:      state.phone.trim(),
+      telephone:  state.phone.trim(),
+      newsletter: true,
+    }]);
+    if (pErr) process.env.NODE_ENV !== "production" && console.error("[checkout/compte] profiles insert:", pErr.message);
     // Email de bienvenue (fire-and-forget), comme /inscription.
     fetch("/api/emails/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), prenom: "" }) }).catch(() => {});
     setLoading(false);

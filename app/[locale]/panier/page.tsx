@@ -329,6 +329,12 @@ export default function CartPage() {
   // déjà présent : email, téléphone, pays, livraison…). Les produits/packs, eux, sont
   // relus par le Context depuis milk_cart_v2 / milk_pack_cart. Puis on navigue vers
   // l'étape compte.
+  //
+  // ⚠️ ROBUSTESSE : ce pont DÉPEND du CheckoutProvider scopé au layout /checkout
+  // (app/[locale]/checkout/layout.tsx) — il se ré-hydrate en se montant à l'entrée du
+  // tunnel. Si on le remontait au layout racine, il resterait monté ici sur /panier,
+  // ne relirait JAMAIS ce write, et les codes seraient perdus. Voir l'avertissement
+  // détaillé dans checkout/layout.tsx AVANT de toucher au montage du Provider.
   function goToCheckout() {
     try {
       const KEY = "milk_checkout_state";

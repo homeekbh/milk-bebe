@@ -80,17 +80,39 @@ function shippingWeight(weight_g: any): string {
   return "0.20 kg";
 }
 
+// Images additionnelles : dédup + exclusion de l'URL déjà utilisée comme image
+// principale (Google refuse un g:additional_image_link identique à g:image_link).
+function dedupExcluding(urls: any[], exclude: string): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const u of urls) {
+    const s = String(u ?? "");
+    if (!s || s === exclude || seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
 function itemXml(opts: {
   id: string; title: string; description: string; link: string; image: string;
+  additionalImages: string[];
   price: string; salePrice?: string; availability: string; color: string;
   size: string; groupId: string; weight: string; category: string;
 }): string {
+  // Google : jusqu'à 10 images additionnelles, aucune identique à l'image
+  // principale. Garde-fou ici même si l'appelant a déjà dédupé/filtré.
+  const extraImages = (opts.additionalImages ?? [])
+    .filter((u) => u && u !== opts.image)
+    .slice(0, 10)
+    .map((u) => `\n      <g:additional_image_link>${xmlEscape(u)}</g:additional_image_link>`)
+    .join("");
   return `    <item>
       <g:id>${xmlEscape(opts.id)}</g:id>
       <g:title>${xmlEscape(opts.title)}</g:title>
       <g:description>${opts.description}</g:description>
       <g:link>${xmlEscape(opts.link)}</g:link>
-      <g:image_link>${xmlEscape(opts.image)}</g:image_link>
+      <g:image_link>${xmlEscape(opts.image)}</g:image_link>${extraImages}
       <g:price>${opts.price}</g:price>${opts.salePrice ? `\n      <g:sale_price>${opts.salePrice}</g:sale_price>` : ""}
       <g:availability>${opts.availability}</g:availability>
       <g:brand>M!LK</g:brand>
@@ -115,7 +137,7 @@ export async function GET() {
   try {
     const { data, error } = await supabaseServer
       .from("products")
-      .select("id, slug, name, description, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, sizes, colors, weight_g, published")
+      .select("id, slug, name, description, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8, sizes, colors, weight_g, published")
       .eq("published", true)
       .order("position", { ascending: true });
 
@@ -130,6 +152,8 @@ export async function GET() {
       const salePrice = promoOn ? money(p.promo_price) : undefined;
       const weight    = shippingWeight(p.weight_g);
       const colors    = Array.isArray(p.colors) ? p.colors : [];
+      // Pool des images secondaires du produit (image_url_2..8, non vides).
+      const extras    = [p.image_url_2, p.image_url_3, p.image_url_4, p.image_url_5, p.image_url_6, p.image_url_7, p.image_url_8].filter(Boolean);
 
       if (colors.length > 0) {
         for (const c of colors) {
@@ -144,17 +168,22 @@ export async function GET() {
           const title  = normalizeStr(p.name).includes(normalizeStr(cName))
             ? p.name
             : `${p.name} — ${cName}`;
+          // Priorité à la VRAIE photo produit (image_url = image principale affichée
+          // sur la fiche/galerie) plutôt qu'à c.image_url (icône ronde 40×40 du sélecteur
+          // de motif, jamais prévue pour un affichage plein cadre). main_image_index est
+          // stocké mais non utilisé par la fiche (elle affiche image_url) → image_url
+          // garantit que le flux = l'image de la page produit.
+          const mainImage = p.image_url || c?.image_url || FALLBACK_IMG;
+          // Additionnelles : image_url + secondaires, privées de l'image principale
+          // et dédupées, plafonnées à 10.
+          const additionalImages = dedupExcluding([p.image_url, ...extras], mainImage).slice(0, 10);
           items.push(itemXml({
             id,
             title,
             description:  desc,
             link,
-            // Priorité à la VRAIE photo produit (image_url = image principale affichée
-            // sur la fiche/galerie) plutôt qu'à c.image_url (icône ronde 40×40 du sélecteur
-            // de motif, jamais prévue pour un affichage plein cadre). main_image_index est
-            // stocké mais non utilisé par la fiche (elle affiche image_url) → image_url
-            // garantit que le flux = l'image de la page produit.
-            image:        p.image_url || c?.image_url || FALLBACK_IMG,
+            image:        mainImage,
+            additionalImages,
             price,
             salePrice,
             availability: cStock > 0 ? "in_stock" : "out_of_stock",
@@ -167,12 +196,15 @@ export async function GET() {
         }
       } else {
         const stock = Number(p.stock ?? 0);
+        const mainImage = p.image_url || FALLBACK_IMG;
+        const additionalImages = dedupExcluding(extras, mainImage).slice(0, 10);
         items.push(itemXml({
           id:           p.slug,
           title:        p.name,
           description:  desc,
           link,
-          image:        p.image_url || FALLBACK_IMG,
+          image:        mainImage,
+          additionalImages,
           price,
           salePrice,
           availability: stock > 0 ? "in_stock" : "out_of_stock",

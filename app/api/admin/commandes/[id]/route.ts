@@ -307,14 +307,29 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       console.warn("[commandes/cancel] Colonnes optionnelles non disponibles (refund_id, refunded_at, cancelled_at, cancelled_reason). Migration ALTER TABLE à exécuter:", updateErr2.message);
     }
 
-    // 5. Envoyer email annulation au client (retry 3× + admin notif si fail)
-    const emailResult = await sendCancellationEmailWithRetry({
-      email:          order.customer_email,
-      prenom:         order.customer_name?.split(" ")[0] ?? "",
-      order_number:   orderId,
-      custom_message: body?.custom_message ?? null,
-      refund_amount:  refundAmount,
-    });
+    // 5. Verrou atomique anti-double-email : on n'envoie l'email d'annulation
+    // QUE si on gagne le claim (cancellation_email_sent_at NULL→now). Le webhook
+    // charge.refunded (chemin total) fait le MÊME claim → un seul des deux envoie,
+    // même si le webhook devance l'écriture de refund_amount par l'admin.
+    const { data: emailClaim } = await supabaseServer.from("orders")
+      .update({ cancellation_email_sent_at: new Date().toISOString() })
+      .eq("id", orderId).is("cancellation_email_sent_at", null)
+      .select("id").maybeSingle();
+
+    let emailResult: { ok: boolean; attempts: number; last_error: string | null };
+    if (emailClaim) {
+      // Claim gagné → envoi avec retry + notif admin si échec (comportement inchangé).
+      emailResult = await sendCancellationEmailWithRetry({
+        email:          order.customer_email,
+        prenom:         order.customer_name?.split(" ")[0] ?? "",
+        order_number:   orderId,
+        custom_message: body?.custom_message ?? null,
+        refund_amount:  refundAmount,
+      });
+    } else {
+      // Le webhook a déjà envoyé l'email d'annulation → pas de 2e envoi.
+      emailResult = { ok: true, attempts: 0, last_error: null };
+    }
 
     // 6. logActivity
     await logActivity("commande_annulee", `Commande #${orderId.slice(0,8)} annulée et remboursée (${refundAmount.toFixed(2)} €)`, {
@@ -326,6 +341,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         stock_restored:   stockResult.restored,
         stock_errors:     stockResult.errors,
         email_sent:       emailResult.ok,
+        email_claimed:    !!emailClaim,
         email_attempts:   emailResult.attempts,
         email_last_error: emailResult.last_error,
         sendcloud_cancel_ok:    sendcloudCancel.ok,
@@ -333,7 +349,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       },
     });
 
-    if (emailResult.ok) {
+    if (emailClaim && emailResult.ok) {
       await logActivity("commande_cancel_email_sent", `Email annulation envoyé pour #${orderId.slice(0,8)} (${emailResult.attempts} tentative${emailResult.attempts > 1 ? "s" : ""})`, {
         entity_id: orderId,
         meta: { attempts: emailResult.attempts, customer_email: order.customer_email },

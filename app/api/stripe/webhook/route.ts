@@ -1159,19 +1159,39 @@ export async function POST(req: Request) {
           //   partiel → /api/emails/refund-partial (commande conservée)
           let emailSent = false;
           if (order.customer_email) {
-            const endpoint = isTotalRefund ? "cancellation" : "refund-partial";
-            const payload  = isTotalRefund
-              ? { email: order.customer_email, order_number: order.id }
-              : { email: order.customer_email, order_number: order.id, refund_amount: newRefundTotal, order_total: Number(order.amount_total ?? 0) };
-            try {
-              const res = await fetch(`${BASE}/api/emails/${endpoint}`, {
-                method:  "POST",
-                headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-                body:    JSON.stringify(payload),
-              });
-              emailSent = res.ok;
-            } catch (e) {
-              process.env.NODE_ENV !== "production" && console.error("[stripe-webhook] refund email error:", e);
+            if (isTotalRefund) {
+              // Verrou atomique anti-double-email d'annulation, PARTAGÉ avec
+              // l'admin cancel_refund : on n'envoie l'email QUE si on gagne le
+              // claim (cancellation_email_sent_at NULL→now). Si l'admin l'a déjà
+              // pris — ou sur un rejeu Stripe — le claim échoue → skip, pas de 2e
+              // email. (Le remboursement PARTIEL reste à source unique, pas de course.)
+              const { data: emailClaim } = await supabaseServer.from("orders")
+                .update({ cancellation_email_sent_at: new Date().toISOString() })
+                .eq("id", order.id).is("cancellation_email_sent_at", null)
+                .select("id").maybeSingle();
+              if (emailClaim) {
+                try {
+                  const res = await fetch(`${BASE}/api/emails/cancellation`, {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+                    body:    JSON.stringify({ email: order.customer_email, order_number: order.id }),
+                  });
+                  emailSent = res.ok;
+                } catch (e) {
+                  process.env.NODE_ENV !== "production" && console.error("[stripe-webhook] cancellation email error:", e);
+                }
+              }
+            } else {
+              try {
+                const res = await fetch(`${BASE}/api/emails/refund-partial`, {
+                  method:  "POST",
+                  headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
+                  body:    JSON.stringify({ email: order.customer_email, order_number: order.id, refund_amount: newRefundTotal, order_total: Number(order.amount_total ?? 0) }),
+                });
+                emailSent = res.ok;
+              } catch (e) {
+                process.env.NODE_ENV !== "production" && console.error("[stripe-webhook] refund-partial email error:", e);
+              }
             }
           }
 

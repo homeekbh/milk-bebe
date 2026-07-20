@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { useAuth } from "@/context/AuthContext";
+import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import { ALL_COUNTRY_CODES } from "@/lib/countries";
@@ -51,6 +52,7 @@ export default function CheckoutComptePage() {
   const en = useLocale() === "en";
   const t  = useTranslations("auth");
   const { user, session } = useAuth();
+  const { items } = useCart();
   const { hydrated, isCartEmpty, state, update } = useCheckout();
 
   const [email,    setEmail]    = useState("");   // création / connexion (local, non persisté)
@@ -114,7 +116,51 @@ export default function CheckoutComptePage() {
 
   if (!hydrated || isCartEmpty) return null;
 
+  // Panier abandonné (fix régression BASCULE-1) : l'email invité étant collecté ICI
+  // (plus au panier), on (ré)enregistre le panier dès que l'étape Compte est franchie.
+  // Best-effort : fire-and-forget, ne bloque JAMAIS la navigation. Le nettoyage à
+  // l'achat reste géré par le webhook (converted=true, clé = email). Total = sous-total
+  // BRUT (produits + packs) — suffisant pour la relance.
+  const saveAbandonedCart = (email: string, prenom: string) => {
+    try {
+      const em = String(email ?? "").trim();
+      if (!em) return;
+      // Produits (milk_cart_v2 via useCart) — même forme que /panier historiquement.
+      const products = items.map(i => ({
+        id: i.id, slug: i.slug, name: i.name, price: i.price, quantity: i.quantity,
+        taille: i.taille, couleur: i.couleur, category_slug: i.category_slug,
+        image_url: (i as { image_url?: string }).image_url ?? null,
+      }));
+      // Packs (milk_pack_cart) groupés par pack_id + taille → forme { name, price, quantity }
+      // compatible avec le rendu de la relance (i.name / i.price × i.quantity).
+      let packItems: Array<{ id: string; slug: string | null; name: string; price: number; quantity: number; image_url: string | null }> = [];
+      try {
+        const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]");
+        const map = new Map<string, typeof packItems[number]>();
+        for (const p of (Array.isArray(raw) ? raw : [])) {
+          const key = `${p.pack_id}__${p.size ?? ""}`;
+          const ex = map.get(key);
+          if (ex) ex.quantity += 1;
+          else map.set(key, { id: `pack:${p.pack_id}`, slug: p.slug ?? null, name: `🎁 ${p.title ?? "Coffret"}${p.size ? ` — ${p.size}` : ""}`, price: Number(p.price) || 0, quantity: 1, image_url: p.image_url ?? null });
+        }
+        packItems = [...map.values()];
+      } catch {}
+      const allItems = [...products, ...packItems];
+      if (allItems.length === 0) return;
+      const total = allItems.reduce((s, i) => s + (Number(i.price) || 0) * (Number(i.quantity) || 0), 0);
+      fetch("/api/cart/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: em, prenom: prenom || "", items: allItems, total }),
+      }).catch(() => {});
+    } catch {}
+  };
+
   const advance = (patch: Record<string, unknown>) => {
+    // Enregistrement panier abandonné (best-effort, une fois par clic — pas un effet).
+    const em = String((patch.email as string) ?? (patch.guestEmail as string) ?? state.email ?? state.guestEmail ?? "");
+    const pr = ((patch.accountAddress as { first_name?: string } | undefined)?.first_name) ?? state.accountAddress?.first_name ?? "";
+    saveAbandonedCart(em, pr);
     update({ ...patch, completedSteps: Math.max(state.completedSteps, 1) });
     router.push("/checkout/livraison");
   };

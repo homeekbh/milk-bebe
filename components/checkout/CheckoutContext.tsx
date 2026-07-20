@@ -31,6 +31,15 @@ export type CheckoutDeliveryChoice = {
 // client est connecté) — sert au calcul du total à l'étape paiement.
 export type CheckoutReward = { id: string; montant: number; days_left: number };
 
+// Adresse saisie à la CRÉATION de compte (étape Compte). Sert au PRÉ-REMPLISSAGE
+// de l'adresse internationale à l'étape Livraison, puis en défaut Stripe. Le `pays`
+// est celui du profil (où habite le client), pas forcément la destination livrée.
+export type CheckoutAccountAddress = {
+  first_name: string; last_name: string;
+  line1: string; line2: string; postal_code: string; city: string;
+  country: string; phone: string;
+};
+
 export type CheckoutState = {
   email:           string;
   guestEmail:      string;
@@ -45,6 +54,7 @@ export type CheckoutState = {
   parrainData:     { code: string; montant_recompense: number; seuil_filleul: number } | null;
   selectedRewards:  string[];                        // IDs des récompenses cochées
   availableRewards: CheckoutReward[];                // récompenses dispo (compte connecté)
+  accountAddress:  CheckoutAccountAddress | null;    // adresse du compte (pré-remplissage intl)
   shippingAddress: Record<string, unknown> | null;
   completedSteps:  number;                           // progression (gardes de nav)
 };
@@ -62,6 +72,7 @@ const DEFAULT_STATE: CheckoutState = {
   parrainData:     null,
   selectedRewards:  [],
   availableRewards: [],
+  accountAddress:  null,
   shippingAddress: null,
   completedSteps:  0,
 };

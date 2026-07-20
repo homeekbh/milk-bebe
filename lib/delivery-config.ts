@@ -195,13 +195,13 @@ export type ShippingZone = "FR" | "EU" | "EUROPE_NON_EU" | "UK";
  */
 export const COUNTRY_TO_ZONE: Record<string, ShippingZone> = {
   FR: "FR",
-  // UE (27, hors FR) → "EU"
-  AT: "EU", BE: "EU", BG: "EU", HR: "EU", CY: "EU", CZ: "EU", DK: "EU",
-  EE: "EU", FI: "EU", DE: "EU", GR: "EU", HU: "EU", IE: "EU", IT: "EU",
-  LV: "EU", LT: "EU", LU: "EU", MT: "EU", NL: "EU", PL: "EU", PT: "EU",
-  RO: "EU", SK: "EU", SI: "EU", ES: "EU", SE: "EU",
-  // Europe hors-UE → "EUROPE_NON_EU" (PAS de Russie, PAS du Royaume-Uni)
-  CH: "EUROPE_NON_EU", NO: "EUROPE_NON_EU", IS: "EUROPE_NON_EU",
+  // UE livrable via FedEx International (22 pays, hors FR). EXCLUS volontairement :
+  // CY, CZ, EE, LV (non desservis sur ce contrat FedEx).
+  AT: "EU", BE: "EU", BG: "EU", HR: "EU", DK: "EU", FI: "EU", DE: "EU",
+  GR: "EU", HU: "EU", IE: "EU", IT: "EU", LT: "EU", LU: "EU", MT: "EU",
+  NL: "EU", PL: "EU", PT: "EU", RO: "EU", SK: "EU", SI: "EU", ES: "EU", SE: "EU",
+  // Europe hors-UE → "EUROPE_NON_EU" : SUISSE UNIQUEMENT (NO, IS exclus).
+  CH: "EUROPE_NON_EU",
   // Royaume-Uni → "UK"
   GB: "UK",
 };

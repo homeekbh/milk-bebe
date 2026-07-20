@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { supabase } from "@/lib/supabase-client";
 import { useAuth } from "@/context/AuthContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
+import { ALL_COUNTRY_CODES } from "@/lib/countries";
 
 // Miroir de app/[locale]/inscription/page.tsx (authErrorKey non exporté) : mappe
 // un message d'erreur Supabase Auth → clé de traduction du namespace "auth".
@@ -22,19 +23,28 @@ function authErrorKey(msg?: string | null): string {
 }
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-// Téléphone obligatoire (Sendcloud) — même validation que /panier.
-function isValidPhone(p: string): boolean {
+// Téléphone à la création de compte : FR (+33 / 0X) OU international E.164.
+function isValidPhoneIntl(p: string): boolean {
   const d = String(p ?? "").replace(/[^\d+]/g, "");
-  return /^\+33[1-9]\d{8}$/.test(d) || /^0[1-9]\d{8}$/.test(d);
+  return /^\+33[1-9]\d{8}$/.test(d) || /^0[1-9]\d{8}$/.test(d) || /^\+\d{6,15}$/.test(d);
 }
 
 const INP: React.CSSProperties = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.14)", fontSize: 15, outline: "none", background: "rgba(242,237,230,0.06)", color: "#f2ede6", boxSizing: "border-box" };
+const INP_DARK_SELECT: React.CSSProperties = { ...INP, appearance: "none" };
 const INP_LIGHT: React.CSSProperties = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 15, outline: "none", background: "#fff", color: "#1a1410", boxSizing: "border-box" };
 
+type AccountForm = {
+  prenom: string; nom: string; line1: string; line2: string;
+  postal_code: string; city: string; country: string; phone: string;
+};
+const EMPTY_FORM: AccountForm = { prenom: "", nom: "", line1: "", line2: "", postal_code: "", city: "", country: "FR", phone: "" };
+
 /**
- * Étape 1 — Compte (Lot 4b). Création de compte MISE EN AVANT, « continuer sans
- * compte » discret, connexion optionnelle. Téléphone collecté ICI (obligatoire,
- * cohérent avec /panier étape 1). Aucune session Stripe.
+ * Étape 1 — Compte (Lot TUNNEL-V2). « Créer un compte » = inscription COMPLÈTE
+ * (email, mot de passe, nom/prénom, adresse, pays, téléphone international) → profil
+ * inséré + accountAddress dans le Context (pré-remplissage international ultérieur).
+ * « Sans compte » = email seul. AUCUN téléphone partagé ici : il est collecté à la
+ * Livraison pour la France, et par Stripe à l'international. Aucune session Stripe.
  */
 export default function CheckoutComptePage() {
   const router = useRouter();
@@ -45,23 +55,53 @@ export default function CheckoutComptePage() {
 
   const [email,    setEmail]    = useState("");   // création / connexion (local, non persisté)
   const [password, setPassword] = useState("");   // jamais persisté
+  const [form,     setForm]     = useState<AccountForm>(EMPTY_FORM);
   const [showSignin, setShowSignin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
+  const setF = (k: keyof AccountForm, v: string) => { setForm(f => ({ ...f, [k]: v })); setError(""); };
+
+  const countryName = (code: string): string => {
+    try { return new Intl.DisplayNames([en ? "en" : "fr"], { type: "region" }).of(code) ?? code; } catch { return code; }
+  };
+  const countryOptions = useMemo(
+    () => ALL_COUNTRY_CODES.map(c => ({ code: c, name: countryName(c) })).sort((a, b) => a.name.localeCompare(b.name, en ? "en" : "fr")),
+    [en],
+  );
 
   // Garde : panier vide → /panier.
   useEffect(() => {
     if (hydrated && isCartEmpty) router.replace("/panier");
   }, [hydrated, isCartEmpty, router]);
 
-  // Déjà connecté → pré-remplir l'email dans le Context.
+  // Déjà connecté → email dans le Context + chargement du profil (nom/adresse/pays/
+  // téléphone) dans accountAddress (pré-remplissage international à la Livraison).
   useEffect(() => {
-    if (hydrated && user?.email && state.email !== user.email) update({ email: user.email });
+    if (!hydrated || !user?.id) return;
+    if (state.email !== user.email && user.email) update({ email: user.email });
+    supabase.from("profiles")
+      .select("first_name, last_name, prenom, nom, phone, telephone, shipping_address, adresse_livraison, code_postal, ville, pays")
+      .eq("id", user.id).maybeSingle()
+      .then(({ data: p }) => {
+        if (!p) return;
+        const sa: any = p.shipping_address ?? {};
+        const rawCountry = String(sa.country ?? p.pays ?? "FR");
+        update({ accountAddress: {
+          first_name: String(p.first_name ?? p.prenom ?? ""),
+          last_name:  String(p.last_name ?? p.nom ?? ""),
+          line1:      String(sa.line1 ?? p.adresse_livraison ?? ""),
+          line2:      String(sa.line2 ?? ""),
+          postal_code:String(sa.postal_code ?? p.code_postal ?? ""),
+          city:       String(sa.city ?? p.ville ?? ""),
+          // ISO-2 uniquement (les vieux profils stockaient "France" en toutes lettres → FR).
+          country:    /^[A-Za-z]{2}$/.test(rawCountry) ? rawCountry.toUpperCase() : "FR",
+          phone:      String(p.phone ?? p.telephone ?? ""),
+        }});
+      });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, user?.email]);
+  }, [hydrated, user?.id]);
 
-  // Connecté → charger les récompenses parrainage utilisables dans le Context
-  // (prêtes pour le calcul du total à l'étape paiement).
+  // Connecté → charger les récompenses parrainage utilisables dans le Context.
   useEffect(() => {
     const token = session?.access_token;
     if (!token) return;
@@ -74,53 +114,73 @@ export default function CheckoutComptePage() {
 
   if (!hydrated || isCartEmpty) return null;
 
-  const phoneOk = isValidPhone(state.phone);
-  const setPhone = (v: string) => update({ phone: v });
-
   const advance = (patch: Record<string, unknown>) => {
-    update({ ...patch, phone: state.phone.trim(), completedSteps: Math.max(state.completedSteps, 1) });
+    update({ ...patch, completedSteps: Math.max(state.completedSteps, 1) });
     router.push("/checkout/livraison");
   };
 
   const onCreateAccount = async () => {
     setError("");
-    if (!EMAIL_RE.test(email.trim())) { setError(t("err_invalid_email")); return; }
-    if (password.length < 8)          { setError(t("err_pwd_short"));      return; }
-    if (!phoneOk) return;
+    if (!EMAIL_RE.test(email.trim()))         { setError(t("err_invalid_email")); return; }
+    if (password.length < 8)                  { setError(t("err_pwd_short"));      return; }
+    if (!form.prenom.trim() || !form.nom.trim() || !form.line1.trim() || !form.postal_code.trim() || !form.city.trim() || !form.country) {
+      setError(en ? "Please complete all required fields." : "Merci de compléter tous les champs obligatoires."); return;
+    }
+    if (!isValidPhoneIntl(form.phone)) {
+      setError(en ? "Invalid phone number." : "Numéro de téléphone invalide."); return;
+    }
     setLoading(true);
-    const { data, error: e } = await supabase.auth.signUp({ email: email.trim(), password });
+    const { data, error: e } = await supabase.auth.signUp({
+      email: email.trim(), password,
+      options: { data: { prenom: form.prenom.trim(), nom: form.nom.trim() } },
+    });
     if (e || !data.user) { setError(t(authErrorKey(e?.message))); setLoading(false); return; }
-    // Ligne profiles MINIMALE (comme /inscription) → le trigger trg_set_parrain_code
-    // génère le parrain_code. Évite un compte auth sans profil ni code parrain.
-    // Best-effort : n'échoue PAS le flux si l'insert rate. Nom vides (non collectés
-    // au checkout) → complétables dans /profil. UNIQUEMENT sur ce chemin "créer un
-    // compte" : ni la connexion (profil déjà présent) ni l'invité (pas de compte).
-    const { error: pErr } = await supabase.from("profiles").insert([{
-      id:         data.user.id,
-      email:      email.trim(),
-      first_name: "",
-      last_name:  "",
-      prenom:     "",
-      nom:        "",
-      phone:      state.phone.trim(),
-      telephone:  state.phone.trim(),
-      newsletter: true,
-    }]);
-    if (pErr) process.env.NODE_ENV !== "production" && console.error("[checkout/compte] profiles insert:", pErr.message);
-    // Email de bienvenue (fire-and-forget), comme /inscription.
-    fetch("/api/emails/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), prenom: "" }) }).catch(() => {});
+    // Profil COMPLET (upsert → trigger trg_set_parrain_code sur insert). Best-effort :
+    // n'échoue pas le flux. Remplit FR (prenom/nom/telephone…) + canoniques EN
+    // (first_name/last_name/phone/shipping_address) comme /inscription.
+    const shipping_address = {
+      name: `${form.prenom.trim()} ${form.nom.trim()}`.trim(),
+      line1: form.line1.trim(), line2: form.line2.trim(),
+      postal_code: form.postal_code.trim(), city: form.city.trim(), country: form.country,
+    };
+    const { error: pErr } = await supabase.from("profiles").upsert([{
+      id:                data.user.id,
+      email:             email.trim(),
+      first_name:        form.prenom.trim(),
+      last_name:         form.nom.trim(),
+      prenom:            form.prenom.trim(),
+      nom:               form.nom.trim(),
+      phone:             form.phone.trim(),
+      telephone:         form.phone.trim(),
+      adresse_livraison: form.line1.trim(),
+      code_postal:       form.postal_code.trim(),
+      ville:             form.city.trim(),
+      pays:              form.country,
+      shipping_address,
+      newsletter:        true,
+    }], { onConflict: "id" });
+    if (pErr) process.env.NODE_ENV !== "production" && console.error("[checkout/compte] profiles upsert:", pErr.message);
+    fetch("/api/emails/welcome", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email: email.trim(), prenom: form.prenom.trim() }) }).catch(() => {});
     setLoading(false);
-    advance({ email: email.trim() });
+    advance({
+      email: email.trim(),
+      accountAddress: {
+        first_name: form.prenom.trim(), last_name: form.nom.trim(),
+        line1: form.line1.trim(), line2: form.line2.trim(),
+        postal_code: form.postal_code.trim(), city: form.city.trim(),
+        country: form.country, phone: form.phone.trim(),
+      },
+    });
   };
 
   const onSignIn = async () => {
     setError("");
     if (!EMAIL_RE.test(email.trim())) { setError(t("err_invalid_email")); return; }
-    if (!phoneOk) return;
     setLoading(true);
     const { error: e } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
     if (e) { setError(t(authErrorKey(e?.message))); setLoading(false); return; }
     setLoading(false);
+    // accountAddress sera hydraté par l'effet profil (user devient défini). On avance.
     advance({ email: email.trim() });
   };
 
@@ -128,30 +188,14 @@ export default function CheckoutComptePage() {
     setError("");
     const ge = state.guestEmail.trim();
     if (!EMAIL_RE.test(ge)) { setError(t("err_invalid_email")); return; }
-    if (!phoneOk) return;
     try { localStorage.setItem("milk_guest_email", ge.toLowerCase()); } catch {}
     advance({ guestEmail: ge });
   };
 
   const onLoggedInContinue = () => {
-    if (!phoneOk || !user?.email) return;
+    if (!user?.email) return;
     advance({ email: user.email });
   };
-
-  // ── Champ téléphone partagé (toujours requis) ─────────────────────────────
-  const phoneField = (
-    <div style={{ marginBottom: 20 }}>
-      <label htmlFor="co-phone" style={{ display: "block", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 }}>
-        {en ? "Phone number" : "Numéro de téléphone"} <span style={{ color: "#b91c1c" }}>*</span>
-      </label>
-      <input id="co-phone" type="tel" inputMode="tel" autoComplete="tel"
-        placeholder={en ? "e.g. 06 12 34 56 78" : "Ex : 06 12 34 56 78"}
-        value={state.phone} onChange={e => setPhone(e.target.value)} style={INP_LIGHT} />
-      <div style={{ marginTop: 6, fontSize: 11, color: "rgba(26,20,16,0.5)", lineHeight: 1.5 }}>
-        {en ? "Used by the carrier to reach you about your delivery." : "Utilisé par le transporteur pour vous joindre au sujet de la livraison."}
-      </div>
-    </div>
-  );
 
   const errorBox = error && (
     <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#b91c1c", fontSize: 13, fontWeight: 700 }}>
@@ -159,14 +203,15 @@ export default function CheckoutComptePage() {
     </div>
   );
 
+  const req = <span style={{ color: "#ef4444" }}>*</span>;
+  const darkLabel: React.CSSProperties = { display: "block", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.45)", marginBottom: 5 };
+
   return (
     <div style={{ maxWidth: 560, margin: "0 auto", padding: "100px 24px 80px" }}>
       <CheckoutProgress current="compte" />
       <h1 style={{ fontSize: 28, fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 20 }}>
         {en ? "Step 1 — Account" : "Étape 1 — Compte"}
       </h1>
-
-      {phoneField}
 
       {user ? (
         /* ── Déjà connecté ── */
@@ -183,14 +228,14 @@ export default function CheckoutComptePage() {
             </div>
           )}
           {errorBox}
-          <button onClick={onLoggedInContinue} disabled={!phoneOk}
-            style={{ marginTop: 16, width: "100%", padding: "15px", borderRadius: 12, border: "none", background: phoneOk ? "#1a1410" : "#d1cdc8", color: "#f2ede6", fontWeight: 900, fontSize: 16, cursor: phoneOk ? "pointer" : "not-allowed" }}>
+          <button onClick={onLoggedInContinue}
+            style={{ marginTop: 16, width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, cursor: "pointer" }}>
             {en ? "Continue" : "Continuer"}
           </button>
         </div>
       ) : (
         <>
-          {/* ── CRÉER UN COMPTE — bloc PRINCIPAL (mis en avant) ── */}
+          {/* ── CRÉER UN COMPTE — bloc PRINCIPAL (inscription complète) ── */}
           <div style={{ background: "#1a1410", borderRadius: 20, border: "1px solid rgba(196,154,74,0.3)", padding: "28px 26px" }}>
             <div style={{ display: "inline-block", padding: "5px 14px", borderRadius: 99, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", fontSize: 11, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", color: "#c49a4a", marginBottom: 14 }}>
               {en ? "Recommended" : "Recommandé"}
@@ -208,24 +253,44 @@ export default function CheckoutComptePage() {
                 </li>
               ))}
             </ul>
+
             <div style={{ display: "grid", gap: 12 }}>
-              <input type="email" inputMode="email" autoComplete="email"
-                placeholder={en ? "Email" : "Email"} value={email}
-                onChange={e => { setEmail(e.target.value); setError(""); }} style={INP} />
-              <input type="password" autoComplete="new-password"
-                placeholder={en ? "Password (min. 8 characters)" : "Mot de passe (8 caractères min.)"} value={password}
-                onChange={e => { setPassword(e.target.value); setError(""); }} style={INP} />
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div><label style={darkLabel}>{en ? "First name" : "Prénom"} {req}</label>
+                  <input value={form.prenom} onChange={e => setF("prenom", e.target.value)} style={INP} /></div>
+                <div><label style={darkLabel}>{en ? "Last name" : "Nom"} {req}</label>
+                  <input value={form.nom} onChange={e => setF("nom", e.target.value)} style={INP} /></div>
+              </div>
+              <div><label style={darkLabel}>{en ? "Email" : "Email"} {req}</label>
+                <input type="email" inputMode="email" autoComplete="email" value={email}
+                  onChange={e => { setEmail(e.target.value); setError(""); }} style={INP} /></div>
+              <div><label style={darkLabel}>{en ? "Password (min. 8 characters)" : "Mot de passe (8 caractères min.)"} {req}</label>
+                <input type="password" autoComplete="new-password" value={password}
+                  onChange={e => { setPassword(e.target.value); setError(""); }} style={INP} /></div>
+              <div><label style={darkLabel}>{en ? "Address" : "Adresse"} {req}</label>
+                <input autoComplete="address-line1" value={form.line1} onChange={e => setF("line1", e.target.value)} style={INP} /></div>
+              <div><label style={darkLabel}>{en ? "Address line 2 (optional)" : "Complément (optionnel)"}</label>
+                <input autoComplete="address-line2" value={form.line2} onChange={e => setF("line2", e.target.value)} style={INP} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+                <div><label style={darkLabel}>{en ? "Postal code" : "Code postal"} {req}</label>
+                  <input inputMode="numeric" value={form.postal_code} onChange={e => setF("postal_code", e.target.value)} style={INP} /></div>
+                <div><label style={darkLabel}>{en ? "City" : "Ville"} {req}</label>
+                  <input autoComplete="address-level2" value={form.city} onChange={e => setF("city", e.target.value)} style={INP} /></div>
+              </div>
+              <div><label style={darkLabel}>{en ? "Country" : "Pays"} {req}</label>
+                <select value={form.country} onChange={e => setF("country", e.target.value)} style={INP_DARK_SELECT}>
+                  {countryOptions.map(o => <option key={o.code} value={o.code}>{o.name}</option>)}
+                </select></div>
+              <div><label style={darkLabel}>{en ? "Phone number" : "Numéro de téléphone"} {req}</label>
+                <input type="tel" inputMode="tel" autoComplete="tel" placeholder={en ? "e.g. +33 6 12 34 56 78" : "Ex : +33 6 12 34 56 78"}
+                  value={form.phone} onChange={e => setF("phone", e.target.value)} style={INP} /></div>
             </div>
+
             {!showSignin && errorBox}
-            <button onClick={onCreateAccount} disabled={loading || !phoneOk}
-              style={{ marginTop: 16, width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "#c49a4a", color: "#1a1410", fontWeight: 950, fontSize: 16, cursor: (loading || !phoneOk) ? "not-allowed" : "pointer", opacity: (loading || !phoneOk) ? 0.6 : 1 }}>
+            <button onClick={onCreateAccount} disabled={loading}
+              style={{ marginTop: 16, width: "100%", padding: "15px", borderRadius: 12, border: "none", background: "#c49a4a", color: "#1a1410", fontWeight: 950, fontSize: 16, cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}>
               {loading ? (en ? "Creating…" : "Création…") : (en ? "Create my account" : "Créer mon compte")}
             </button>
-            {!phoneOk && (
-              <div style={{ marginTop: 8, fontSize: 12, color: "rgba(242,237,230,0.5)", textAlign: "center" }}>
-                {en ? "Enter a valid phone number above to continue." : "Saisis un numéro de téléphone valide ci-dessus pour continuer."}
-              </div>
-            )}
           </div>
 
           {/* ── Toggle : se connecter ── */}
@@ -244,25 +309,29 @@ export default function CheckoutComptePage() {
               <input type="password" autoComplete="current-password" placeholder={en ? "Password" : "Mot de passe"}
                 value={password} onChange={e => { setPassword(e.target.value); setError(""); }} style={INP_LIGHT} />
               {errorBox}
-              <button onClick={onSignIn} disabled={loading || !phoneOk}
-                style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: (loading || !phoneOk) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 15, cursor: (loading || !phoneOk) ? "not-allowed" : "pointer" }}>
+              <button onClick={onSignIn} disabled={loading}
+                style={{ width: "100%", padding: "13px", borderRadius: 12, border: "none", background: loading ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 15, cursor: loading ? "not-allowed" : "pointer" }}>
                 {loading ? "…" : (en ? "Sign in" : "Se connecter")}
               </button>
             </div>
           )}
 
-          {/* ── CONTINUER SANS COMPTE — option SECONDAIRE, discrète ── */}
+          {/* ── CONTINUER SANS COMPTE — EMAIL SEUL, option SECONDAIRE discrète ── */}
           <div style={{ marginTop: 28, paddingTop: 20, borderTop: "1px solid rgba(26,20,16,0.1)" }}>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(26,20,16,0.55)", marginBottom: 10 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "rgba(26,20,16,0.55)", marginBottom: 4 }}>
               {en ? "Or continue without an account" : "Ou continuer sans compte"}
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", marginBottom: 10, lineHeight: 1.5 }}>
+              {en ? "Just your email — address & phone are collected at the delivery/payment step."
+                  : "Juste ton email — l'adresse et le téléphone sont demandés à l'étape livraison/paiement."}
             </div>
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
               <input type="email" inputMode="email" autoComplete="email"
                 placeholder={en ? "your@email.com" : "ton@email.fr"}
                 value={state.guestEmail} onChange={e => { update({ guestEmail: e.target.value }); setError(""); }}
                 style={{ ...INP_LIGHT, flex: "1 1 220px" }} />
-              <button onClick={onGuest} disabled={!phoneOk}
-                style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.25)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 14, cursor: phoneOk ? "pointer" : "not-allowed", opacity: phoneOk ? 1 : 0.6, whiteSpace: "nowrap" }}>
+              <button onClick={onGuest}
+                style={{ padding: "12px 18px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.25)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 14, cursor: "pointer", whiteSpace: "nowrap" }}>
                 {en ? "Continue as guest" : "Continuer sans compte"}
               </button>
             </div>

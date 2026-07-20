@@ -61,14 +61,10 @@ function extractError(json: any, fallback: string): string {
  * Sendcloud renomme/désactive un code sur le contrat.
  */
 const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
+  // FRANCE UNIQUEMENT (domestique). L'international passe par FedEx (FEDEX_INTL_TIERS).
   colissimo: {
     point_relais: "colissimo:post-office",
     home:         "colissimo:home/fr",
-    // ⚠️ Colissimo INTERNATIONAL (livraison domicile hors FR). Code À CONFIRMER via
-    // /api/admin/sendcloud/discover-options (Partie B) — NE PAS DEVINER. Laissé vide
-    // → create-label renvoie une 400 explicite tant que le vrai code n'est pas connu.
-    // Peut être fourni sans redéploiement via SENDCLOUD_OPTION_CODE_COLISSIMO_INTERNATIONAL.
-    home_international: "",
   },
   mondial_relay: {
     point_relais: "mondial_relay:service_point,dualapi/size=l,c2c",
@@ -76,6 +72,15 @@ const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
     // locker : non confirmé sur ce compte — à ajouter quand activé
   },
 };
+
+// INTERNATIONAL (hors FR) = FedEx International Connect, livraison à DOMICILE, code
+// choisi selon le POIDS RÉEL de la commande. Deux tranches confirmées sur le contrat.
+// On prend la 1ʳᵉ tranche dont maxKg ≥ poids. Au-delà d'1 kg : aucune tranche → 400
+// explicite (tranche à activer côté contrat + à ajouter ici).
+const FEDEX_INTL_TIERS: { maxKg: number; code: string }[] = [
+  { maxKg: 0.5, code: "fedex:internationalconnect/kg=0-0.5" },
+  { maxKg: 1.0, code: "fedex:internationalconnect/kg=0.5-1" },
+];
 
 // Codes qui n'acceptent PAS to_service_point dans le body announce.
 // Vide pour l'instant : "colissimo:post-office" exige bien
@@ -89,15 +94,17 @@ function pickShippingOption(
   carrier: string,
   deliveryType: string | null,
   isInternational = false,
+  weightKg = 0.25,
 ): { selected: any | null; expectedCode: string | null } {
   const carrierKey = carrier.toLowerCase().includes("mondial") ? "mondial_relay" : "colissimo";
 
-  // INTERNATIONAL : toujours Colissimo home international (pas de relais hors FR),
-  // indépendamment du delivery_type (null pour ces commandes). Code depuis l'env
-  // (prioritaire) sinon le mapping home_international.
+  // INTERNATIONAL : FedEx International Connect à domicile (pas de relais hors FR),
+  // indépendamment du delivery_type (null pour ces commandes). Le code dépend de la
+  // TRANCHE DE POIDS de la commande (cf. FEDEX_INTL_TIERS). Au-delà de la dernière
+  // tranche → pas de code (400 explicite en amont).
   if (isInternational) {
-    const envCode = process.env.SENDCLOUD_OPTION_CODE_COLISSIMO_INTERNATIONAL;
-    const expectedCode = envCode || SENDCLOUD_OPTION_CODES.colissimo.home_international || null;
+    const tier = FEDEX_INTL_TIERS.find(t => weightKg <= t.maxKg);
+    const expectedCode = tier?.code ?? null;
     if (!expectedCode) return { selected: null, expectedCode: null };
     const found = Array.isArray(options)
       ? options.find(o => (o?.code ?? o?.shipping_option_code) === expectedCode)
@@ -209,8 +216,8 @@ export async function POST(req: NextRequest) {
       rawDeliveryType === "home"         ? "home"         :
       null;
 
-    // delivery_type n'est EXIGÉ que sur le chemin FR. À l'international, Colissimo
-    // livre à domicile (pas de relais), delivery_type est null → on l'accepte.
+    // delivery_type n'est EXIGÉ que sur le chemin FR. À l'international, FedEx livre à
+    // domicile (pas de relais), delivery_type est null → on l'accepte.
     if (!deliveryType && !isInternational) {
       return Response.json({ error: `delivery_type invalide ou manquant: ${rawDeliveryType ?? "(null)"}` }, { status: 400 });
     }
@@ -258,7 +265,9 @@ export async function POST(req: NextRequest) {
     //     (colissimo:post-office en tranche 0-0.25 kg sur ce compte).
     const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
     const weightKgStr = weightKg.toFixed(3);
-    const fetchWeightKg = 0.250; // hardcoded pour fetch-shipping-options
+    // FR : 0.250 hardcodé pour récupérer TOUTES les tranches d'options domestiques.
+    // International : poids RÉEL → fetch-shipping-options renvoie la bonne tranche FedEx.
+    const fetchWeightKg = isInternational ? weightKg : 0.250;
     console.log("[sendcloud:weight]", JSON.stringify({
       source_g:           order.total_weight_g,
       announce_kg:        weightKg,
@@ -393,11 +402,11 @@ export async function POST(req: NextRequest) {
     // matching parce que les noms des codes varient (ex: "colissimo:post-office"
     // n'accepte PAS to_service_point alors qu'il contient pas "international").
     // Seul le code exact validé sur le compte est fiable.
-    const { selected, expectedCode } = pickShippingOption(allOptions, effectiveCarrier, deliveryType, isInternational);
+    const { selected, expectedCode } = pickShippingOption(allOptions, effectiveCarrier, deliveryType, isInternational, weightKg);
     if (!selected || !expectedCode) {
       return Response.json({
         error: isInternational
-          ? "Aucun code Colissimo International configuré. Découvre le vrai code via GET /api/admin/sendcloud/discover-options (Partie B), puis renseigne SENDCLOUD_OPTION_CODE_COLISSIMO_INTERNATIONAL (env Vercel) ou home_international dans create-label. (Le code n'est jamais deviné.)"
+          ? `Aucune tranche de poids FedEx International pour ${weightKg.toFixed(3)} kg (max configuré : ${FEDEX_INTL_TIERS[FEDEX_INTL_TIERS.length - 1].maxKg} kg). Active la tranche supérieure côté contrat FedEx puis ajoute-la dans FEDEX_INTL_TIERS.`
           : `Aucun shipping_option_code configuré pour ${effectiveCarrier}/${deliveryType}. Ajoute SENDCLOUD_OPTION_CODE_${effectiveCarrier.toUpperCase()}_${String(deliveryType).toUpperCase()} dans les env vars Vercel, ou complète SENDCLOUD_OPTION_CODES dans le code.`,
         available_codes: allCodes,
       }, { status: 400 });
@@ -588,7 +597,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 8. Réponse ──────────────────────────────────────────────────────────
-    const shippingOption = `${effectiveCarrier}/${isInternational ? "international" : deliveryType} (${shippingOptionCode})`;
+    const shippingOption = `${isInternational ? "fedex" : effectiveCarrier}/${isInternational ? "international" : deliveryType} (${shippingOptionCode})`;
     if (!labelUrl) {
       return Response.json({
         ok:              true,

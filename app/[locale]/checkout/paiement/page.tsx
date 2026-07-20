@@ -208,6 +208,17 @@ export default function CheckoutPaiementPage() {
 
   const canPay = hasEmail && hasPhone && deliveryComplete && !loading;
 
+  // Libellé du bouton selon le cas (TEXTE uniquement — logique paiement inchangée).
+  // FR : adresse déjà dans le tunnel → « Payer ». International : adresse saisie sur
+  // Stripe APRÈS le clic → on l'explicite (compte = pré-remplie à vérifier ; invité =
+  // à saisir). Compte vs invité : présence de state.email (compte) vs guestEmail.
+  const isAccount = !!state.email.trim();
+  const payVerb = isFrance
+    ? (en ? "Pay" : "Payer")
+    : isAccount
+      ? (en ? "Confirm address and pay" : "Vérifier l'adresse et payer")
+      : (en ? "Enter address and pay" : "Saisir l'adresse et payer");
+
   const toggleReward = (id: string) => {
     const cur = state.selectedRewards;
     update({ selectedRewards: cur.includes(id) ? cur.filter(x => x !== id) : [...cur, id] });
@@ -438,9 +449,18 @@ export default function CheckoutPaiementPage() {
       <button onClick={onPay} disabled={!canPay}
         style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: canPay ? "#1a1410" : "#d1cdc8", color: "#f2ede6", fontWeight: 950, fontSize: 16, cursor: canPay ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         {loading && <span style={{ width: 16, height: 16, border: "2px solid rgba(242,237,230,0.4)", borderTopColor: "#f2ede6", borderRadius: "50%", display: "inline-block", animation: "milk-spin 0.7s linear infinite" }} />}
-        {loading ? (en ? "Redirecting…" : "Redirection…") : `${en ? "Pay" : "Payer"} · ${fmt(grandTotal)}`}
+        {loading ? (en ? "Redirecting…" : "Redirection…") : `${payVerb} · ${fmt(grandTotal)}`}
       </button>
       <style>{`@keyframes milk-spin { to { transform: rotate(360deg); } }`}</style>
+
+      {/* Ligne rassurante — INTERNATIONAL uniquement (adresse saisie/confirmée sur Stripe). */}
+      {!isFrance && (
+        <div style={{ marginTop: 12, fontSize: 12.5, color: "rgba(26,20,16,0.55)", textAlign: "center", lineHeight: 1.6 }}>
+          {en
+            ? "Your delivery address will be entered on the secure payment page. No charge before confirmation."
+            : "Votre adresse de livraison sera renseignée sur la page de paiement sécurisée. Aucun débit avant confirmation."}
+        </div>
+      )}
 
       <div style={{ marginTop: 14, fontSize: 12, color: "rgba(26,20,16,0.45)", textAlign: "center", lineHeight: 1.6 }}>
         {en

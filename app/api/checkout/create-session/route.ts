@@ -76,6 +76,7 @@ export async function POST(req: Request) {
       carrier,
       relay,
       home_address,
+      shipping_prefill,
       country,
       locale,
     } = await req.json();
@@ -514,6 +515,40 @@ export async function POST(req: Request) {
       sessionParams.shipping_address_collection = {
         allowed_countries: [shippingCountry],
       };
+      // International : Stripe collecte AUSSI le téléphone (pas saisi dans le tunnel).
+      sessionParams.phone_number_collection = { enabled: true };
+
+      // Pré-remplissage adresse (compte) : on crée un Customer Stripe avec une adresse
+      // de livraison par défaut → Checkout pré-remplit le formulaire (le client peut la
+      // MODIFIER, Stripe reste maître). On passe alors `customer` et on retire
+      // customer_creation/customer_email (incompatibles). BEST-EFFORT : si la création
+      // échoue, on retombe sur la collecte Stripe à vide (jamais de blocage du paiement).
+      // NB : on n'injecte PAS home_address → le webhook prend l'adresse FINALE de Stripe.
+      const pf: any = shipping_prefill ?? null;
+      const pfName = pf ? String(pf.name ?? `${pf.first_name ?? ""} ${pf.last_name ?? ""}`).trim() : "";
+      if (pf && pf.line1 && pf.postal_code && pf.city) {
+        try {
+          const cust = await stripe.customers.create({
+            ...(customer_email ? { email: customer_email } : {}),
+            ...(pfName ? { name: pfName } : {}),
+            shipping: {
+              name: pfName || "Client",
+              address: {
+                line1:       String(pf.line1),
+                line2:       String(pf.line2 ?? ""),
+                postal_code: String(pf.postal_code),
+                city:        String(pf.city),
+                country:     shippingCountry,
+              },
+            },
+          });
+          sessionParams.customer = cust.id;
+          delete sessionParams.customer_creation;
+          delete sessionParams.customer_email;
+        } catch (e: any) {
+          process.env.NODE_ENV !== "production" && console.error("[create-session] prefill customer:", e?.message);
+        }
+      }
     }
 
     // ── Coupon UNIQUE = promo classique + code parrain + récompenses ──────────

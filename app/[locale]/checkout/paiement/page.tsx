@@ -249,6 +249,10 @@ export default function CheckoutPaiementPage() {
         type:        dc!.type,
       } : null,
       home_address:   isFrance && dc?.kind === "fr" && dc.type === "home" ? state.shippingAddress : null,
+      // International : adresse du compte (pré-remplie/éditée à la Livraison) → défaut
+      // Stripe UNIQUEMENT (create-session crée un Customer pré-rempli). N'écrase PAS
+      // le mécanisme webhook : home_address reste null à l'international.
+      shipping_prefill: !isFrance ? (state.shippingAddress ?? null) : null,
       country:        state.country,
       locale:         en ? "en" : "fr",
     };

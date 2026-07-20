@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { getZoneForCountry } from "@/lib/delivery-config";
 import type { NextRequest } from "next/server";
 
 // API v3 Sendcloud — host panel.sendcloud.sc (les endpoints v3 y sont exposés
@@ -464,6 +465,56 @@ export async function POST(req: NextRequest) {
     if (numericRelayId) {
       announceBody.to_service_point = { id: String(numericRelayId) };
       console.log(`[sendcloud] to_service_point.id="${numericRelayId}" attaché (code=${shippingOptionCode})`);
+    }
+
+    // ── DOUANE (FedEx) — HORS UE UNIQUEMENT : Suisse (EUROPE_NON_EU) + UK ────────
+    // FedEx exige une déclaration douanière (parcel_items) hors UE, sinon l'announce
+    // échoue. UE (BE/DE…) et FRANCE : AUCUN parcel_items ajouté → announce INCHANGÉ.
+    // Incoterm DAP (le client paie la douane, message déjà affiché au tunnel).
+    // hs_code / origin_country lus par produit (colonnes optionnelles products) avec
+    // FALLBACK GLOBAL. Si les colonnes n'existent pas encore, la requête échoue
+    // silencieusement → défauts appliqués (jamais de blocage).
+    const customsZone = shippingZoneCol || getZoneForCountry(recipientCountry);
+    if (customsZone === "EUROPE_NON_EU" || customsZone === "UK") {
+      const HS_DEFAULT      = "611190";              // vêtements bébé bonneterie, autres textiles (bambou/viscose) — à confirmer comptable
+      const ORIGIN_DEFAULT  = "CN";                  // fabrication Chine (facture fournisseur)
+      const DESC_DEFAULT    = "Baby clothing (bamboo)";
+      const orderItems: any[] = Array.isArray(order.items) ? order.items : [];
+
+      // hs_code / origin_country par produit (fallback global si vide / colonne absente).
+      const productIds = [...new Set(
+        orderItems.map(it => it?.id).filter((id: any) => id && !String(id).startsWith("pack:"))
+      )];
+      const prodMap: Record<string, { hs_code?: string; origin_country?: string }> = {};
+      if (productIds.length) {
+        const { data: prods } = await supabaseServer
+          .from("products").select("id, hs_code, origin_country").in("id", productIds);
+        (prods ?? []).forEach((p: any) => { prodMap[p.id] = { hs_code: p.hs_code ?? undefined, origin_country: p.origin_country ?? undefined }; });
+      }
+
+      // Poids réparti par unité pour que Σ(poids items) ≈ poids colis.
+      const totalUnits = Math.max(1, orderItems.reduce((s, it) => s + (Number(it?.quantity) || 1), 0));
+      const perUnitKg  = weightKg / totalUnits;
+
+      const parcelItems = orderItems.map(it => {
+        const qty  = Math.max(1, Number(it?.quantity) || 1);
+        const prod = prodMap[String(it?.id)] ?? {};
+        return {
+          description:    DESC_DEFAULT,
+          quantity:       qty,
+          price:          { value: (Number(it?.price) || 0).toFixed(2), currency: "EUR" },
+          weight:         { value: Math.max(0.001, perUnitKg * qty).toFixed(3), unit: "kg" },
+          hs_code:        prod.hs_code || HS_DEFAULT,
+          origin_country: prod.origin_country || ORIGIN_DEFAULT,
+        };
+      });
+
+      announceBody.parcels[0].items        = parcelItems;
+      announceBody.parcels[0].content_type = "merchandise";
+
+      const customsLog = JSON.stringify({ zone: customsZone, lines: parcelItems.length, first: parcelItems[0] ?? null });
+      console.log("[sendcloud:customs]",  customsLog);
+      console.error("[sendcloud:customs]", customsLog);
     }
 
     const announceBodyStr = JSON.stringify(announceBody);

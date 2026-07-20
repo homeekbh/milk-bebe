@@ -294,6 +294,15 @@ export default function CheckoutLivraisonPage() {
             {en ? `Paid delivery — international (Zone ${zone}).` : `Livraison payante à l'international (Zone ${zone}).`}
           </p>
 
+          {/* Douane — HORS UE uniquement (CH = EUROPE_NON_EU, GB = UK). Rien pour l'UE ni la FR. */}
+          {(zone === "EUROPE_NON_EU" || zone === "UK") && (
+            <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.3)", fontSize: 13, color: "#92400e", lineHeight: 1.6 }}>
+              {en
+                ? "⚠️ Customs duties and/or VAT may apply on delivery, payable by you. These charges are set by your country's customs authorities and are not included in the shipping price."
+                : "⚠️ Des frais de douane et/ou de TVA peuvent s'appliquer à la réception de votre colis, à votre charge. Ces frais sont fixés par les autorités douanières de votre pays et ne sont pas inclus dans le prix de la livraison."}
+            </div>
+          )}
+
           {hasAccount ? (
             /* Compte : adresse pré-remplie MODIFIABLE (défaut Stripe). country = choisi. */
             <div style={{ marginTop: 18, display: "grid", gap: 12 }}>

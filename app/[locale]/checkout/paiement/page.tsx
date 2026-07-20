@@ -446,6 +446,15 @@ export default function CheckoutPaiementPage() {
         </div>
       )}
 
+      {/* Rappel douane — HORS UE uniquement (CH = EUROPE_NON_EU, GB = UK). */}
+      {(zone === "EUROPE_NON_EU" || zone === "UK") && (
+        <div style={{ marginBottom: 12, padding: "10px 14px", borderRadius: 10, background: "rgba(180,83,9,0.08)", border: "1px solid rgba(180,83,9,0.3)", fontSize: 12.5, color: "#92400e", textAlign: "center", lineHeight: 1.6 }}>
+          {en
+            ? "⚠️ Customs duties/VAT may apply on delivery, payable by you (not included in the shipping price)."
+            : "⚠️ Des frais de douane/TVA peuvent s'appliquer à la livraison, à votre charge (non inclus dans le prix de livraison)."}
+        </div>
+      )}
+
       <button onClick={onPay} disabled={!canPay}
         style={{ width: "100%", padding: "16px", borderRadius: 12, border: "none", background: canPay ? "#1a1410" : "#d1cdc8", color: "#f2ede6", fontWeight: 950, fontSize: 16, cursor: canPay ? "pointer" : "not-allowed", display: "flex", alignItems: "center", justifyContent: "center", gap: 10 }}>
         {loading && <span style={{ width: 16, height: 16, border: "2px solid rgba(242,237,230,0.4)", borderTopColor: "#f2ede6", borderRadius: "50%", display: "inline-block", animation: "milk-spin 0.7s linear infinite" }} />}

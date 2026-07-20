@@ -3,6 +3,7 @@
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
+import { useLocale } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
@@ -46,6 +47,7 @@ export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
   const { user, session } = useAuth();
   const router = useRouter();
+  const en = useLocale() === "en";
 
   const [promoCode,     setPromoCode]     = useState("");             // champ de saisie
   const [promoCodes,    setPromoCodes]    = useState<ValidatedPromo[]>([]); // codes appliqués (cumul)
@@ -60,6 +62,7 @@ export default function CartPage() {
   // Réglages du programme (montant/seuil + actif) pour l'affichage du code parrain.
   const [meSettings,     setMeSettings]     = useState<ParrainageSettings | null>(null);
   const [meActif,        setMeActif]        = useState(true);
+  const [meRewards,      setMeRewards]      = useState<{ id: string; montant: number; days_left: number }[]>([]);
 
   // Seuil livraison offerte — lu depuis /api/settings/public au mount (cache
   // CDN 60s). Default DEFAULT_FREE_SHIPPING_THRESHOLD si l'API échoue.
@@ -221,6 +224,23 @@ export default function CartPage() {
   const parrainDiscount = parrainageCalc.parrainDiscount;
   const grandTotal      = Math.max(0, totalAfterPromo - parrainDiscount);
 
+  // ── Bandeau crédit filleul (INFO seulement — sélection réelle à l'étape paiement) ──
+  // X = solde total dispo ; Y = déductible MAX sur CE panier (tout coché → paliers).
+  const parrainageCalcMax = computeParrainage({
+    settings:              parrainageSettingsForCalc,
+    subtotal,
+    promoDiscount:         discount,
+    freeShippingThreshold,
+    hasValidParrainCode:   !!parrainData,
+    rewardsAvailableCount: meRewards.length,
+    rewardsSelectedCount:  meRewards.length,
+    cartCategorySlugs:     cartCatSlugs,
+  });
+  const filleulBalance    = meRewards.reduce((s, r) => s + (Number(r.montant) || 0), 0);
+  const filleulDeductible = parrainageCalcMax.rewardDiscount;
+  const showFilleulBanner = !!user && (meSettings?.actif ?? meActif) && meRewards.length > 0;
+  const eur = (n: number) => `${n.toFixed(2)} €`;
+
   // Barre « il te reste X€ » : calculée sur le TOTAL APRÈS PROMO (même base que le
   // port réel du tunnel). Promo non cumulable → seuil désactivé → barre masquée.
   const promoBlocksThreshold = !!comboOk && comboOk.cumulable_avec_livraison === false && !comboOk.free_shipping;
@@ -290,13 +310,14 @@ export default function CartPage() {
   // ── Parrainage : réglages du compte connecté (montant/seuil pour l'affichage) ──
   useEffect(() => {
     const token = session?.access_token;
-    if (!token) { setMeSettings(null); return; }
+    if (!token) { setMeSettings(null); setMeRewards([]); return; }
     fetch("/api/parrainage/me", { headers: { Authorization: `Bearer ${token}` } })
       .then(r => (r.ok ? r.json() : null))
       .then((d: any) => {
         if (!d || d.error) return;
         setMeActif(d.actif !== false);
         if (d.settings) setMeSettings(d.settings as ParrainageSettings);
+        setMeRewards(Array.isArray(d.rewards_usable) ? d.rewards_usable : []);
       })
       .catch(() => {});
   }, [session?.access_token]);
@@ -415,6 +436,26 @@ export default function CartPage() {
                   </div>
                 )}
               </div>
+
+              {/* Bandeau crédit filleul (info) — client connecté avec récompenses dispo */}
+              {showFilleulBanner && (
+                <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(196,154,74,0.35)" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1410" }}>
+                    🎁 {en
+                      ? `You have ${eur(filleulBalance)} of referral credit.`
+                      : `Vous avez ${eur(filleulBalance)} de crédit filleul.`}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 13, color: "rgba(26,20,16,0.6)", lineHeight: 1.5 }}>
+                    {filleulDeductible > 0
+                      ? (en
+                          ? `On this cart, you can deduct up to ${eur(filleulDeductible)} at the payment step.`
+                          : `Sur ce panier, vous pourrez déduire jusqu'à ${eur(filleulDeductible)} à l'étape paiement.`)
+                      : (en
+                          ? `Add ${eur(parrainageCalcMax.rewardsShortfall)} to start deducting it.`
+                          : `Ajoutez ${eur(parrainageCalcMax.rewardsShortfall)} pour commencer à le déduire.`)}
+                  </div>
+                </div>
+              )}
 
               {/* Liste articles */}
               {items.map(item => (

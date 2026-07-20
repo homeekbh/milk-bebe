@@ -181,7 +181,9 @@ export default function CheckoutPaiementPage() {
   // ── Prérequis (gardes) ──────────────────────────────────────────────────────
   const emailForOrder = (state.email || state.guestEmail || "").trim();
   const hasEmail = EMAIL_RE.test(emailForOrder);
-  const hasPhone = isValidPhone(state.phone);
+  // Téléphone requis dans le tunnel UNIQUEMENT pour la France (collecté à l'étape
+  // Livraison). À l'international, Stripe le collecte (phone_number_collection).
+  const hasPhone = !isFrance || isValidPhone(state.phone);
   const deliveryComplete = isFrance
     ? (dc?.kind === "fr" && !!dc.carrier && !!dc.type && (dc.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
@@ -197,8 +199,9 @@ export default function CheckoutPaiementPage() {
     if (isCartEmpty)              { router.replace("/panier"); return; }
     if (state.completedSteps < 1) { router.replace("/checkout/compte"); return; }
     if (state.completedSteps < 2) { router.replace("/checkout/livraison"); return; }
-    if (!hasEmail || !hasPhone)   { router.replace("/checkout/compte"); return; }
-    if (!deliveryComplete)          router.replace("/checkout/livraison");
+    if (!hasEmail)                { router.replace("/checkout/compte"); return; }
+    // Téléphone FR manquant OU livraison incomplète → étape Livraison (le tél FR y est).
+    if (!hasPhone || !deliveryComplete) router.replace("/checkout/livraison");
   }, [hydrated, isCartEmpty, state.completedSteps, hasEmail, hasPhone, deliveryComplete, router]);
 
   if (!hydrated || isCartEmpty || state.completedSteps < 2) return null;

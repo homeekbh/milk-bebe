@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { useCart } from "@/context/CartContext";
+import { useAuth } from "@/context/AuthContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import CountrySelector from "@/components/checkout/CountrySelector";
@@ -28,24 +29,47 @@ const FR_COMBOS: { carrier: Carrier; type: DeliveryType }[] =
     (Object.keys(DELIVERY_PRICES[carrier]) as DeliveryType[]).map(type => ({ carrier, type }))
   );
 
+// Téléphone FR (chemin France) : +33 / 0X — inchangé (ancienne validation du tunnel).
+function isValidPhoneFR(p: string): boolean {
+  const d = String(p ?? "").replace(/[^\d+]/g, "");
+  return /^\+33[1-9]\d{8}$/.test(d) || /^0[1-9]\d{8}$/.test(d);
+}
+
 /**
- * Étape 2 — Livraison (Lot 4c). Sélecteur de pays + choix livraison + prix.
- * FR : modes habituels (matrice DELIVERY_PRICES) + seuil 60€ (computeCartTotals).
- * International : Colissimo International, prix de zone fixe, toujours payant.
- * Aucune session Stripe ici (Lot paiement).
+ * Étape 2 — Livraison (Lot TUNNEL-V2). Sélecteur de pays pré-positionné sur le pays
+ * du compte. FR = parcours transporteur INCHANGÉ (+ téléphone collecté ICI désormais,
+ * car retiré de l'étape Compte). International = adresse pré-remplie modifiable si
+ * compte, sinon message « saisie à l'étape paiement » ; téléphone via Stripe.
  */
 export default function CheckoutLivraisonPage() {
   const router = useRouter();
   const en = useLocale() === "en";
   const { items } = useCart();
+  const { user } = useAuth();
   const { hydrated, isCartEmpty, state, update } = useCheckout();
 
-  // ── Gardes de nav (4a) ────────────────────────────────────────────────────
+  // ── Gardes de nav ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!hydrated) return;
     if (isCartEmpty) { router.replace("/panier"); return; }
     if (state.completedSteps < 1) router.replace("/checkout/compte");
   }, [hydrated, isCartEmpty, state.completedSteps, router]);
+
+  // ── Pré-positionnement (UNE fois, à l'hydratation) : pays du compte + pré-remplissage
+  //    du téléphone FR depuis le compte. Ne s'exécute qu'au montage → n'écrase pas un
+  //    choix ultérieur du client. ──────────────────────────────────────────────────
+  useEffect(() => {
+    if (!hydrated) return;
+    const acc = state.accountAddress;
+    const patch: Record<string, unknown> = {};
+    if (acc?.country && /^[A-Za-z]{2}$/.test(acc.country) && acc.country.toUpperCase() !== "FR"
+        && state.country === "FR" && !state.deliveryChoice) {
+      patch.country = acc.country.toUpperCase();
+    }
+    if (acc?.phone && !state.phone) patch.phone = acc.phone;
+    if (Object.keys(patch).length) update(patch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   // ── Sous-total (produits + packs) pour le seuil ───────────────────────────
   const productsSubtotal = useMemo(
@@ -61,7 +85,7 @@ export default function CheckoutLivraisonPage() {
     } catch { setPacksSubtotal(0); }
   }, []);
 
-  // ── Seuil livraison offerte (mêmes données que /panier) ───────────────────
+  // ── Seuil livraison offerte ────────────────────────────────────────────────
   const [threshold, setThreshold] = useState(DEFAULT_THRESHOLD);
   useEffect(() => {
     fetch("/api/settings/public")
@@ -70,10 +94,7 @@ export default function CheckoutLivraisonPage() {
       .catch(() => {});
   }, []);
 
-  // État LOCAL du sélecteur de relais FR (éphémère). Le relais CHOISI, lui, vit
-  // dans le CheckoutContext (state.selectedRelay → persisté sessionStorage). open
-  // + resetKey pilotés comme /panier : reset TOTAL au changement de mode, « Changer »
-  // garde les résultats (n'incrémente pas resetKey).
+  // État LOCAL du sélecteur de relais FR (éphémère). Le relais CHOISI vit dans le Context.
   const [relayOpen,         setRelayOpen]         = useState(false);
   const [relayPostalSearch, setRelayPostalSearch] = useState("");
   const [relayResetKey,     setRelayResetKey]     = useState(0);
@@ -81,69 +102,89 @@ export default function CheckoutLivraisonPage() {
   const country = state.country || "FR";
   const zone    = getZoneForCountry(country);
   const isFrance = zone === "FR";
+  // « Compte » = utilisateur connecté OU adresse compte déjà en Context (compte tout
+  // juste créé, avant que onAuthStateChange ait propagé user).
+  const hasAccount = !!user || !!state.accountAddress;
 
   const fmt = (n: number) => new Intl.NumberFormat(en ? "en" : "fr", { style: "currency", currency: "EUR" }).format(n);
+  const countryLabel = (code: string): string => {
+    try { return new Intl.DisplayNames([en ? "en" : "fr"], { type: "region" }).of(code) ?? code; } catch { return code; }
+  };
 
-  // Note : la remise promo/parrainage n'est pas encore collectée DANS le tunnel
-  // (état vide), donc discount=0 ici. L'affichage du seuil se met à jour quand un
-  // lot ultérieur branchera la collecte promo/parrain sur cette étape.
   const frShipping = (carrier: Carrier, type: DeliveryType) =>
-    computeCartTotals({
-      productsSubtotal,
-      packsSubtotal,
-      discount: 0,
-      basePrice: getDeliveryPrice(carrier, type),
-      freeShippingThreshold: threshold,
-      promo: null,
-    });
+    computeCartTotals({ productsSubtotal, packsSubtotal, discount: 0, basePrice: getDeliveryPrice(carrier, type), freeShippingThreshold: threshold, promo: null });
 
   const subtotalAfterPromo = Math.max(0, productsSubtotal + packsSubtotal);
   const missingForFree = Math.max(0, threshold - subtotalAfterPromo);
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const onCountryChange = (c: string) => {
-    // Changement de zone → on ré-choisit le mode (+ on oublie le relais FR éventuel).
-    update({ country: c, deliveryChoice: null, selectedRelay: null });
+    // Changement de zone → on ré-choisit le mode (+ oubli du relais FR). On garde
+    // l'adresse mais on synchronise son pays sur le pays choisi.
+    update({
+      country: c, deliveryChoice: null, selectedRelay: null,
+      ...(state.shippingAddress ? { shippingAddress: { ...state.shippingAddress, country: c } } : {}),
+    });
     setRelayOpen(false);
   };
 
   const selectFrMode = (carrier: Carrier, type: DeliveryType) => {
     const isRelay = type === "point_relais" || type === "locker";
-    // Équivalent de switchDelivery (/panier) : reset du relais + reset TOTAL de la
-    // recherche (resetKey) + ouverture de la modale pour un mode relais/locker.
     update({ deliveryChoice: { kind: "fr", carrier, type, relay: null }, selectedRelay: null });
     setRelayResetKey(k => k + 1);
     setRelayOpen(isRelay);
   };
 
+  // FR domicile (inchangé) : adresse simple via CheckoutAddressForm.
   const setAddr = (patch: Partial<CheckoutAddress>) => {
     update({ shippingAddress: { ...(state.shippingAddress ?? {}), ...patch, country } });
   };
 
-  // International : dès qu'on est hors FR, on fige le marqueur de zone + prix.
+  // International : adresse pré-remplie modifiable (prénom/nom séparés). country = choisi.
+  const sa = (state.shippingAddress ?? {}) as Record<string, string>;
+  const setIntlAddr = (patch: Record<string, string>) => {
+    const next: Record<string, string> = { ...sa, ...patch, country };
+    next.name = `${next.first_name ?? ""} ${next.last_name ?? ""}`.trim();
+    update({ shippingAddress: next });
+  };
+
+  // International : fige zone + prix. Si compte, pré-remplit l'adresse depuis le compte
+  // (une fois, tant que non renseignée). country = pays choisi.
   const intlPrice = !isFrance && zone ? getInternationalShippingPrice(country) : null;
   useEffect(() => {
     if (!hydrated) return;
-    if (!isFrance && zone && intlPrice != null) {
-      const dc = state.deliveryChoice;
-      if (!dc || dc.kind !== "international" || dc.zone !== zone) {
-        update({ deliveryChoice: { kind: "international", zone, price: intlPrice } });
-      }
+    if (isFrance || !zone || intlPrice == null) return;
+    const dc = state.deliveryChoice;
+    const patch: Record<string, unknown> = {};
+    if (!dc || dc.kind !== "international" || dc.zone !== zone) {
+      patch.deliveryChoice = { kind: "international", zone, price: intlPrice };
     }
+    const cur = (state.shippingAddress ?? {}) as Record<string, string>;
+    const acc = state.accountAddress;
+    if (hasAccount && acc && !cur.line1) {
+      patch.shippingAddress = {
+        first_name: acc.first_name, last_name: acc.last_name,
+        name: `${acc.first_name} ${acc.last_name}`.trim(),
+        line1: acc.line1, line2: acc.line2,
+        postal_code: acc.postal_code, city: acc.city, country,
+      };
+    }
+    if (Object.keys(patch).length) update(patch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated, isFrance, zone, intlPrice]);
+  }, [hydrated, isFrance, zone, intlPrice, country, hasAccount]);
 
-  // ── Complétude de l'étape (données RÉELLES, pas un simple clic) ────────────
+  // ── Complétude de l'étape ──────────────────────────────────────────────────
   const dc = state.deliveryChoice;
   const frModeChosen = dc?.kind === "fr" && !!dc.carrier && !!dc.type;
   const isRelayType  = dc?.kind === "fr" && (dc.type === "point_relais" || dc.type === "locker");
+  const frPhoneOk    = isValidPhoneFR(state.phone);
   const canContinue = isFrance
-    ? frModeChosen && (dc!.type === "home"
+    // FR : mode choisi + (adresse domicile complète OU relais sélectionné) + TÉLÉPHONE.
+    ? frModeChosen && frPhoneOk && (dc!.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
-        : /* point relais / locker → un relais doit être sélectionné */ !!state.selectedRelay)
-    // International : l'adresse est collectée par Stripe (validée par pays) → aucune
-    // saisie tunnel. Pays livrable (zone) + mode international suffisent ; email/phone
-    // sont déjà exigés à l'étape compte (garde completedSteps ≥ 1).
+        : !!state.selectedRelay)
+    // International : pays livrable suffit (adresse pré-remplie optionnelle — Stripe
+    // reconfirme adresse + téléphone à l'étape paiement).
     : !!zone && dc?.kind === "international";
 
   const onContinue = () => {
@@ -157,6 +198,8 @@ export default function CheckoutLivraisonPage() {
   // ── Styles ────────────────────────────────────────────────────────────────
   const card: React.CSSProperties = { background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", padding: "20px 22px", marginTop: 20 };
   const optBtn = (active: boolean): React.CSSProperties => ({ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: 12, padding: "14px 16px", borderRadius: 12, border: active ? "2px solid #1a1410" : "1px solid rgba(26,20,16,0.15)", background: active ? "rgba(196,154,74,0.08)" : "#fff", cursor: "pointer", fontWeight: 700, fontSize: 15, color: "#1a1410", textAlign: "left" });
+  const lbl: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 };
+  const inp: React.CSSProperties = { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 15, fontWeight: 600, background: "#fff", boxSizing: "border-box", color: "#1a1410" };
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "100px 24px 80px" }}>
@@ -165,10 +208,10 @@ export default function CheckoutLivraisonPage() {
         {en ? "Step 2 — Delivery" : "Étape 2 — Livraison"}
       </h1>
 
-      {/* Pays */}
+      {/* Pays (pré-positionné sur le pays du compte) */}
       <CountrySelector value={country} onChange={onCountryChange} />
 
-      {/* Branche FRANCE */}
+      {/* Branche FRANCE — INCHANGÉE (transporteurs/relais/adresse/seuil) + téléphone */}
       {isFrance && (
         <div style={card}>
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 12 }}>
@@ -199,6 +242,22 @@ export default function CheckoutLivraisonPage() {
             </p>
           )}
 
+          {/* Téléphone FR — obligatoire (Sendcloud). Collecté ICI depuis TUNNEL-V2. */}
+          <div style={{ marginTop: 18 }}>
+            <label htmlFor="fr-phone" style={lbl}>{en ? "Phone number" : "Numéro de téléphone"} <span style={{ color: "#b91c1c" }}>*</span></label>
+            <input id="fr-phone" type="tel" inputMode="tel" autoComplete="tel"
+              placeholder={en ? "e.g. 06 12 34 56 78" : "Ex : 06 12 34 56 78"}
+              value={state.phone} onChange={e => update({ phone: e.target.value })} style={inp} />
+            {!frPhoneOk && state.phone.length > 0 && (
+              <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>
+                {en ? "Invalid format (10 digits, e.g. 06 12 34 56 78)." : "Format invalide (10 chiffres, ex : 06 12 34 56 78)."}
+              </div>
+            )}
+            <div style={{ marginTop: 6, fontSize: 11, color: "rgba(26,20,16,0.5)", lineHeight: 1.5 }}>
+              {en ? "Used by the carrier to reach you about your delivery." : "Utilisé par le transporteur pour vous joindre au sujet de la livraison."}
+            </div>
+          </div>
+
           {/* FR domicile → adresse ; FR point relais / locker → RelaySelector partagé */}
           {dc?.kind === "fr" && dc.type === "home" && (
             <div style={{ marginTop: 18 }}>
@@ -228,20 +287,46 @@ export default function CheckoutLivraisonPage() {
       {!isFrance && zone && intlPrice != null && (
         <div style={card}>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-            <span style={{ fontWeight: 800, fontSize: 15, color: "#1a1410" }}>Colissimo International</span>
+            <span style={{ fontWeight: 800, fontSize: 15, color: "#1a1410" }}>{en ? "International delivery" : "Livraison internationale"}</span>
             <span style={{ fontWeight: 950, fontSize: 20, color: "#1a1410" }}>{fmt(intlPrice)}</span>
           </div>
           <p style={{ margin: "8px 0 0", fontSize: 13, fontWeight: 700, color: "#c49a4a" }}>
             {en ? `Paid delivery — international (Zone ${zone}).` : `Livraison payante à l'international (Zone ${zone}).`}
           </p>
-          {/* Pas de saisie d'adresse ici : à l'international, Stripe collecte l'adresse
-              (mieux validée par pays) à l'étape paiement. Le webhook la reprend ensuite
-              pour orders.shipping_address → étiquette Sendcloud. */}
-          <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 13.5, color: "rgba(26,20,16,0.75)", lineHeight: 1.6 }}>
-            📦 {en
-              ? "Your delivery address will be requested at the secure payment step."
-              : "Votre adresse de livraison vous sera demandée à l'étape de paiement sécurisée."}
-          </div>
+
+          {hasAccount ? (
+            /* Compte : adresse pré-remplie MODIFIABLE (défaut Stripe). country = choisi. */
+            <div style={{ marginTop: 18, display: "grid", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                <div><label style={lbl}>{en ? "First name" : "Prénom"}</label>
+                  <input value={sa.first_name ?? ""} onChange={e => setIntlAddr({ first_name: e.target.value })} style={inp} /></div>
+                <div><label style={lbl}>{en ? "Last name" : "Nom"}</label>
+                  <input value={sa.last_name ?? ""} onChange={e => setIntlAddr({ last_name: e.target.value })} style={inp} /></div>
+              </div>
+              <div><label style={lbl}>{en ? "Address" : "Adresse"}</label>
+                <input value={sa.line1 ?? ""} onChange={e => setIntlAddr({ line1: e.target.value })} style={inp} /></div>
+              <div><label style={lbl}>{en ? "Address line 2 (optional)" : "Complément (optionnel)"}</label>
+                <input value={sa.line2 ?? ""} onChange={e => setIntlAddr({ line2: e.target.value })} style={inp} /></div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
+                <div><label style={lbl}>{en ? "Postal code" : "Code postal"}</label>
+                  <input value={sa.postal_code ?? ""} onChange={e => setIntlAddr({ postal_code: e.target.value })} style={inp} /></div>
+                <div><label style={lbl}>{en ? "City" : "Ville"}</label>
+                  <input value={sa.city ?? ""} onChange={e => setIntlAddr({ city: e.target.value })} style={inp} /></div>
+              </div>
+              <div><label style={lbl}>{en ? "Country" : "Pays"}</label>
+                <div style={{ ...inp, color: "rgba(26,20,16,0.6)", background: "#f7f5f1" }}>{countryLabel(country)}</div></div>
+              <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 13, color: "rgba(26,20,16,0.75)", lineHeight: 1.6 }}>
+                📦 {en ? "You can confirm this address at the secure payment step."
+                      : "Vous pourrez confirmer cette adresse à l'étape de paiement sécurisée."}
+              </div>
+            </div>
+          ) : (
+            /* Sans compte : pas de form. Message rassurant (adresse + tél à l'étape paiement). */
+            <div style={{ marginTop: 16, padding: "14px 16px", borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 13.5, color: "rgba(26,20,16,0.75)", lineHeight: 1.6 }}>
+              📦 {en ? "Your delivery address and phone number will be requested at the secure payment step."
+                    : "Votre adresse de livraison et votre téléphone vous seront demandés à l'étape de paiement sécurisée."}
+            </div>
+          )}
         </div>
       )}
 

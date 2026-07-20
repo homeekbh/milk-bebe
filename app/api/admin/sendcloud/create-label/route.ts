@@ -64,6 +64,11 @@ const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
   colissimo: {
     point_relais: "colissimo:post-office",
     home:         "colissimo:home/fr",
+    // ⚠️ Colissimo INTERNATIONAL (livraison domicile hors FR). Code À CONFIRMER via
+    // /api/admin/sendcloud/discover-options (Partie B) — NE PAS DEVINER. Laissé vide
+    // → create-label renvoie une 400 explicite tant que le vrai code n'est pas connu.
+    // Peut être fourni sans redéploiement via SENDCLOUD_OPTION_CODE_COLISSIMO_INTERNATIONAL.
+    home_international: "",
   },
   mondial_relay: {
     point_relais: "mondial_relay:service_point,dualapi/size=l,c2c",
@@ -82,9 +87,29 @@ const CODES_WITHOUT_SERVICE_POINT = new Set<string>([]);
 function pickShippingOption(
   options: any[],
   carrier: string,
-  deliveryType: string,
+  deliveryType: string | null,
+  isInternational = false,
 ): { selected: any | null; expectedCode: string | null } {
   const carrierKey = carrier.toLowerCase().includes("mondial") ? "mondial_relay" : "colissimo";
+
+  // INTERNATIONAL : toujours Colissimo home international (pas de relais hors FR),
+  // indépendamment du delivery_type (null pour ces commandes). Code depuis l'env
+  // (prioritaire) sinon le mapping home_international.
+  if (isInternational) {
+    const envCode = process.env.SENDCLOUD_OPTION_CODE_COLISSIMO_INTERNATIONAL;
+    const expectedCode = envCode || SENDCLOUD_OPTION_CODES.colissimo.home_international || null;
+    if (!expectedCode) return { selected: null, expectedCode: null };
+    const found = Array.isArray(options)
+      ? options.find(o => (o?.code ?? o?.shipping_option_code) === expectedCode)
+      : null;
+    return {
+      selected: found ?? { code: expectedCode, name: expectedCode, _from: "hardcoded_mapping" },
+      expectedCode,
+    };
+  }
+
+  // Chemin FR : delivery_type requis (garanti non-null par l'appelant hors international).
+  if (!deliveryType) return { selected: null, expectedCode: null };
 
   // Override env var prioritaire
   const envKey = `SENDCLOUD_OPTION_CODE_${carrierKey.toUpperCase()}_${deliveryType.toUpperCase()}`;
@@ -163,6 +188,19 @@ export async function POST(req: NextRequest) {
       console.error(`[sendcloud:create-label] FORCE_RECREATE — un parcel ${order.sendcloud_parcel_id} existait déjà pour ${order_id}`);
     }
 
+    // ── INTERNATIONAL ? — d'après les colonnes persistées (Lot SENDCLOUD-META) ──
+    // shipping_country / shipping_zone posés par create-session→webhook. FR (ou
+    // colonnes absentes, ex. commandes FR historiques) → chemin domestique INCHANGÉ.
+    // Fallback sur l'adresse Stripe (shipping_address.country) si les colonnes manquent.
+    const destCountryCol  = order.shipping_country ? String(order.shipping_country).toUpperCase().slice(0, 2) : null;
+    const shippingZoneCol = order.shipping_zone ? String(order.shipping_zone) : null;
+    const addrCountry     = String((order.shipping_address ?? {}).country ?? "").toUpperCase().slice(0, 2) || null;
+    const isInternational = !!(
+      (destCountryCol && destCountryCol !== "FR") ||
+      (shippingZoneCol && shippingZoneCol !== "FR") ||
+      (!destCountryCol && !shippingZoneCol && addrCountry && addrCountry !== "FR")
+    );
+
     // Normaliser delivery_type
     const rawDeliveryType = order.delivery_type as (string | null);
     const deliveryType: "point_relais" | "locker" | "home" | null =
@@ -171,12 +209,15 @@ export async function POST(req: NextRequest) {
       rawDeliveryType === "home"         ? "home"         :
       null;
 
-    if (!deliveryType) {
+    // delivery_type n'est EXIGÉ que sur le chemin FR. À l'international, Colissimo
+    // livre à domicile (pas de relais), delivery_type est null → on l'accepte.
+    if (!deliveryType && !isInternational) {
       return Response.json({ error: `delivery_type invalide ou manquant: ${rawDeliveryType ?? "(null)"}` }, { status: 400 });
     }
 
     const relayId      = order.relay_id as (string | null);
-    const isRelayMode  = deliveryType === "point_relais" || deliveryType === "locker";
+    // International : jamais de relais → mode domicile (adresse Stripe/shipping_address).
+    const isRelayMode  = !isInternational && (deliveryType === "point_relais" || deliveryType === "locker");
 
     if (isRelayMode && !relayId) {
       return Response.json({ error: "Point relais / locker manquant — saisie manuelle requise dans la commande" }, { status: 400 });
@@ -352,10 +393,12 @@ export async function POST(req: NextRequest) {
     // matching parce que les noms des codes varient (ex: "colissimo:post-office"
     // n'accepte PAS to_service_point alors qu'il contient pas "international").
     // Seul le code exact validé sur le compte est fiable.
-    const { selected, expectedCode } = pickShippingOption(allOptions, effectiveCarrier, deliveryType);
+    const { selected, expectedCode } = pickShippingOption(allOptions, effectiveCarrier, deliveryType, isInternational);
     if (!selected || !expectedCode) {
       return Response.json({
-        error: `Aucun shipping_option_code configuré pour ${effectiveCarrier}/${deliveryType}. Ajoute SENDCLOUD_OPTION_CODE_${effectiveCarrier.toUpperCase()}_${deliveryType.toUpperCase()} dans les env vars Vercel, ou complète SENDCLOUD_OPTION_CODES dans le code.`,
+        error: isInternational
+          ? "Aucun code Colissimo International configuré. Découvre le vrai code via GET /api/admin/sendcloud/discover-options (Partie B), puis renseigne SENDCLOUD_OPTION_CODE_COLISSIMO_INTERNATIONAL (env Vercel) ou home_international dans create-label. (Le code n'est jamais deviné.)"
+          : `Aucun shipping_option_code configuré pour ${effectiveCarrier}/${deliveryType}. Ajoute SENDCLOUD_OPTION_CODE_${effectiveCarrier.toUpperCase()}_${String(deliveryType).toUpperCase()} dans les env vars Vercel, ou complète SENDCLOUD_OPTION_CODES dans le code.`,
         available_codes: allCodes,
       }, { status: 400 });
     }
@@ -545,7 +588,7 @@ export async function POST(req: NextRequest) {
     }
 
     // ── 8. Réponse ──────────────────────────────────────────────────────────
-    const shippingOption = `${effectiveCarrier}/${deliveryType} (${shippingOptionCode})`;
+    const shippingOption = `${effectiveCarrier}/${isInternational ? "international" : deliveryType} (${shippingOptionCode})`;
     if (!labelUrl) {
       return Response.json({
         ok:              true,

@@ -195,10 +195,11 @@ export type ShippingZone = "FR" | "EU" | "EUROPE_NON_EU" | "UK";
  */
 export const COUNTRY_TO_ZONE: Record<string, ShippingZone> = {
   FR: "FR",
-  // UE livrable via FedEx International (22 pays, hors FR). EXCLUS volontairement :
-  // CY, CZ, EE, LV (non desservis sur ce contrat FedEx).
+  // UE livrable via FedEx International (21 pays, hors FR). EXCLUS volontairement :
+  // CY, CZ, EE, LV (non desservis sur ce contrat FedEx) ; MT (Malte) retiré pour coût
+  // FedEx trop élevé (28,62 € réel vs 11,90 € facturé = perte à chaque envoi).
   AT: "EU", BE: "EU", BG: "EU", HR: "EU", DK: "EU", FI: "EU", DE: "EU",
-  GR: "EU", HU: "EU", IE: "EU", IT: "EU", LT: "EU", LU: "EU", MT: "EU",
+  GR: "EU", HU: "EU", IE: "EU", IT: "EU", LT: "EU", LU: "EU",
   NL: "EU", PL: "EU", PT: "EU", RO: "EU", SK: "EU", SI: "EU", ES: "EU", SE: "EU",
   // Europe hors-UE → "EUROPE_NON_EU" : SUISSE UNIQUEMENT (NO, IS exclus).
   CH: "EUROPE_NON_EU",

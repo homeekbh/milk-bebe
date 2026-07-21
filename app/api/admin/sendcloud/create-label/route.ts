@@ -540,7 +540,29 @@ export async function POST(req: NextRequest) {
         sendcloud_parcel_id: parcelId || null,
       })
       .eq("id", order_id);
-    if (updateErr2) {
+    if (updateErr2 && parcelId) {
+      // Le colis EST créé côté Sendcloud (réel, facturé), mais sendcloud_parcel_id — clé du garde
+      // anti-double-création (étape 2, refus 409 si déjà présent) — n'a pas été persistée. Sans lui,
+      // un 2ᵉ clic « Générer » créerait un 2ᵉ colis (coût transport dupliqué). On RETENTE une fois ;
+      // si l'écriture échoue toujours → ERREUR EXPLICITE (pas ok:true) : NE PAS régénérer.
+      console.error("[sendcloud] échec persistance parcel_id, retry:", updateErr2.message);
+      const { error: retryErr } = await supabaseServer
+        .from("orders")
+        .update({ label_url: labelUrl || null, sendcloud_parcel_id: parcelId })
+        .eq("id", order_id);
+      if (retryErr) {
+        console.error("[sendcloud] parcel_id TOUJOURS non persisté après retry:", retryErr.message);
+        return Response.json({
+          error:           "Colis créé chez Sendcloud mais sa référence n'a PAS pu être enregistrée. NE PAS régénérer l'étiquette (risque de double colis facturé) — noter le parcel_id / tracking ci-dessous et réessayer l'enregistrement ou contacter le support.",
+          parcel_created:  true,
+          parcel_id:       parcelId,
+          tracking_number: trackingNumber,
+          label_url:       labelUrl || null,
+          details:         retryErr.message,
+        }, { status: 500 });
+      }
+    } else if (updateErr2) {
+      // Pas de parcelId (cas dégénéré) → simple warning, aucun risque de double colis.
       console.warn("[sendcloud] Colonnes optionnelles non disponibles:", updateErr2.message);
     }
 

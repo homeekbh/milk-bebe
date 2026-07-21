@@ -98,11 +98,11 @@ export async function POST(req: NextRequest) {
       // (order_number = order.id.slice(0,30)), donc un .eq("id", orderNumber)
       // ne matche PAS l'UUID complet (36 car.). Le tracking_number, lui, est
       // stocké tel quel et identique au payload Sendcloud.
-      let order: { id: string; customer_email: string | null; customer_name: string | null; shipping_status: string } | null = null;
+      let order: { id: string; customer_email: string | null; customer_name: string | null; shipping_status: string; status: string | null } | null = null;
       if (trackingNumber) {
         const { data } = await supabaseServer
           .from("orders")
-          .select("id, customer_email, customer_name, shipping_status")
+          .select("id, customer_email, customer_name, shipping_status, status")
           .eq("tracking_number", trackingNumber)
           .limit(1);
         order = data?.[0] ?? null;
@@ -110,12 +110,21 @@ export async function POST(req: NextRequest) {
       if (!order && orderNumber) {
         const { data } = await supabaseServer
           .from("orders")
-          .select("id, customer_email, customer_name, shipping_status")
+          .select("id, customer_email, customer_name, shipping_status, status")
           .eq("id", orderNumber)
           .limit(1);
         order = data?.[0] ?? null;
       }
       if (!order) continue;
+
+      // États TERMINAUX : une commande remboursée / annulée / retournée ne doit JAMAIS repasser à
+      // un statut d'acheminement (ex. scan transporteur « livré » tardif APRÈS un remboursement →
+      // sinon shipping_status repasse « livree », delivered_at posé, email « colis livré » erroné).
+      const payStatus = String(order.status ?? "").toLowerCase();
+      if (["remboursee", "annulee", "echec_paiement"].includes(payStatus)
+          || order.shipping_status === "annulee" || order.shipping_status === "retour") {
+        continue;
+      }
 
       // Ne pas rétrograder un statut (ex: livré → expédié)
       const RANK: Record<string, number> = { en_preparation: 0, label_created: 0, expediee: 1, livree: 2, retour: 3 };

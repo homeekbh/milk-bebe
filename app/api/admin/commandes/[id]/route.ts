@@ -71,6 +71,9 @@ async function cancelSendcloudShipment(orderId: string, parcelId: string | null)
     .update({
       sendcloud_parcel_id: null,
       label_url:           null,
+      // Vider le tracking : sinon un webhook Sendcloud tardif (livré/retiré) matcherait encore
+      // cette commande par tracking_number et tenterait de la faire repasser « livree ».
+      tracking_number:     null,
     })
     .eq("id", orderId);
   if (dbErr) {
@@ -374,8 +377,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!amount || amount <= 0) {
       return Response.json({ error: "Montant invalide" }, { status: 400 });
     }
-    if (amount > Number(order.amount_total ?? 0)) {
-      return Response.json({ error: "Montant supérieur à la commande" }, { status: 400 });
+    // Valider contre le RESTANT réel (amount_total − déjà remboursé), pas le brut → anti
+    // sur-remboursement. `alreadyRefunded` peut être périmé si le webhook charge.refunded n'a pas
+    // encore enregistré un remboursement antérieur ; Stripe reste le garde-fou ultime (catch ci-dessous).
+    const alreadyRefunded = Number(order.refund_amount ?? 0);
+    const remaining       = Math.max(0, Number(order.amount_total ?? 0) - alreadyRefunded);
+    if (amount > remaining) {
+      return Response.json({ error: `Montant supérieur au restant remboursable (${remaining.toFixed(2)} €)` }, { status: 400 });
     }
     if (!order.stripe_session_id) {
       return Response.json({ error: "stripe_session_id manquant" }, { status: 400 });
@@ -401,6 +409,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           order_id: orderId,
           admin_reason: String(body?.reason ?? "Refund partiel").slice(0, 500),
         },
+      }, {
+        // Idempotence : un double-clic / retry réseau (même montant, même cumul déjà remboursé) →
+        // Stripe renvoie le MÊME refund au lieu d'en créer un 2ᵉ. Un remboursement partiel
+        // ULTÉRIEUR légitime (refund_amount mis à jour par le webhook) a un cumul différent →
+        // clé différente → autorisé. Empêche le double remboursement sur double-soumission.
+        idempotencyKey: `refund-partial-${orderId}-${Math.round(amount * 100)}-${Math.round(alreadyRefunded * 100)}`,
       });
     } catch (e: any) {
       console.error("[commandes/refund_partial] Stripe error:", e?.message);
@@ -408,7 +422,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     // Cumul si refund partiel déjà existant
-    const previousRefund = Number(order.refund_amount ?? 0);
+    const previousRefund = alreadyRefunded;
     const cumul          = previousRefund + amount;
     const newStatus      = cumul >= Number(order.amount_total ?? 0) ? "remboursee" : "rembours_partiel";
 

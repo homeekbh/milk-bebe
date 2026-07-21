@@ -150,20 +150,47 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
 
   // 3) Effets de bord EXACTEMENT-UNE-FOIS par commande.
   if (isFirstProcessing) {
-    // Décrément stock atomique par produit (avec fallback non-atomique).
+    // Décrément stock atomique par produit (avec fallback non-atomique). Survente : on
+    // collecte les ruptures (RPC error → fallback + détection ; RPC ok=false → stock insuffisant)
+    // puis on alerte l'admin — COMME le chemin unifié. Sans ça, un refus RPC sur le dernier
+    // exemplaire d'une pièce de coffret passait en silence (course → 2 paiements, 1 non honoré).
+    const stockIssues: Array<{ name: string; size?: string; available: number; error?: string }> = [];
     for (const pid of productIds) {
       const pSize = sizeFor(pid);
-      const { error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+      const pName = prodMap[pid]?.name ?? "Produit";
+      const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
         p_product_id: pid, p_quantity: 1, p_size: pSize,
       });
       if (rpcErr) {
         const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", pid).single();
         if (fp) {
+          if ((fp.stock ?? 0) < 1) stockIssues.push({ name: pName, size: pSize ?? undefined, available: fp.stock ?? 0 });
           const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - 1) };
-          if (pSize) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [pSize]: Math.max(0, (ss[pSize] ?? 0) - 1) }; }
+          if (pSize) {
+            const ss = fp.sizes_stock ?? {};
+            if ((ss[pSize] ?? 0) < 1) stockIssues.push({ name: pName, size: pSize, available: ss[pSize] ?? 0 });
+            upd.sizes_stock = { ...ss, [pSize]: Math.max(0, (ss[pSize] ?? 0) - 1) };
+          }
           await supabaseServer.from("products").update(upd).eq("id", pid);
+        } else {
+          stockIssues.push({ name: pName, size: pSize ?? undefined, available: 0, error: "product_not_found" });
         }
+        continue;
       }
+      const result = rpcResult as any;
+      if (!result?.ok) stockIssues.push({ name: pName, size: pSize ?? undefined, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
+    }
+    // Rupture APRÈS paiement (coffret) → commande CONSERVÉE + alerte admin (pas de remboursement auto).
+    if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0) {
+      const issuesHtml = stockIssues.map(i => `<li><strong>${escapeHtml(i.name)}</strong>${i.size ? ` (taille ${escapeHtml(i.size)})` : ""} — dispo ${i.available}</li>`).join("");
+      try {
+        await resend.emails.send({
+          from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
+          subject: `⚠️ STOCK INSUFFISANT (coffret) — commande #${orderData.id.slice(0, 8).toUpperCase()}`,
+          html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant après paiement (coffret)</h2><p>Commande <strong>#${orderData.id.slice(0, 8).toUpperCase()}</strong> de <strong>${escapeHtml(name || email)}</strong> :</p><ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul><p>📦 Vérifier le stock réel avant expédition ; si rupture confirmée, alternative ou remboursement.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+        });
+      } catch {}
+      try { await logActivity("stock_alert", `Stock insuffisant (coffret) #${orderData.id.slice(0, 8).toUpperCase()} — ${stockIssues.length} item(s)`, { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }); } catch {}
     }
 
     if (email && orderData) {
@@ -171,7 +198,9 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
         await fetch(`${BASE}/api/emails/confirmation`, {
           method:  "POST",
           headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-          body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress }),
+          // A5 : les coffrets sont livrés à domicile (adresse collectée par Stripe) → renseigner le
+          // bloc livraison de l'email (sinon deliveryBlock vide → le client ne voit pas son adresse).
+          body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress, delivery_type: shippingAddress ? "home" : null, home_address: shippingAddress }),
         });
       } catch {}
     }

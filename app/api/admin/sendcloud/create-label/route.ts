@@ -75,12 +75,31 @@ const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
 };
 
 // INTERNATIONAL (hors FR) = FedEx International Connect, livraison à DOMICILE, code
-// choisi selon le POIDS RÉEL de la commande. Deux tranches confirmées sur le contrat.
-// On prend la 1ʳᵉ tranche dont maxKg ≥ poids. Au-delà d'1 kg : aucune tranche → 400
-// explicite (tranche à activer côté contrat + à ajouter ici).
+// choisi selon le POIDS RÉEL de la commande. Tranches confirmées par export Sendcloud
+// (0 → 10,5 kg par pas de 0,5). ORDRE CROISSANT OBLIGATOIRE : find() prend la 1ʳᵉ
+// tranche dont maxKg ≥ poids. Au-delà de 10,5 kg : aucune tranche → 400 explicite.
 const FEDEX_INTL_TIERS: { maxKg: number; code: string }[] = [
-  { maxKg: 0.5, code: "fedex:internationalconnect/kg=0-0.5" },
-  { maxKg: 1.0, code: "fedex:internationalconnect/kg=0.5-1" },
+  { maxKg: 0.5,  code: "fedex:internationalconnect/kg=0-0.5"  },
+  { maxKg: 1.0,  code: "fedex:internationalconnect/kg=0.5-1"  },
+  { maxKg: 1.5,  code: "fedex:internationalconnect/kg=1-1.5"  },
+  { maxKg: 2.0,  code: "fedex:internationalconnect/kg=1.5-2"  },
+  { maxKg: 2.5,  code: "fedex:internationalconnect/kg=2-2.5"  },
+  { maxKg: 3.0,  code: "fedex:internationalconnect/kg=2.5-3"  },
+  { maxKg: 3.5,  code: "fedex:internationalconnect/kg=3-3.5"  },
+  { maxKg: 4.0,  code: "fedex:internationalconnect/kg=3.5-4"  },
+  { maxKg: 4.5,  code: "fedex:internationalconnect/kg=4-4.5"  },
+  { maxKg: 5.0,  code: "fedex:internationalconnect/kg=4.5-5"  },
+  { maxKg: 5.5,  code: "fedex:internationalconnect/kg=5-5.5"  },
+  { maxKg: 6.0,  code: "fedex:internationalconnect/kg=5.5-6"  },
+  { maxKg: 6.5,  code: "fedex:internationalconnect/kg=6-6.5"  },
+  { maxKg: 7.0,  code: "fedex:internationalconnect/kg=6.5-7"  },
+  { maxKg: 7.5,  code: "fedex:internationalconnect/kg=7-7.5"  },
+  { maxKg: 8.0,  code: "fedex:internationalconnect/kg=7.5-8"  },
+  { maxKg: 8.5,  code: "fedex:internationalconnect/kg=8-8.5"  },
+  { maxKg: 9.0,  code: "fedex:internationalconnect/kg=8.5-9"  },
+  { maxKg: 9.5,  code: "fedex:internationalconnect/kg=9-9.5"  },
+  { maxKg: 10.0, code: "fedex:internationalconnect/kg=9.5-10" },
+  { maxKg: 10.5, code: "fedex:internationalconnect/kg=10-10.5" },
 ];
 
 // Codes qui n'acceptent PAS to_service_point dans le body announce.

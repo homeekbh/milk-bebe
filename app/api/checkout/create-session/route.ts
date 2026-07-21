@@ -46,6 +46,21 @@ function extractTailleFromName(name: string): string | null {
   return null;
 }
 
+// ── POIDS D'EXPÉDITION (bug #5) ───────────────────────────────────────────────
+// Emballage = forfait UNIQUE par commande (1 seul colis quelle que soit la quantité :
+// sachet, ou petit carton si beaucoup d'articles). DEFAULT = fallback si un produit
+// n'a pas encore de weight_g en base. Constantes + calcul au MÊME endroit.
+const PACKAGING_WEIGHT_G    = 250; // forfait emballage, 1× par commande
+const DEFAULT_ITEM_WEIGHT_G = 250; // par article sans poids renseigné
+
+// Poids net d'un produit (products.weight_g), avec fallback nommé + avertissement.
+function resolveItemWeightG(product: any): number {
+  const w = Number(product?.weight_g);
+  if (Number.isFinite(w) && w > 0) return w;
+  console.warn(`[create-session] poids weight_g manquant pour "${product?.name ?? product?.id ?? "?"}" → défaut ${DEFAULT_ITEM_WEIGHT_G} g`);
+  return DEFAULT_ITEM_WEIGHT_G;
+}
+
 // Lit le seuil livraison offerte depuis la table settings (default 60€).
 async function getFreeShippingThreshold(): Promise<number> {
   try {
@@ -146,6 +161,7 @@ export async function POST(req: Request) {
 
     const lineItems      = [];
     const validatedItems = [];
+    let   shippingWeightG = 0; // Σ poids nets (produits + pièces de packs) ; emballage ajouté à la fin
 
     // Batch : 1 seule requête pour TOUS les produits du panier (élimine le N+1).
     const itemIds = [...new Set(itemsArr.map((i: any) => i.id).filter(Boolean))];
@@ -200,6 +216,8 @@ export async function POST(req: Request) {
         quantity: qty,
       });
 
+      shippingWeightG += resolveItemWeightG(product) * qty;
+
       validatedItems.push({
         id:            product.id,
         name:          displayName,
@@ -220,7 +238,7 @@ export async function POST(req: Request) {
       const packIds = [...new Set(packsArr.map((p: any) => p.pack_id).filter(Boolean))];
       const { data: packsData } = await supabaseServer
         .from("packs")
-        .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock ) )`)
+        .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock, weight_g ) )`)
         .in("id", packIds.length ? packIds : ["none"])
         .eq("active", true);
       const packMap: Record<string, any> = {};
@@ -258,6 +276,10 @@ export async function POST(req: Request) {
           }
           pieces.push({ product_id: p.id, name: p.name, size: pieceSize });
         }
+
+        // Poids du pack = Σ poids nets de ses pièces, × quantité de packs.
+        const onePackWeightG = prods.reduce((sum: number, p: any) => sum + resolveItemWeightG(p), 0);
+        shippingWeightG += onePackWeightG * qty;
 
         const forfait = Number(pack.price) || 0;
         packsSubtotal += forfait * qty;
@@ -445,6 +467,11 @@ export async function POST(req: Request) {
       reward_discount:  rewardDiscount,
     };
 
+    // Poids total d'expédition (bug #5) : Σ produits + pièces de packs, PUIS emballage
+    // ajouté UNE seule fois (1 commande = 1 colis). Persisté via le draft → webhook →
+    // orders.total_weight_g, puis lu par create-label pour la vraie tranche transporteur.
+    const totalWeightG = Math.round(shippingWeightG) + PACKAGING_WEIGHT_G;
+
     // ── DRAFT (pending_orders) : SÉLECTION RÉSOLUE (produits + pièces de packs
     //    avec leurs tailles) + livraison + promo. Sert au webhook à RETROUVER la
     //    commande et décrémenter. Le BILLING reste les line_items Stripe (calculés
@@ -463,6 +490,7 @@ export async function POST(req: Request) {
           shipping_zone:  shippingZone,
           delivery_price: deliveryCost,
           customer_phone: String(customer_phone ?? "").slice(0, 30),
+          total_weight_g: totalWeightG,
           relay: isFrance && relay ? { id: relay.id, name: relay.name, street: relay.street, city: relay.city, postal_code: relay.postal_code, type: relay.type } : null,
           home_address: isFrance ? (home_address ?? null) : null,
         },

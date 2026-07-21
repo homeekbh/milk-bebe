@@ -430,7 +430,7 @@ export async function POST(req: NextRequest) {
     if (!selected || !expectedCode) {
       return Response.json({
         error: isInternational
-          ? `Aucune tranche de poids FedEx International pour ${weightKg.toFixed(3)} kg (max configuré : ${FEDEX_INTL_TIERS[FEDEX_INTL_TIERS.length - 1].maxKg} kg). Active la tranche supérieure côté contrat FedEx puis ajoute-la dans FEDEX_INTL_TIERS.`
+          ? `Poids ${weightKg.toFixed(3)} kg — supérieur à la tranche FedEx max (${FEDEX_INTL_TIERS[FEDEX_INTL_TIERS.length - 1].maxKg} kg). Tranche FedEx à activer dans Sendcloud, puis ajouter son code dans FEDEX_INTL_TIERS. Étiquette impossible pour l'instant.`
           : `Aucun shipping_option_code configuré pour ${effectiveCarrier}/${deliveryType}. Ajoute SENDCLOUD_OPTION_CODE_${effectiveCarrier.toUpperCase()}_${String(deliveryType).toUpperCase()} dans les env vars Vercel, ou complète SENDCLOUD_OPTION_CODES dans le code.`,
         available_codes: allCodes,
       }, { status: 400 });

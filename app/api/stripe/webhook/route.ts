@@ -276,6 +276,13 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
         }).eq("id", orderData.id);
       } catch {}
     }
+    // Poids réel d'expédition (bug #5) : calculé par create-session (Σ produits/pièces de
+    // packs + emballage) et transmis via draft.delivery.total_weight_g. Écrase le défaut DB
+    // (500 g) pour que create-label demande la VRAIE tranche transporteur. Best-effort.
+    const draftWeightG = Number(delivery.total_weight_g);
+    if (Number.isFinite(draftWeightG) && draftWeightG > 0) {
+      try { await supabaseServer.from("orders").update({ total_weight_g: Math.round(draftWeightG) }).eq("id", orderData.id); } catch {}
+    }
   }
 
   // ── Claim ATOMIQUE du draft (pending→consumed) → effets de bord exactement-1×.

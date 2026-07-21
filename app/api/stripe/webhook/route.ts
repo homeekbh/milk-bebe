@@ -251,7 +251,19 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   if (orderData?.id) {
     const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
-    if (delivery.customer_phone) { try { await supabaseServer.from("orders").update({ customer_phone: String(delivery.customer_phone).trim() }).eq("id", orderData.id); } catch {} }
+    // Téléphone (colonne orders.customer_phone, lue par create-label) : PRIORITÉ au tél
+    // saisi dans le tunnel FRANCE (delivery.customer_phone). Sinon, à l'international,
+    // Stripe l'a collecté via phone_number_collection → session.customer_details.phone.
+    // AUCUN faux numéro : si les deux sont vides, on laisse customer_phone à null et on
+    // logge un avertissement (une étiquette ne doit JAMAIS partir avec un numéro bidon).
+    const tunnelPhone = String(delivery.customer_phone ?? "").trim();
+    const stripePhone = String(session.customer_details?.phone ?? "").trim();
+    const finalPhone  = tunnelPhone || stripePhone;
+    if (finalPhone) {
+      try { await supabaseServer.from("orders").update({ customer_phone: finalPhone }).eq("id", orderData.id); } catch {}
+    } else {
+      console.warn(`[webhook] commande ${orderData.id} sans téléphone (ni tunnel FR, ni Stripe) — customer_phone laissé null (pas de faux numéro).`);
+    }
     // Pays + zone de livraison (orders.shipping_country / shipping_zone), écrits par
     // create-session dans draft.delivery. Best-effort : si les colonnes manquent,
     // l'update échoue silencieusement sans casser l'upsert principal déjà réussi.

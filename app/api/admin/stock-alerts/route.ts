@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { Resend }         from "resend";
+import { escapeHtml }     from "@/lib/escape-html";
 import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -79,10 +80,10 @@ export async function GET(req: NextRequest) {
     Tu avais demandé à être alertée pour :
   </p>
   <div style="background:#2a2018;border-radius:16px;padding:20px;margin:0 0 28px;border:1px solid rgba(196,154,74,0.2)">
-    <div style="font-size:17px;font-weight:900;color:#f2ede6">${product.name}${tailleLabel}</div>
+    <div style="font-size:17px;font-weight:900;color:#f2ede6">${escapeHtml(product.name)}${escapeHtml(tailleLabel)}</div>
     <div style="font-size:13px;color:#c49a4a;margin-top:6px;font-weight:700">Est de nouveau disponible !</div>
   </div>
-  <a href="${BASE}/fr/produits/${product.slug ?? ""}"
+  <a href="${BASE}/fr/produits/${escapeHtml(product.slug ?? "")}"
     style="display:inline-block;background:#f2ede6;color:#1a1410;padding:16px 36px;border-radius:12px;font-weight:900;font-size:16px;text-decoration:none">
     Commander maintenant →
   </a>

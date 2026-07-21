@@ -1,4 +1,5 @@
 import { Resend } from "resend";
+import { escapeHtml } from "@/lib/escape-html";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -23,8 +24,8 @@ export async function POST(req: Request) {
     const { email, prenom, montant } = await req.json();
     if (!email) return Response.json({ error: "email manquant" }, { status: 400 });
 
-    const montantFmt = Number(montant ?? 5).toFixed(0);
-    const salut = prenom ? `${prenom}, une` : "Une";
+    const montantFmt = Number(montant ?? 5).toFixed(0); // numérique → sûr
+    const salut = prenom ? `${escapeHtml(prenom)}, une` : "Une";
 
     const { error } = await resend.emails.send({
       from:    "M!LK <contact@milkbebe.fr>",

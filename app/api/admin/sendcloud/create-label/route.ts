@@ -288,9 +288,16 @@ export async function POST(req: NextRequest) {
         error: "Téléphone manquant — étiquette FedEx impossible. Ajoutez le numéro du client sur la commande avant de générer l'étiquette.",
       }, { status: 400 });
     }
-    // FRANCE : téléphone vide TOLÉRÉ ici (aucun blocage ajouté) — décision « bloquer aussi
-    // la FR » vs « tolérer » à trancher (cf. rapport). Si un transporteur FR refuse un tél
-    // vide, l'erreur Sendcloud brute remontera telle quelle à l'admin (pas de faux numéro).
+    // FRANCE — Mondial Relay POINT RELAIS : la mise à disposition en point relais est
+    // notifiée par SMS → le téléphone est REQUIS. Sans numéro on bloque (même forme
+    // d'erreur claire, remontée à l'admin via labelError). Colissimo (domicile OU point
+    // retrait) reste TOLÉRÉ : tél vide accepté → le champ phone_number est alors OMIS de
+    // l'announce (cf. to_address plus bas), plutôt qu'envoyé vide.
+    if (!isInternational && effectiveCarrier === "mondial_relay" && deliveryType === "point_relais" && !phoneNumber) {
+      return Response.json({
+        error: "Téléphone manquant — requis pour l'envoi en point relais Mondial Relay (notification SMS). Ajoutez le numéro avant de générer l'étiquette.",
+      }, { status: 400 });
+    }
 
     const customerName = sanitizeName(addr.name || order.customer_name || "Client");
     const numericRelayId = relayId && /^\d+$/.test(String(relayId)) ? parseInt(String(relayId), 10) : null;
@@ -469,7 +476,10 @@ export async function POST(req: NextRequest) {
         postal_code:    recipientPostalCode,
         country_code:   recipientCountry,
         email:          order.customer_email ?? "",
-        phone_number:   phoneNumber,
+        // phone_number OMIS si vide (Colissimo FR toléré) — certains back-ends préfèrent
+        // l'absence du champ à une chaîne vide. Non vide garanti à l'international et en
+        // Mondial Relay point relais (bloqués sinon ci-dessus).
+        ...(phoneNumber ? { phone_number: phoneNumber } : {}),
       },
       parcels:      [{ weight: { value: weightKgStr, unit: "kg" } }],
       order_number: String(order.id ?? "").slice(0, 30),

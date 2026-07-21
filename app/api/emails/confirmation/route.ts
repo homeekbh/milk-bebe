@@ -75,7 +75,7 @@ function emailConfirmation(
       Commande confirmée !
     </h1>
     <p style="margin:0;color:rgba(242,237,230,0.5);font-size:15px;line-height:1.7">
-      ${escapeHtml(prenom) ? `Merci ${prenom} !` : "Merci !"} Ta commande <strong style="color:#c49a4a">#${orderId.slice(0, 8).toUpperCase()}</strong> est bien enregistrée.<br>
+      ${escapeHtml(prenom) ? `Merci ${escapeHtml(prenom)} !` : "Merci !"} Ta commande <strong style="color:#c49a4a">#${orderId.slice(0, 8).toUpperCase()}</strong> est bien enregistrée.<br>
       On prépare ton colis avec soin 🌿
     </p>
   </div>

@@ -1,5 +1,6 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { escapeHtml }     from "@/lib/escape-html";
 import { Resend } from "resend";
 import type { NextRequest } from "next/server";
 
@@ -7,36 +8,49 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function POST(req: NextRequest) {
-  const { email, product_id, product_name, product_slug, taille } = await req.json();
+  const { email, product_id, taille } = await req.json();
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email || !emailRegex.test(email)) {
     return Response.json({ error: "Email invalide" }, { status: 400 });
   }
-  if (!product_id || !product_name) {
+  if (!product_id) {
     return Response.json({ error: "Produit manquant" }, { status: 400 });
   }
 
-  // Upsert dans stock_alerts — évite les doublons
+  // SÉCURITÉ : nom + slug dérivés de la DB (source de vérité), JAMAIS du body.
+  // Empêche l'injection HTML / le vecteur phishing dans l'email signé M!LK.
+  const { data: product } = await supabaseServer
+    .from("products").select("name, slug, sizes").eq("id", product_id).single();
+  if (!product) {
+    return Response.json({ error: "Produit introuvable" }, { status: 400 });
+  }
+  const productName = String(product.name ?? "");
+  const productSlug = String(product.slug ?? "");
+  // taille : conservée seulement si elle appartient réellement au produit, sinon ignorée.
+  const sizes: string[] = Array.isArray(product.sizes) ? product.sizes.map(String) : [];
+  const safeTaille = taille && sizes.includes(String(taille)) ? String(taille) : null;
+
+  // Upsert dans stock_alerts — évite les doublons. On stocke les valeurs DERIVÉES.
   const { error } = await supabaseServer
     .from("stock_alerts")
     .upsert([{
       email:        email.toLowerCase().trim(),
       product_id,
-      product_name,
-      product_slug: product_slug ?? null,
-      taille:       taille ?? null,
+      product_name: productName,
+      product_slug: productSlug || null,
+      taille:       safeTaille,
       notified:     false,
     }], { onConflict: "email,product_id,taille" });
 
   if (error) return Response.json({ error: error.message }, { status: 400 });
 
-  // Email de confirmation
-  const tailleLabel = taille ? ` — taille ${taille}` : "";
+  // Email de confirmation — toutes les valeurs sont ÉCHAPPÉES avant interpolation.
+  const tailleLabel = safeTaille ? ` — taille ${escapeHtml(safeTaille)}` : "";
   await resend.emails.send({
     from:    "M!LK <contact@milkbebe.fr>",
     to:      email,
-    subject: `🔔 On te prévient dès le retour en stock — ${product_name}${tailleLabel}`,
+    subject: `🔔 On te prévient dès le retour en stock — ${productName}${safeTaille ? ` — taille ${safeTaille}` : ""}`,
     html: `
 <!DOCTYPE html>
 <html lang="fr">
@@ -47,9 +61,9 @@ export async function POST(req: NextRequest) {
   </div>
   <h1 style="color:#f2ede6;font-size:22px;font-weight:950;margin:0 0 16px">Alerte réassort enregistrée !</h1>
   <p style="color:rgba(242,237,230,0.6);font-size:15px;line-height:1.7;margin:0 0 24px">
-    On te préviendra dès que <strong style="color:#f2ede6">${product_name}${tailleLabel}</strong> sera de nouveau disponible.
+    On te préviendra dès que <strong style="color:#f2ede6">${escapeHtml(productName)}${tailleLabel}</strong> sera de nouveau disponible.
   </p>
-  <a href="${BASE}/fr/produits/${product_slug ?? ""}"
+  <a href="${BASE}/fr/produits/${escapeHtml(productSlug)}"
     style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none">
     Voir le produit →
   </a>

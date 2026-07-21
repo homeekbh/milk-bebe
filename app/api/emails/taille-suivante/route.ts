@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { escapeHtml }     from "@/lib/escape-html";
 import { Resend }         from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -71,7 +72,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
   <div style="background:#1a1410;border-radius:20px;border:1px solid rgba(242,237,230,0.08);padding:40px;margin-bottom:20px;text-align:center">
     <div style="font-size:48px;margin-bottom:20px">👶</div>
     <h1 style="margin:0 0 16px;color:#f2ede6;font-size:26px;font-weight:900;letter-spacing:-1px;line-height:1.2">
-      ${prenom ? `${prenom}, bébé` : "Bébé"} est prêt pour la taille suivante ?
+      ${prenom ? `${escapeHtml(prenom)}, bébé` : "Bébé"} est prêt pour la taille suivante ?
     </h1>
     <p style="margin:0;color:rgba(242,237,230,0.6);font-size:15px;line-height:1.8">
       ${messageIntro}<br><br>

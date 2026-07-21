@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { escapeHtml }     from "@/lib/escape-html";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -34,14 +35,28 @@ export async function POST(req: Request) {
     return Response.json({ error: "Email invalide" }, { status: 400 });
   }
 
+  // SÉCURITÉ : promo_code validé (alphanumérique majuscule + tiret, 2–30 car.) — rejeté
+  // s'il est fourni et malformé. Empêche l'injection HTML/phishing dans l'email de
+  // bienvenue. `source` borné (stocké seulement). Défense en profondeur : on échappe
+  // quand même à l'interpolation.
+  let safePromo: string | null = null;
+  if (promo_code != null && String(promo_code).trim() !== "") {
+    const pc = String(promo_code).toUpperCase().trim();
+    if (!/^[A-Z0-9-]{2,30}$/.test(pc)) {
+      return Response.json({ error: "Code promo invalide" }, { status: 400 });
+    }
+    safePromo = pc;
+  }
+  const safeSource = String(source ?? "popup").slice(0, 50);
+
   const token = crypto.randomUUID();
 
   const { error } = await supabaseServer
     .from("newsletter_subscribers")
     .upsert([{
       email:             email.toLowerCase().trim(),
-      source:            source     ?? "popup",
-      promo_code:        promo_code ?? null,
+      source:            safeSource,
+      promo_code:        safePromo,
       unsubscribe_token: token,
       active:            true,
     }], { onConflict: "email" })
@@ -63,10 +78,10 @@ export async function POST(req: Request) {
   <p style="color:rgba(242,237,230,0.55);font-size:15px;line-height:1.7;margin:0 0 28px">
     Merci de rejoindre la communauté M!LK. Tu seras la première informée des nouveautés et offres exclusives.
   </p>
-  ${promo_code ? `
+  ${safePromo ? `
   <div style="background:#2a2018;border-radius:16px;padding:24px;margin-bottom:28px;border:1px solid rgba(196,154,74,0.2)">
     <div style="font-size:13px;color:rgba(242,237,230,0.4);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Ton code de bienvenue</div>
-    <div style="font-size:28px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${promo_code}</div>
+    <div style="font-size:28px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${escapeHtml(safePromo)}</div>
     <div style="font-size:13px;color:rgba(242,237,230,0.4);margin-top:8px">À utiliser sur milkbebe.fr</div>
   </div>
   <a href="${BASE}/fr/produits" style="display:inline-block;background:#f2ede6;color:#1a1410;padding:14px 32px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:28px">
@@ -86,7 +101,7 @@ export async function POST(req: Request) {
   await resend.emails.send({
     from:    "M!LK <contact@milkbebe.fr>",
     to:      email,
-    subject: promo_code ? `🎁 Ton code promo M!LK : ${promo_code}` : "Bienvenue chez M!LK !",
+    subject: safePromo ? `🎁 Ton code promo M!LK : ${safePromo}` : "Bienvenue chez M!LK !",
     html,
   }).catch(e => console.error("Newsletter email error:", e));
 

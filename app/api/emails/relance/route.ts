@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { escapeHtml }     from "@/lib/escape-html";
 import { Resend } from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -95,14 +96,14 @@ function relanceHtml(cart: any, step: number, promoCode: string | null): string 
 
   const itemsList = items.map((i: any) => `
     <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid rgba(242,237,230,0.06)">
-      <span style="color:#f2ede6;font-weight:700;font-size:14px">${i.name}</span>
+      <span style="color:#f2ede6;font-weight:700;font-size:14px">${escapeHtml(i.name)}</span>
       <span style="color:#c49a4a;font-weight:900;font-size:14px">${(Number(i.price) * Number(i.quantity)).toFixed(2)} €</span>
     </div>
   `).join("");
 
   const messages: Record<number, { title: string; body: string }> = {
     1: {
-      title: `${prenom ? `${prenom}, vous` : "Vous"} avez oublié votre panier 🌿`,
+      title: `${prenom ? `${escapeHtml(prenom)}, vous` : "Vous"} avez oublié votre panier 🌿`,
       body:  "Vos essentiels bébé en bambou vous attendent. Stock limité.",
     },
     2: {

@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { escapeHtml }     from "@/lib/escape-html";
 import { Resend }         from "resend";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
@@ -81,7 +82,7 @@ export async function GET(req: Request) {
       const pidParam = pid ? `&product_id=${encodeURIComponent(pid)}` : "";
       return `<a href="${BASE}/fr/avis?order_id=${orderParam}&email=${emailParam}${pidParam}"
         style="display:block;padding:12px 16px;margin-bottom:8px;background:#f5f0e8;border-radius:10px;text-decoration:none;color:#1a1410;font-weight:700;font-size:14px">
-        ⭐ Donner mon avis sur ${item.name}
+        ⭐ Donner mon avis sur ${escapeHtml(item.name)}
       </a>`;
     }).join("");
 
@@ -94,7 +95,7 @@ export async function GET(req: Request) {
     <span style="color:#1a1410;font-weight:950;font-size:22px">M!LK</span>
   </div>
   <h1 style="color:#f2ede6;font-size:20px;font-weight:950;margin:0 0 12px">
-    ${prenom}, bébé est bien habillé ? 🌿
+    ${escapeHtml(prenom)}, bébé est bien habillé ? 🌿
   </h1>
   <p style="color:rgba(242,237,230,0.6);font-size:15px;line-height:1.7;margin:0 0 24px">
     Cela fait 7 jours que tu as reçu ta commande M!LK. On espère que bébé adore le bambou !

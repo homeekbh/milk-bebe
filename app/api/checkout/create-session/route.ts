@@ -140,15 +140,34 @@ export async function POST(req: Request) {
         return Response.json({ error: `Stock insuffisant pour ${product.name}` }, { status: 400 });
       }
 
-      const taille = extractTailleFromName(item.name ?? "");
-      if (taille) {
-        const sizesStock: Record<string, number> = product.sizes_stock ?? {};
-        const stockPourTaille = sizesStock[taille] ?? 0;
-        if (stockPourTaille < qty) {
-          return Response.json({
-            error: `La taille "${taille}" n'est plus disponible pour ${product.name}. Veuillez choisir une autre taille.`,
-          }, { status: 400 });
+      // R3 — Résolution ROBUSTE de la taille (empêche le contournement du contrôle par taille
+      // quand le name se termine par la couleur, ex. "Body — 0-3 mois — Terracotta"). Priorité :
+      // item.taille (sélectionné au panier, ∈ product.sizes imposé par l'UI) ; sinon un SEGMENT du
+      // name correspondant à une taille RÉELLE du produit ; sinon la taille unique. Rejet si le
+      // produit a des tailles mais qu'aucune n'est résolue (anti-abus par requête forgée).
+      const productSizes: string[] = Array.isArray(product.sizes) ? product.sizes.map(String) : [];
+      let taille: string | null = null;
+      if (productSizes.length > 0) {
+        const explicit = item.taille != null ? String(item.taille).trim() : "";
+        if (explicit && productSizes.includes(explicit)) {
+          taille = explicit;
+        } else {
+          const seg = String(item.name ?? "").split(" — ").map(s => s.trim()).find(s => productSizes.includes(s));
+          taille = seg ?? (productSizes.length === 1 ? productSizes[0] : null);
         }
+        if (!taille) {
+          return Response.json({ error: `Taille requise pour ${product.name}. Veuillez la sélectionner.` }, { status: 400 });
+        }
+      }
+      // Contrôle du stock PAR TAILLE — uniquement si la taille est réellement suivie dans
+      // sizes_stock (certains produits ont des clés sizes_stock ≠ product.sizes → on ne casse pas
+      // ces commandes ; le stock global reste vérifié plus haut). Ne dépend plus du name.
+      const sizesStock: Record<string, number> = product.sizes_stock ?? {};
+      const trackedSize = taille && Object.prototype.hasOwnProperty.call(sizesStock, taille) ? taille : null;
+      if (trackedSize && (sizesStock[trackedSize] ?? 0) < qty) {
+        return Response.json({
+          error: `La taille "${taille}" n'est plus disponible pour ${product.name}. Veuillez choisir une autre taille.`,
+        }, { status: 400 });
       }
 
       const now = new Date();
@@ -177,7 +196,7 @@ export async function POST(req: Request) {
         price:         finalPrice,
         quantity:      qty,
         category_slug: product.category_slug ?? "",
-        taille:        taille ?? null,
+        taille:        trackedSize ?? null, // R3 : décrément par-taille uniquement si suivie dans sizes_stock
       });
     }
 

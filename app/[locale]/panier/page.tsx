@@ -961,7 +961,7 @@ export default function CartPage() {
                   </div>
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
-                    <span>Total TTC</span>
+                    <span>Total</span>
                     <span>{grandTotal.toFixed(2)} €</span>
                   </div>
                 </div>

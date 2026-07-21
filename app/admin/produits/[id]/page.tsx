@@ -1734,7 +1734,7 @@ export default function AdminProductForm() {
               <div style={{ fontWeight: 900, fontSize: 20, color: "#1a1410", marginBottom: 4 }}>💶 Prix de vente</div>
               <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginBottom: 8 }}>Prix affiché sur la fiche produit</div>
 
-              <Field label="Prix TTC (€) *" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
+              <Field label="Prix (€) *" fieldKey="price_ttc" type="number" placeholder="29.90" value={form.price_ttc} onChange={set} />
 
               {/* Aperçu prix */}
               {form.price_ttc && (
@@ -1753,7 +1753,7 @@ export default function AdminProductForm() {
                       <span style={{ fontSize: 28, fontWeight: 950, color: "#1a1410" }}>{parseFloat(form.price_ttc).toFixed(2)} €</span>
                     )}
                   </div>
-                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 4 }}>Prix TTC — TVA incluse</div>
+                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 4 }}>Prix de vente — TVA non applicable (franchise 293 B)</div>
                 </div>
               )}
             </div>

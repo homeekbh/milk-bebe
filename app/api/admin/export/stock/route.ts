@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   rows.push([`Généré le ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}`]);
   rows.push([]);
   rows.push(["RÉSUMÉ PAR PRODUIT"]);
-  rows.push(["Produit", "Réf.", "Catégorie", "Tailles", "Stock total", "Prix TTC (€)", "Valeur stock (€)"]);
+  rows.push(["Produit", "Réf.", "Catégorie", "Tailles", "Stock total", "Prix (€)", "Valeur stock (€)"]);
 
   let totalStock = 0;
   let totalValue = 0;

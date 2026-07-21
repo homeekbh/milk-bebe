@@ -416,7 +416,7 @@ export default function ProfilPage() {
                 <div style={{ width: 36, height: 36, borderRadius: 10, background: DARK, display: "flex", alignItems: "center", justifyContent: "center" }}><span style={{ fontSize: 18 }}>🧾</span></div>
                 <div>
                   <div style={{ fontWeight: 900, fontSize: 16, color: DARK }}>Adresse de facturation</div>
-                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)" }}>Apparaît sur la facture</div>
+                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)" }}>Utilisée pour votre facturation</div>
                 </div>
               </div>
               <label style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer", marginBottom: billingSame ? 0 : 20, padding: "12px 16px", borderRadius: 12, background: "#f9f6f1", border: "1px solid rgba(26,20,16,0.08)" }}>

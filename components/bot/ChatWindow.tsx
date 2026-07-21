@@ -153,7 +153,7 @@ async function getBotResponseAsync(input: string): Promise<string> {
     const price = p.promo_price ? `~~${p.price_ttc}€~~ **${p.promo_price}€**` : `**${p.price_ttc}€**`;
     const stock = p.stock > 0 ? `✅ En stock (${p.stock} dispo)` : `❌ Épuisé`;
     const sizes = Array.isArray(p.sizes) && p.sizes.length > 0 ? p.sizes.join(", ") : "voir fiche";
-    return `**${p.name}** — ${p.category_slug} 👶\n${price} TTC · ${stock}\nTailles : ${sizes}\nVoir la fiche ➡️ /produits/${p.slug}`;
+    return `**${p.name}** — ${p.category_slug} 👶\n${price} · ${stock}\nTailles : ${sizes}\nVoir la fiche ➡️ /produits/${p.slug}`;
   }
 
   // Plusieurs produits correspondants

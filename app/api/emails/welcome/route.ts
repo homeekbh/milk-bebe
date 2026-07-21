@@ -80,8 +80,8 @@ function welcomeTemplate(prenom: string): string {
       </div>
       <div>
         <div style="font-size:24px;margin-bottom:6px">↩️</div>
-        <div style="color:#f2ede6;font-size:14px;font-weight:800;margin-bottom:3px">Retour gratuit</div>
-        <div style="color:rgba(242,237,230,0.45);font-size:13px">sous 15 jours</div>
+        <div style="color:#f2ede6;font-size:14px;font-weight:800;margin-bottom:3px">Retour</div>
+        <div style="color:rgba(242,237,230,0.45);font-size:13px">sous 14 jours</div>
       </div>
     </div>
   </div>

@@ -435,7 +435,7 @@
     "clear": "Vider le panier",
     "secure": "🔒 Paiement sécurisé Stripe",
     "oeko": "🌿 100% Bambou OEKO-TEX",
-    "returns": "↩️ Retour gratuit 30 jours"
+    "returns": "↩️ Retour sous 14 jours"
   },
   "footer": {
     "tagline": "Des essentiels bébé. Sans le superflu.",
@@ -474,8 +474,8 @@
   "reassurance": {
     "shipping": "Livraison offerte",
     "shipping_desc": "Dès 60€ d'achat",
-    "returns": "Retour gratuit",
-    "returns_desc": "Sous 30 jours",
+    "returns": "Retours",
+    "returns_desc": "Sous 14 jours",
     "bamboo": "Bambou OEKO-TEX",
     "bamboo_desc": "Certifié, testé, sécurisé",
     "payment": "Paiement sécurisé",

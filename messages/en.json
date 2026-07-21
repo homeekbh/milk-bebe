@@ -435,7 +435,7 @@
     "clear": "Clear cart",
     "secure": "🔒 Secure payment via Stripe",
     "oeko": "🌿 100% Bamboo OEKO-TEX",
-    "returns": "↩️ Free returns within 30 days"
+    "returns": "↩️ Returns within 14 days"
   },
   "footer": {
     "tagline": "Baby essentials. Nothing superfluous.",
@@ -474,8 +474,8 @@
   "reassurance": {
     "shipping": "Free shipping",
     "shipping_desc": "From €60 purchase",
-    "returns": "Free returns",
-    "returns_desc": "Within 30 days",
+    "returns": "Returns",
+    "returns_desc": "Within 14 days",
     "bamboo": "Bamboo OEKO-TEX",
     "bamboo_desc": "Certified, tested, safe",
     "payment": "Secure payment",

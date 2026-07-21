@@ -52,10 +52,16 @@ export default function ConsentManager() {
   }), []);
 
   function decide(s: "accepted" | "refused") {
-    writeConsent(s);
+    writeConsent(s);      // persiste le choix AVANT tout reload (localStorage synchrone)
     setStatus(s);
     setShow(false);
     setCustom(false);
+    // Refus / retrait : recharger pour STOPPER immédiatement GA4/GTM/Meta Pixel déjà chargés
+    // dans la session (sinon ils ne cessent qu'au prochain chargement). Pas de reload sur
+    // « accepter » (inutile). Le choix "refused" est déjà enregistré ci-dessus.
+    if (s === "refused") {
+      try { window.location.reload(); } catch {}
+    }
   }
 
   return (

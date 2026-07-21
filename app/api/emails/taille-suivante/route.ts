@@ -106,7 +106,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
       </div>
       <div style="padding:14px;background:rgba(242,237,230,0.04);border-radius:10px">
         <div style="font-size:20px;margin-bottom:6px">↩️</div>
-        <div style="font-size:11px;color:rgba(242,237,230,0.4)">Retour gratuit 15j</div>
+        <div style="font-size:11px;color:rgba(242,237,230,0.4)">Retour sous 14 jours</div>
       </div>
     </div>
   </div>

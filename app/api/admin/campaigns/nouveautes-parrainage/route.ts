@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Resend } from "resend";
 import { requireAdmin } from "@/lib/admin-auth";
 import { supabaseServer } from "@/lib/server/supabase";
+import { escapeHtml } from "@/lib/escape-html";
 
 /**
  * Campagne « Nouveautés + Parrainage » — route DORMANTE.
@@ -81,7 +82,7 @@ function footerHtml(r: Pick<Recipient, "isNewsletter" | "token" | "email">): str
 // ── HTML de l'email (2 variantes via hasAccount) ────────────────────────────
 function campaignHtml(opts: { prenom: string | null; hasAccount: boolean; footer: string }): string {
   const { prenom, hasAccount, footer } = opts;
-  const bonjour = prenom ? `Bonjour ${prenom},` : "Bonjour,";
+  const bonjour = prenom ? `Bonjour ${escapeHtml(prenom)},` : "Bonjour,";
 
   const cta = hasAccount
     ? { href: `${BASE}/fr/profil`,      label: "Voir mon code parrain →" }

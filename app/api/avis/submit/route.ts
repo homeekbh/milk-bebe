@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/server/supabase";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 /**
  * POST /api/avis/submit  (application/x-www-form-urlencoded)
@@ -23,17 +25,6 @@ import { supabaseServer } from "@/lib/server/supabase";
 export const dynamic = "force-dynamic";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
-
-// Rate-limit mémoire (par instance serverless — même approche que /api/reviews).
-const rlMap = new Map<string, { count: number; resetAt: number }>();
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const e = rlMap.get(ip);
-  if (!e || now > e.resetAt) { rlMap.set(ip, { count: 1, resetAt: now + 60_000 }); return false; }
-  if (e.count >= 6) return true;   // ≥6 POST/min = spam ; laisse la marge aux retries légitimes
-  e.count++;
-  return false;
-}
 
 function redirect(path: string, status = 303) {
   return NextResponse.redirect(new URL(path, BASE), status);
@@ -78,9 +69,8 @@ export async function POST(req: Request) {
     return backWithError(locale, orderId, email, productId, "rating");
   }
 
-  // 5. Rate-limit
-  const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
-  if (isRateLimited(ip)) {
+  // 5. Rate-limit (helper partagé + IP fiable Vercel) — 6/min/IP
+  if (!rateLimit(getClientIp(req), { max: 6, window: 60 })) {
     return backWithError(locale, orderId, email, productId, "rate");
   }
 

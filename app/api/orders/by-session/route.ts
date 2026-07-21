@@ -1,4 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -26,6 +28,11 @@ async function lookup(sessionId: string) {
 
 export async function GET(req: Request) {
   try {
+    // Rate limiting (helper partagé + IP fiable Vercel) — 10/min/IP (anti-hammering ;
+    // /success ne fait qu'1-2 appels par commande). Le token cs_… opaque reste le garde principal.
+    if (!rateLimit(getClientIp(req), { max: 10, window: 60 })) {
+      return Response.json({ order: null }, { status: 429 });
+    }
     const sessionId = new URL(req.url).searchParams.get("session_id") ?? "";
     if (!sessionId) return Response.json({ order: null });
 

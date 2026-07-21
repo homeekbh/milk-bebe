@@ -1,29 +1,15 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { escapeHtml }     from "@/lib/escape-html";
 import { Resend } from "resend";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
-// Rate limiting simple en mémoire (reset au redéploiement — suffisant pour bloquer le spam)
-const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
-
-function isRateLimited(ip: string): boolean {
-  const now  = Date.now();
-  const entry = rateLimitMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rateLimitMap.set(ip, { count: 1, resetAt: now + 60_000 }); // fenêtre 1 min
-    return false;
-  }
-  if (entry.count >= 3) return true; // max 3 inscriptions/min par IP
-  entry.count++;
-  return false;
-}
-
 export async function POST(req: Request) {
-  // Rate limiting
-  const ip = (req as any).headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(ip)) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 3/min/IP
+  if (!rateLimit(getClientIp(req), { max: 3, window: 60 })) {
     return Response.json({ error: "Trop de requêtes. Réessaie dans une minute." }, { status: 429 });
   }
 

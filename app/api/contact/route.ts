@@ -1,21 +1,9 @@
 import { Resend } from "resend";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const ADMIN  = process.env.ADMIN_EMAIL_1 ?? "contact@milkbebe.fr";
-
-// Rate limiting : max 3 messages/heure par IP
-const rlMap = new Map<string, { count: number; resetAt: number }>();
-function isRateLimited(ip: string): boolean {
-  const now   = Date.now();
-  const entry = rlMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rlMap.set(ip, { count: 1, resetAt: now + 60 * 60 * 1000 }); // fenêtre 1h
-    return false;
-  }
-  if (entry.count >= 3) return true;
-  entry.count++;
-  return false;
-}
 
 function sanitize(str: string): string {
   return String(str)
@@ -27,9 +15,8 @@ function sanitize(str: string): string {
 }
 
 export async function POST(req: Request) {
-  // Rate limiting
-  const ip = (req as any).headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(ip)) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 3/heure/IP
+  if (!rateLimit(getClientIp(req), { max: 3, window: 3600 })) {
     return Response.json({ error: "Trop de messages envoyés. Réessaie dans une heure." }, { status: 429 });
   }
 

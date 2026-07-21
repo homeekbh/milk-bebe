@@ -1,22 +1,9 @@
 import { Resend } from "resend";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
-
-// Rate limiting simple en mémoire (par IP)
-// Permet ~5 envois / heure / IP — suffisant contre l'abus, transparent en usage légitime.
-const rlMap = new Map<string, { count: number; resetAt: number }>();
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rlMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rlMap.set(ip, { count: 1, resetAt: now + 3_600_000 }); // 1h
-    return false;
-  }
-  if (entry.count >= 5) return true;
-  entry.count++;
-  return false;
-}
 
 function escapeHtml(str: string): string {
   return String(str)
@@ -123,8 +110,8 @@ function welcomeTemplate(prenom: string): string {
  * dans auth.users via service_role avant d'envoyer.
  */
 export async function POST(req: Request) {
-  const ip = (req as any).headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(ip)) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 5/heure/IP
+  if (!rateLimit(getClientIp(req), { max: 5, window: 3600 })) {
     return Response.json({ error: "Trop de requêtes." }, { status: 429 });
   }
 

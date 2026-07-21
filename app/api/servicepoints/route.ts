@@ -1,4 +1,6 @@
 import type { NextRequest } from "next/server";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 function getBasicAuth() {
   const pub = process.env.SENDCLOUD_PUBLIC_KEY ?? "";
@@ -155,6 +157,11 @@ function formatOpeningHours(raw: unknown): string | null {
  *   2. Tous échouent → fallback_manual:true (saisie manuelle côté client)
  */
 export async function GET(req: NextRequest) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 30/min/IP, GÉNÉREUX : un client
+  // teste légitimement plusieurs codes postaux d'affilée. Borne les appels Sendcloud (facturés).
+  if (!rateLimit(getClientIp(req), { max: 30, window: 60 })) {
+    return Response.json({ error: true, message: "Trop de recherches. Réessaie dans une minute." }, { status: 429 });
+  }
   const { searchParams } = new URL(req.url);
   const postalCode      = (searchParams.get("postal_code") ?? "").trim();
   const requestedCarrier = (searchParams.get("carrier") ?? "colissimo").toLowerCase();

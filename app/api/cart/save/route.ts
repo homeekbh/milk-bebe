@@ -1,24 +1,11 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 import type { NextRequest } from "next/server";
 
-// Rate limiting : max 5 sauvegardes/minute par IP
-const rlMap = new Map<string, { count: number; resetAt: number }>();
-function isRateLimited(ip: string): boolean {
-  const now   = Date.now();
-  const entry = rlMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rlMap.set(ip, { count: 1, resetAt: now + 60_000 });
-    return false;
-  }
-  if (entry.count >= 5) return true;
-  entry.count++;
-  return false;
-}
-
 export async function POST(req: NextRequest) {
-  // Rate limiting
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(ip)) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 5/min/IP
+  if (!rateLimit(getClientIp(req), { max: 5, window: 60 })) {
     return Response.json({ ok: false, error: "Trop de requêtes" }, { status: 429 });
   }
 
@@ -27,6 +14,10 @@ export async function POST(req: NextRequest) {
 
     if (!email || !items || items.length === 0) {
       return Response.json({ ok: false });
+    }
+    // Valider le format email (clé de la ligne abandoned_carts).
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(String(email))) {
+      return Response.json({ ok: false, error: "Email invalide" }, { status: 400 });
     }
 
     const emailClean = email.toLowerCase().trim();

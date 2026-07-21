@@ -2,6 +2,7 @@ import Stripe from "stripe";
 import { headers } from "next/headers";
 import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
+import { escapeHtml } from "@/lib/escape-html";
 import { logActivity } from "@/lib/server/audit";
 import { decideRewardOnRefund } from "@/lib/parrainage-refund";
 import { getParrainageSettings } from "@/lib/parrainage-server";
@@ -246,6 +247,30 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
     .select().single();
   if (orderErr) process.env.NODE_ENV !== "production" && console.error("[webhook] unified order upsert:", orderErr.message);
+
+  // ── B2 : commande NON écrite → ARRÊT AVANT tout effet de bord (claim / décrément / promo).
+  //    Avec ON CONFLICT DO UPDATE (.select().single()), orderData null ⟺ échec RÉEL d'écriture.
+  //    Un rejeu d'une commande DÉJÀ écrite renvoie la ligne (DO UPDATE) → orderData peuplé → on
+  //    ne passe PAS ici, et le claim plus bas verra le draft déjà "consumed" → 200 sans rien doubler.
+  //    Ici (échec réel) : alerte admin best-effort PUIS throw → catch global (≈L1026) → 500 → Stripe
+  //    rejoue, le draft reste "pending" pour un retraitement propre.
+  if (orderErr || !orderData?.id) {
+    try {
+      if (ADMIN_EMAILS.length > 0) {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `🚨 Commande NON enregistrée — session ${session.id.slice(0, 24)}`,
+          html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Commande payée non enregistrée</h2><p>L'écriture <code>orders</code> a échoué pour la session Stripe <strong>${escapeHtml(session.id)}</strong>.</p><p>Erreur : <strong>${escapeHtml(orderErr?.message ?? "aucune ligne retournée (orderData vide)")}</strong></p><p>⚠️ Le client a potentiellement été débité. Stripe rejoue l'événement automatiquement ; si la commande n'apparaît pas rapidement dans l'admin, vérifier côté Stripe (paiement de la session) et rembourser / recréer si besoin.</p></div>`,
+        });
+      }
+    } catch (alertErr: any) {
+      // Un échec d'alerte ne doit JAMAIS empêcher le rejeu : on logge et on throw quand même.
+      console.error("[webhook] alerte admin « commande non enregistrée » échouée:", alertErr?.message);
+    }
+    // Throw INCONDITIONNEL (hors du try ci-dessus) → 500 → rejeu Stripe, draft encore "pending".
+    throw new Error(`[webhook] upsert orders échoué (session ${session.id}) — 500 pour forcer le rejeu Stripe`);
+  }
 
   // Best-effort (colonnes optionnelles) : carrier + téléphone.
   if (orderData?.id) {

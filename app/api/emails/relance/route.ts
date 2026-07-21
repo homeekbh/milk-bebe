@@ -32,13 +32,26 @@ export async function GET(req: Request) {
       const cartDate  = new Date(cart.created_at); // ✅ created_at — cohérent avec le filtre Supabase
       const diffHours = (now.getTime() - cartDate.getTime()) / (1000 * 60 * 60);
 
+      // Lien de désabonnement tokenisé (même mécanisme que emails/avis) : ?token=<token de
+      // l'abonné> si la cliente est abonnée active, sinon fallback /fr/contact. L'ancien
+      // ?email= tombait TOUJOURS sur ?status=invalid (la route ne lit que ?token=).
+      const { data: sub } = await supabaseServer
+        .from("newsletter_subscribers")
+        .select("unsubscribe_token")
+        .eq("email", cart.email)
+        .eq("active", true)
+        .maybeSingle();
+      const unsubUrl = sub?.unsubscribe_token
+        ? `${BASE}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`
+        : `${BASE}/fr/contact`;
+
       // Relance 1 : entre 1h et 24h, pas encore envoyée
       if (diffHours >= 1 && diffHours < 24 && !cart.relance_1) {
         const { error } = await resend.emails.send({
           from:    "M!LK <contact@milkbebe.fr>",
           to:      cart.email,
           subject: "Vous avez oublié quelque chose 🌿",
-          html:    relanceHtml(cart, 1, null),
+          html:    relanceHtml(cart, 1, null, unsubUrl),
         });
         if (!error) {
           await supabaseServer.from("abandoned_carts")
@@ -55,7 +68,7 @@ export async function GET(req: Request) {
           from:    "M!LK <contact@milkbebe.fr>",
           to:      cart.email,
           subject: "Votre panier M!LK vous attend — offre exclusive",
-          html:    relanceHtml(cart, 2, cart.promo_code ?? null),
+          html:    relanceHtml(cart, 2, cart.promo_code ?? null, unsubUrl),
         });
         if (!error) {
           await supabaseServer.from("abandoned_carts")
@@ -72,7 +85,7 @@ export async function GET(req: Request) {
           from:    "M!LK <contact@milkbebe.fr>",
           to:      cart.email,
           subject: "Dernière chance — votre panier expire bientôt",
-          html:    relanceHtml(cart, 3, null),
+          html:    relanceHtml(cart, 3, null, unsubUrl),
         });
         if (!error) {
           await supabaseServer.from("abandoned_carts")
@@ -89,7 +102,7 @@ export async function GET(req: Request) {
   }
 }
 
-function relanceHtml(cart: any, step: number, promoCode: string | null): string {
+function relanceHtml(cart: any, step: number, promoCode: string | null, unsubUrl: string): string {
   const items  = Array.isArray(cart.items) ? cart.items : [];
   const prenom = cart.prenom ?? "";
   const total  = Number(cart.total ?? 0).toFixed(2);
@@ -148,7 +161,7 @@ function relanceHtml(cart: any, step: number, promoCode: string | null): string 
   </a>
   <div style="text-align:center;font-size:11px;color:rgba(242,237,230,0.2);line-height:1.8">
     M!LK — Essentiels bébé en bambou premium<br>
-    <a href="${BASE}/api/newsletter/unsubscribe?email=${cart.email}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+    <a href="${unsubUrl}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
   </div>
 </div>
 </body>

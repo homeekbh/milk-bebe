@@ -44,7 +44,7 @@ export async function generateMetadata({
   ],
   openGraph: {
     type:      "website",
-    locale:    "fr_FR",
+    locale:    locale === "en" ? "en_GB" : "fr_FR",
     // Auto-référent localisé (= canonical) pour casser la boucle og:url racine →
     // 307 → /fr signalée par le Débogueur Facebook. La racine n'est jamais l'URL
     // canonique d'une page (localePrefix:'always').

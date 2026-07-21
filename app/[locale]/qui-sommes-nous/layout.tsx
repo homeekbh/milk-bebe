@@ -27,7 +27,7 @@ export async function generateMetadata({
     title:       "Qui sommes-nous — M!LK",
     description: "Marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100, fondée par Erika.",
     siteName:    "M!LK",
-    locale:      "fr_FR",
+    locale:      locale === "en" ? "en_GB" : "fr_FR",
     type:        "website",
     images: [{
       url:    `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,

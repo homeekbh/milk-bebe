@@ -30,6 +30,7 @@ export default function robots(): MetadataRoute.Robots {
       },
     ],
     sitemap: `${BASE}/sitemap.xml`,
-    host:    BASE,
+    // Directive Host (Yandex) : hostname NU attendu (sans protocole). Google l'ignore de toute façon.
+    host:    BASE.replace(/^https?:\/\//, ""),
   };
 }

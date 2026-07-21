@@ -240,7 +240,7 @@ const jsonLd = {
       url:            BASE_URL,
       priceRange:     "€€",
       currenciesAccepted: "EUR",
-      paymentAccepted:    "Credit Card, PayPal",
+      paymentAccepted:    "Credit Card, Apple Pay, Google Pay",
       areaServed:     ["FR", "BE", "CH", "LU", "MC"],
       hasOfferCatalog: {
         "@type": "OfferCatalog",

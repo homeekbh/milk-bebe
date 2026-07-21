@@ -46,6 +46,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...expand("/faq",                       "monthly", 0.6),
     ...expand("/livraison",                 "monthly", 0.6),
     ...expand("/contact",                   "monthly", 0.5),
+    ...expand("/avis-clients",              "weekly",  0.5),
     ...expand("/cgv",                       "yearly",  0.3),
     ...expand("/mentions-legales",          "yearly",  0.3),
     ...expand("/politique-confidentialite", "yearly",  0.3),
@@ -106,5 +107,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // table absente / erreur : pas d'articles dans le sitemap
   }
 
-  return [...staticPages, ...dynamicPages, ...blogPages];
+  // Coffrets (packs) actifs — try/catch séparé (résilience si la table manque).
+  let packPages: MetadataRoute.Sitemap = [];
+  try {
+    const { data: packs } = await supabaseServer
+      .from("packs")
+      .select("slug")
+      .eq("active", true);
+    packPages = (packs ?? []).flatMap((p) =>
+      expand(`/packs/${encodeURIComponent(p.slug)}`, "weekly", 0.7),
+    );
+  } catch {
+    // table absente / erreur : pas de coffrets dans le sitemap
+  }
+
+  return [...staticPages, ...dynamicPages, ...blogPages, ...packPages];
 }

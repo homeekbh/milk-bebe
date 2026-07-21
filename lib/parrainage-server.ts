@@ -78,6 +78,41 @@ export async function listUsableRewards(userId: string): Promise<UsableReward[]>
     .map((r: any) => ({ id: r.id, montant: Number(r.montant), expires_at: r.expires_at, created_at: r.created_at }));
 }
 
+// Réserve ATOMIQUEMENT des récompenses (disponible→reservee) pour empêcher la double-dépense
+// concurrente (2 sessions cochant la même récompense → une seule gagne le compare-and-swap).
+// Renvoie celles RÉELLEMENT réservées. GRACEFUL : si le statut "reservee" / la colonne
+// reserved_at n'existent pas encore en base (SQL non appliqué), on retombe sur le comportement
+// legacy (récompense appliquée SANS réservation) → AUCUNE régression. À libérer si la session
+// échoue/expire (cf. releaseRewards + handleCheckoutExpired + cron/daily).
+export async function reserveRewards(userId: string, candidates: UsableReward[]): Promise<UsableReward[]> {
+  const reserved: UsableReward[] = [];
+  for (const r of candidates) {
+    const { data, error } = await supabaseServer
+      .from("parrainage_recompenses")
+      .update({ status: "reservee", reserved_at: new Date().toISOString() })
+      .eq("id", r.id).eq("parrain_id", userId).eq("status", "disponible")
+      .select("id").maybeSingle();
+    if (error) {
+      reserved.push(r);          // "reservee"/reserved_at pas encore autorisés → fallback legacy
+    } else if (data) {
+      reserved.push(r);          // réservée atomiquement (gagnante du CAS)
+    }
+    // else (pas d'erreur, data null) → déjà réservée/prise par une session concurrente → EXCLUE
+  }
+  return reserved;
+}
+
+// Libère des récompenses réservées (reservee→disponible). No-op si elles ne sont pas "reservee"
+// (mode legacy, ou déjà consommées/expirées). Best-effort — ne casse jamais le flux appelant.
+export async function releaseRewards(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  try {
+    await supabaseServer.from("parrainage_recompenses")
+      .update({ status: "disponible", reserved_at: null })
+      .in("id", ids).eq("status", "reservee");
+  } catch {}
+}
+
 // Récupère l'utilisateur connecté depuis un header Authorization: Bearer <token>.
 export async function getUserFromRequest(req: Request) {
   const auth = req.headers.get("authorization") ?? "";

@@ -91,5 +91,21 @@ export async function GET(req: Request) {
     results.pageViewsPurge = { error: e?.message ?? "exception" };
   }
 
+  // 6. R2 — filet de sécurité : libérer les récompenses "reservee" bloquées > 2h (session qui
+  //    n'a ni abouti ni émis d'événement d'expiration). No-op tant que "reservee"/reserved_at
+  //    n'existent pas en base (SQL à appliquer). Non bloquant.
+  try {
+    const staleCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseServer
+      .from("parrainage_recompenses")
+      .update({ status: "disponible", reserved_at: null })
+      .eq("status", "reservee")
+      .lt("reserved_at", staleCutoff)
+      .select("id");
+    results.rewardsReleased = error ? { error: error.message } : { released: data?.length ?? 0 };
+  } catch (e: any) {
+    results.rewardsReleased = { error: e?.message ?? "exception" };
+  }
+
   return NextResponse.json({ ok: true, results });
 }

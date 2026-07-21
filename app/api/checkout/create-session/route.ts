@@ -11,7 +11,7 @@ import {
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
 import { computeCartTotals } from "@/lib/cart-totals";
 import { computeParrainage } from "@/lib/parrainage";
-import { getParrainageSettings, validateParrainCode, listUsableRewards, getUserFromRequest } from "@/lib/parrainage-server";
+import { getParrainageSettings, validateParrainCode, listUsableRewards, reserveRewards, releaseRewards, getUserFromRequest } from "@/lib/parrainage-server";
 
 // Pin l'API version au plus récent supporté par le SDK installé (cf.
 // node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
@@ -58,6 +58,8 @@ async function getFreeShippingThreshold(): Promise<number> {
 }
 
 export async function POST(req: Request) {
+  // R2 : récompenses réservées pour cette session — libérées si échec/rejet avant paiement.
+  let reservedRewardIdsInFlight: string[] = [];
   try {
     const {
       items,
@@ -336,6 +338,11 @@ export async function POST(req: Request) {
     const wantedRewardIds = new Set((Array.isArray(reward_ids) ? reward_ids : []).map(String));
     const selectedUsable = usableRewards.filter(r => wantedRewardIds.has(r.id));
 
+    // R2 — RÉSERVER atomiquement les récompenses sélectionnées (anti double-dépense concurrente).
+    // Seules les récompenses réellement réservées (gagnantes du CAS disponible→reservee) comptent.
+    const reservedRewards = requester ? await reserveRewards(requester.id, selectedUsable) : [];
+    reservedRewardIdsInFlight = reservedRewards.map(r => r.id);
+
     const cartCategorySlugs: string[] = [
       ...validatedItems.map((i: any) => i.category_slug).filter(Boolean),
       ...draftPacks.flatMap((p: any) => (Array.isArray(p.items) ? p.items : []).map((it: any) => it?.category_slug).filter(Boolean)),
@@ -348,13 +355,17 @@ export async function POST(req: Request) {
       freeShippingThreshold: freeShipThreshold,
       hasValidParrainCode,
       rewardsAvailableCount: usableRewards.length,
-      rewardsSelectedCount:  selectedUsable.length,
+      rewardsSelectedCount:  reservedRewards.length,
       cartCategorySlugs,
     });
 
     const parrainDiscount   = parrainageResult.parrainDiscount;
     const rewardDiscount    = parrainageResult.rewardDiscount;
-    const consumedRewardIds = selectedUsable.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
+    const consumedRewardIds = reservedRewards.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
+    // Libérer les récompenses réservées NON retenues (au-delà du plafond de seuils) → ne pas les bloquer.
+    const notConsumedRewardIds = reservedRewards.slice(parrainageResult.rewardsUsable).map(r => r.id);
+    if (notConsumedRewardIds.length) await releaseRewards(notConsumedRewardIds);
+    reservedRewardIdsInFlight = consumedRewardIds;
     const parrainApplied    = parrainageResult.parrainApplicable && !!validParrainId;
 
     // ── ANTI-ABUS : crédit récompense parrain (méca 1) réservé à un FILLEUL
@@ -422,6 +433,7 @@ export async function POST(req: Request) {
       .select("id").single();
     if (draftErr || !draft) {
       process.env.NODE_ENV !== "production" && console.error("pending_orders insert error:", draftErr?.message);
+      await releaseRewards(reservedRewardIdsInFlight); // R2 : libérer les récompenses réservées (pas de commande)
       return Response.json({ error: "Erreur lors de la préparation de la commande." }, { status: 500 });
     }
     const pendingOrderId = draft.id as string;
@@ -488,6 +500,7 @@ export async function POST(req: Request) {
     // ✅ Vérification montant minimum Stripe (0.50€)
     const finalTotal = Math.max(0, subtotal - totalDiscount) + deliveryCost;
     if (finalTotal < 0.50) {
+      await releaseRewards(reservedRewardIdsInFlight); // R2 : libérer (session non créée)
       return Response.json({ error: "Le montant total est trop faible pour être traité (minimum 0.50€)" }, { status: 400 });
     }
 
@@ -498,6 +511,7 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     process.env.NODE_ENV !== "production" && console.error("Checkout error:", error);
+    await releaseRewards(reservedRewardIdsInFlight); // R2 : libérer les récompenses réservées sur échec
     return Response.json({ error: error.message ?? "Erreur serveur" }, { status: 500 });
   }
 }

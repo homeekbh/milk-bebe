@@ -5,7 +5,7 @@ import { Resend } from "resend";
 import { escapeHtml } from "@/lib/escape-html";
 import { logActivity } from "@/lib/server/audit";
 import { decideRewardOnRefund } from "@/lib/parrainage-refund";
-import { getParrainageSettings } from "@/lib/parrainage-server";
+import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -362,13 +362,14 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       }
     }
 
-    // Méca 2 : marquer les récompenses cochées « utilisée » (disponible→utilisee).
-    // Idempotent : le filtre status='disponible' ne matche rien en cas de rejeu.
+    // Méca 2 : marquer les récompenses « utilisée ». R2 : accepte "reservee" (réservée à
+    // create-session) ET "disponible" (drafts legacy pré-R2, ou fallback si le SQL n'est pas
+    // encore appliqué). Idempotent : au rejeu la récompense est déjà "utilisee" → 0 ligne matchée.
     const rewardIds: string[] = Array.isArray(pay.reward_ids) ? pay.reward_ids.map(String) : [];
     if (orderId && rewardIds.length > 0) {
       await supabaseServer.from("parrainage_recompenses")
         .update({ status: "utilisee", used_on_order_id: orderId })
-        .in("id", rewardIds).eq("status", "disponible");
+        .in("id", rewardIds).in("status", ["reservee", "disponible"]);
     }
   } catch (e: any) {
     process.env.NODE_ENV !== "production" && console.error("[webhook] parrainage:", e?.message);
@@ -495,9 +496,12 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
 
   if (pendingId) {
     const { data: draft } = await supabaseServer
-      .from("pending_orders").select("products, packs, status").eq("id", pendingId).maybeSingle();
+      .from("pending_orders").select("products, packs, status, parrainage").eq("id", pendingId).maybeSingle();
     // Draft déjà consommé = commande payée → ne PAS créer d'abandon (double sécurité).
     if (draft?.status === "consumed") return;
+    // R2 : session expirée/abandonnée → libérer les récompenses réservées (reservee→disponible).
+    const expiredRewardIds: string[] = Array.isArray((draft?.parrainage as any)?.reward_ids) ? (draft!.parrainage as any).reward_ids.map(String) : [];
+    if (expiredRewardIds.length) await releaseRewards(expiredRewardIds);
     const products: any[] = Array.isArray(draft?.products) ? draft!.products : [];
     const packs:    any[] = Array.isArray(draft?.packs)    ? draft!.packs    : [];
     items = [

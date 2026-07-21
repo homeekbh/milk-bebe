@@ -1,6 +1,7 @@
 import { Resend } from "resend";
 import { rateLimit } from "@/lib/server/rateLimit";
 import { getClientIp } from "@/lib/server/client-ip";
+import { supabaseServer } from "@/lib/server/supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -124,6 +125,13 @@ export async function POST(req: Request) {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return Response.json({ error: "Email invalide" }, { status: 400 });
   }
+
+  // Anti joe-jobbing : n'envoyer le mail de bienvenue QUE si l'email correspond à un compte
+  // réellement créé (profiles est écrit à l'inscription avec l'uid du compte — un attaquant ne
+  // peut pas créer un profil pour l'email d'autrui). Sinon on ne fait rien (best-effort, jamais
+  // d'erreur), ce qui empêche l'envoi de « Bienvenue » non sollicités vers des adresses arbitraires.
+  const { data: prof } = await supabaseServer.from("profiles").select("id").eq("email", email).maybeSingle();
+  if (!prof) return Response.json({ ok: true, skipped: "no_account" });
 
   try {
     const { error } = await resend.emails.send({

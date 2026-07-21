@@ -152,7 +152,8 @@ export async function GET(req: NextRequest) {
           console.log(`[sendcloud:label-pdf retry ${attempt}/4] SUCCESS — label récupéré: ${labelUrl.slice(0, 80)}`);
 
           // Persister en base (2-step pour ne pas tout perdre)
-          await supabaseServer.from("orders").update({ label_url: labelUrl }).eq("id", orderId);
+          const { error: lpErr } = await supabaseServer.from("orders").update({ label_url: labelUrl }).eq("id", orderId);
+          if (lpErr) console.warn("[sendcloud:label-pdf] persistance label_url échouée:", lpErr.message);
           if (trackingNumber && trackingNumber !== order.tracking_number) {
             await supabaseServer.from("orders").update({
               tracking_number: trackingNumber,

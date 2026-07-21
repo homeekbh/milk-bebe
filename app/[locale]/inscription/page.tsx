@@ -54,7 +54,9 @@ function InscriptionForm() {
   // depuis le panier) si c'est un chemin INTERNE sûr, sinon /profil?welcome=1 (défaut).
   // Garde anti-open-redirect : commence par "/" mais pas "//" (URL protocol-relative).
   const redirect     = useSearchParams().get("redirect");
-  const safeRedirect = redirect && redirect.startsWith("/") && !redirect.startsWith("//")
+  // Rejette "//evil.com" (protocol-relative) ET "/\evil.com" (le navigateur normalise \ → / →
+  // "//evil.com"). On n'autorise qu'un chemin interne commençant par "/" sans 2ᵉ car. / ou \.
+  const safeRedirect = redirect && redirect.startsWith("/") && !/^\/[/\\]/.test(redirect)
     ? redirect
     : "/profil?welcome=1";
   const t = useTranslations("auth");

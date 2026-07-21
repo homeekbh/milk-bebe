@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
               <h2 style="color:#1a1410">Colis livré ✅</h2>
               <p>La commande <strong>#${shortId}</strong>
               de <strong>${escapeHtml(String(order.customer_name ?? ""))}</strong> a été livrée.</p>
-              <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
+              <p>Numéro de suivi : <strong>${escapeHtml(String(trackingNumber ?? "—"))}</strong></p>
               <a href="${baseUrl}/admin/commandes"
                 style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c49a4a;color:#1a1410;font-weight:900;text-decoration:none;border-radius:10px">
                 Voir dans l'admin →
@@ -213,7 +213,7 @@ export async function POST(req: NextRequest) {
               <h2 style="color:#b91c1c">Retour reçu ↩️</h2>
               <p>Un retour a été détecté pour la commande <strong>#${order.id.slice(0, 8).toUpperCase()}</strong> 
               de <strong>${escapeHtml(String(order.customer_name ?? ""))}</strong>.</p>
-              <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
+              <p>Numéro de suivi : <strong>${escapeHtml(String(trackingNumber ?? "—"))}</strong></p>
               <a href="${process.env.NEXT_PUBLIC_BASE_URL}/admin/commandes"
                 style="display:inline-block;margin-top:16px;padding:12px 24px;background:#1a1410;color:#f2ede6;font-weight:900;text-decoration:none;border-radius:10px">
                 Voir dans l'admin →

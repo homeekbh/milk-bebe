@@ -621,6 +621,28 @@ async function findOrderByPaymentIntent(piId: string | null): Promise<any | null
   return null;
 }
 
+// Échec d'une écriture de reversal parrainage (annulation OU mise en révision) → rendu VISIBLE,
+// jamais silencieux. Log non gaté (visible en prod) + alerte admin best-effort (même esprit que le
+// garde B2). NE throw PAS : le traitement du remboursement/litige lui-même ne doit pas être bloqué
+// par l'échec d'une écriture de récompense.
+async function reportRewardReversalFailure(opts: {
+  rewardId: string; orderId: string; parrainId: string | null; montant: any; kind: string; error: string;
+}): Promise<void> {
+  console.error(`[reverseReferralRewards] échec ${opts.kind} récompense ${opts.rewardId} (commande filleul ${opts.orderId}) : ${opts.error}`);
+  try {
+    if (ADMIN_EMAILS.length > 0) {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `⚠️ Reversal récompense parrain ÉCHOUÉ — récompense ${opts.rewardId.slice(0, 8)}`,
+        html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Reversal parrainage échoué (${escapeHtml(opts.kind)})</h2><p>La mise à jour de la récompense <strong>${escapeHtml(opts.rewardId)}</strong> (parrain <strong>${escapeHtml(String(opts.parrainId ?? "?"))}</strong>, ${(Number(opts.montant) || 0).toFixed(2)} €), suite au remboursement/litige de la commande filleul <strong>${escapeHtml(opts.orderId)}</strong>, a échoué.</p><p>Erreur : <strong>${escapeHtml(opts.error)}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">⚠️ Le remboursement/litige a bien été traité, mais la récompense parrain n'a PAS été annulée/flaggée. À corriger manuellement dans l'admin.</p></div>`,
+      });
+    }
+  } catch (alertErr: any) {
+    console.error("[reverseReferralRewards] alerte admin « reversal échoué » elle-même en échec :", alertErr?.message);
+  }
+}
+
 // Anti-abus parrainage (étape 22) : quand une commande FILLEUL est remboursée
 // (refund total/partiel) ou que son litige est PERDU, on applique decideRewardOnRefund
 // à chaque récompense parrain générée par cette commande. Idempotent : les filtres
@@ -637,12 +659,17 @@ async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): 
       if (action === "noop") continue;
 
       if (action === "cancel") {
-        const { data: done } = await supabaseServer
+        const { data: done, error: cancelErr } = await supabaseServer
           .from("parrainage_recompenses")
           .update({ status: "annulee", annulee_at: new Date().toISOString(), annulation_reason: reason })
           .eq("id", rew.id).eq("status", "disponible")
           .select("id").maybeSingle();
-        if (done) {
+        if (cancelErr) {
+          // Échec RÉEL (contrainte manquante, réseau) → visible + alerte admin. NB : 0 ligne
+          // matchée (récompense plus 'disponible') n'est PAS une erreur (cancelErr null) →
+          // no-op idempotent normal, pas d'alerte.
+          await reportRewardReversalFailure({ rewardId: rew.id, orderId, parrainId: rew.parrain_id, montant: rew.montant, kind: "annulation", error: cancelErr.message });
+        } else if (done) {
           await logActivity(
             "parrain_recompense_annulee",
             `Récompense parrain annulée (commande filleul remboursée) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
@@ -652,12 +679,14 @@ async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): 
       } else {
         // flag_review : cas ambigu (remboursement partiel) ou déjà utilisée →
         // révision humaine, jamais d'annulation/clawback auto.
-        const { data: done } = await supabaseServer
+        const { data: done, error: flagErr } = await supabaseServer
           .from("parrainage_recompenses")
           .update({ annulation_en_attente: true, annulation_reason: reason })
           .eq("id", rew.id).eq("annulation_en_attente", false)
           .select("id").maybeSingle();
-        if (done) {
+        if (flagErr) {
+          await reportRewardReversalFailure({ rewardId: rew.id, orderId, parrainId: rew.parrain_id, montant: rew.montant, kind: "mise_en_revision", error: flagErr.message });
+        } else if (done) {
           await logActivity(
             "parrain_recompense_a_verifier",
             `Récompense parrain à vérifier (${reason}) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
@@ -667,7 +696,9 @@ async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): 
       }
     }
   } catch (rewErr: any) {
-    process.env.NODE_ENV !== "production" && console.error("[reverseReferralRewards]", rewErr?.message);
+    // Exception inattendue (ex. SELECT initial, logActivity) → visible en prod aussi (plus de gate
+    // NODE_ENV) : un reversal parrainage raté doit toujours laisser une trace.
+    console.error("[reverseReferralRewards]", rewErr?.message);
   }
 }
 

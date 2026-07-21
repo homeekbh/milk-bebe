@@ -106,8 +106,30 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
     .select().single();
 
-  if (orderErr) {
-    process.env.NODE_ENV !== "production" && console.error("❌ Pack order upsert:", orderErr.message);
+  // ── B2 (chemin PACK) : commande NON écrite → alerte admin best-effort + throw → 500 →
+  //    rejeu Stripe. Sans ce garde, le dispatcher renvoie 200 → Stripe ne rejoue pas →
+  //    coffret payé perdu en silence (les effets de bord sont déjà gardés par orderData?.id).
+  if (orderErr || !orderData?.id) {
+    try {
+      if (ADMIN_EMAILS.length > 0) {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `🚨 Coffret payé NON enregistré — session ${session.id.slice(0, 24)}`,
+          html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Coffret payé non enregistré</h2><p>L'écriture <code>orders</code> a échoué pour la session Stripe <strong>${escapeHtml(session.id)}</strong>.</p><p>Erreur : <strong>${escapeHtml(orderErr?.message ?? "aucune ligne retournée (orderData vide)")}</strong></p><p>⚠️ Le client a potentiellement été débité. Stripe rejoue l'événement ; si la commande n'apparaît pas dans l'admin, vérifier côté Stripe et rembourser / recréer si besoin.</p></div>`,
+        });
+      }
+    } catch (alertErr: any) {
+      console.error("[webhook] alerte admin « coffret non enregistré » échouée:", alertErr?.message);
+    }
+    throw new Error(`[webhook] upsert orders (pack) échoué (session ${session.id}) — 500 pour forcer le rejeu Stripe`);
+  }
+
+  // Persistance payment_intent_id (lookups charge.refunded / payment_failed). Best-effort.
+  const packPaymentIntentId = typeof (session as any).payment_intent === "string"
+    ? (session as any).payment_intent : (session as any).payment_intent?.id ?? null;
+  if (packPaymentIntentId) {
+    try { await supabaseServer.from("orders").update({ stripe_payment_intent_id: packPaymentIntentId }).eq("id", orderData.id); } catch {}
   }
 
   // 2) Claim atomique : le premier webhook bascule webhook_processed false→true
@@ -272,11 +294,15 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     throw new Error(`[webhook] upsert orders échoué (session ${session.id}) — 500 pour forcer le rejeu Stripe`);
   }
 
-  // Best-effort (colonnes optionnelles) : carrier + téléphone.
+  // Best-effort (colonnes optionnelles) : carrier + téléphone + payment_intent.
   if (orderData?.id) {
     const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
     if (delivery.customer_phone) { try { await supabaseServer.from("orders").update({ customer_phone: String(delivery.customer_phone).trim() }).eq("id", orderData.id); } catch {} }
+    // payment_intent : indispensable aux lookups charge.refunded / payment_failed (sinon fallback API fragile).
+    const uPaymentIntentId = typeof (session as any).payment_intent === "string"
+      ? (session as any).payment_intent : (session as any).payment_intent?.id ?? null;
+    if (uPaymentIntentId) { try { await supabaseServer.from("orders").update({ stripe_payment_intent_id: uPaymentIntentId }).eq("id", orderData.id); } catch {} }
   }
 
   // ── Claim ATOMIQUE du draft (pending→consumed) → effets de bord exactement-1×.
@@ -1139,7 +1165,7 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ payment_intent.payment_failed handler:", err.message);
+      console.error("❌ payment_intent.payment_failed handler:", err.message); // non gaté : perte d'état argent doit être visible en prod
       // On ne return pas 500 — l'événement est ack
     }
   }
@@ -1261,7 +1287,7 @@ export async function POST(req: Request) {
         await reverseReferralRewards(order.id, isTotalRefund);
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ charge.refunded handler:", err.message);
+      console.error("❌ charge.refunded handler:", err.message); // non gaté : perte d'état remboursement doit être visible en prod
     }
   }
 
@@ -1318,7 +1344,7 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ charge.dispute.created handler:", err.message);
+      console.error("❌ charge.dispute.created handler:", err.message); // non gaté : perte d'état litige doit être visible en prod
     }
   }
 
@@ -1378,7 +1404,7 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ charge.dispute.closed handler:", err.message);
+      console.error("❌ charge.dispute.closed handler:", err.message); // non gaté : perte d'état litige doit être visible en prod
     }
   }
 
@@ -1391,7 +1417,7 @@ export async function POST(req: Request) {
       await handleCheckoutExpired(session);
     } catch (err: any) {
       // On ne renvoie pas 500 — l'événement est ack (évite les retries Stripe inutiles).
-      process.env.NODE_ENV !== "production" && console.error("❌ checkout.session.expired handler:", err.message);
+      console.error("❌ checkout.session.expired handler:", err.message); // non gaté : échec de relance doit être visible en prod
     }
   }
 

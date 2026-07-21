@@ -8,6 +8,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
+// Boucle d'envoi (1 email/alerte réassort) : fenêtre élargie pour ne pas timeouter à mi-liste.
+export const maxDuration = 60;
 
 /**
  * GET /api/admin/stock-alerts

@@ -7,6 +7,7 @@ import {
   isDeliveryCombinationAllowed,
   getDeliveryPrice,
   deliveryLabel,
+  isDomTomPostalCode,
 } from "@/lib/delivery-config";
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
 import { computeCartTotals } from "@/lib/cart-totals";
@@ -118,6 +119,17 @@ export async function POST(req: Request) {
       if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
         return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
       }
+    }
+    // DOM-TOM (blocage RÉVERSIBLE, cf. G4) : la matrice DELIVERY_PRICES (Colissimo/Mondial Relay
+    // MÉTROPOLE, 3,50–7,70 €) ne couvre PAS l'outre-mer → sinon port sous-facturé + colis souvent
+    // non livrable via ces offres. On bloque tant qu'une offre outre-mer dédiée n'est pas branchée.
+    const destPostalCode = delivery_type === "home"
+      ? String(home_address?.postal_code ?? "")
+      : String(relay?.postal_code ?? "");
+    if (isDomTomPostalCode(destPostalCode)) {
+      return Response.json({
+        error: "Nous ne livrons pas encore les DOM-TOM. Écrivez-nous à contact@milkbebe.fr pour un devis d'expédition.",
+      }, { status: 400 });
     }
 
     const lineItems      = [];

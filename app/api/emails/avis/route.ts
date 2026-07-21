@@ -6,6 +6,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
+// Boucle d'envoi (1 email/commande éligible) : fenêtre élargie pour ne pas timeouter à mi-liste.
+export const maxDuration = 60;
 
 // Cron J+7 — demande d'avis post-achat
 // À ajouter dans vercel.json : { "path": "/api/emails/avis", "schedule": "0 10 * * *" }

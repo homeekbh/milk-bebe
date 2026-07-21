@@ -4,6 +4,9 @@ import { supabaseServer } from "@/lib/server/supabase";
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
+// Orchestre plusieurs sous-crons en séquence (avis + taille-suivante + réassort + purges) :
+// fenêtre d'exécution élargie pour éviter un timeout avant la fin de la chaîne.
+export const maxDuration = 60;
 
 /**
  * GET /api/cron/daily

@@ -5,6 +5,10 @@ import { Resend } from "resend";
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+export const dynamic = "force-dynamic";
+// Boucle d'envoi (relances panier abandonné) : fenêtre élargie pour ne pas timeouter à mi-liste.
+export const maxDuration = 60;
+
 export async function GET(req: Request) {
   const auth = (req as any).headers?.get?.("authorization");
   // Fail-closed : un CRON_SECRET absent/vide rejette TOUT (sinon « Bearer undefined » serait devinable).
@@ -52,8 +56,11 @@ export async function GET(req: Request) {
         ? `${BASE}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`
         : `${BASE}/fr/contact`;
 
-      // Relance 1 : entre 1h et 24h, pas encore envoyée
-      if (diffHours >= 1 && diffHours < 24 && !cart.relance_1) {
+      // Relance 1 : fenêtre élargie à 48 h (au lieu de 24 h). Le cron tourne 1×/jour : une fenêtre
+      // de 23 h laissait un angle mort — un panier créé < 1 h avant le run avait un âge < 1 h au
+      // 1er passage (trop tôt) puis > 24 h au suivant (trop tard), et R2 exige relance_1 → il ne
+      // recevait AUCUNE relance. Une fenêtre > intervalle du cron (24 h) supprime l'angle mort.
+      if (diffHours >= 1 && diffHours < 48 && !cart.relance_1) {
         const { error } = await resend.emails.send({
           from:    "M!LK <contact@milkbebe.fr>",
           to:      cart.email,

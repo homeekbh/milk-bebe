@@ -230,3 +230,14 @@ export function listDeliverableCountries(): { code: string; zone: ShippingZone }
 export function isFreeShippingEligibleZone(zone: ShippingZone): boolean {
   return zone === "FR";
 }
+
+/**
+ * Code postal outre-mer (DOM-TOM) ? Préfixes 97xxx / 98xxx (Guadeloupe, Martinique, Guyane,
+ * Réunion, Mayotte, St-Pierre, St-Barthélemy, St-Martin, Polynésie, Nouvelle-Calédonie, Wallis…).
+ * La métropole va de 01xxx à 95xxx (Corse = 20xxx) → aucun chevauchement possible.
+ * Sert à BLOQUER l'outre-mer dans le tunnel : la matrice DELIVERY_PRICES (métropole) ne s'y
+ * applique pas (sous-facturation + colis non livrable). Blocage réversible côté create-session.
+ */
+export function isDomTomPostalCode(postalCode: string): boolean {
+  return /^9[78]\d{3}$/.test(String(postalCode ?? "").trim());
+}

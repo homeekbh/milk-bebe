@@ -13,6 +13,10 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 const resend  = new Resend(process.env.RESEND_API_KEY);
 const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
+// Le webhook enchaîne plusieurs écritures DB + emails (best-effort) : fenêtre d'exécution élargie
+// pour éviter un timeout à mi-parcours (Stripe rejouerait sinon l'événement).
+export const maxDuration = 60;
+
 const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_1,
   process.env.ADMIN_EMAIL_2,

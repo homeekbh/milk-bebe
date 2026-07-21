@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { marked } from "marked";
+import DOMPurify from "isomorphic-dompurify";
 
 // Helper inline — token Supabase depuis localStorage (même pattern que /admin/produits).
 function adminFetch(url: string, options: RequestInit = {}) {
@@ -231,7 +232,7 @@ export default function BlogEditor() {
             </div>
             <div style={{ display: "grid", gap: 6 }}>
               <label style={LS}>Aperçu</label>
-              <div className="blog-prose-admin" style={{ minHeight: 460, padding: "16px 20px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", background: "#fbfaf8", overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: previewHtml }} />
+              <div className="blog-prose-admin" style={{ minHeight: 460, padding: "16px 20px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", background: "#fbfaf8", overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }} />
             </div>
           </div>
           <style>{`

@@ -17,28 +17,16 @@ import { useEffect, useState } from "react";
 import Script from "next/script";
 import { Link } from "@/i18n/navigation";
 import GTMScript from "@/components/analytics/GTMScript";
+// Lecture/écriture du consentement extraites en source UNIQUE (réutilisées par
+// MerchantBadge / GoogleCustomerReviews). writeConsent y émet aussi un événement pour
+// que les autres chargements tiers réagissent au choix. Le gating ci-dessous des 3
+// traceurs (GTM/GA4/Pixel) est INCHANGÉ (toujours `status === "accepted"`).
+import { readConsent, writeConsent, type ConsentStatus } from "@/components/analytics/consent-store";
 
 const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID;
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
-const KEY        = "milk_cookie_consent";
-const MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1000; // ~13 mois
 
-type Status = "accepted" | "refused" | null;
-
-function readConsent(): Status {
-  try {
-    const raw = localStorage.getItem(KEY);
-    if (!raw) return null;
-    if (raw === "accepted" || raw === "refused") return raw; // ancien format
-    const obj = JSON.parse(raw);
-    if (obj?.status !== "accepted" && obj?.status !== "refused") return null;
-    if (typeof obj.ts === "number" && Date.now() - obj.ts > MAX_AGE_MS) return null; // expiré
-    return obj.status;
-  } catch { return null; }
-}
-function writeConsent(status: "accepted" | "refused") {
-  try { localStorage.setItem(KEY, JSON.stringify({ status, ts: Date.now() })); } catch {}
-}
+type Status = ConsentStatus;
 
 export default function ConsentManager() {
   const [ready,   setReady]   = useState(false);

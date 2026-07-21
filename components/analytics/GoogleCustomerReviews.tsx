@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { loadMerchantWidget } from "@/components/analytics/MerchantBadge";
+import { useConsentAccepted } from "@/components/analytics/consent-store";
 
 /**
  * Google Customer Reviews — opt-in affiché sur la page de confirmation.
@@ -21,7 +22,12 @@ export default function GoogleCustomerReviews({ orderId, customerEmail, estimate
   customerEmail: string;
   estimatedDeliveryDate: string;
 }) {
+  const accepted = useConsentAccepted();
+
   useEffect(() => {
+    // CRITIQUE : aucune donnée (order_id + email) n'est envoyée à Google sans consentement.
+    // Refus / pas de choix → la page /success s'affiche normalement, sans ce widget.
+    if (!accepted) return;
     if (typeof window === "undefined") return;
     if (!orderId || !customerEmail) return;
 
@@ -54,12 +60,12 @@ export default function GoogleCustomerReviews({ orderId, customerEmail, estimate
     s.async = true;
     s.defer = true;
     document.head.appendChild(s);
-  }, [orderId, customerEmail, estimatedDeliveryDate]);
+  }, [accepted, orderId, customerEmail, estimatedDeliveryDate]);
 
-  // Badge avis = Google Merchant Widget (remplace l'ancien g:ratingbadge).
-  // Indépendant de l'opt-in : idempotent, ne s'initialise qu'une fois même si
-  // le MerchantBadge global est aussi monté.
-  useEffect(() => { loadMerchantWidget(); }, []);
+  // Badge avis = Google Merchant Widget (script tiers Google). Chargé UNIQUEMENT
+  // après consentement. Idempotent (ne s'initialise qu'une fois même si le
+  // MerchantBadge global est aussi monté).
+  useEffect(() => { if (accepted) loadMerchantWidget(); }, [accepted]);
 
   return null;
 }

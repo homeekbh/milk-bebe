@@ -47,8 +47,8 @@ export async function POST(req: NextRequest) {
     const region  = h.get("x-vercel-ip-country-region") ?? null;
     const cityRaw = h.get("x-vercel-ip-city");
     const city    = cityRaw ? decodeURIComponent(cityRaw) : null;
-    const latitude  = parseFloat(h.get("x-vercel-ip-latitude") ?? "")  || null;
-    const longitude = parseFloat(h.get("x-vercel-ip-longitude") ?? "") || null;
+    // RGPD : latitude/longitude (géo PRÉCISE) volontairement NON collectées. On garde
+    // seulement country/region/city (granularité ville, mesure d'audience acceptable).
 
     // ── Dérivés temporels (heure de Paris, pas UTC serveur) ─────────────────
     const nowParis = new Date().toLocaleString("en-US", { timeZone: "Europe/Paris" });
@@ -99,8 +99,8 @@ export async function POST(req: NextRequest) {
       screen_width:  Number.isFinite(b.screen_width)  ? b.screen_width  : null,
       screen_height: Number.isFinite(b.screen_height) ? b.screen_height : null,
       language: b.language ? String(b.language).slice(0, 12) : null,
-      // Géo
-      country, region, city, latitude, longitude,
+      // Géo (granularité ville — pas de lat/long précises, cf. RGPD ci-dessus)
+      country, region, city,
       // Temporel
       hour_of_day, day_of_week,
       is_new_visitor,

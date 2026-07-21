@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { useConsentAccepted } from "@/components/analytics/consent-store";
 
 const MERCHANT_ID = 5800602000;
 
@@ -35,8 +36,10 @@ export function loadMerchantWidget() {
   document.head.appendChild(s);
 }
 
-/** Badge global — à injecter dans le layout pour toutes les pages. */
+/** Badge global — à injecter dans le layout pour toutes les pages. Chargé UNIQUEMENT
+ *  après consentement « accepté » (script tiers Google gstatic). */
 export default function MerchantBadge() {
-  useEffect(() => { loadMerchantWidget(); }, []);
+  const accepted = useConsentAccepted();
+  useEffect(() => { if (accepted) loadMerchantWidget(); }, [accepted]);
   return null;
 }

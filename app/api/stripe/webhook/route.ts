@@ -416,11 +416,22 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
 
   // Email confirmation client + alerte admin nouvelle commande.
   if (email && orderData) {
+    // Bloc livraison de l'email (régression flux unifié) : le template ne lit QUE relay /
+    // home_address. On les passe donc, comme le fait le legacy. Mode relais → delivery.relay ;
+    // sinon (domicile FR OU international) → finalShippingAddress + delivery_type "home" pour
+    // que le template affiche l'adresse (FR : home_address du draft ; intl : adresse Stripe).
+    const confirmIsRelay = delivery.delivery_type === "point_relais" || delivery.delivery_type === "locker";
     try {
       await fetch(`${BASE}/api/emails/confirmation`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-        body: JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: finalShippingAddress, promo_code: draft.promo_code ?? null, discount, delivery_type: delivery.delivery_type ?? null }),
+        body: JSON.stringify({
+          to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id,
+          shipping_address: finalShippingAddress, promo_code: draft.promo_code ?? null, discount,
+          delivery_type: confirmIsRelay ? delivery.delivery_type : "home",
+          relay:         confirmIsRelay ? relay : null,
+          home_address:  confirmIsRelay ? null : finalShippingAddress,
+        }),
       });
     } catch {}
   }

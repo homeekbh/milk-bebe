@@ -73,7 +73,7 @@ function footerHtml(r: Pick<Recipient, "isNewsletter" | "token" | "email">): str
   if (r.isNewsletter) {
     const unsub = r.token
       ? `${BASE}/api/newsletter/unsubscribe?token=${r.token}`
-      : `${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(r.email)}`;
+      : `${BASE}/fr/contact`;
     return `${brand}<br><a href="${unsub}" style="color:rgba(242,237,230,0.3)">Se désabonner</a>`;
   }
   return `${brand}<br><span style="color:rgba(242,237,230,0.3)">Tu reçois cet email en tant que titulaire d'un compte M!LK. Une question ? <a href="${BASE}/fr/contact" style="color:rgba(242,237,230,0.3)">Écris-nous</a>.</span>`;

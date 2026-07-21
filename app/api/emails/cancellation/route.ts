@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { requireAdmin } from "@/lib/admin-auth";
+import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -59,13 +61,16 @@ function buildHtml(opts: { prenom?: string; order_number?: string; custom_messag
 </html>`;
 }
 
-export async function POST(req: Request) {
-  const internalSecret = (req as any).headers?.get?.("x-internal-secret");
-  const authHeader     = (req as any).headers?.get?.("authorization") ?? "";
+export async function POST(req: NextRequest) {
+  // Auth : server-to-server (webhook, routes admin) via x-internal-secret ; sinon appel
+  // depuis l'admin UI (adminFetch → Bearer JWT) → VRAIE validation admin (getUser + is_admin).
+  // ⚠️ Correctif B1 : l'ancien `authHeader.length > 20` acceptait n'importe quelle chaîne
+  // de 21+ caractères → phishing possible depuis contact@milkbebe.fr.
+  const internalSecret = req.headers.get("x-internal-secret");
   const isInternal     = internalSecret === process.env.INTERNAL_EMAIL_SECRET;
-  const isAdmin        = authHeader.startsWith("Bearer ") && authHeader.length > 20;
-  if (!isInternal && !isAdmin) {
-    return Response.json({ error: "Non autorisé" }, { status: 401 });
+  if (!isInternal) {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return auth.response;
   }
 
   const { email, prenom, order_number, custom_message, preview } = await req.json();

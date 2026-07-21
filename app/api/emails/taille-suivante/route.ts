@@ -125,7 +125,8 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
 
 export async function GET(req: Request) {
   const auth = (req as any).headers?.get?.("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail-closed : un CRON_SECRET absent/vide rejette TOUT (sinon « Bearer undefined » serait devinable).
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 

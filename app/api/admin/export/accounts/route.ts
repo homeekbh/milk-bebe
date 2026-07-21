@@ -1,5 +1,6 @@
 import { requireAdmin }    from "@/lib/admin-auth";
 import { getAccountsList } from "@/lib/admin-accounts";
+import { csvCell }         from "@/lib/csv";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
         a.recompenses_total.toFixed(2).replace(".", ","),
         a.newsletter ? "Oui" : "Non",
         a.created_at ? new Date(a.created_at).toLocaleDateString("fr-FR") : "",
-      ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+      ].map(csvCell).join(";"));
     }
 
     const csv = "﻿" + rows.join("\n");

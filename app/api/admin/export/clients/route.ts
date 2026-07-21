@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { csvCell }        from "@/lib/csv";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     rows.push(["Nom", "Email", "Nb commandes", "Total dépensé (€)", "Première commande", "Dernière commande"].map(h => `"${h}"`).join(";"));
 
     for (const c of clients) {
-      rows.push([c.name, c.email, c.orders, c.total.toFixed(2), new Date(c.first).toLocaleDateString("fr-FR"), new Date(c.last).toLocaleDateString("fr-FR")].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";"));
+      rows.push([c.name, c.email, c.orders, c.total.toFixed(2), new Date(c.first).toLocaleDateString("fr-FR"), new Date(c.last).toLocaleDateString("fr-FR")].map(csvCell).join(";"));
     }
 
     const csv = "\uFEFF" + rows.join("\n");

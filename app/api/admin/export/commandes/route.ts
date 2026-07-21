@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getNetAmount } from "@/lib/orders";
+import { csvCell } from "@/lib/csv";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -38,7 +39,7 @@ export async function GET(req: NextRequest) {
       o.tracking_number ?? "",
       addrStr,
       itemsStr,
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+    ].map(csvCell).join(";");
   });
 
   const header = [

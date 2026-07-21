@@ -30,8 +30,9 @@ export async function GET(req: NextRequest) {
     return Response.json(data ?? []);
   }
 
-  // Cas 2 : cron — CRON_SECRET
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Cas 2 : cron — CRON_SECRET. Fail-closed : un CRON_SECRET absent/vide rejette TOUT (sinon un
+  // « Bearer undefined » atteindrait ce chemin cron — le cas 1 le laisse passer — et l'exécuterait).
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 

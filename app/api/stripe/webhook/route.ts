@@ -211,7 +211,7 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
           from:    "M!LK <contact@milkbebe.fr>",
           to:      ADMIN_EMAILS,
           subject: `🎁 Nouveau pack vendu — ${amount.toFixed(2)} € — ${name || email}`,
-          html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${meta.pack_title ?? ""}</h2><p>${name || "Client"} — ${email}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+          html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${escapeHtml(meta.pack_title ?? "")}</h2><p>${escapeHtml(name || "Client")} — ${escapeHtml(email)}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
         });
       } catch {}
     }
@@ -496,7 +496,7 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       await resend.emails.send({
         from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
         subject: `🛒 Nouvelle commande — ${amount.toFixed(2)} € — ${name || email}`,
-        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="margin:0 0 10px">🛒 Commande ${amount.toFixed(2)} €</h2><p>${name || "Client"} — ${email}</p><ul style="line-height:1.6">${items.map((it: any) => `<li>${it.name}${it.taille ? ` (${it.taille})` : ""} ×${it.quantity}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="margin:0 0 10px">🛒 Commande ${amount.toFixed(2)} €</h2><p>${escapeHtml(name || "Client")} — ${escapeHtml(email)}</p><ul style="line-height:1.6">${items.map((it: any) => `<li>${escapeHtml(String(it.name ?? ""))}${it.taille ? ` (${escapeHtml(String(it.taille))})` : ""} ×${it.quantity}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
       });
     } catch {}
   }
@@ -997,7 +997,7 @@ export async function POST(req: Request) {
               html: `
                 <div style="font-family:sans-serif;padding:24px;max-width:560px">
                   <h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant détecté</h2>
-                  <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${name || email}</strong> :</p>
+                  <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${escapeHtml(name || email)}</strong> :</p>
                   <ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul>
                   <p>📦 <strong>Action requise :</strong> vérifier le stock réel avant expédition. Si rupture confirmée, proposer alternative ou remboursement partiel/total.</p>
                   <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
@@ -1097,9 +1097,9 @@ export async function POST(req: Request) {
                       <span style="color:#1a1410;font-weight:950;font-size:20px">M!LK — Nouvelle commande</span>
                     </div>
                     <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
-                      <div style="font-size:15px;font-weight:800;color:#f2ede6">${name || "Client"}</div>
-                      <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${email}</div>
-                      ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${shippingAddress.line1}, ${shippingAddress.city} ${shippingAddress.postal_code}</div>` : ""}
+                      <div style="font-size:15px;font-weight:800;color:#f2ede6">${escapeHtml(name || "Client")}</div>
+                      <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${escapeHtml(email)}</div>
+                      ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${escapeHtml(String(shippingAddress.line1 ?? ""))}, ${escapeHtml(String(shippingAddress.city ?? ""))} ${escapeHtml(String(shippingAddress.postal_code ?? ""))}</div>` : ""}
                     </div>
                     <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
                       ${itemsHtml}
@@ -1363,7 +1363,7 @@ export async function POST(req: Request) {
               from:    "M!LK <contact@milkbebe.fr>",
               to:      ADMIN_EMAILS,
               subject: `⚠️ Litige/chargeback — commande #${numero} — ${amount.toFixed(2)} €`,
-              html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Litige ouvert (chargeback)</h2><p>Commande <strong>#${numero}</strong> — <strong>${order.customer_email ?? "?"}</strong></p><p>Montant contesté : <strong>${amount.toFixed(2)} €</strong><br>Motif Stripe : <strong>${dispute.reason ?? "—"}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">Aucune action automatique (stock/parrainage) n'a été prise. À traiter dans Stripe <strong>avant la date limite de réponse</strong>.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+              html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Litige ouvert (chargeback)</h2><p>Commande <strong>#${numero}</strong> — <strong>${escapeHtml(String(order.customer_email ?? "?"))}</strong></p><p>Montant contesté : <strong>${amount.toFixed(2)} €</strong><br>Motif Stripe : <strong>${escapeHtml(String(dispute.reason ?? "—"))}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">Aucune action automatique (stock/parrainage) n'a été prise. À traiter dans Stripe <strong>avant la date limite de réponse</strong>.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
             });
           } catch (e) {
             process.env.NODE_ENV !== "production" && console.error("[charge.dispute.created] admin alert email:", e);

@@ -2,10 +2,15 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import type { NextRequest } from "next/server";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  // GET réservé à l'admin (seul l'écran d'admin l'appelle ; la home publique lit la table côté
+  // serveur). Sans ce garde, la config (sélection produits) était lisible/énumérable publiquement.
+  const auth = await requireAdmin(req);
+  if (!auth.ok) return auth.response;
+
   const { data, error } = await supabaseServer
     .from("homepage_config")
-    .select("*")
+    .select("id, section_title, product_ids")
     .eq("id", "main")
     .single();
 

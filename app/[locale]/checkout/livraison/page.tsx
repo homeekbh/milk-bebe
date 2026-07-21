@@ -178,11 +178,15 @@ export default function CheckoutLivraisonPage() {
   const frModeChosen = dc?.kind === "fr" && !!dc.carrier && !!dc.type;
   const isRelayType  = dc?.kind === "fr" && (dc.type === "point_relais" || dc.type === "locker");
   const frPhoneOk    = isValidPhoneFR(state.phone);
+  // Relais VALIDE = un vrai point relais Sendcloud (id numérique). Un id non numérique
+  // (ex. ancien "manual:…" encore en Context) n'est PAS étiquetable → on refuse le passage
+  // au paiement : le client doit sélectionner un relais trouvé, ou basculer sur le domicile.
+  const relayOk = !!state.selectedRelay && /^\d+$/.test(String(state.selectedRelay.id ?? ""));
   const canContinue = isFrance
-    // FR : mode choisi + (adresse domicile complète OU relais sélectionné) + TÉLÉPHONE.
+    // FR : mode choisi + (adresse domicile complète OU relais VALIDE) + TÉLÉPHONE.
     ? frModeChosen && frPhoneOk && (dc!.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
-        : !!state.selectedRelay)
+        : relayOk)
     // International : pays livrable suffit (adresse pré-remplie optionnelle — Stripe
     // reconfirme adresse + téléphone à l'étape paiement).
     : !!zone && dc?.kind === "international";

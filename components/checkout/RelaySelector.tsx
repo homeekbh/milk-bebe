@@ -65,15 +65,12 @@ export default function RelaySelector({
   const [searchResults,  setSearchResults]  = useState<ServicePoint[]>([]);
   const [searchError,    setSearchError]    = useState("");
   const [searchEmpty,    setSearchEmpty]    = useState(false);
-  const [manualRelay,    setManualRelay]    = useState({ name: "", address: "", city: "", postal_code: "" });
-  const [fallbackManual, setFallbackManual] = useState(false);
 
   // Réinitialisation "changement de mode" (ancien switchDelivery) : vide résultats
   // + erreurs. resetKey change à CHAQUE clic d'un mode de livraison (même identique).
   useEffect(() => {
     setSearchResults([]);
     setSearchEmpty(false);
-    setFallbackManual(false);
     setSearchError("");
   }, [resetKey]);
 
@@ -96,27 +93,24 @@ export default function RelaySelector({
     setSearchError("");
     setSearchEmpty(false);
     setSearchResults([]);
-    setFallbackManual(false);
     try {
       const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&carrier=${encodeURIComponent(carrier)}`);
       const data = await res.json();
       if (!res.ok || data.error === true) {
         setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
-        setFallbackManual(true);
       } else {
         // Filtre côté client : distance max 10 km. Si Sendcloud ne fournit pas
         // de distance, on conserve le point (mieux vaut afficher que rien).
         const all: ServicePoint[] = data.results ?? [];
         const filtered = all.filter(sp => sp.distance == null || sp.distance <= MAX_RELAY_DISTANCE_KM);
         setSearchResults(filtered);
+        // Aucun relais exploitable (0 résultat, ou fallback_manual côté API) → searchEmpty
+        // affiche un message invitant la livraison à domicile. PAS de saisie manuelle :
+        // un relais tapé à la main (id "manual:…") n'est pas étiquetable par Sendcloud.
         setSearchEmpty(filtered.length === 0);
-        if (filtered.length === 0 && all.length === 0 && data.fallback_manual) {
-          setFallbackManual(true);
-        }
       }
     } catch (e: any) {
       setSearchError("Erreur réseau : " + (e?.message ?? "inconnue"));
-      setFallbackManual(true);
     } finally {
       setSearching(false);
     }
@@ -128,31 +122,11 @@ export default function RelaySelector({
     onOpenChange(false);
   }
 
-  function applyManualRelay() {
-    const { name, address, city, postal_code } = manualRelay;
-    if (!name.trim() || !address.trim() || !city.trim() || !/^\d{4,5}$/.test(postal_code)) {
-      setSearchError("Remplis tous les champs pour la saisie manuelle.");
-      return;
-    }
-    onChange({
-      id:            `manual:${postal_code}`,
-      name:          name.trim(),
-      street:        address.trim(),
-      city:          city.trim(),
-      postal_code:   postal_code.trim(),
-      distance:      null,
-      opening_hours: null,
-    });
-    setSearchError("");
-    onOpenChange(false);
-  }
-
   // Ouverture "Changer / choisir" (ancien openRelayModal) : reset erreurs mais
   // PRÉSERVE searchResults (contrairement au changement de mode).
   function openModal() {
     setSearchError("");
     setSearchEmpty(false);
-    setFallbackManual(false);
     onOpenChange(true);
   }
 
@@ -284,53 +258,14 @@ export default function RelaySelector({
               </div>
             )}
 
-            {/* Aucun résultat */}
+            {/* Aucun relais exploitable → PAS de saisie manuelle (un relais tapé à la main,
+                id "manual:…", n'est pas étiquetable par Sendcloud → commande payée bloquée).
+                Message clair invitant le client à choisir la livraison à domicile. */}
             {!searching && searchEmpty && searchResults.length === 0 && (
-              <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center", marginBottom: 10 }}>
-                Aucun {deliveryType === "locker" ? "locker" : "Point Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
-              </div>
-            )}
-
-            {/* Lien saisie manuelle */}
-            <div style={{ marginTop: 12, padding: "8px 12px", fontSize: 12, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
-              Pas de résultat satisfaisant ?
-              {" "}
-              <button onClick={() => setFallbackManual(v => !v)} style={{ background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 12, textDecoration: "underline", cursor: "pointer" }}>
-                {fallbackManual ? "Masquer" : "Saisir manuellement"}
-              </button>
-            </div>
-
-            {/* Mode saisie manuelle */}
-            {fallbackManual && (
-              <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.1)" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10, color: "#1a1410" }}>
-                  ✍️ Entrez l'adresse de votre point relais préféré :
-                </div>
-                <div style={{ display: "grid", gap: 6 }}>
-                  <input type="text" placeholder="Nom du point relais (ex: Tabac de la Gare)"
-                    value={manualRelay.name}
-                    onChange={e => setManualRelay(r => ({ ...r, name: e.target.value }))}
-                    style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
-                  <input type="text" placeholder="Adresse complète"
-                    value={manualRelay.address}
-                    onChange={e => setManualRelay(r => ({ ...r, address: e.target.value }))}
-                    style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
-                  <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 6 }}>
-                    <input type="text" inputMode="numeric" maxLength={5} placeholder="CP"
-                      value={manualRelay.postal_code}
-                      onChange={e => setManualRelay(r => ({ ...r, postal_code: e.target.value.replace(/\D/g, "") }))}
-                      style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, fontFamily: "monospace", outline: "none", background: "#fff" }} />
-                    <input type="text" placeholder="Ville"
-                      value={manualRelay.city}
-                      onChange={e => setManualRelay(r => ({ ...r, city: e.target.value }))}
-                      style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
-                  </div>
-                  <button
-                    onClick={() => applyManualRelay()}
-                    style={{ padding: "10px", borderRadius: 7, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
-                    Valider ce point relais
-                  </button>
-                </div>
+              <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center", marginBottom: 10, lineHeight: 1.5 }}>
+                Aucun {deliveryType === "locker" ? "locker" : "point relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} disponible pour ce code postal.
+                <br />
+                Veuillez choisir la <strong>livraison à domicile</strong> pour continuer.
               </div>
             )}
 

@@ -65,5 +65,31 @@ export async function GET(req: Request) {
     results.parrainageExpired = { error: e.message };
   }
 
+  // 5. RGPD — purge des page_views de plus de 13 mois. Rétention limitée : verrouille
+  //    l'exemption CNIL « mesure d'audience 1re partie » (complément du retrait des
+  //    lat/long fait en 6c25735). Colonne d'horodatage VÉRIFIÉE = `viewed_at` (index
+  //    idx_page_views_viewed_at, migration 007 ; jamais created_at). Isolé & NON bloquant :
+  //    un échec logge mais ne casse pas les étapes ci-dessus (avis / taille-suivante / etc.).
+  try {
+    const cutoff = new Date();
+    cutoff.setMonth(cutoff.getMonth() - 13); // now() - 13 mois (calendaire)
+    const { data, error } = await supabaseServer
+      .from("page_views")
+      .delete()
+      .lt("viewed_at", cutoff.toISOString())
+      .select("id");
+    if (error) {
+      console.error("[cron:daily] purge page_views (>13 mois) échec:", error.message);
+      results.pageViewsPurge = { error: error.message };
+    } else {
+      const deleted = data?.length ?? 0;
+      console.log(`[cron:daily] purge page_views (>13 mois) : ${deleted} ligne(s) supprimée(s)`);
+      results.pageViewsPurge = { deleted };
+    }
+  } catch (e: any) {
+    console.error("[cron:daily] purge page_views exception:", e?.message);
+    results.pageViewsPurge = { error: e?.message ?? "exception" };
+  }
+
   return NextResponse.json({ ok: true, results });
 }

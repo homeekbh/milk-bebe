@@ -22,9 +22,11 @@ test("pays de l'UE → zone EU", () => {
   expect(getZoneForCountry("IT")).toBe("EU");
 });
 
-test("Europe hors-UE → zone EUROPE_NON_EU", () => {
+test("Europe hors-UE → zone EUROPE_NON_EU (Suisse uniquement)", () => {
   expect(getZoneForCountry("CH")).toBe("EUROPE_NON_EU");
-  expect(getZoneForCountry("NO")).toBe("EUROPE_NON_EU");
+  // NO / IS exclus du contrat FedEx → non livrables (ne sont plus dans EUROPE_NON_EU)
+  expect(getZoneForCountry("NO")).toBeNull();
+  expect(getZoneForCountry("IS")).toBeNull();
 });
 
 test("Royaume-Uni → zone UK", () => {
@@ -71,12 +73,25 @@ test("seuil de livraison offerte UNIQUEMENT en France", () => {
   expect(isFreeShippingEligibleZone("UK")).toBe(false);
 });
 
-test("listDeliverableCountries — 31 pays (1 FR + 26 UE + 3 Europe hors-UE + 1 UK)", () => {
+test("listDeliverableCountries — 24 pays (1 FR + 21 UE + 1 Europe hors-UE + 1 UK)", () => {
   const list  = listDeliverableCountries();
   const codes = list.map(c => c.code);
   expect(codes).toContain("FR");
   expect(codes).toContain("GB");
+  expect(codes).toContain("CH");
   expect(codes).not.toContain("US");
   expect(codes).not.toContain("RU");
-  expect(list.length).toBe(31);
+  expect(codes).not.toContain("MT"); // Malte retiré (coût FedEx non rentable)
+  expect(codes).not.toContain("NO"); // Norvège hors contrat FedEx
+  expect(list.length).toBe(24);
+
+  // Décompte par zone dérivé du code réel (doit refléter COUNTRY_TO_ZONE).
+  const byZone = list.reduce<Record<string, number>>((acc, { zone }) => {
+    acc[zone] = (acc[zone] ?? 0) + 1;
+    return acc;
+  }, {});
+  expect(byZone.FR).toBe(1);
+  expect(byZone.EU).toBe(21);
+  expect(byZone.EUROPE_NON_EU).toBe(1);
+  expect(byZone.UK).toBe(1);
 });

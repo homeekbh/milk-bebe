@@ -37,7 +37,8 @@ function backWithError(locale: string, orderId: string, email: string, productId
 }
 
 export async function POST(req: Request) {
-  const form = await req.formData();
+  let form: FormData;
+  try { form = await req.formData(); } catch { return redirect(`/fr/avis?err=invalid`); }
 
   const localeRaw   = String(form.get("locale") ?? "fr");
   const locale      = localeRaw === "en" ? "en" : "fr";

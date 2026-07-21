@@ -111,5 +111,21 @@ export async function GET(req: Request) {
     results.rewardsReleased = { error: e?.message ?? "exception" };
   }
 
+  // 7. RGPD — purge des drafts pending_orders ABANDONNÉS > 7 jours (PII : email/tél/adresse/panier).
+  //    Un draft "pending" > 7 j = paiement jamais abouti (session Stripe expirée depuis longtemps).
+  //    Les drafts "consumed" (commande payée) sont conservés — la donnée vit dans `orders`.
+  try {
+    const draftCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseServer
+      .from("pending_orders")
+      .delete()
+      .eq("status", "pending")
+      .lt("created_at", draftCutoff)
+      .select("id");
+    results.pendingOrdersPurge = error ? { error: error.message } : { deleted: data?.length ?? 0 };
+  } catch (e: any) {
+    results.pendingOrdersPurge = { error: e?.message ?? "exception" };
+  }
+
   return NextResponse.json({ ok: true, results });
 }

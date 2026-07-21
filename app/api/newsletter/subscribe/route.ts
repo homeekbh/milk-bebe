@@ -13,7 +13,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Trop de requêtes. Réessaie dans une minute." }, { status: 429 });
   }
 
-  const { email, source, promo_code } = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
+  const { email, source, promo_code } = body ?? {};
 
   // Validation email stricte
   const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/;

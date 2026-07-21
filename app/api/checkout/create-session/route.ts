@@ -231,11 +231,15 @@ export async function POST(req: Request) {
     let packsSubtotal = 0;
     if (packsArr.length > 0) {
       const packIds = [...new Set(packsArr.map((p: any) => p.pack_id).filter(Boolean))];
-      const { data: packsData } = await supabaseServer
+      const { data: packsData, error: packsErr } = await supabaseServer
         .from("packs")
         .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock ) )`)
         .in("id", packIds.length ? packIds : ["none"])
         .eq("active", true);
+      // Erreur DB transitoire → 503 réessayable, pas un faux « pack indisponible » (400 trompeur).
+      if (packsErr) {
+        return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+      }
       const packMap: Record<string, any> = {};
       (packsData ?? []).forEach((p: any) => { packMap[p.id] = p; });
 

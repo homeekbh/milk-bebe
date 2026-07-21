@@ -168,7 +168,7 @@ function relanceHtml(cart: any, step: number, promoCode: string | null, unsubUrl
   ${promoCode ? `
   <div style="background:#2a2018;border-radius:16px;border:1px solid rgba(196,154,74,0.2);padding:20px;margin-bottom:20px;text-align:center">
     <div style="font-size:12px;color:rgba(242,237,230,0.4);margin-bottom:8px;text-transform:uppercase;letter-spacing:1px">Votre code promo</div>
-    <div style="font-size:24px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${promoCode}</div>
+    <div style="font-size:24px;font-weight:950;color:#c49a4a;font-family:monospace;letter-spacing:2px">${escapeHtml(String(promoCode ?? ""))}</div>
   </div>` : ""}
   <a href="${BASE}/fr/panier" style="display:block;text-align:center;background:#f2ede6;color:#1a1410;padding:16px;border-radius:12px;font-weight:900;font-size:15px;text-decoration:none;margin-bottom:20px">
     Finaliser ma commande →

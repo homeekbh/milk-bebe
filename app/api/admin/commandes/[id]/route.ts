@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { logActivity }    from "@/lib/server/audit";
+import { escapeHtml }     from "@/lib/escape-html";
 import type { NextRequest } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -123,12 +124,12 @@ async function sendCancellationEmailWithRetry(opts: {
         html: `
           <div style="font-family:sans-serif;padding:24px;max-width:540px">
             <h2 style="color:#b91c1c;margin:0 0 12px">Email annulation échoué (3 tentatives)</h2>
-            <p>L'email d'annulation pour la commande <strong>#${opts.order_number.slice(0,8).toUpperCase()}</strong> de <strong>${opts.email}</strong> n'a pas pu être envoyé.</p>
+            <p>L'email d'annulation pour la commande <strong>#${opts.order_number.slice(0,8).toUpperCase()}</strong> de <strong>${escapeHtml(String(opts.email ?? ""))}</strong> n'a pas pu être envoyé.</p>
             <p style="background:#fee2e2;padding:12px;border-radius:8px;font-size:13px;color:#991b1b">
-              Dernière erreur : <code>${lastError ?? "(inconnu)"}</code>
+              Dernière erreur : <code>${escapeHtml(String(lastError ?? "(inconnu)"))}</code>
             </p>
             <p>Le remboursement Stripe (<strong>${opts.refund_amount.toFixed(2)} €</strong>) <strong>a bien été effectué</strong>, mais le client n'a pas été notifié par email automatique.</p>
-            <p>📞 <strong>Action requise :</strong> contacter le client manuellement à <a href="mailto:${opts.email}">${opts.email}</a>.</p>
+            <p>📞 <strong>Action requise :</strong> contacter le client manuellement à <a href="mailto:${escapeHtml(String(opts.email ?? ""))}">${escapeHtml(String(opts.email ?? ""))}</a>.</p>
             <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
               Voir dans l'admin →
             </a>

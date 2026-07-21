@@ -33,7 +33,8 @@ export async function PUT(req: Request) {
   const user = await getUser(req);
   if (!user) return Response.json({ error: "Non autorisé" }, { status: 401 });
 
-  const body = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
 
   // Whitelist STRICTE des champs éditables par l'utilisateur (anti mass-assignment).
   // supabaseServer = service_role → RLS bypassée : la garde est donc côté code.

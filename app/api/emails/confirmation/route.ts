@@ -135,7 +135,8 @@ function emailConfirmation(
 export async function POST(req: Request) {
   // ✅ Protection : vérification secret interne
   const secret = req.headers ? (req as any).headers?.get?.("x-internal-secret") : null;
-  if (secret !== process.env.INTERNAL_EMAIL_SECRET) {
+  // Fail-closed : un secret d'env vide/undefined rejette TOUT (sinon "" === "" → bypass).
+  if (!process.env.INTERNAL_EMAIL_SECRET || secret !== process.env.INTERNAL_EMAIL_SECRET) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 

@@ -152,7 +152,8 @@ export async function POST(req: NextRequest) {
   // ⚠️ Correctif B1 : l'ancien `authHeader.length > 20` acceptait n'importe quelle chaîne
   // de 21+ caractères → phishing possible depuis contact@milkbebe.fr.
   const internalSecret = req.headers.get("x-internal-secret");
-  const isInternal     = internalSecret === process.env.INTERNAL_EMAIL_SECRET;
+  // Fail-closed : un secret d'env vide/undefined ne doit JAMAIS valider (sinon "" === "" → bypass).
+  const isInternal     = !!process.env.INTERNAL_EMAIL_SECRET && internalSecret === process.env.INTERNAL_EMAIL_SECRET;
   if (!isInternal) {
     const auth = await requireAdmin(req);
     if (!auth.ok) return auth.response;

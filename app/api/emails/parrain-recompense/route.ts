@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const secret = (req as any).headers?.get?.("x-internal-secret");
-  if (secret !== process.env.INTERNAL_EMAIL_SECRET) {
+  // Fail-closed : un secret d'env vide/undefined rejette TOUT (sinon "" === "" → bypass).
+  if (!process.env.INTERNAL_EMAIL_SECRET || secret !== process.env.INTERNAL_EMAIL_SECRET) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 

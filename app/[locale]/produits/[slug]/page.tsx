@@ -102,5 +102,5 @@ export default async function ProductPage(
     </>
   );
 
-  return <ProductClient initialProduct={product} header={header} />;
+  return <ProductClient initialProduct={product} header={header} initialPromo={promo} />;
 }

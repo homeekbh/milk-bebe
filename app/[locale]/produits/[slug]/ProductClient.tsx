@@ -381,7 +381,7 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ProductClient({ initialProduct, header }: { initialProduct: any; header: React.ReactNode }) {
+export default function ProductClient({ initialProduct, header, initialPromo }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean }) {
   const t                    = useTranslations("product") as unknown as TFn;
   const locale               = useLocale();
   const { addToCart, items }               = useCart();
@@ -450,7 +450,10 @@ export default function ProductClient({ initialProduct, header }: { initialProdu
     </div>
   );
 
-  const promo          = isPromoActive(product);
+  // Promo calculée CÔTÉ SERVEUR (page.tsx) et transmise → identique au HTML SSR, donc aucune
+  // divergence d'hydratation (isPromoActive dépend de new Date() : recalculée au client, elle
+  // pouvait différer près d'une bascule de fenêtre promo). Repli défensif si le prop manque.
+  const promo          = initialPromo ?? isPromoActive(product);
   const out            = Number(product.stock ?? 0) <= 0;
   const lowStock       = !out && Number(product.stock ?? 0) <= 5;
   const displayPrice   = promo ? product.promo_price : product.price_ttc;

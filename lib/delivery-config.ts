@@ -232,12 +232,16 @@ export function isFreeShippingEligibleZone(zone: ShippingZone): boolean {
 }
 
 /**
- * Code postal outre-mer (DOM-TOM) ? Préfixes 97xxx / 98xxx (Guadeloupe, Martinique, Guyane,
- * Réunion, Mayotte, St-Pierre, St-Barthélemy, St-Martin, Polynésie, Nouvelle-Calédonie, Wallis…).
- * La métropole va de 01xxx à 95xxx (Corse = 20xxx) → aucun chevauchement possible.
+ * Code postal outre-mer (DOM-TOM / COM) ? Préfixes RÉELS uniquement :
+ *   971 Guadeloupe (dont 97133 St-Barthélemy, 97150 St-Martin), 972 Martinique, 973 Guyane,
+ *   974 Réunion, 975 St-Pierre-et-Miquelon, 976 Mayotte, 984 TAAF, 986 Wallis-et-Futuna,
+ *   987 Polynésie, 988 Nouvelle-Calédonie.
+ * IMPORTANT : on N'utilise PAS un simple `98xxx` — cela bloquerait Monaco (98000), qui est
+ * livré par Colissimo/Mondial Relay au TARIF MÉTROPOLE (donc autorisé). Métropole = 01–95xxx
+ * (Corse 20xxx) → aucun chevauchement.
  * Sert à BLOQUER l'outre-mer dans le tunnel : la matrice DELIVERY_PRICES (métropole) ne s'y
  * applique pas (sous-facturation + colis non livrable). Blocage réversible côté create-session.
  */
 export function isDomTomPostalCode(postalCode: string): boolean {
-  return /^9[78]\d{3}$/.test(String(postalCode ?? "").trim());
+  return /^(971|972|973|974|975|976|984|986|987|988)\d{2}$/.test(String(postalCode ?? "").trim());
 }

@@ -357,6 +357,15 @@ export async function POST(req: Request) {
     const consumedRewardIds = selectedUsable.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
     const parrainApplied    = parrainageResult.parrainApplicable && !!validParrainId;
 
+    // ── ANTI-ABUS : crédit récompense parrain (méca 1) réservé à un FILLEUL
+    //    AUTHENTIFIÉ. Le webhook ne crée la récompense que si parrain_id est posé ;
+    //    on ne le pose donc QUE si `requester` (compte connecté via Bearer) existe.
+    //    Pour un filleul authentifié, validateParrainCode a DÉJÀ garanti id ≠ parrain
+    //    ET email ≠ parrain (même-compte / même-email bloqués). Un INVITÉ (email seul,
+    //    potentiellement jetable) bénéficie de la REMISE filleul mais ne peut PAS
+    //    déclencher le crédit récompense parrain (fermeture du self-referral invité).
+    const parrainRewardEligible = parrainApplied && !!requester?.id;
+
     // ── Garde-fou 60% « tous confondus » pour le CUMUL (≥ 2 codes promo) : si le
     //    grand total (promo + parrain + récompenses) dépasse 60% du sous-total, on
     //    RETIRE le dernier code promo et on recalcule la combo. Parrain/récompenses
@@ -378,7 +387,10 @@ export async function POST(req: Request) {
     // Payload écrit dans le draft → seule source que le webhook consommera.
     const parrainagePayload = {
       parrain_code:     parrainApplied ? validParrainCode : null,
-      parrain_id:       parrainApplied ? validParrainId   : null,
+      // parrain_id posé UNIQUEMENT si le filleul est authentifié → seul cas où le
+      // webhook crédite la récompense parrain. (La remise filleul, elle, reste appliquée
+      // via parrain_discount même pour un invité.)
+      parrain_id:       parrainRewardEligible ? validParrainId : null,
       parrain_discount: parrainApplied ? parrainDiscount  : 0,
       reward_ids:       consumedRewardIds,
       reward_discount:  rewardDiscount,

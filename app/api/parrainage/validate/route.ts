@@ -6,7 +6,28 @@ import { getParrainageSettings, validateParrainCode, getUserFromRequest } from "
 
 export const dynamic = "force-dynamic";
 
+// Rate limiting simple en mémoire (10 tentatives / minute / IP) — pattern identique
+// à /api/promo/validate. Empêche l'énumération par force brute des codes parrain.
+const attempts = new Map<string, { count: number; reset: number }>();
+
+function checkRateLimit(ip: string): boolean {
+  const now  = Date.now();
+  const data = attempts.get(ip);
+  if (!data || now > data.reset) {
+    attempts.set(ip, { count: 1, reset: now + 60_000 });
+    return true;
+  }
+  if (data.count >= 10) return false;
+  data.count++;
+  return true;
+}
+
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
+  if (!checkRateLimit(ip)) {
+    return Response.json({ valid: false, error: "Trop de tentatives, réessaie dans 1 minute" }, { status: 429 });
+  }
+
   try {
     const body = await req.json().catch(() => ({}));
     const code = String(body?.code ?? "");

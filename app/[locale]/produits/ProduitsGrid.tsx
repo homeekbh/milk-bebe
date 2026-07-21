@@ -9,6 +9,7 @@ import { C, Divider, Reveal, MILK_STYLES } from "@/components/shared/MilkDesign"
 import { useWishlist } from "@/context/WishlistContext";
 import ReviewsBlock from "@/components/product/ReviewsBlock";
 import PackCard, { type Pack } from "@/components/packs/PackCard";
+import { isPromoActive } from "@/lib/promo";
 
 const PROMO_STYLES = `
   @keyframes milk-promo-shake {
@@ -32,19 +33,10 @@ type Product = {
   image_url?: string; description?: string; description_en?: string | null;
   featured?: boolean; published?: boolean;
   label?: string; position?: number;
+  // Statut promo calculé CÔTÉ SERVEUR (produits/page.tsx) et transmis → évite le recalcul
+  // client (new Date()) qui divergeait du HTML SSR/ISR. `isPromoActive` reste un fallback.
+  __promo?: boolean;
 };
-
-function isPromoActive(p: Product) {
-  if (!p.promo_price) return false;
-  if (!p.promo_start && !p.promo_end) return true;
-  const d = new Date();
-  const todayStr = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
-  const startStr = p.promo_start ? String(p.promo_start).slice(0, 10) : null;
-  const endStr   = p.promo_end   ? String(p.promo_end).slice(0, 10)   : null;
-  if (startStr && todayStr < startStr) return false;
-  if (endStr   && todayStr > endStr)   return false;
-  return true;
-}
 function DiagonalBadge({ label, outOfStock, isPromo }: { label?: string; outOfStock: boolean; isPromo?: boolean }) {
   const t = useTranslations("catalog");
   if (outOfStock) return (
@@ -74,7 +66,7 @@ function ProductCard({ p }: { p: Product }) {
   const cardDesc   = (locale === "en" && p.description_en && p.description_en.trim())
     ? p.description_en
     : p.description;
-  const promo      = isPromoActive(p);
+  const promo      = p.__promo ?? isPromoActive(p);
   const price      = promo ? p.promo_price! : p.price_ttc;
   const outOfStock = (p.stock ?? 0) <= 0;
   const lowStock   = !outOfStock && (p.stock ?? 0) <= 5;
@@ -229,7 +221,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     }
     if (sortValue === "price-asc")  list = [...list].sort((a,b) => (a.promo_price ?? a.price_ttc) - (b.promo_price ?? b.price_ttc));
     if (sortValue === "price-desc") list = [...list].sort((a,b) => (b.promo_price ?? b.price_ttc) - (a.promo_price ?? a.price_ttc));
-    if (sortValue === "promo")      list = [...list].sort((a,b) => (isPromoActive(b) ? 1 : 0) - (isPromoActive(a) ? 1 : 0));
+    if (sortValue === "promo")      list = [...list].sort((a,b) => ((b.__promo ?? isPromoActive(b)) ? 1 : 0) - ((a.__promo ?? isPromoActive(a)) ? 1 : 0));
     if (sortValue === "position") {
       // Tri par DÉFAUT : sur le catalogue complet /produits (pas /categorie), mélange
       // aléatoire recalculé à chaque visite une fois shuffleRank prêt ; sinon ordre

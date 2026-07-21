@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { getAlternates } from "@/i18n/seo";
 import ProduitsGrid from "@/app/[locale]/produits/ProduitsGrid";
+import { isPromoActive } from "@/lib/promo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
@@ -60,7 +61,9 @@ export default async function ProduitsPage({
   const { locale } = await params;
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "catalog" });
-  const products = await getProducts();
+  // Statut promo calculé CÔTÉ SERVEUR (une seule horloge) → transmis en prop, plus de divergence
+  // d'hydratation sur les badges/prix de la grille (cf. lib/promo.ts).
+  const products = (await getProducts()).map((p: any) => ({ ...p, __promo: isPromoActive(p) }));
   return (
     <ProduitsGrid
       products={products}

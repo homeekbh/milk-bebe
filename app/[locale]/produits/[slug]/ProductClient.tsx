@@ -11,6 +11,7 @@ import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
 import ShareButtons                    from "@/components/shared/ShareButtons";
 import { trackViewItem, metaViewContent } from "@/lib/analytics";
+import { computeDeliveryEstimate }        from "@/lib/delivery-estimate";
 
 // ── Palette unifiée ──
 const BG    = "#ede8df"; // taupe pastel = fond principal fiche
@@ -292,33 +293,9 @@ function FaqItem({ q, r, isOpen, onToggle }: { q: string; r: string; isOpen: boo
 
 // ── Estimé livraison ─────────────────────────────────────────────────────────
 function getDeliveryEstimate(t: TFn): string {
-  const now   = new Date();
-  const hour  = now.getHours();
-  const day   = now.getDay(); // 0=dim, 1=lun ... 6=sam
-  const CUTOFF = 16;
-
-  // Jours ouvrés : lun-ven. Délai Sendcloud : 2 jours ouvrés
-  function addBusinessDays(date: Date, days: number): Date {
-    const d = new Date(date);
-    let added = 0;
-    while (added < days) {
-      d.setDate(d.getDate() + 1);
-      const wd = d.getDay();
-      if (wd !== 0 && wd !== 6) added++;
-    }
-    return d;
-  }
-
-  // Si week-end → livraison à partir de lundi + 2j ouvrés
-  let startDate = new Date(now);
-  if (day === 6) { startDate.setDate(startDate.getDate() + 2); }      // sam → lun
-  else if (day === 0) { startDate.setDate(startDate.getDate() + 1); } // dim → lun
-  else if (hour >= CUTOFF) { startDate.setDate(startDate.getDate() + 1); } // après 16h → lendemain
-
-  const delivery = addBusinessDays(startDate, 2);
-  const jours = t.raw("days") as string[];
-  const mois  = t.raw("months") as string[];
-  return `${jours[delivery.getDay()]} ${delivery.getDate()} ${mois[delivery.getMonth()]}`;
+  // Fallback CLIENT uniquement — la valeur SSR (déterministe) est passée via initialDeliveryEstimate
+  // (cf. produits/[slug]/page.tsx). Logique partagée dans lib/delivery-estimate.ts.
+  return computeDeliveryEstimate(t.raw("days") as string[], t.raw("months") as string[]);
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -381,7 +358,7 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ProductClient({ initialProduct, header, initialPromo }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean }) {
+export default function ProductClient({ initialProduct, header, initialPromo, initialDeliveryEstimate }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean; initialDeliveryEstimate?: string }) {
   const t                    = useTranslations("product") as unknown as TFn;
   const locale               = useLocale();
   const { addToCart, items }               = useCart();
@@ -866,7 +843,7 @@ export default function ProductClient({ initialProduct, header, initialPromo }: 
               <span style={{ fontSize: 18 }}>🚚</span>
               <div>
                 <div style={{ fontSize: 13, fontWeight: 800, color: "#15803d" }}>
-                  {t("delivered", { date: getDeliveryEstimate(t) })}
+                  {t("delivered", { date: initialDeliveryEstimate ?? getDeliveryEstimate(t) })}
                 </div>
                 <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", fontWeight: 600, marginTop: 1 }}>
                   {t("delivery_note")}

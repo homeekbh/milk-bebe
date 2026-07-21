@@ -18,12 +18,18 @@ export async function GET(req: Request) {
     const h72 = new Date(now.getTime() - 72 * 60 * 60 * 1000);  // 72h ago
 
     // Récupérer TOUS les paniers non convertis
-    const { data: carts } = await supabaseServer
+    const { data: carts, error: cartsErr } = await supabaseServer
       .from("abandoned_carts")
       .select("*")
       .eq("converted", false)
       .lte("created_at", h1.toISOString()); // au moins 1h
 
+    // Erreur DB → NE PAS la masquer en « sent: 0 » (ferait croire au cron qu'il n'y a aucun panier
+    // à relancer). On remonte l'échec pour qu'il soit visible dans le résultat du cron.
+    if (cartsErr) {
+      console.error("[emails:relance] lecture paniers abandonnés échouée:", cartsErr.message);
+      return Response.json({ error: cartsErr.message }, { status: 500 });
+    }
     if (!carts || carts.length === 0) return Response.json({ ok: true, sent: 0 });
 
     let sent = 0;

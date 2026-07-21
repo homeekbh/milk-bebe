@@ -125,8 +125,14 @@ export async function POST(req: Request) {
 
     // Batch : 1 seule requête pour TOUS les produits du panier (élimine le N+1).
     const itemIds = [...new Set(itemsArr.map((i: any) => i.id).filter(Boolean))];
-    const { data: productsData } = await supabaseServer
+    const { data: productsData, error: productsErr } = await supabaseServer
       .from("products").select("*").in("id", itemIds.length ? itemIds : ["none"]);
+    // Erreur DB transitoire → NE PAS la masquer en « produit introuvable » (400, faux négatif qui
+    // fait croire à un panier invalide) : renvoyer 503 pour inviter à réessayer. (Aucune récompense
+    // n'est encore réservée à ce stade — la réservation R2 vient plus bas.)
+    if (productsErr) {
+      return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+    }
     const productMap: Record<string, any> = {};
     (productsData ?? []).forEach((p: any) => { productMap[p.id] = p; });
 

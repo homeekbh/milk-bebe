@@ -29,7 +29,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Trop de requêtes." }, { status: 429 });
   }
 
-  const { order_id, product_id, customer_email, customer_name, rating, comment } = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
+  const { order_id, product_id, customer_email, customer_name, rating, comment } = body ?? {};
 
   if (!customer_email || !customer_name || !rating || !product_id) {
     return Response.json({ error: "Données manquantes" }, { status: 400 });

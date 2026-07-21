@@ -122,10 +122,16 @@ export async function POST(req: NextRequest) {
 
       // Mettre à jour le statut
       const oldStatus = order.shipping_status;
-      await supabaseServer
+      const { error: statusErr } = await supabaseServer
         .from("orders")
         .update({ shipping_status: newStatus })
         .eq("id", order.id);
+      if (statusErr) {
+        // La transition n'a PAS été persistée : NE PAS logguer « transition OK » ni envoyer
+        // l'email « livré » (la commande n'avancerait pas côté base). On signale et on passe.
+        console.error(`[sendcloud-webhook] échec update shipping_status #${String(order.id).slice(0, 8)} → ${newStatus}:`, statusErr.message);
+        continue;
+      }
 
       // delivered_at : best-effort (la colonne existe — migration 001 — mais on
       // protège le statut critique en isolant cet update secondaire).

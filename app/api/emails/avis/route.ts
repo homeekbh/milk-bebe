@@ -38,7 +38,7 @@ export async function GET(req: Request) {
   // Ne pas spammer ces destinataires avec une demande d'avis. Le cron
   // taille-suivante (J+45/J+75) reste actif pour ces commandes — elles
   // représentent une vraie opportunité de vente.
-  const { data: orders } = await supabaseServer
+  const { data: orders, error: ordersErr } = await supabaseServer
     .from("orders")
     .select("id, customer_email, customer_name, items, delivered_at")
     .eq("shipping_status", "livree")
@@ -51,6 +51,12 @@ export async function GET(req: Request) {
     .gte("delivered_at", j7min.toISOString())
     .lte("delivered_at", j7max.toISOString());
 
+  // Erreur DB → NE PAS la masquer en « sent: 0 » (un 0 fait croire au cron qu'il n'y avait rien
+  // à envoyer, alors que des clientes attendent leur demande d'avis). On remonte l'échec.
+  if (ordersErr) {
+    console.error("[emails:avis] lecture commandes échouée:", ordersErr.message);
+    return Response.json({ error: ordersErr.message }, { status: 500 });
+  }
   if (!orders || orders.length === 0) {
     return Response.json({ ok: true, sent: 0 });
   }

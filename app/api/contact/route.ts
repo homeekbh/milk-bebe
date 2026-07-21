@@ -20,7 +20,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Trop de messages envoyés. Réessaie dans une heure." }, { status: 429 });
   }
 
-  const { nom, email, sujet, message } = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
+  const { nom, email, sujet, message } = body ?? {};
   if (!nom || !email || !message) return Response.json({ error: "Champs manquants" }, { status: 400 });
 
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
@@ -37,12 +39,15 @@ export async function POST(req: Request) {
   const sSujet   = sanitize(sujet ?? "");
   const sMessage = sanitize(message).replace(/\n/g, "<br>");
 
-  await resend.emails.send({
-    from:    "M!LK Contact <contact@milkbebe.fr>",
-    to:      ADMIN,
-    replyTo: email,
-    subject: `📩 Message de ${sNom} — ${sSujet || "Contact M!LK"}`,
-    html: `
+  // Email ADMIN = livraison réelle du message → on GARDE l'erreur : si Resend échoue, le
+  // visiteur doit le savoir (sinon « message envoyé » alors qu'il est perdu).
+  try {
+    await resend.emails.send({
+      from:    "M!LK Contact <contact@milkbebe.fr>",
+      to:      ADMIN,
+      replyTo: email,
+      subject: `📩 Message de ${sNom} — ${sSujet || "Contact M!LK"}`,
+      html: `
 <div style="font-family:sans-serif;max-width:500px;padding:24px;background:#1a1410;color:#f2ede6;border-radius:16px">
   <h2 style="color:#c49a4a;margin:0 0 20px">Nouveau message de contact</h2>
   <p><strong>Nom :</strong> ${sNom}</p>
@@ -51,13 +56,19 @@ export async function POST(req: Request) {
   <div style="margin-top:16px;padding:16px;background:#2a2018;border-radius:12px;line-height:1.7">${sMessage}</div>
   <p style="margin-top:16px;font-size:12px;opacity:0.4">Réponds directement à cet email pour répondre au client.</p>
 </div>`,
-  });
+    });
+  } catch (e: any) {
+    console.error("[contact] envoi du message admin échoué:", e?.message);
+    return Response.json({ error: "L'envoi a échoué. Merci de réessayer dans un instant." }, { status: 502 });
+  }
 
-  await resend.emails.send({
-    from:    "M!LK <contact@milkbebe.fr>",
-    to:      email,
-    subject: "Nous avons bien reçu votre message — M!LK",
-    html: `
+  // Accusé de réception au visiteur — best-effort : ne bloque pas la confirmation si Resend hoquette.
+  try {
+    await resend.emails.send({
+      from:    "M!LK <contact@milkbebe.fr>",
+      to:      email,
+      subject: "Nous avons bien reçu votre message — M!LK",
+      html: `
 <div style="font-family:sans-serif;max-width:500px;margin:0 auto;padding:40px 20px;background:#1a1410;text-align:center">
   <div style="background:#c49a4a;border-radius:12px;padding:12px 24px;display:inline-block;margin-bottom:28px">
     <span style="color:#1a1410;font-weight:950;font-size:20px">M!LK</span>
@@ -71,7 +82,10 @@ export async function POST(req: Request) {
     Voir la collection →
   </a>
 </div>`,
-  });
+    });
+  } catch (e: any) {
+    console.error("[contact] accusé de réception visiteur échoué:", e?.message);
+  }
 
   return Response.json({ ok: true });
 }

@@ -307,6 +307,15 @@ export async function POST(req: NextRequest) {
         error: "Téléphone manquant — étiquette FedEx impossible. Ajoutez le numéro du client sur la commande avant de générer l'étiquette.",
       }, { status: 400 });
     }
+    // INTERNATIONAL : FedEx exige un numéro au format E.164 (indicatif pays, ex. +32…).
+    // Stripe le renvoie normalement déjà en E.164, mais on ne fait PAS confiance aveugle :
+    // si le numéro ne commence pas par "+", on BLOQUE (numéro national → FedEx rejette).
+    // On NE devine PAS l'indicatif (risque d'erreur) : on demande à l'admin de corriger.
+    if (isInternational && !phoneNumber.startsWith("+")) {
+      return Response.json({
+        error: "Téléphone au format international requis (ex. +32…) — impossible de générer l'étiquette FedEx. Vérifiez le numéro sur la commande.",
+      }, { status: 400 });
+    }
     // FRANCE — Mondial Relay POINT RELAIS : la mise à disposition en point relais est
     // notifiée par SMS → le téléphone est REQUIS. Sans numéro on bloque (même forme
     // d'erreur claire, remontée à l'admin via labelError). Colissimo (domicile OU point
@@ -332,6 +341,11 @@ export async function POST(req: NextRequest) {
     const recipientAddressLine1 = isRelayMode
       ? String(order.relay_address ?? "")
       : String(addr.line1 ?? "");
+    // Complément d'adresse (line2 : "Appartement 3B", "Bâtiment C", "c/o…"). Capturé par
+    // le webhook dans shipping_address, mais uniquement pertinent en mode HOME (le point
+    // relais n'a pas de complément). Envoyé à l'announce si non vide (FR ET international),
+    // OMIS sinon. Sans lui, une adresse à complément risque une livraison échouée.
+    const recipientAddressLine2 = isRelayMode ? "" : String(addr.line2 ?? "").trim();
     const recipientCity = isRelayMode
       ? String(order.relay_city ?? "")
       : String(addr.city ?? "");
@@ -472,6 +486,20 @@ export async function POST(req: NextRequest) {
       console.warn(`[sendcloud] ⚠ code "${expectedCode}" PAS dans les options retournées — Sendcloud risque de rejeter. Codes dispos: ${allCodes.join(" | ")}`);
     }
 
+    // GARDE-FOU INTERNATIONAL : fetch-shipping-options a été interrogé avec le pays réel
+    // + le poids réel → les options retournées SONT celles offertes vers cette destination.
+    // Si la tranche FedEx choisie n'y figure pas, l'option n'est pas couverte vers ce pays
+    // pour ce poids : on BLOQUE avec un message clair plutôt qu'un rejet opaque côté FedEx.
+    // FR : comportement inchangé (simple warn ci-dessus, l'announce suit son cours).
+    if (isInternational && !codeFoundInOptions) {
+      return Response.json({
+        error:           "Option FedEx indisponible vers ce pays pour ce poids — étiquette impossible. Vérifiez la couverture Sendcloud.",
+        weight_kg:       weightKg,
+        expected_code:   expectedCode,
+        available_codes: allCodes,
+      }, { status: 400 });
+    }
+
     // ── 5. POST /api/v3/shipments/announce ──────────────────────────────────
     // Structure v3 conforme à la spec OpenAPI officielle Sendcloud :
     //   - ship_with.type = "shipping_option_code" (DISCRIMINATOR obligatoire)
@@ -491,6 +519,9 @@ export async function POST(req: NextRequest) {
       to_address: {
         name:           customerName,
         address_line_1: recipientAddressLine1,
+        // address_line_2 (complément) OMIS si vide — comme phone_number, on préfère
+        // l'absence du champ à une chaîne vide. Non vide → transmis (FR et international).
+        ...(recipientAddressLine2 ? { address_line_2: recipientAddressLine2 } : {}),
         city:           recipientCity,
         postal_code:    recipientPostalCode,
         country_code:   recipientCountry,

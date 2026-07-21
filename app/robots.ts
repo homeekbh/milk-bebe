@@ -7,7 +7,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: "/",
+        // /api reste bloqué SAUF le flux Google Shopping : Merchant Center respecte robots.txt pour
+        // la récupération du flux. Le chemin plus spécifique prime (Googlebot = longest-match).
+        allow: ["/", "/api/feed/google-shopping"],
         disallow: [
           "/admin",
           "/admin/",

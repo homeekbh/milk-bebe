@@ -1,6 +1,12 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import { getDeliveryPrice } from "@/lib/delivery-config";
 
 export const dynamic = "force-dynamic";
+
+// Frais de port annoncés dans le flux = l'option la MOINS chère réellement proposée (Mondial Relay
+// Point Relais), source unique DELIVERY_PRICES. Aligné sur le JSON-LD des fiches produit (3.50) →
+// évite un écart flux / page que Merchant Center pénalise. Avant : 4.90 codé en dur (faux).
+const FEED_SHIPPING_EUR = getDeliveryPrice("mondial_relay", "point_relais").toFixed(2);
 
 /**
  * GET /api/feed/google-shopping — flux Google Shopping (RSS 2.0 + namespace g:).
@@ -127,7 +133,7 @@ function itemXml(opts: {
       <g:shipping>
         <g:country>FR</g:country>
         <g:service>Colissimo / Mondial Relay</g:service>
-        <g:price>4.90 EUR</g:price>
+        <g:price>${FEED_SHIPPING_EUR} EUR</g:price>
       </g:shipping>
       <g:shipping_weight>${opts.weight}</g:shipping_weight>
     </item>`;

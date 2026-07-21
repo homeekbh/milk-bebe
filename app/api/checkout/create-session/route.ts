@@ -108,6 +108,12 @@ export async function POST(req: Request) {
     if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
       return Response.json({ error: "Point relais manquant" }, { status: 400 });
     }
+    // R4 — refuser un point relais saisi à la main (id "manual:…") : il ne correspond à AUCUN point
+    // Sendcloud → l'étiquette d'expédition ne peut pas être générée (commande payée mais non
+    // expédiable). La saisie manuelle a été retirée de l'UI ; ceci bloque en plus toute requête forgée.
+    if ((delivery_type === "point_relais" || delivery_type === "locker") && /^manual:/i.test(String(relay?.id ?? ""))) {
+      return Response.json({ error: "Point relais invalide. Merci de sélectionner un point relais dans la liste proposée." }, { status: 400 });
+    }
     if (delivery_type === "home") {
       if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
         return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });

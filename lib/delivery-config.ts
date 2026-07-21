@@ -20,7 +20,9 @@ export type DeliveryType = "point_relais" | "locker" | "home";
 export const DELIVERY_PRICES: Record<Carrier, Partial<Record<DeliveryType, number>>> = {
   mondial_relay: {
     point_relais: 3.50,
-    locker:       3.50,
+    // locker RETIRÉ (R5) : aucun code transporteur Sendcloud réel derrière cette option → étiquette
+    // impossible à générer. Retrait réversible : ré-ajouter `locker: 3.50,` + le bouton UI restaure
+    // l'option. Absente ici → isDeliveryCombinationAllowed()=false → rejet serveur + non restaurée.
     home:         5.20,
   },
   colissimo: {

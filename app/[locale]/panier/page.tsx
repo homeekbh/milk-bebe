@@ -103,7 +103,6 @@ export default function CartPage() {
   const [searchError,     setSearchError]     = useState("");
   const [searchEmpty,     setSearchEmpty]     = useState(false);
   const [selectedRelay,   setSelectedRelay]   = useState<ServicePoint | null>(null);
-  const [manualRelay,     setManualRelay]     = useState({ name: "", address: "", city: "", postal_code: "" });
   const [fallbackManual,  setFallbackManual]  = useState(false);
   const [homeAddress,     setHomeAddress]     = useState<HomeAddress>({ name: "", line1: "", postal_code: "", city: "", country: "FR" });
   // Téléphone obligatoire (exigé par Sendcloud pour tous les transporteurs).
@@ -269,25 +268,6 @@ export default function CartPage() {
 
   function selectServicePoint(sp: ServicePoint) {
     setSelectedRelay(sp);
-    setSearchError("");
-    setRelayModalOpen(false);
-  }
-
-  function applyManualRelay() {
-    const { name, address, city, postal_code } = manualRelay;
-    if (!name.trim() || !address.trim() || !city.trim() || !/^\d{4,5}$/.test(postal_code)) {
-      setSearchError("Remplis tous les champs pour la saisie manuelle.");
-      return;
-    }
-    setSelectedRelay({
-      id:            `manual:${postal_code}`,
-      name:          name.trim(),
-      street:        address.trim(),
-      city:          city.trim(),
-      postal_code:   postal_code.trim(),
-      distance:      null,
-      opening_hours: null,
-    });
     setSearchError("");
     setRelayModalOpen(false);
   }
@@ -1004,7 +984,6 @@ export default function CartPage() {
                     <div style={{ display: "grid", gap: 6 }}>
                       {([
                         { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Retrait chez un commerçant", price: getDeliveryPrice("mondial_relay", "point_relais"), badge: "Le moins cher" },
-                        { type: "locker"       as const, icon: "🔒", label: "Locker",           sub: "Consigne automatique 24/7",  price: getDeliveryPrice("mondial_relay", "locker"), badge: null },
                         { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",       price: getDeliveryPrice("mondial_relay", "home"),   badge: null },
                       ]).map(opt => {
                         const active = carrier === "mondial_relay" && deliveryType === opt.type;
@@ -1397,46 +1376,13 @@ export default function CartPage() {
               </div>
             )}
 
-            {/* Lien saisie manuelle */}
-            <div style={{ marginTop: 12, padding: "8px 12px", fontSize: 12, color: "rgba(26,20,16,0.55)", textAlign: "center" }}>
-              Pas de résultat satisfaisant ?
-              {" "}
-              <button onClick={() => setFallbackManual(v => !v)} style={{ background: "none", border: "none", color: "#c49a4a", fontWeight: 800, fontSize: 12, textDecoration: "underline", cursor: "pointer" }}>
-                {fallbackManual ? "Masquer" : "Saisir manuellement"}
-              </button>
-            </div>
-
-            {/* Mode saisie manuelle */}
+            {/* Aucun point relais exploitable → on oriente vers la livraison à domicile.
+                La saisie manuelle a été retirée (R4) : un point saisi à la main ne correspond à
+                aucun point Sendcloud → étiquette impossible → commande payée mais non expédiable. */}
             {fallbackManual && (
-              <div style={{ marginTop: 12, padding: 14, borderRadius: 10, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.1)" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, marginBottom: 10, color: "#1a1410" }}>
-                  ✍️ Entrez l'adresse de votre point relais préféré :
-                </div>
-                <div style={{ display: "grid", gap: 6 }}>
-                  <input type="text" placeholder="Nom du point relais (ex: Tabac de la Gare)"
-                    value={manualRelay.name}
-                    onChange={e => setManualRelay(r => ({ ...r, name: e.target.value }))}
-                    style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
-                  <input type="text" placeholder="Adresse complète"
-                    value={manualRelay.address}
-                    onChange={e => setManualRelay(r => ({ ...r, address: e.target.value }))}
-                    style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
-                  <div style={{ display: "grid", gridTemplateColumns: "90px 1fr", gap: 6 }}>
-                    <input type="text" inputMode="numeric" maxLength={5} placeholder="CP"
-                      value={manualRelay.postal_code}
-                      onChange={e => setManualRelay(r => ({ ...r, postal_code: e.target.value.replace(/\D/g, "") }))}
-                      style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, fontFamily: "monospace", outline: "none", background: "#fff" }} />
-                    <input type="text" placeholder="Ville"
-                      value={manualRelay.city}
-                      onChange={e => setManualRelay(r => ({ ...r, city: e.target.value }))}
-                      style={{ padding: "9px 11px", borderRadius: 7, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, outline: "none", background: "#fff" }} />
-                  </div>
-                  <button
-                    onClick={() => applyManualRelay()}
-                    style={{ padding: "10px", borderRadius: 7, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 13, cursor: "pointer", marginTop: 4 }}>
-                    Valider ce point relais
-                  </button>
-                </div>
+              <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.1)", fontSize: 12.5, color: "#1a1410", lineHeight: 1.5 }}>
+                Aucun point relais exploitable ici. Essayez un autre code postal, ou choisissez la
+                {" "}<strong>livraison à domicile</strong> pour être livré directement chez vous.
               </div>
             )}
 

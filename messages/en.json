@@ -36,8 +36,8 @@
     "ticker1": "✦ OEKO-TEX certified bamboo",
     "ticker2": "✦ 3× softer than cotton",
     "ticker3": "✦ Naturally thermo-regulating",
-    "ticker4": "✦ Free delivery over €{amount}",
-    "ticker5": "✦ Free 15-day returns",
+    "ticker4": "✦ Free delivery over €{amount} in France",
+    "ticker5": "✦ Returns within 14 days",
     "ticker6": "✦ Naturally antibacterial",
     "ticker7": "✦ Bodysuits · Pyjamas · Sleep bags",
     "hero_tags": ["Newborn", "0-3 months", "3-6 months"],
@@ -50,11 +50,11 @@
     "band_free": "From €{amount}",
     "band_free_label": "free delivery",
     "band_oeko": "Bamboo OEKO-TEX",
-    "band_returns": "free returns",
+    "band_returns": "returns",
     "band_nocive": "harmful substance",
     "band_soft": "softer than cotton",
-    "reass_returns": "Free returns",
-    "reass_returns_d": "15 days",
+    "reass_returns": "Returns",
+    "reass_returns_d": "14 days",
     "reass_oeko": "Bamboo OEKO-TEX",
     "reass_oeko_d": "certified",
     "reass_pay": "Secure payment",
@@ -205,7 +205,7 @@
     "delivery_note": "Order before 4pm · ships within 24 working hours",
     "reass_oeko": "100% Bamboo OEKO-TEX",
     "reass_shipping": "Free delivery over €{amount}",
-    "reass_returns": "Free 15-day returns",
+    "reass_returns": "Returns within 14 days",
     "reass_payment": "Secure Stripe payment",
     "why_eyebrow": "The real reason",
     "why_sub": "Why this product exists",
@@ -412,8 +412,8 @@
     "reass_bamboo_d": "OEKO-TEX certified",
     "reass_shipping_l": "Free delivery",
     "reass_shipping_d": "On orders over €{amount}",
-    "reass_returns_l": "Free returns",
-    "reass_returns_d": "Within 15 days",
+    "reass_returns_l": "Returns",
+    "reass_returns_d": "Within 14 days",
     "reass_payment_l": "Secure payment",
     "reass_payment_d": "Via Stripe"
   },
@@ -468,6 +468,7 @@
     "error_generic": "Something went wrong, try again.",
     "copyright_tag": "Fewer hassles. More moments.",
     "bottom_cookies": "Cookies",
+    "manage_cookies": "Manage cookies",
     "credit": "Design & creation by"
   },
   "reassurance": {
@@ -789,7 +790,7 @@
       { "val": "100%", "label": "OEKO-TEX certified bamboo" },
       { "val": "0",    "label": "Harmful substance" },
       { "val": "3×",   "label": "Softer than cotton" },
-      { "val": "15j",  "label": "Free returns" }
+      { "val": "14j",  "label": "Returns" }
     ],
     "valeurs": [
       { "titre": "Every product solves a real problem.", "texte": "No design for design's sake. No pointless features. We start from a concrete problem — getting dressed turning into a fight, overheating, lost mittens — and look for the simplest solution." },

@@ -16,10 +16,10 @@ export async function generateMetadata({
   const { locale } = await params;
   return {
   title:       "Conditions Générales de Vente",
-  description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
+  description: "CGV M!LK — EKBH SASU. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   openGraph: {
     title:       "Conditions Générales de Vente — M!LK",
-    description: "CGV M!LK — EKBH SAS. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
+    description: "CGV M!LK — EKBH SASU. Paiement Stripe, livraison Colissimo 2-3 jours, retours sous 14 jours, garanties et droit de rétractation.",
   },
   alternates: getAlternates(locale, "/cgv"),
   };
@@ -48,7 +48,7 @@ export async function generateMetadata({
         {[
           {
             title: t("cgv_s1"),
-            content: `M!LK est une marque exploitée par EKBH, SAS au capital variable
+            content: `M!LK est une marque exploitée par EKBH, SASU au capital variable
 SIREN : 104 298 260
 SIRET : 104 298 260 00019
 Siège social : Menton (06500), France

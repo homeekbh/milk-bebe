@@ -36,8 +36,8 @@
     "ticker1": "✦ Bambou certifié OEKO-TEX",
     "ticker2": "✦ 3× plus doux que le coton",
     "ticker3": "✦ Thermorégulateur naturel",
-    "ticker4": "✦ Livraison offerte dès {amount}€",
-    "ticker5": "✦ Retour gratuit 15 jours",
+    "ticker4": "✦ Livraison offerte dès {amount}€ en France",
+    "ticker5": "✦ Retour sous 14 jours",
     "ticker6": "✦ Antibactérien naturel",
     "ticker7": "✦ Bodies · Pyjamas · Gigoteuses",
     "hero_tags": ["Nouveau-né", "0-3 mois", "3-6 mois"],
@@ -50,11 +50,11 @@
     "band_free": "Dès {amount}€",
     "band_free_label": "livraison offerte",
     "band_oeko": "Bambou OEKO-TEX",
-    "band_returns": "retour gratuit",
+    "band_returns": "retours",
     "band_nocive": "substance nocive",
     "band_soft": "plus doux que le coton",
-    "reass_returns": "Retour gratuit",
-    "reass_returns_d": "15 jours",
+    "reass_returns": "Retours",
+    "reass_returns_d": "14 jours",
     "reass_oeko": "Bambou OEKO-TEX",
     "reass_oeko_d": "certifié",
     "reass_pay": "Paiement sécurisé",
@@ -205,7 +205,7 @@
     "delivery_note": "Commandez avant 16h · expédition sous 24h ouvrées",
     "reass_oeko": "100% Bambou OEKO-TEX",
     "reass_shipping": "Livraison offerte dès {amount}€",
-    "reass_returns": "Retour gratuit 15 jours",
+    "reass_returns": "Retour sous 14 jours",
     "reass_payment": "Paiement sécurisé Stripe",
     "why_eyebrow": "La vraie raison",
     "why_sub": "Pourquoi ce produit existe",
@@ -412,8 +412,8 @@
     "reass_bamboo_d": "Certifié OEKO-TEX",
     "reass_shipping_l": "Livraison offerte",
     "reass_shipping_d": "Dès {amount}€ d'achat",
-    "reass_returns_l": "Retour gratuit",
-    "reass_returns_d": "Sous 15 jours",
+    "reass_returns_l": "Retours",
+    "reass_returns_d": "Sous 14 jours",
     "reass_payment_l": "Paiement sécurisé",
     "reass_payment_d": "Via Stripe"
   },
@@ -468,6 +468,7 @@
     "error_generic": "Une erreur est survenue, réessaie.",
     "copyright_tag": "Moins de galères. Plus de moments.",
     "bottom_cookies": "Cookies",
+    "manage_cookies": "Gérer mes cookies",
     "credit": "Design & création par"
   },
   "reassurance": {
@@ -789,7 +790,7 @@
       { "val": "100%", "label": "Bambou certifié OEKO-TEX" },
       { "val": "0",    "label": "Substance nocive" },
       { "val": "3×",   "label": "Plus doux que le coton" },
-      { "val": "15j",  "label": "Retour gratuit" }
+      { "val": "14j",  "label": "Retours" }
     ],
     "valeurs": [
       { "titre": "Chaque produit répond à un problème réel.", "texte": "Pas de design pour le design. Pas de fonctionnalité inutile. On part d'un problème concret — l'habillage qui tourne au combat, la surchauffe, les moufles perdues — et on cherche la solution la plus simple." },

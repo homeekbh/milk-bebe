@@ -21,7 +21,7 @@ import GTMScript from "@/components/analytics/GTMScript";
 // MerchantBadge / GoogleCustomerReviews). writeConsent y émet aussi un événement pour
 // que les autres chargements tiers réagissent au choix. Le gating ci-dessous des 3
 // traceurs (GTM/GA4/Pixel) est INCHANGÉ (toujours `status === "accepted"`).
-import { readConsent, writeConsent, type ConsentStatus } from "@/components/analytics/consent-store";
+import { readConsent, writeConsent, onOpenConsent, type ConsentStatus } from "@/components/analytics/consent-store";
 
 const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID;
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
@@ -41,6 +41,15 @@ export default function ConsentManager() {
     setReady(true);
     if (!c) setTimeout(() => setShow(true), 1200);
   }, []);
+
+  // « Gérer mes cookies » (footer) → ré-ouvre la bannière même si un choix existe déjà,
+  // pour permettre de le modifier ou de le retirer (RGPD art. 7-3). Pré-coche le toggle
+  // selon le choix courant pour le mode « Personnaliser ».
+  useEffect(() => onOpenConsent(() => {
+    setAnalytics(readConsent() === "accepted");
+    setCustom(false);
+    setShow(true);
+  }), []);
 
   function decide(s: "accepted" | "refused") {
     writeConsent(s);

@@ -621,7 +621,7 @@ function HeroBand({ freeShipThreshold }: { freeShipThreshold: number }) {
   const STATS = [
     { val: t("band_free", { amount: freeShipThreshold }), label: t("band_free_label") },
     { val: "100%", label: t("band_oeko") },
-    { val: "15j",  label: t("band_returns") },
+    { val: "14j",  label: t("band_returns") },
     { val: "0",    label: t("band_nocive") },
     { val: "3×",   label: t("band_soft") },
   ];

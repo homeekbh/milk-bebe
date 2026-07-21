@@ -10,10 +10,10 @@ export async function generateMetadata({
   const { locale } = await params;
   return {
   title:       "Mentions légales",
-  description: "Mentions légales de milkbebe.fr — EKBH SAS, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
+  description: "Mentions légales de milkbebe.fr — EKBH SASU, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
   openGraph: {
     title:       "Mentions légales — M!LK",
-    description: "Mentions légales de milkbebe.fr — EKBH SAS, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
+    description: "Mentions légales de milkbebe.fr — EKBH SASU, SIRET 104 298 260 00019, Menton. Hébergement Vercel Inc.",
   },
   alternates: getAlternates(locale, "/mentions-legales"),
   };
@@ -32,7 +32,7 @@ export default async function MentionsLegales() {
         {[
           {
             title: t("ml_editor"),
-            content: `M!LK est une marque exploitée par EKBH, SAS
+            content: `M!LK est une marque exploitée par EKBH, SASU
 SIREN : 104 298 260
 SIRET : 104 298 260 00019
 Siège social : Menton (06500), France

@@ -4,6 +4,7 @@ import { Link } from "@/i18n/navigation";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
 import PaymentMethods from "./PaymentMethods";
+import { openConsentBanner } from "@/components/analytics/consent-store";
 
 export default function Footer() {
   const t = useTranslations("footer");
@@ -147,6 +148,10 @@ export default function Footer() {
             { label: t("link_legal"),   href: "/mentions-legales" },
             { label: t("bottom_cookies"), href: "/politique-confidentialite" },
           ].map(l => <Link key={l.href} href={l.href} style={{ fontSize: 12, color: "rgba(242,237,230,0.28)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
+          {/* RGPD art. 7-3 : ré-ouvre la bannière pour modifier/retirer le consentement */}
+          <button onClick={openConsentBanner} style={{ fontSize: 12, color: "rgba(242,237,230,0.28)", background: "none", border: "none", padding: 0, cursor: "pointer", fontWeight: 500, fontFamily: "inherit" }}>
+            {t("manage_cookies")}
+          </button>
         </div>
         <div style={{ fontSize: 12, color: "rgba(242,237,230,0.18)", fontWeight: 500 }}>
           {t("tagline")}

@@ -20,6 +20,7 @@ export type ConsentStatus = "accepted" | "refused" | null;
 const KEY        = "milk_cookie_consent";
 const MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1000; // ~13 mois (recommandation CNIL)
 const EVENT      = "milk-consent-changed";
+const OPEN_EVENT = "milk-open-consent"; // demande de ré-ouverture de la bannière (art. 7-3)
 
 export function readConsent(): ConsentStatus {
   try {
@@ -36,6 +37,21 @@ export function readConsent(): ConsentStatus {
 export function writeConsent(status: "accepted" | "refused") {
   try { localStorage.setItem(KEY, JSON.stringify({ status, ts: Date.now() })); } catch {}
   try { window.dispatchEvent(new Event(EVENT)); } catch {}
+}
+
+/**
+ * Ré-ouvre la bannière de consentement (RGPD art. 7-3 : retrait/modification du
+ * consentement à tout moment) SANS effacer le choix déjà stocké — l'utilisateur
+ * pourra le confirmer ou le changer. Utilisé par le lien « Gérer mes cookies ».
+ */
+export function openConsentBanner() {
+  try { window.dispatchEvent(new Event(OPEN_EVENT)); } catch {}
+}
+
+/** S'abonne à la demande de ré-ouverture ; renvoie la fonction de désabonnement. */
+export function onOpenConsent(handler: () => void): () => void {
+  window.addEventListener(OPEN_EVENT, handler);
+  return () => window.removeEventListener(OPEN_EVENT, handler);
 }
 
 /** Réactif : true UNIQUEMENT si le consentement « mesure d'audience & publicité » est accepté. */

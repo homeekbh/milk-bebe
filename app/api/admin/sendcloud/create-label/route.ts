@@ -275,7 +275,23 @@ export async function POST(req: NextRequest) {
       announce_str:       weightKgStr,
       fetch_options_kg:   fetchWeightKg,
     }));
-    const phoneNumber = String(order.customer_phone ?? addr.phone ?? order.phone ?? "+33600000000").trim() || "+33600000000";
+    // Téléphone destinataire — source de vérité = orders.customer_phone (persisté par le
+    // webhook : tunnel FR prioritaire, sinon Stripe à l'international). PLUS de faux numéro
+    // en dur : on ne fabrique JAMAIS de +33600000000.
+    const phoneNumber = String(order.customer_phone ?? addr.phone ?? order.phone ?? "").trim();
+
+    // INTERNATIONAL : FedEx EXIGE un téléphone destinataire (contact douane + livraison).
+    // Sans numéro → on NE génère PAS l'étiquette (elle serait refusée par FedEx, ou pire,
+    // partirait avec un faux numéro). Erreur explicite → remonte à l'admin (labelError).
+    if (isInternational && !phoneNumber) {
+      return Response.json({
+        error: "Téléphone manquant — étiquette FedEx impossible. Ajoutez le numéro du client sur la commande avant de générer l'étiquette.",
+      }, { status: 400 });
+    }
+    // FRANCE : téléphone vide TOLÉRÉ ici (aucun blocage ajouté) — décision « bloquer aussi
+    // la FR » vs « tolérer » à trancher (cf. rapport). Si un transporteur FR refuse un tél
+    // vide, l'erreur Sendcloud brute remontera telle quelle à l'admin (pas de faux numéro).
+
     const customerName = sanitizeName(addr.name || order.customer_name || "Client");
     const numericRelayId = relayId && /^\d+$/.test(String(relayId)) ? parseInt(String(relayId), 10) : null;
 

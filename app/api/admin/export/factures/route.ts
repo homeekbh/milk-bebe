@@ -5,7 +5,7 @@ import { ventilateTTC }   from "@/lib/tva";
 import type { NextRequest } from "next/server";
 
 // GET /api/admin/export/factures — journal de ventes (CSV). Une ligne par facture émise
-// (commande avec invoice_number). Franchise 293 B : montant NET (pas de TVA à ventiler).
+// (commande avec invoice_number). Assujetti TVA 20 % : ventilation HT / TVA / TTC (« en dedans »).
 // Filtrable par année : ?year=2026 (sinon toutes). Échappement anti-injection via csvCell.
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);

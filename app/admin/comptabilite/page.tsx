@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import { isValidOrder, getNetAmount } from "@/lib/orders";
-import { tvaFromTTC } from "@/lib/tva";
+import { tvaFromTTC, htFromTTC } from "@/lib/tva";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -44,6 +44,9 @@ interface Order {
   refund_amount?:   number | null;
   // Décomposition CA : frais de port stockés séparément depuis le webhook Stripe.
   delivery_price?:  number | null;
+  // Seuil OSS UE : pays de livraison + HT figé (sinon recalculé à la volée htFromTTC).
+  shipping_country?: string | null;
+  montant_ht?:       number | null;
 }
 
 interface MonthData {
@@ -142,6 +145,20 @@ export default function AdminComptabilite() {
   const totalHT        = round2(totalCA - totalTva);                                       // base imposable
   const maxCA          = Math.max(...months.map(m => m.ca), 1);
 
+  // ── Seuil OSS (ventes à distance intra-UE) — indicateur de PILOTAGE, PAS un blocage ───────────────
+  // Cumul des ventes UE HORS France en HT, sur l'ANNÉE CIVILE EN COURS (indépendant du sélecteur year).
+  // Au-delà de 10 000 € HT/an, la TVA du PAYS DU CLIENT s'applique (guichet unique OSS). HT = montant_ht
+  // figé si présent, sinon recalculé (htFromTTC). shipping_country ≠ FR = client UE (CH/UK bloqués au tunnel).
+  const OSS_THRESHOLD = 10000;
+  const OSS_WARN      = 7000;
+  const euYear = new Date().getFullYear();
+  const euHT   = validOrders
+    .filter(o => new Date(o.created_at).getFullYear() === euYear
+              && !!o.shipping_country && String(o.shipping_country).trim().toUpperCase() !== "FR")
+    .reduce((s, o) => s + (Number(o.montant_ht) || htFromTTC(Number(o.amount_total ?? 0))), 0);
+  const euPct  = Math.min(100, OSS_THRESHOLD > 0 ? (euHT / OSS_THRESHOLD) * 100 : 0);
+  const euNear = euHT >= OSS_WARN;
+
   function exportCSV() {
     const header = [
       "Mois", "Commandes", "Transporteur",
@@ -230,6 +247,24 @@ export default function AdminComptabilite() {
             <div style={{ fontSize: 10, color: "rgba(26,20,16,0.4)", marginTop: 6, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5 }}>{stat.label}</div>
           </div>
         ))}
+      </div>
+
+      {/* Seuil OSS (ventes à distance intra-UE) — indicateur de pilotage, PAS un blocage. */}
+      <div style={{ background: euNear ? "#fef3c7" : "#fff", border: `1px solid ${euNear ? "#fde68a" : "rgba(0,0,0,0.07)"}`, borderRadius: 14, padding: "16px 20px", marginBottom: 24 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", flexWrap: "wrap", gap: 8 }}>
+          <div style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>Seuil OSS · Ventes UE hors France (HT) — {euYear}</div>
+          <div style={{ fontWeight: 950, fontSize: 16, color: euNear ? "#92400e" : "#166534" }}>
+            {euHT.toFixed(2)} € <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.5)" }}>/ {OSS_THRESHOLD.toLocaleString("fr-FR")} € HT</span>
+          </div>
+        </div>
+        <div style={{ height: 8, background: "#ede8df", borderRadius: 99, overflow: "hidden", marginTop: 10 }}>
+          <div style={{ height: "100%", width: `${euPct}%`, background: euNear ? "#d97706" : "#16a34a", borderRadius: 99, transition: "width 0.4s ease" }} />
+        </div>
+        {euNear && (
+          <div style={{ marginTop: 10, fontSize: 12.5, fontWeight: 600, color: "#92400e" }}>
+            ⚠️ Approche du seuil OSS : au-delà de 10 000 € HT de ventes UE (hors France) sur l'année civile, la TVA du PAYS DU CLIENT s'applique (guichet unique OSS à activer). Indicateur de pilotage — pas un blocage.
+          </div>
+        )}
       </div>
 
       {loading ? (

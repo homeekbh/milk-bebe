@@ -120,6 +120,26 @@ async function alertIncompleteShipping(session: Stripe.Checkout.Session, resolve
   }
 }
 
+/**
+ * Point 2 — Commande INTERNATIONALE dont le pays/zone n'a pas pu être persisté : create-label
+ * risquerait de la router en FR (Colissimo) au lieu de FedEx. Non silencieux : alerte admin
+ * best-effort (sans throw : la commande est déjà enregistrée).
+ */
+async function alertMissingIntlZone(session: Stripe.Checkout.Session, orderId: string, delivery: any): Promise<void> {
+  try {
+    if (ADMIN_EMAILS.length > 0) {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `⚠️ Commande internationale sans pays/zone — #${orderId.slice(0, 8).toUpperCase()}`,
+        html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b45309;margin:0 0 12px">Pays / zone de livraison non enregistré</h2><p>La commande <strong>#${escapeHtml(orderId)}</strong> (session ${escapeHtml(session.id)}) est internationale (${escapeHtml(String(delivery?.country ?? "?"))} / zone ${escapeHtml(String(delivery?.shipping_zone ?? "?"))}) mais <code>shipping_country</code> / <code>shipping_zone</code> n'ont pas pu être écrits en base.</p><p>⚠️ Renseigner le pays sur la commande AVANT de générer l'étiquette : sinon create-label pourrait la router en FR (Colissimo) au lieu de FedEx.</p></div>`,
+      });
+    }
+  } catch (alertErr: any) {
+    console.error("[webhook] alerte admin « pays/zone intl manquant » échouée:", alertErr?.message);
+  }
+}
+
 // ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
 // Branche séparée du flow commande normal : crée UNE commande (items = 1 ligne
 // pack + breakdown produits, pack_id renseigné) PUIS, une seule fois (claim
@@ -424,30 +444,42 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   if (orderData?.id) {
     const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
-    // Téléphone (colonne orders.customer_phone, lue par create-label) : PRIORITÉ au tél
-    // saisi dans le tunnel FRANCE (delivery.customer_phone). Sinon, à l'international,
-    // Stripe l'a collecté via phone_number_collection → session.customer_details.phone.
-    // AUCUN faux numéro : si les deux sont vides, on laisse customer_phone à null et on
-    // logge un avertissement (une étiquette ne doit JAMAIS partir avec un numéro bidon).
+    // Signal international (réutilisé pour le tél E.164 ET le garde pays/zone ci-dessous) : country
+    // renseigné et ≠ FR. create-session écrit toujours delivery.country (défaut "FR" en métropole).
+    const isIntl = !!delivery.country && String(delivery.country).trim().toUpperCase() !== "FR";
+    // Téléphone (colonne orders.customer_phone, lue par create-label) : PRIORITÉ au tél saisi dans le
+    // tunnel FRANCE (delivery.customer_phone). Sinon, à l'international, Stripe l'a collecté en E.164
+    // via phone_number_collection → session.customer_details.phone. AUCUN faux numéro.
+    // ⚠️ À l'INTERNATIONAL, FedEx EXIGE l'E.164 (+indicatif) : un numéro NATIONAL qui se glisserait
+    // dans le tunnel (prefill/cas limite) écraserait l'E.164 de Stripe → étiquette rejetée. On ne
+    // retient donc le tél tunnel QUE s'il commence par "+" à l'international ; sinon on prend Stripe.
+    // FRANCE : inchangé (numéro national accepté — Colissimo / Mondial Relay).
     const tunnelPhone = String(delivery.customer_phone ?? "").trim();
     const stripePhone = String(session.customer_details?.phone ?? "").trim();
-    const finalPhone  = tunnelPhone || stripePhone;
+    const usableTunnelPhone = isIntl ? (tunnelPhone.startsWith("+") ? tunnelPhone : "") : tunnelPhone;
+    const finalPhone  = usableTunnelPhone || stripePhone;
     if (finalPhone) {
       try { await supabaseServer.from("orders").update({ customer_phone: finalPhone }).eq("id", orderData.id); } catch {}
     } else {
       console.warn(`[webhook] commande ${orderData.id} sans téléphone (ni tunnel FR, ni Stripe) — customer_phone laissé null (pas de faux numéro).`);
     }
-    // Pays + zone de livraison (orders.shipping_country / shipping_zone), écrits par
-    // create-session dans draft.delivery. Best-effort : si les colonnes manquent,
-    // l'update échoue silencieusement sans casser l'upsert principal déjà réussi.
-    // Prépare create-label (Sendcloud) à choisir le transporteur international (lot ultérieur).
+    // Pays + zone de livraison (orders.shipping_country / shipping_zone) → create-label route FR
+    // (Colissimo/Mondial Relay) vs INTERNATIONAL (FedEx) d'après ces colonnes. FR : best-effort
+    // silencieux (le routage domestique est le défaut correct). INTERNATIONAL : une commande hors-FR
+    // SANS pays/zone en base serait routée en FR par défaut (Colissimo ≠ FedEx) → JAMAIS silencieux :
+    // log visible + alerte admin best-effort (esprit B2, sans throw).
     if (delivery.country || delivery.shipping_zone) {
       try {
         await supabaseServer.from("orders").update({
           shipping_country: delivery.country ? String(delivery.country) : null,
           shipping_zone:    delivery.shipping_zone ? String(delivery.shipping_zone) : null,
         }).eq("id", orderData.id);
-      } catch {}
+      } catch (zoneErr: any) {
+        if (isIntl) {
+          console.error(`[webhook] commande INTERNATIONALE ${orderData.id} (${delivery.country}/${delivery.shipping_zone}) : échec écriture shipping_country/zone — risque de routage FR par défaut.`, zoneErr?.message);
+          await alertMissingIntlZone(session, orderData.id, delivery);
+        }
+      }
     }
     // Poids réel d'expédition (bug #5) : calculé par create-session (Σ produits/pièces de
     // packs + emballage) et transmis via draft.delivery.total_weight_g. Écrase le défaut DB

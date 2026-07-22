@@ -227,6 +227,12 @@ export async function POST(req: NextRequest) {
       (shippingZoneCol && shippingZoneCol !== "FR") ||
       (!destCountryCol && !shippingZoneCol && addrCountry && addrCountry !== "FR")
     );
+    // Point 2 — filet : si on route INTERNATIONAL UNIQUEMENT via l'adresse (colonnes country/zone
+    // absentes = écriture webhook manquée), on le TRACE. Le routage reste correct (FedEx via addrCountry),
+    // mais le log signale que shipping_country/zone n'a pas été persisté par le webhook.
+    if (isInternational && !destCountryCol && !shippingZoneCol) {
+      console.warn(`[create-label] commande ${order.id} routée INTERNATIONAL via l'adresse (${addrCountry}) — colonnes shipping_country/shipping_zone absentes ; vérifier la persistance webhook (Point 2).`);
+    }
 
     // Normaliser delivery_type
     const rawDeliveryType = order.delivery_type as (string | null);
@@ -238,8 +244,12 @@ export async function POST(req: NextRequest) {
 
     // delivery_type n'est EXIGÉ que sur le chemin FR. À l'international, FedEx livre à
     // domicile (pas de relais), delivery_type est null → on l'accepte.
+    // Point 2 — REFUS explicite plutôt que routage FR par défaut : pas de mode de livraison FR
+    // (delivery_type) ET aucun signal international fiable (colonnes country/zone absentes, adresse
+    // pas hors-FR). Cas ambigu → on ne devine PAS « FR » (risquerait Colissimo sur une commande
+    // potentiellement internationale) : on refuse, l'admin renseigne le pays/zone.
     if (!deliveryType && !isInternational) {
-      return Response.json({ error: `delivery_type invalide ou manquant: ${rawDeliveryType ?? "(null)"}` }, { status: 400 });
+      return Response.json({ error: `Routage impossible : ni mode de livraison FR (delivery_type=${rawDeliveryType ?? "null"}) ni pays/zone international en base. Renseignez shipping_country / shipping_zone (ou delivery_type) sur la commande avant de générer l'étiquette.` }, { status: 400 });
     }
 
     const relayId      = order.relay_id as (string | null);
@@ -283,6 +293,16 @@ export async function POST(req: NextRequest) {
     //   - fetch-shipping-options.weight = 0.250 hardcodé pour récupérer
     //     TOUTES les options disponibles incluant les petites tranches
     //     (colissimo:post-office en tranche 0-0.25 kg sur ce compte).
+    // Point 3 — total_weight_g n'a PLUS de DEFAULT 500 en base (cf. migration 022) → une absence
+    // d'écriture se voit (NULL) au lieu d'être masquée par 500 g (poids sous-déclaré à FedEx en
+    // silence). À l'INTERNATIONAL, le poids détermine la tranche FedEx (FEDEX_INTL_TIERS) → un poids
+    // inconnu = tranche/prix faux → on REFUSE plutôt que d'utiliser un défaut silencieux. FR : défaut
+    // 0.250 toléré (fetch = 0.250 hardcodé, tranches domestiques larges).
+    if (isInternational && (order.total_weight_g == null || Number(order.total_weight_g) <= 0)) {
+      return Response.json({
+        error: "Poids de la commande inconnu (total_weight_g absent) — impossible de choisir la tranche FedEx. Renseignez le poids réel sur la commande avant de générer l'étiquette.",
+      }, { status: 400 });
+    }
     const weightKg = order.total_weight_g ? Math.max(0.05, order.total_weight_g / 1000) : 0.250;
     const weightKgStr = weightKg.toFixed(3);
     // FR : 0.250 hardcodé pour récupérer TOUTES les tranches d'options domestiques.

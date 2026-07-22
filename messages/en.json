@@ -435,7 +435,11 @@
     "clear": "Clear cart",
     "secure": "🔒 Secure payment via Stripe",
     "oeko": "🌿 100% Bamboo OEKO-TEX",
-    "returns": "↩️ Returns within 14 days"
+    "returns": "↩️ Returns within 14 days",
+    "confirm_pay": "Confirm and pay →",
+    "redirecting": "Redirecting...",
+    "referral_label": "Referral code 🎁",
+    "delivery_mode": "Delivery method"
   },
   "consent": {
     "title": "We value your privacy",

@@ -3,7 +3,7 @@
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
@@ -71,6 +71,7 @@ export default function CartPage() {
   const { user, session } = useAuth();
   const router    = useRouter();
   const locale    = useLocale();
+  const t         = useTranslations("cart");
 
   const [loading,       setLoading]       = useState(false);
   const [promoCode,     setPromoCode]     = useState("");             // champ de saisie
@@ -685,12 +686,12 @@ export default function CartPage() {
 
       <div style={{ maxWidth: 900, margin: "0 auto" }} className="cart-outer">
         <h1 style={{ margin: "0 0 32px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>
-          Mon panier
+          {t("title")}
         </h1>
 
         {items.length === 0 && packs.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 20, padding: 60, textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>Votre panier est vide</div>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>{t("empty")}</div>
             <p style={{ opacity: 0.5, marginBottom: 28 }}>Découvrez nos essentiels en bambou pour nourrisson.</p>
             <Link href="/produits" style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 15, textDecoration: "none" }}>
               Voir les produits →
@@ -828,7 +829,7 @@ export default function CartPage() {
               {/* Code parrain — masqué si le programme est désactivé */}
               {(meActif || !user) && (
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Code parrain 🎁</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>{t("referral_label")}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
                   Un ami t'a donné son code&nbsp;? Saisis-le pour −{parrainageSettingsForCalc.montant_recompense.toFixed(0)}€ dès {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ d'achat.
                 </div>
@@ -922,7 +923,7 @@ export default function CartPage() {
 
                 <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
-                    <span>Sous-total</span>
+                    <span>{t("subtotal")}</span>
                     <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} €</span>
                   </div>
                   {comboOk?.entries.map(e => (
@@ -971,7 +972,7 @@ export default function CartPage() {
                 <div ref={deliveryRef}>
                 {/* ── MODE DE LIVRAISON ── 2 transporteurs × 5 options ───── */}
                 <div style={{ marginBottom: 20 }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>Mode de livraison</div>
+                  <div style={{ fontSize: 14, fontWeight: 900, marginBottom: 12, color: "#1a1410" }}>{t("delivery_mode")}</div>
 
                   {/* Section Mondial Relay — 3 options, badge "Le moins cher" sur Point Relais */}
                   <div style={{ marginBottom: 16 }}>
@@ -1153,7 +1154,7 @@ export default function CartPage() {
                 )}
                 <button onClick={handleCheckout} disabled={loading || !finalPayReady}
                   style={{ width: "100%", padding: "16px", borderRadius: 14, background: (loading || !finalPayReady) ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: (loading || !finalPayReady) ? "not-allowed" : "pointer", marginBottom: 10 }}>
-                  {loading ? "Redirection..." : "Confirmer et payer →"}
+                  {loading ? t("redirecting") : t("confirm_pay")}
                 </button>
                 <button onClick={() => { setCheckoutError(""); setStep(1); }}
                   style={{ width: "100%", padding: "11px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }}>
@@ -1256,14 +1257,14 @@ export default function CartPage() {
                   )}
                   <button onClick={() => { setCheckoutError(""); setStep(2); }} disabled={!step1Ready}
                     style={{ width: "100%", padding: "16px", borderRadius: 14, background: !step1Ready ? "#d1cdc8" : "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: !step1Ready ? "not-allowed" : "pointer", marginBottom: 12 }}>
-                    Passer au paiement →
+                    {t("checkout")}
                   </button>
                 </>
                 )}{/* fin étape 1 */}
 
                 <button onClick={handleClearCart}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                  Vider le panier
+                  {t("clear")}
                 </button>
 
                 <div style={{ marginTop: 16, display: "grid", gap: 8 }}>

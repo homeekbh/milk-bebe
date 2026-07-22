@@ -435,7 +435,11 @@
     "clear": "Vider le panier",
     "secure": "🔒 Paiement sécurisé Stripe",
     "oeko": "🌿 100% Bambou OEKO-TEX",
-    "returns": "↩️ Retour sous 14 jours"
+    "returns": "↩️ Retour sous 14 jours",
+    "confirm_pay": "Confirmer et payer →",
+    "redirecting": "Redirection...",
+    "referral_label": "Code parrain 🎁",
+    "delivery_mode": "Mode de livraison"
   },
   "consent": {
     "title": "Nous respectons votre vie privée",

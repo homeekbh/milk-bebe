@@ -3,7 +3,7 @@
 import { useCart }  from "@/context/CartContext";
 import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
-import { useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
@@ -47,7 +47,7 @@ export default function CartPage() {
   const { items, removeFromCart, updateQuantity, clearCart } = useCart();
   const { user, session } = useAuth();
   const router = useRouter();
-  const en = useLocale() === "en";
+  const t = useTranslations("cart");
 
   const [promoCode,     setPromoCode]     = useState("");             // champ de saisie
   const [promoCodes,    setPromoCodes]    = useState<ValidatedPromo[]>([]); // codes appliqués (cumul)
@@ -173,7 +173,7 @@ export default function CartPage() {
     });
     if (dropped.length) {
       const uniq = [...new Set(dropped)];
-      setPromoError(`Code${uniq.length > 1 ? "s" : ""} retiré${uniq.length > 1 ? "s" : ""} : ${uniq.join(", ")} — non applicable(s) à ce montant.`);
+      setPromoError(t("promo_removed", { count: uniq.length, codes: uniq.join(", ") }));
     }
   }, []);
 
@@ -273,7 +273,7 @@ export default function CartPage() {
     const code = promoCode.trim().toUpperCase();
     if (!code) return;
     if (promoCodes.some(p => p.code === code)) {
-      setPromoError("Ce code est déjà appliqué.");
+      setPromoError(t("err_code_already"));
       return;
     }
     setPromoLoading(true); setPromoError("");
@@ -284,7 +284,7 @@ export default function CartPage() {
         body:    JSON.stringify({ code, order_total: subtotal }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Code invalide");
+      if (!res.ok) throw new Error(data.error ?? t("err_promo_invalid"));
       // Tester le CUMUL avant d'ajouter : compat mutuelle + plafond 60 %.
       // Si le nouveau code casse la combinaison, on affiche le refus (jamais d'ajout partiel).
       const next = [...promoCodes, toValidatedPromo(data)];
@@ -333,7 +333,7 @@ export default function CartPage() {
         body:    JSON.stringify({ code: parrainCode.trim(), email: user?.email ?? null }),
       });
       const data = await res.json();
-      if (!data.valid) throw new Error(data.error ?? "Code parrain invalide");
+      if (!data.valid) throw new Error(data.error ?? t("err_referral_invalid"));
       setParrainData({ code: data.code, montant_recompense: data.montant_recompense, seuil_filleul: data.seuil_filleul });
     } catch (e: any) {
       setParrainError(e.message);
@@ -397,15 +397,15 @@ export default function CartPage() {
 
       <div style={{ maxWidth: 900, margin: "0 auto" }} className="cart-outer">
         <h1 style={{ margin: "0 0 32px", fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>
-          Mon panier
+          {t("title")}
         </h1>
 
         {items.length === 0 && packs.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 20, padding: 60, textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
-            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>Votre panier est vide</div>
-            <p style={{ opacity: 0.5, marginBottom: 28 }}>Découvrez nos essentiels en bambou pour nourrisson.</p>
+            <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>{t("empty")}</div>
+            <p style={{ opacity: 0.5, marginBottom: 28 }}>{t("empty_desc")}</p>
             <Link href="/produits" style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 15, textDecoration: "none" }}>
-              Voir les produits →
+              {t("see_products")}
             </Link>
           </div>
         ) : (
@@ -419,12 +419,12 @@ export default function CartPage() {
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                 {freeShippingEligible ? (
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
-                    ✓ Livraison offerte en France métropolitaine
+                    {t("free_shipping_metro")}
                   </div>
                 ) : remaining > 0 ? (
                   <>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
-                      Plus que <strong>{remaining.toFixed(2)} €</strong> pour la livraison offerte en France métropolitaine
+                      {t("free_shipping_metro_progress", { amount: remaining.toFixed(2) })}
                     </div>
                     <div style={{ height: 6, background: "#ede8df", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: "#c49a4a", borderRadius: 99, transition: "width 0.4s ease" }} />
@@ -432,7 +432,7 @@ export default function CartPage() {
                   </>
                 ) : (
                   <div style={{ fontSize: 14, fontWeight: 700, color: "rgba(26,20,16,0.55)" }}>
-                    Livraison calculée à l'étape suivante.
+                    {t("shipping_next")}
                   </div>
                 )}
               </div>
@@ -441,18 +441,12 @@ export default function CartPage() {
               {showFilleulBanner && (
                 <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(196,154,74,0.35)" }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#1a1410" }}>
-                    🎁 {en
-                      ? `You have ${eur(filleulBalance)} of referral credit.`
-                      : `Vous avez ${eur(filleulBalance)} de crédit filleul.`}
+                    🎁 {t("referral_credit_have", { amount: eur(filleulBalance) })}
                   </div>
                   <div style={{ marginTop: 4, fontSize: 13, color: "rgba(26,20,16,0.6)", lineHeight: 1.5 }}>
                     {filleulDeductible > 0
-                      ? (en
-                          ? `On this cart, you can deduct up to ${eur(filleulDeductible)} at the payment step.`
-                          : `Sur ce panier, vous pourrez déduire jusqu'à ${eur(filleulDeductible)} à l'étape paiement.`)
-                      : (en
-                          ? `Add ${eur(parrainageCalcMax.rewardsShortfall)} to start deducting it.`
-                          : `Ajoutez ${eur(parrainageCalcMax.rewardsShortfall)} pour commencer à le déduire.`)}
+                      ? t("referral_credit_deduct", { amount: eur(filleulDeductible) })
+                      : t("referral_credit_add", { amount: eur(parrainageCalcMax.rewardsShortfall) })}
                   </div>
                 </div>
               )}
@@ -462,7 +456,7 @@ export default function CartPage() {
                 <div key={item.id} style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>{item.name}</div>
-                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} € / unité</div>
+                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} € / {t("per_unit")}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", background: "#ede8df", borderRadius: 10, padding: 4, flexShrink: 0 }}>
                     <button onClick={() => updateQuantity(item.id, item.quantity - 1, item.taille, item.couleur)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>−</button>
@@ -484,7 +478,7 @@ export default function CartPage() {
                   <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>🎁 {p.title}</div>
                     <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
-                      Coffret · {p.items.length} pièces{p.size ? ` · taille ${p.size}` : ""} · {Number(p.price).toFixed(2)} € / pack
+                      {t("pack_line", { count: p.items.length, size: p.size ? t("pack_size", { size: p.size }) : "", price: Number(p.price).toFixed(2) })}
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", background: "#ede8df", borderRadius: 10, padding: "8px 14px", flexShrink: 0, fontWeight: 900, fontSize: 15, color: "#1a1410" }}>
@@ -493,7 +487,7 @@ export default function CartPage() {
                   <div style={{ fontWeight: 950, fontSize: 18, color: "#1a1410", minWidth: 70, textAlign: "right", flexShrink: 0 }}>
                     {(p.price * p.quantity).toFixed(2)} €
                   </div>
-                  <button onClick={() => removePack(p.pack_id, p.size)} aria-label="Retirer le coffret" style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+                  <button onClick={() => removePack(p.pack_id, p.size)} aria-label={t("remove_pack_aria")} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
                     ✕
                   </button>
                 </div>
@@ -501,7 +495,7 @@ export default function CartPage() {
 
               {/* Code promo */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>Code promo</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>{t("promo_title")}</div>
 
                 {/* Codes appliqués — un par un, avec SA remise (combo.entries) + suppression individuelle */}
                 {promoCodes.length > 0 && (
@@ -509,8 +503,8 @@ export default function CartPage() {
                     {promoCodes.map(pc => {
                       const e     = comboOk?.entries.find(x => x.code === pc.code);
                       const label = e && e.discount > 0 ? `− ${e.discount.toFixed(2)} €`
-                                  : pc.free_shipping    ? "Livraison offerte"
-                                  : e                   ? "Appliqué"
+                                  : pc.free_shipping    ? t("free_shipping_badge")
+                                  : e                   ? t("applied")
                                   :                       "…";
                       return (
                         <div key={pc.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 12, background: "#dcfce7", border: "1px solid #86efac" }}>
@@ -520,7 +514,7 @@ export default function CartPage() {
                           </div>
                           <button onClick={() => removePromo(pc.code)}
                             style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>
-                            Supprimer
+                            {t("remove")}
                           </button>
                         </div>
                       );
@@ -534,18 +528,18 @@ export default function CartPage() {
                     <input type="text" value={promoCode}
                       onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }}
                       onKeyDown={e => e.key === "Enter" && applyPromo()}
-                      placeholder={promoCodes.length > 0 ? "Ajouter un autre code" : "Ex : BIENVENUE10"}
+                      placeholder={promoCodes.length > 0 ? t("promo_add_another") : t("promo_placeholder")}
                       style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
                     />
                     <button onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
                       style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: promoLoading || !promoCode.trim() ? 0.5 : 1 }}>
-                      {promoLoading ? "..." : "Appliquer"}
+                      {promoLoading ? "..." : t("promo_apply")}
                     </button>
                   </div>
                 )}
                 {canAddPromo && promoCodes.length > 0 && (
                   <div style={{ marginTop: 8, fontSize: 12, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
-                    Tu peux cumuler un autre code compatible.
+                    {t("promo_combine")}
                   </div>
                 )}
                 {promoError && (
@@ -556,9 +550,9 @@ export default function CartPage() {
               {/* Code parrain — masqué si le programme est désactivé */}
               {(meActif || !user) && (
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Code parrain 🎁</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>{t("referral_label")}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
-                  Un ami t'a donné son code&nbsp;? Saisis-le pour −{parrainageSettingsForCalc.montant_recompense.toFixed(0)}€ dès {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ d'achat.
+                  {t("referral_desc", { amount: parrainageSettingsForCalc.montant_recompense.toFixed(0), threshold: parrainageSettingsForCalc.seuil_filleul.toFixed(0) })}
                 </div>
                 {parrainData ? (
                   <>
@@ -566,14 +560,14 @@ export default function CartPage() {
                       <div>
                         <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15 }}>{parrainData.code}</span>
                         <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 700, color: parrainageCalc.parrainApplicable ? "#16a34a" : "#92400e" }}>
-                          {parrainageCalc.parrainApplicable ? `− ${parrainDiscount.toFixed(2)} €` : `il manque ${parrainageCalc.parrainShortfall.toFixed(2)} €`}
+                          {parrainageCalc.parrainApplicable ? `− ${parrainDiscount.toFixed(2)} €` : t("referral_shortfall", { amount: parrainageCalc.parrainShortfall.toFixed(2) })}
                         </span>
                       </div>
-                      <button onClick={removeParrain} style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>Supprimer</button>
+                      <button onClick={removeParrain} style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>{t("remove")}</button>
                     </div>
                     {!parrainageCalc.parrainApplicable && (
                       <div style={{ marginTop: 8, fontSize: 12.5, color: "#92400e", fontWeight: 600 }}>
-                        Code parrain valable à partir de {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ (après code promo).
+                        {t("referral_min", { threshold: parrainageSettingsForCalc.seuil_filleul.toFixed(0) })}
                       </div>
                     )}
                   </>
@@ -582,12 +576,12 @@ export default function CartPage() {
                     <input type="text" value={parrainCode}
                       onChange={e => { setParrainCode(e.target.value.toUpperCase()); setParrainError(""); }}
                       onKeyDown={e => e.key === "Enter" && applyParrain()}
-                      placeholder="Ex : K7PMR4TX"
+                      placeholder={t("referral_placeholder")}
                       style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
                     />
                     <button onClick={applyParrain} disabled={parrainLoading || !parrainCode.trim()}
                       style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: parrainLoading || !parrainCode.trim() ? 0.5 : 1 }}>
-                      {parrainLoading ? "..." : "Appliquer"}
+                      {parrainLoading ? "..." : t("promo_apply")}
                     </button>
                   </div>
                 )}
@@ -601,48 +595,48 @@ export default function CartPage() {
             {/* ── Récapitulatif ── */}
             <div className="cart-sticky">
               <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 20, color: "#1a1410" }}>Récapitulatif</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 20, color: "#1a1410" }}>{t("summary_title")}</div>
 
                 <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
-                    <span>Sous-total</span>
+                    <span>{t("subtotal")}</span>
                     <span style={{ fontWeight: 700 }}>{subtotal.toFixed(2)} €</span>
                   </div>
                   {comboOk?.entries.map(e => (
                     <div key={e.code} style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Code {e.code}</span>
-                      <span style={{ fontWeight: 800 }}>{e.discount > 0 ? `− ${e.discount.toFixed(2)} €` : "Livraison offerte"}</span>
+                      <span style={{ fontWeight: 700 }}>{t("code_prefix")} {e.code}</span>
+                      <span style={{ fontWeight: 800 }}>{e.discount > 0 ? `− ${e.discount.toFixed(2)} €` : t("free_shipping_badge")}</span>
                     </div>
                   ))}
                   {parrainData && parrainageCalc.parrainApplicable && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Code parrain {parrainData.code}</span>
+                      <span style={{ fontWeight: 700 }}>{t("referral_code_prefix")} {parrainData.code}</span>
                       <span style={{ fontWeight: 800 }}>− {parrainDiscount.toFixed(2)} €</span>
                     </div>
                   )}
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
-                    <span>Total <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.45)" }}>(hors livraison)</span></span>
+                    <span>{t("total")} <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.45)" }}>{t("total_excl_shipping")}</span></span>
                     <span>{grandTotal.toFixed(2)} €</span>
                   </div>
                   <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
-                    Livraison choisie et calculée à l'étape suivante.
+                    {t("shipping_next_summary")}
                   </div>
                 </div>
 
                 {/* « Valider » → pont d'état (codes → CheckoutContext) + tunnel /checkout/compte */}
                 <button onClick={goToCheckout}
                   style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: "pointer", marginBottom: 12 }}>
-                  Valider →
+                  {t("validate")}
                 </button>
 
                 <button onClick={handleClearCart}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>
-                  Vider le panier
+                  {t("clear")}
                 </button>
 
                 <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-                  {["Paiement sécurisé Stripe", "100% Bambou OEKO-TEX", "Retours sous 14 jours"].map(r => (
+                  {[t("trust_payment"), t("trust_bamboo"), t("trust_returns")].map(r => (
                     <div key={r} style={{ fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.45)", textAlign: "center" }}>{r}</div>
                   ))}
                 </div>

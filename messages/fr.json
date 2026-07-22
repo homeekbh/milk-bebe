@@ -529,7 +529,17 @@
     "err_relay_load": "Impossible de charger les points relais. Réessayez.",
     "err_promo_invalid": "Code invalide",
     "err_payment": "Erreur lors du paiement. Réessaie.",
-    "err_network_retry": "Erreur réseau. Réessaie."
+    "err_network_retry": "Erreur réseau. Réessaie.",
+    "free_shipping_metro": "✓ Livraison offerte en France métropolitaine",
+    "free_shipping_metro_progress": "Plus que {amount} € pour la livraison offerte en France métropolitaine",
+    "shipping_next": "Livraison calculée à l'étape suivante.",
+    "shipping_next_summary": "Livraison choisie et calculée à l'étape suivante.",
+    "referral_credit_have": "Vous avez {amount} de crédit filleul.",
+    "referral_credit_deduct": "Sur ce panier, vous pourrez déduire jusqu'à {amount} à l'étape paiement.",
+    "referral_credit_add": "Ajoutez {amount} pour commencer à le déduire.",
+    "total_excl_shipping": "(hors livraison)",
+    "validate": "Valider →",
+    "promo_removed": "{count, plural, one {Code retiré : {codes} — non applicable à ce montant.} other {Codes retirés : {codes} — non applicables à ce montant.}}"
   },
   "consent": {
     "title": "Nous respectons votre vie privée",

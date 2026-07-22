@@ -529,7 +529,17 @@
     "err_relay_load": "Unable to load pickup points. Please try again.",
     "err_promo_invalid": "Invalid code",
     "err_payment": "Payment error. Please try again.",
-    "err_network_retry": "Network error. Please try again."
+    "err_network_retry": "Network error. Please try again.",
+    "free_shipping_metro": "✓ Free shipping in mainland France",
+    "free_shipping_metro_progress": "Only {amount} € away from free shipping in mainland France",
+    "shipping_next": "Shipping calculated at the next step.",
+    "shipping_next_summary": "Shipping is chosen and calculated at the next step.",
+    "referral_credit_have": "You have {amount} of referral credit.",
+    "referral_credit_deduct": "On this cart, you can deduct up to {amount} at the payment step.",
+    "referral_credit_add": "Add {amount} to start deducting it.",
+    "total_excl_shipping": "(excl. shipping)",
+    "validate": "Continue →",
+    "promo_removed": "{count, plural, one {Code removed: {codes} — not applicable to this amount.} other {Codes removed: {codes} — not applicable to this amount.}}"
   },
   "consent": {
     "title": "We value your privacy",

@@ -61,7 +61,10 @@ export default function AdminFactures() {
   }, [orders]);
 
   const totalNet    = factures.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const sansNumero  = orders.filter(o => !o.invoice_number && (o.status && o.status !== "echec_paiement")).length;
+  // Toutes les commandes en base ont été payées (créées en "payee") → toute commande sans numéro
+  // est une facture manquante (attribution échouée, ou antérieure à la numérotation). Pas de
+  // référence à un statut d'échec fantôme.
+  const sansNumero  = orders.filter(o => !o.invoice_number).length;
 
   async function handleExport() {
     setExporting(true);

@@ -81,8 +81,13 @@ export async function POST(req: Request) {
       locale: safeLocale,
       billing_address_collection: "auto",
       customer_creation: "always",
-      // Adresse de livraison collectée par Stripe (le pack doit pouvoir être expédié)
-      shipping_address_collection: { allowed_countries: ["FR", "BE", "CH", "LU", "MC"] },
+      // Adresse de livraison collectée par Stripe (le pack doit pouvoir être expédié).
+      // CH RETIRÉ (go-live : douane FedEx non validée — cf. COUNTRY_TO_ZONE dans lib/delivery-config ;
+      // réactiver ICI en même temps que CH dans COUNTRY_TO_ZONE). ⚠️ MC (Monaco) : NON mappé en zone
+      // (getZoneForCountry("MC")=null) → un coffret livré à Monaco serait routé INTERNATIONAL (FedEx)
+      // par create-label alors que Monaco relève du tarif MÉTROPOLE (98000 non bloqué) — incohérence
+      // à trancher (cf. rapport d'audit). Laissé tel quel ici (décision Bou).
+      shipping_address_collection: { allowed_countries: ["FR", "BE", "LU", "MC"] },
       ...(guest_email ? { customer_email: guest_email } : {}),
       line_items: [{
         price_data: {

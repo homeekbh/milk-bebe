@@ -22,15 +22,14 @@ test("pays de l'UE → zone EU", () => {
   expect(getZoneForCountry("IT")).toBe("EU");
 });
 
-test("Europe hors-UE → zone EUROPE_NON_EU (Suisse uniquement)", () => {
-  expect(getZoneForCountry("CH")).toBe("EUROPE_NON_EU");
-  // NO / IS exclus du contrat FedEx → non livrables (ne sont plus dans EUROPE_NON_EU)
+test("Suisse (CH) + Royaume-Uni (GB) BLOQUÉS au tunnel (douane non validée) → null", () => {
+  // Retirés de COUNTRY_TO_ZONE tant que la douane FedEx n'est pas testée sur une étiquette réelle.
+  // Réactivation : décommenter CH/GB dans lib/delivery-config (zones + prix conservés).
+  expect(getZoneForCountry("CH")).toBeNull();
+  expect(getZoneForCountry("GB")).toBeNull();
+  // NO / IS : jamais dans le contrat FedEx.
   expect(getZoneForCountry("NO")).toBeNull();
   expect(getZoneForCountry("IS")).toBeNull();
-});
-
-test("Royaume-Uni → zone UK", () => {
-  expect(getZoneForCountry("GB")).toBe("UK");
 });
 
 test("pays non livrables → null", () => {
@@ -43,8 +42,8 @@ test("pays non livrables → null", () => {
 
 test("casse mixte / espaces normalisés", () => {
   expect(getZoneForCountry(" be ")).toBe("EU");
-  expect(getZoneForCountry("gb")).toBe("UK");
-  expect(getZoneForCountry("Ch")).toBe("EUROPE_NON_EU");
+  expect(getZoneForCountry("de")).toBe("EU");
+  expect(getZoneForCountry("It")).toBe("EU");
   expect(getZoneForCountry("fr")).toBe("FR");
 });
 
@@ -55,10 +54,12 @@ test("isCountryDeliverable", () => {
   expect(isCountryDeliverable("RU")).toBe(false);
 });
 
-test("les 3 prix internationaux TTC", () => {
+test("prix international TTC — UE facturée ; CH/GB bloqués → null", () => {
   expect(getInternationalShippingPrice("BE")).toBe(11.90); // EU
-  expect(getInternationalShippingPrice("CH")).toBe(14.90); // EUROPE_NON_EU
-  expect(getInternationalShippingPrice("GB")).toBe(18.90); // UK
+  expect(getInternationalShippingPrice("DE")).toBe(11.90); // EU
+  // CH / GB retirés du tunnel (douane non validée) → non livrables → aucun prix.
+  expect(getInternationalShippingPrice("CH")).toBeNull();
+  expect(getInternationalShippingPrice("GB")).toBeNull();
 });
 
 test("prix international : non livrable → null ; France → null (matrice domestique)", () => {
@@ -73,17 +74,18 @@ test("seuil de livraison offerte UNIQUEMENT en France", () => {
   expect(isFreeShippingEligibleZone("UK")).toBe(false);
 });
 
-test("listDeliverableCountries — 24 pays (1 FR + 21 UE + 1 Europe hors-UE + 1 UK)", () => {
+test("listDeliverableCountries — 22 pays (1 FR + 21 UE ; CH/UK bloqués go-live)", () => {
   const list  = listDeliverableCountries();
   const codes = list.map(c => c.code);
   expect(codes).toContain("FR");
-  expect(codes).toContain("GB");
-  expect(codes).toContain("CH");
+  expect(codes).toContain("BE");
+  expect(codes).not.toContain("CH"); // Suisse bloquée (douane non validée)
+  expect(codes).not.toContain("GB"); // Royaume-Uni bloqué (douane non validée)
   expect(codes).not.toContain("US");
   expect(codes).not.toContain("RU");
   expect(codes).not.toContain("MT"); // Malte retiré (coût FedEx non rentable)
   expect(codes).not.toContain("NO"); // Norvège hors contrat FedEx
-  expect(list.length).toBe(24);
+  expect(list.length).toBe(22);
 
   // Décompte par zone dérivé du code réel (doit refléter COUNTRY_TO_ZONE).
   const byZone = list.reduce<Record<string, number>>((acc, { zone }) => {
@@ -92,6 +94,6 @@ test("listDeliverableCountries — 24 pays (1 FR + 21 UE + 1 Europe hors-UE + 1 
   }, {});
   expect(byZone.FR).toBe(1);
   expect(byZone.EU).toBe(21);
-  expect(byZone.EUROPE_NON_EU).toBe(1);
-  expect(byZone.UK).toBe(1);
+  expect(byZone.EUROPE_NON_EU).toBeUndefined(); // CH retiré → plus aucun pays
+  expect(byZone.UK).toBeUndefined();            // GB retiré → plus aucun pays
 });

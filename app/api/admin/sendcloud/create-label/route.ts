@@ -564,6 +564,10 @@ export async function POST(req: NextRequest) {
     }
 
     // ── DOUANE (FedEx) — HORS UE UNIQUEMENT : Suisse (EUROPE_NON_EU) + UK ────────
+    // ⚠️ INERTE en prod : CH/UK sont BLOQUÉS au tunnel (retirés de COUNTRY_TO_ZONE dans
+    //    lib/delivery-config) tant que la douane n'est pas validée en RÉEL (incoterm + facture
+    //    + products.hs_code/origin_country). Ce bloc est CONSERVÉ — NE PAS SUPPRIMER : il
+    //    redevient actif automatiquement dès que CH/UK reviennent dans COUNTRY_TO_ZONE.
     // FedEx exige une déclaration douanière (parcel_items) hors UE, sinon l'announce
     // échoue. UE (BE/DE…) et FRANCE : AUCUN parcel_items ajouté → announce INCHANGÉ.
     // Incoterm DAP (le client paie la douane, message déjà affiché au tunnel).

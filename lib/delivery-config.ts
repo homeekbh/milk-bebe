@@ -203,10 +203,18 @@ export const COUNTRY_TO_ZONE: Record<string, ShippingZone> = {
   AT: "EU", BE: "EU", BG: "EU", HR: "EU", DK: "EU", FI: "EU", DE: "EU",
   GR: "EU", HU: "EU", IE: "EU", IT: "EU", LT: "EU", LU: "EU",
   NL: "EU", PL: "EU", PT: "EU", RO: "EU", SK: "EU", SI: "EU", ES: "EU", SE: "EU",
-  // Europe hors-UE → "EUROPE_NON_EU" : SUISSE UNIQUEMENT (NO, IS exclus).
-  CH: "EUROPE_NON_EU",
-  // Royaume-Uni → "UK"
-  GB: "UK",
+  // ── HORS UE — TEMPORAIREMENT BLOQUÉS (décision go-live) ──────────────────────
+  // Suisse (EUROPE_NON_EU) et Royaume-Uni (UK) sont RETIRÉS des destinations livrables
+  // tant que la douane FedEx n'est pas complétée ET testée sur une étiquette PAYANTE
+  // RÉELLE : il manque l'incoterm dans le payload, une facture commerciale, et les
+  // colonnes products.hs_code / origin_country (HS aujourd'hui codé en dur). Le bloc
+  // douane de create-label reste en place (inerte) pour la réactivation.
+  // 👉 POUR RÉACTIVER (douane validée en réel) : DÉCOMMENTER les 2 lignes ci-dessous.
+  //    Tout le reste se réactive automatiquement (zones, prix INTERNATIONAL_ZONE_PRICES
+  //    conservés, CountrySelector via listDeliverableCountries, tunnel, packs) — aucun
+  //    autre fichier à toucher, hormis re-autoriser CH dans create-pack-session.
+  // CH: "EUROPE_NON_EU",   // Suisse — 14,90 € — réactiver quand douane OK
+  // GB: "UK",              // Royaume-Uni — 18,90 € — réactiver quand douane OK
 };
 
 /**

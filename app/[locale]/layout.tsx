@@ -4,6 +4,7 @@ import { setRequestLocale } from "next-intl/server";
 import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { getAlternates } from "@/i18n/seo";
+import { listDeliverableCountries } from "@/lib/delivery-config";
 
 import Header        from "@/components/layout/Header";
 import Footer        from "@/components/layout/Footer";
@@ -241,7 +242,10 @@ const jsonLd = {
       priceRange:     "€€",
       currenciesAccepted: "EUR",
       paymentAccepted:    "Credit Card, Apple Pay, Google Pay",
-      areaServed:     ["FR", "BE", "CH", "LU", "MC"],
+      // Pays réellement desservis (SEO — exactitude prime), DÉRIVÉS de COUNTRY_TO_ZONE (aucun tableau
+      // dupliqué) : FR + 21 UE + Monaco (livré au tarif métropole via FR). Suisse/UK réapparaissent
+      // AUTOMATIQUEMENT ici dès qu'ils reviennent dans COUNTRY_TO_ZONE (lib/delivery-config).
+      areaServed:     [...listDeliverableCountries().map(c => c.code), "MC"],
       hasOfferCatalog: {
         "@type": "OfferCatalog",
         name:    "Essentiels bébé bambou",

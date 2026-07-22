@@ -810,7 +810,7 @@
         "questions": [
           { "q": "Quels sont les délais de livraison ?", "r": "Commandes passées avant 16h : expédition le jour même (jours ouvrés). Colissimo : 2-3 jours ouvrés (domicile ou point relais). Un email avec le numéro de suivi est envoyé dès l'expédition." },
           { "q": "La livraison est-elle gratuite ?", "r": "Oui, livraison offerte dès 60€ en France métropolitaine (hors DOM-TOM). En dessous, les frais de port sont affichés au moment du paiement." },
-          { "q": "Livrez-vous en dehors de la France ?", "r": "Pour le moment, nous livrons uniquement en France métropolitaine. La livraison internationale arrive prochainement." },
+          { "q": "Livrez-vous en dehors de la France ?", "r": "Oui : en France métropolitaine (Monaco inclus, au tarif métropole) et dans 21 pays de l'Union européenne. Les frais de port internationaux sont affichés au moment du paiement." },
           { "q": "Puis-je suivre ma commande ?", "r": "Oui. Un email avec le numéro de suivi Colissimo est envoyé dès l'expédition. Suivi sur laposte.fr ou dans votre espace profil." }
         ]
       },

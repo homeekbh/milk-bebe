@@ -81,12 +81,14 @@ function AddressFields({ addr, onChange }: { addr: Address; onChange: (a: Addres
           <input value={addr.city} onChange={e => set("city", e.target.value)} placeholder="Paris" style={IS} /></div>
       </div>
       <div><label style={LS}>Pays</label>
+        {/* Code ISO-2 : cette valeur PRÉ-REMPLIT le pays au checkout (checkout/livraison) → n'offrir
+            que des pays réellement livrables au tunnel, sinon pré-remplissage cassé. CH (Suisse) retiré :
+            bloqué au tunnel (douane non validée) — réactiver avec CH dans COUNTRY_TO_ZONE. MC (Monaco)
+            retiré : livré au tarif métropole via une adresse FR + CP 98000 (pas une zone intl). */}
         <select value={addr.country} onChange={e => set("country", e.target.value)} style={IS}>
           <option value="FR">🇫🇷 France</option>
           <option value="BE">🇧🇪 Belgique</option>
-          <option value="CH">🇨🇭 Suisse</option>
           <option value="LU">🇱🇺 Luxembourg</option>
-          <option value="MC">🇲🇨 Monaco</option>
         </select>
       </div>
     </div>

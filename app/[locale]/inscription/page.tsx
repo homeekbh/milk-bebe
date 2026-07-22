@@ -271,7 +271,8 @@ function InscriptionForm() {
 
                 <Field label={t("f_country")}>
                   <select value={form.pays} onChange={(e) => set("pays", e.target.value)} style={selectStyle}>
-                    {["France", "Belgique", "Suisse", "Luxembourg", "Monaco"].map((p) => (
+                    {/* Suisse retirée : bloquée au tunnel (douane non validée) — réactiver avec CH dans COUNTRY_TO_ZONE. Monaco = livré au tarif métropole (FR). */}
+                    {["France", "Belgique", "Luxembourg", "Monaco"].map((p) => (
                       <option key={p} value={p}>{p}</option>
                     ))}
                   </select>

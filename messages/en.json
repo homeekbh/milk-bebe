@@ -810,7 +810,7 @@
         "questions": [
           { "q": "What are the delivery times?", "r": "Orders placed before 4pm: same-day shipping (business days). Colissimo: 2-3 business days (home or pickup point). An email with the tracking number is sent as soon as the order ships." },
           { "q": "Is delivery free?", "r": "Yes, free delivery from €60 in mainland France (excl. overseas territories). Below that, shipping fees are shown at checkout." },
-          { "q": "Do you ship outside France?", "r": "For now, we only ship within mainland France. International shipping is coming soon." },
+          { "q": "Do you ship outside France?", "r": "Yes: within mainland France (Monaco included, at the metropolitan rate) and to 21 European Union countries. International shipping fees are shown at checkout." },
           { "q": "Can I track my order?", "r": "Yes. An email with the Colissimo tracking number is sent as soon as the order ships. Track it on laposte.fr or in your profile area." }
         ]
       },

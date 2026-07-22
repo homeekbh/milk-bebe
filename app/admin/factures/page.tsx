@@ -94,7 +94,7 @@ export default function AdminFactures() {
         <div>
           <h1 style={{ margin: 0, fontSize: 34, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Factures</h1>
           <div style={{ fontSize: 15, color: "rgba(26,20,16,0.5)", marginTop: 4, fontWeight: 600 }}>
-            Journal de ventes · {factures.length} facture{factures.length > 1 ? "s" : ""} · Franchise en base de TVA (art. 293 B CGI)
+            Journal de ventes · {factures.length} facture{factures.length > 1 ? "s" : ""} · Assujetti à la TVA (20 %)
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>

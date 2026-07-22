@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { EMETTEUR } from "../emetteur";
+import { ventilateTTC } from "@/lib/tva";
 
 // Journal des ventes IMPRIMABLE (PDF via le navigateur — AUCUNE dépendance PDF serveur). Même principe
 // que la facture unitaire /admin/factures/[id]. Données : /api/admin/commandes-data — MÊME source que la
 // liste /admin/factures — filtrées sur invoice_number + période (aucune duplication de la logique de
-// récupération des factures). Franchise 293 B : montants NETS, AUCUNE ligne de TVA.
+// récupération des factures). Assujetti à la TVA 20 % : montants TTC + ventilation HT/TVA en pied.
 // NB route : segment statique "journal" prioritaire sur le dynamique [id] → pas de collision.
 
 // adminFetch — même pattern que /admin/factures (JWT Bearer depuis localStorage).
@@ -72,6 +73,8 @@ export default function JournalPrint() {
   const totalNet = factures.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
   const periode  = year === "all" ? "Toutes les factures émises" : `Année ${year}`;
 
+  const vatTotal = ventilateTTC(totalNet); // ventilation TVA 20 % « en dedans » du total encaissé (TTC)
+
   if (loading) return <div style={{ padding: 40, fontFamily: "sans-serif" }}>Chargement…</div>;
   if (err)     return <div style={{ padding: 40, fontFamily: "sans-serif", color: "#b91c1c" }}>{err}</div>;
 
@@ -121,7 +124,7 @@ export default function JournalPrint() {
         </div>
 
         <div style={{ fontSize: 11.5, fontWeight: 700, color: "rgba(26,20,16,0.6)", marginBottom: 14 }}>
-          TVA non applicable, art. 293 B du CGI — montants nets en euros.
+          Montants en euros TTC — TVA 20 % incluse (ventilation HT/TVA en pied).
         </div>
 
         {factures.length === 0 ? (
@@ -134,7 +137,7 @@ export default function JournalPrint() {
                 <th style={th}>Date</th>
                 <th style={th}>Client</th>
                 <th style={th}>Email</th>
-                <th style={{ ...th, textAlign: "right" }}>Montant net</th>
+                <th style={{ ...th, textAlign: "right" }}>Montant TTC</th>
                 <th style={th}>Statut</th>
               </tr>
             </thead>
@@ -161,9 +164,18 @@ export default function JournalPrint() {
           </table>
         )}
 
-        {/* Pied — mention légale obligatoire (franchise). AUCUNE ligne de TVA. */}
+        {/* Récapitulatif TVA (assujetti 20 %) — ventilation « en dedans » du total encaissé TTC. */}
+        {factures.length > 0 && (
+          <div style={{ marginTop: 18, marginLeft: "auto", width: 300, display: "grid", gap: 6 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}><span>Total HT</span><span>{euro(vatTotal.ht)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12.5 }}><span>TVA ({vatTotal.ratePct} %)</span><span>{euro(vatTotal.tva)}</span></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, fontWeight: 900, borderTop: "2px solid #1a1410", paddingTop: 6, marginTop: 2 }}><span>Total TTC</span><span>{euro(vatTotal.ttc)}</span></div>
+          </div>
+        )}
+
+        {/* Pied — mention légale (assujetti à la TVA 20 %). */}
         <div style={{ marginTop: 26, paddingTop: 14, borderTop: "1px solid rgba(0,0,0,0.12)", fontSize: 11.5, color: "rgba(26,20,16,0.6)" }}>
-          <strong>TVA non applicable, art. 293 B du CGI.</strong> {EMETTEUR.legal} — SIREN {EMETTEUR.siren} — {EMETTEUR.address}
+          Montants en euros TTC (TVA 20 % incluse). N° TVA intracommunautaire : {EMETTEUR.tva}. {EMETTEUR.legal} — SIREN {EMETTEUR.siren} — {EMETTEUR.address}
         </div>
       </div>
     </div>

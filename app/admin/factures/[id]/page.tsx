@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { EMETTEUR } from "../emetteur";
+import { ventilateTTC } from "@/lib/tva";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -47,6 +48,8 @@ export default function FacturePrint() {
   const shipping = Number(order.delivery_price ?? 0);
   const total    = Number(order.amount_total ?? 0);
   const subtotal = items.reduce((s: number, it: any) => s + Number(it.price ?? 0) * Number(it.quantity ?? 1), 0);
+  // Ventilation TVA « en dedans » (assujetti 20 %) sur le total TTC : ht + tva === ttc.
+  const vat      = ventilateTTC(total);
 
   const box: React.CSSProperties = { maxWidth: 720, margin: "0 auto", padding: 40, background: "#fff", color: "#1a1410", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", lineHeight: 1.5 };
   const th: React.CSSProperties = { textAlign: "left", padding: "8px 0", borderBottom: "2px solid #1a1410", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 };
@@ -130,15 +133,22 @@ export default function FacturePrint() {
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
             <span>Frais de port</span><span>{shipping > 0 ? euro(shipping) : "Offerts"}</span>
           </div>
+          {/* Ventilation TVA « en dedans » — assujetti 20 %. */}
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14, borderTop: "1px solid rgba(0,0,0,0.12)", paddingTop: 8, marginTop: 4 }}>
+            <span>Total HT</span><span>{euro(vat.ht)}</span>
+          </div>
+          <div style={{ display: "flex", justifyContent: "space-between", fontSize: 14 }}>
+            <span>TVA ({vat.ratePct} %)</span><span>{euro(vat.tva)}</span>
+          </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 18, fontWeight: 950, borderTop: "2px solid #1a1410", paddingTop: 8, marginTop: 4 }}>
-            <span>TOTAL</span><span>{euro(total)}</span>
+            <span>Total TTC</span><span>{euro(vat.ttc)}</span>
           </div>
         </div>
 
-        {/* Mention légale OBLIGATOIRE (franchise) — AUCUNE ligne de TVA sur cette facture. */}
+        {/* Mention légale — assujetti à la TVA (taux normal 20 %). */}
         <div style={{ marginTop: 36, paddingTop: 16, borderTop: "1px solid rgba(0,0,0,0.1)", fontSize: 12, color: "rgba(26,20,16,0.6)" }}>
-          <strong>TVA non applicable, art. 293 B du CGI.</strong><br />
-          Prix nets en euros. {EMETTEUR.legal} — SIREN {EMETTEUR.siren} — {EMETTEUR.address}
+          Prix en euros TTC (TVA {vat.ratePct} % incluse). N° TVA intracommunautaire : {EMETTEUR.tva}.<br />
+          {EMETTEUR.legal} — SIREN {EMETTEUR.siren} — {EMETTEUR.address}
           {order.status === "remboursee" && order.refunded_at && (
             <><br /><span style={{ color: "#b91c1c" }}>Commande remboursée le {fmtDate(order.refunded_at)}.</span></>
           )}

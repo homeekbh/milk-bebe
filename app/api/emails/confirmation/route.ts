@@ -87,7 +87,7 @@ function emailConfirmation(
     </table>
     <div style="margin-top:16px;padding-top:16px;border-top:1px solid rgba(196,154,74,0.2);text-align:right">
       <span style="color:#c49a4a;font-size:22px;font-weight:950">${amountTotal.toFixed(2)} €</span>
-      <div style="color:rgba(242,237,230,0.3);font-size:12px;margin-top:4px">Livraison incluse · TVA non applicable — art. 293 B du CGI</div>
+      <div style="color:rgba(242,237,230,0.3);font-size:12px;margin-top:4px">TTC, livraison incluse</div>
     </div>
   </div>
 

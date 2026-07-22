@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/admin-auth";
 import { getNetAmount, isValidOrder } from "@/lib/orders";
 import { csvCell } from "@/lib/csv";
+import { ventilateTTC } from "@/lib/tva";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -26,12 +27,15 @@ export async function GET(req: NextRequest) {
     // (remboursée totale / annulée / échec) — sinon la somme de la colonne surestimait le CA et
     // contredisait la page Comptabilité (qui filtre déjà via isValidOrder).
     const netAmount    = isValidOrder(o) ? getNetAmount(o) : 0;
+    const v            = ventilateTTC(Number(o.amount_total ?? 0)); // ventilation TVA 20 % « en dedans »
 
     return [
       formatDate(o.created_at),
       o.customer_name   ?? "",
       o.customer_email  ?? "",
       Number(o.amount_total ?? 0).toFixed(2),
+      v.ht.toFixed(2),
+      v.tva.toFixed(2),
       o.promo_code      ?? "",
       Number(o.discount ?? 0).toFixed(2),
       o.status          ?? "",           // Nouveau : statut paiement (payee/remboursee/...)
@@ -49,7 +53,9 @@ export async function GET(req: NextRequest) {
     "Date",
     "Nom",
     "Email",
-    "Montant brut (€)",
+    "Montant brut TTC (€)",
+    "dont HT (€)",
+    "dont TVA 20% (€)",
     "Code promo",
     "Remise (€)",
     "Statut paiement",

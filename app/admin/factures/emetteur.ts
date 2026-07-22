@@ -1,6 +1,6 @@
-// Coordonnées de l'ÉMETTEUR (franchise en base de TVA, art. 293 B — AUCUNE TVA facturée).
-// Source UNIQUE partagée par la facture unitaire (/admin/factures/[id]) ET le journal imprimable
-// (/admin/factures/journal) → pas de dérive des mentions légales. Coordonnées fournies par Bou.
+// Coordonnées de l'ÉMETTEUR (ASSUJETTI À LA TVA — taux normal FR 20 %). Source UNIQUE partagée par la
+// facture unitaire (/admin/factures/[id]) ET le journal imprimable (/admin/factures/journal) → pas de
+// dérive des mentions légales. Coordonnées fournies par Bou.
 export const EMETTEUR = {
   brand:   "M!LK",
   legal:   "EKBH — SASU",

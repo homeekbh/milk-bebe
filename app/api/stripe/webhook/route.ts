@@ -44,7 +44,7 @@ function extractTailleFromName(name: string): string | null {
   return null;
 }
 
-// Attribution du numéro de FACTURE séquentiel (franchise 293 B — aucune TVA). Format
+// Attribution du numéro de FACTURE séquentiel (assujetti TVA 20 %). Format
 // MILK-<année>-<n padé 6>. IDEMPOTENT : n'attribue QUE si absent (rejeu Stripe → déjà présent →
 // skip), + garde .is("invoice_number", null) contre la concurrence. Le numéro est FIGÉ à la 1re
 // émission. NE BLOQUE JAMAIS la commande : tant que la table facture_seq / la RPC

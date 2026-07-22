@@ -97,6 +97,7 @@ export default async function ProductPage(
           <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>
             {Number(displayPrice).toFixed(2)} €
           </span>
+          <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
         </div>
       )}
     </>

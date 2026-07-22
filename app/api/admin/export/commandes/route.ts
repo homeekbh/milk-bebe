@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getNetAmount } from "@/lib/orders";
+import { getNetAmount, isValidOrder } from "@/lib/orders";
+import { csvCell } from "@/lib/csv";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -21,7 +22,10 @@ export async function GET(req: NextRequest) {
 
     const formatDate = (d: any) => d ? new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
     const refundAmount = Number(o.refund_amount ?? 0);
-    const netAmount    = getNetAmount(o);
+    // Colonne « Montant net qui compte dans le CA » : 0 pour les commandes exclues du CA
+    // (remboursée totale / annulée / échec) — sinon la somme de la colonne surestimait le CA et
+    // contredisait la page Comptabilité (qui filtre déjà via isValidOrder).
+    const netAmount    = isValidOrder(o) ? getNetAmount(o) : 0;
 
     return [
       formatDate(o.created_at),
@@ -38,7 +42,7 @@ export async function GET(req: NextRequest) {
       o.tracking_number ?? "",
       addrStr,
       itemsStr,
-    ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(";");
+    ].map(csvCell).join(";");
   });
 
   const header = [

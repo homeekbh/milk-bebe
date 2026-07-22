@@ -99,7 +99,7 @@ export default async function AdminDashboard() {
         <KPI label="CA total"         value={`${caTotal.toFixed(0)} €`}   sub={`${ordsCount} valides, exclut annulées`} color="#1a1410" />
         <KPI label="Annulées"         value={String(cancelledCount)}      sub="Hors CA"                           color={cancelledCount > 0 ? "#7f1d1d" : "#166534"} />
         <KPI label="Produits"         value={String(totalProducts)}        sub="Dans le catalogue"                 color="#1a1410" />
-        <KPI label="Valeur du stock"  value={`${stockValue.toFixed(0)} €`} sub="TTC × unités"                     color="#1a1410" />
+        <KPI label="Valeur du stock"  value={`${stockValue.toFixed(0)} €`} sub="prix × unités"                   color="#1a1410" />
         <KPI label="Ruptures"         value={String(outOfStock)}           sub="Stock = 0"                         color={outOfStock > 0 ? "#b91c1c" : "#166534"} />
         <KPI label="Stock faible"     value={String(lowStock)}             sub="≤ 5 unités"                        color={lowStock > 0 ? "#c49a4a" : "#166534"}   />
         <KPI label="Abonnés newsletter" value={String(subsCount)}          sub="Total inscrits"                    color="#1a1410" />

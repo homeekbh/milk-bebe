@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { Resend } from "resend";
 import { requireAdmin } from "@/lib/admin-auth";
 import { supabaseServer } from "@/lib/server/supabase";
+import { escapeHtml } from "@/lib/escape-html";
 
 /**
  * Campagne « Nouveautés + Parrainage » — route DORMANTE.
@@ -72,7 +73,7 @@ function footerHtml(r: Pick<Recipient, "isNewsletter" | "token" | "email">): str
   if (r.isNewsletter) {
     const unsub = r.token
       ? `${BASE}/api/newsletter/unsubscribe?token=${r.token}`
-      : `${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(r.email)}`;
+      : `${BASE}/fr/contact`;
     return `${brand}<br><a href="${unsub}" style="color:rgba(242,237,230,0.3)">Se désabonner</a>`;
   }
   return `${brand}<br><span style="color:rgba(242,237,230,0.3)">Tu reçois cet email en tant que titulaire d'un compte M!LK. Une question ? <a href="${BASE}/fr/contact" style="color:rgba(242,237,230,0.3)">Écris-nous</a>.</span>`;
@@ -81,7 +82,7 @@ function footerHtml(r: Pick<Recipient, "isNewsletter" | "token" | "email">): str
 // ── HTML de l'email (2 variantes via hasAccount) ────────────────────────────
 function campaignHtml(opts: { prenom: string | null; hasAccount: boolean; footer: string }): string {
   const { prenom, hasAccount, footer } = opts;
-  const bonjour = prenom ? `Bonjour ${prenom},` : "Bonjour,";
+  const bonjour = prenom ? `Bonjour ${escapeHtml(prenom)},` : "Bonjour,";
 
   const cta = hasAccount
     ? { href: `${BASE}/fr/profil`,      label: "Voir mon code parrain →" }

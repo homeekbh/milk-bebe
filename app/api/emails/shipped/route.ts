@@ -1,5 +1,7 @@
 import { Resend } from "resend";
 import { getTrackingInfo } from "@/lib/sendcloud-utils";
+import { requireAdmin } from "@/lib/admin-auth";
+import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -106,14 +108,17 @@ function buildHtml(opts: {
 </html>`;
 }
 
-export async function POST(req: Request) {
-  // Protection : secret interne OU token admin Bearer
-  const internalSecret = (req as any).headers?.get?.("x-internal-secret");
-  const authHeader     = (req as any).headers?.get?.("authorization") ?? "";
-  const isInternal     = internalSecret === process.env.INTERNAL_EMAIL_SECRET;
-  const isAdmin        = authHeader.startsWith("Bearer ") && authHeader.length > 20;
-  if (!isInternal && !isAdmin) {
-    return Response.json({ error: "Non autorisé" }, { status: 401 });
+export async function POST(req: NextRequest) {
+  // Auth : server-to-server (webhook, routes admin) via x-internal-secret ; sinon appel
+  // depuis l'admin UI (adminFetch → Bearer JWT) → VRAIE validation admin (getUser + is_admin).
+  // ⚠️ Correctif B1 : l'ancien `authHeader.length > 20` acceptait n'importe quelle chaîne
+  // de 21+ caractères → phishing possible depuis contact@milkbebe.fr.
+  const internalSecret = req.headers.get("x-internal-secret");
+  // Fail-closed : un secret d'env vide/undefined ne doit JAMAIS valider (sinon "" === "" → bypass).
+  const isInternal     = !!process.env.INTERNAL_EMAIL_SECRET && internalSecret === process.env.INTERNAL_EMAIL_SECRET;
+  if (!isInternal) {
+    const auth = await requireAdmin(req);
+    if (!auth.ok) return auth.response;
   }
 
   const body = await req.json();

@@ -6,6 +6,8 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
+// Boucle d'envoi (1 email/commande éligible) : fenêtre élargie pour ne pas timeouter à mi-liste.
+export const maxDuration = 60;
 
 /**
  * GET /api/emails/taille-suivante
@@ -38,7 +40,7 @@ function extractTaille(itemName: string): string | null {
   return last;
 }
 
-function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: string, categorySlug: string, email: string): string {
+function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: string, categorySlug: string, unsubUrl: string): string {
   const categoryLabel =
     categorySlug === "bodies"     ? "Bodies" :
     categorySlug === "pyjamas"    ? "Pyjamas" :
@@ -106,7 +108,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
       </div>
       <div style="padding:14px;background:rgba(242,237,230,0.04);border-radius:10px">
         <div style="font-size:20px;margin-bottom:6px">↩️</div>
-        <div style="font-size:11px;color:rgba(242,237,230,0.4)">Retour gratuit 15j</div>
+        <div style="font-size:11px;color:rgba(242,237,230,0.4)">Retour sous 14 jours</div>
       </div>
     </div>
   </div>
@@ -114,7 +116,7 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
   <div style="text-align:center;padding:20px 0">
     <p style="color:rgba(242,237,230,0.2);font-size:12px;margin:0">
       M!LK — Des essentiels bébé. Sans le superflu.<br>
-      <a href="${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+      <a href="${unsubUrl}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
     </p>
   </div>
 
@@ -125,7 +127,8 @@ function emailHtml(prenom: string, tailleActuelle: string, tailleSuivante: strin
 
 export async function GET(req: Request) {
   const auth = (req as any).headers?.get?.("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail-closed : un CRON_SECRET absent/vide rejette TOUT (sinon « Bearer undefined » serait devinable).
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
@@ -167,11 +170,24 @@ export async function GET(req: Request) {
       const categorySlug = itemsCibles[0]?.category_slug ?? "bodies";
       const prenom = order.customer_name?.split(" ")[0] ?? "";
 
+      // Lien de désabonnement tokenisé (même mécanisme que emails/avis) : ?token=<token de
+      // l'abonné> si abonné actif, sinon fallback /fr/contact (l'ancien ?email= tombait
+      // toujours sur ?status=invalid, la route ne lit que ?token=).
+      const { data: sub } = await supabaseServer
+        .from("newsletter_subscribers")
+        .select("unsubscribe_token")
+        .eq("email", order.customer_email)
+        .eq("active", true)
+        .maybeSingle();
+      const unsubUrl = sub?.unsubscribe_token
+        ? `${BASE}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`
+        : `${BASE}/fr/contact`;
+
       const { error: emailError } = await resend.emails.send({
         from:    "M!LK <contact@milkbebe.fr>",
         to:      order.customer_email,
         subject: `${prenom ? `${prenom}, bébé` : "Bébé"} est prêt pour la taille ${tailleSuivante} ? 👶`,
-        html:    emailHtml(prenom, tailleActuelle, tailleSuivante, categorySlug, order.customer_email ?? ""),
+        html:    emailHtml(prenom, tailleActuelle, tailleSuivante, categorySlug, unsubUrl),
       });
 
       if (!emailError) {

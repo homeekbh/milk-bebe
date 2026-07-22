@@ -25,7 +25,7 @@ export default function PolitiqueConfidentialite() {
         <h1 style={{ fontSize: "clamp(28px, 4vw, 42px)", fontWeight: 950, letterSpacing: -1.5, color: "#1a1410", marginBottom: 8 }}>
           Politique de confidentialité
         </h1>
-        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Conformément au RGPD — Dernière mise à jour : avril 2026</p>
+        <p style={{ color: "rgba(26,20,16,0.5)", marginBottom: 48, fontSize: 15 }}>Conformément au RGPD — Dernière mise à jour : juillet 2026</p>
 
         {[
           {
@@ -38,7 +38,7 @@ export default function PolitiqueConfidentialite() {
 - Données d'identification : nom, prénom, email, téléphone
 - Données de livraison : adresse postale
 - Données de paiement : traitées exclusivement par Stripe (nous ne stockons aucune donnée bancaire)
-- Données de navigation : cookies techniques uniquement`,
+- Données de navigation et de mesure d'audience : cookies et traceurs (voir « 8. Cookies et traceurs »), dont certains soumis à votre consentement`,
           },
           {
             title: "3. Finalités du traitement",
@@ -63,7 +63,9 @@ export default function PolitiqueConfidentialite() {
 - Stripe (traitement des paiements) — politique de confidentialité disponible sur stripe.com
 - Sendcloud (expédition) — pour générer les étiquettes de livraison
 - Resend (emails transactionnels)
-Aucune donnée n'est vendue ou transmise à des tiers à des fins publicitaires.`,
+- Vercel (hébergement du site)
+- Après votre consentement uniquement : Google et Meta (mesure d'audience & publicité — voir « 8. Cookies et traceurs »)
+Aucune donnée n'est vendue. Toute transmission à des fins de mesure d'audience ou de publicité (Google, Meta) requiert votre consentement préalable, révocable à tout moment.`,
           },
           {
             title: "7. Vos droits",
@@ -77,11 +79,16 @@ Pour exercer ces droits : contact@milkbebe.fr
 Vous pouvez également introduire une réclamation auprès de la CNIL (cnil.fr).`,
           },
           {
-            title: "8. Cookies",
-            content: `Nous utilisons uniquement des cookies strictement nécessaires :
-- Cookies de session (panier, connexion)
-- Cookies Supabase (authentification)
-Aucun cookie publicitaire ou de tracking tiers n'est utilisé.`,
+            title: "8. Cookies et traceurs",
+            content: `Deux catégories :
+- Nécessaires (toujours actifs) : panier, session, sécurité.
+- Soumis à consentement (refusables et modifiables à tout moment) : mesure d'audience et publicité — Google Analytics 4, Google Tag Manager, Meta Pixel, widgets d'avis Google (Merchant Center / Customer Reviews). Ces traceurs ne se déclenchent qu'après acceptation.
+
+Sous-traitants / destinataires : Stripe (paiement), Supabase (base de données), Vercel (hébergement), Resend (emails), Sendcloud (expédition), et — après consentement — Google et Meta. Certains impliquent des transferts hors UE encadrés par des garanties appropriées (clauses contractuelles types).
+
+Durées : données de navigation purgées au-delà de 13 mois ; consentement conservé 13 mois ; commandes conservées selon nos obligations comptables.
+
+Vous pouvez modifier ou retirer votre consentement à tout moment via le lien « Gérer mes cookies » en bas de page.`,
           },
         ].map(section => (
           <div key={section.title} style={{ marginBottom: 28, background: "#fff", borderRadius: 16, padding: "28px 32px", border: "1px solid rgba(26,20,16,0.07)" }}>

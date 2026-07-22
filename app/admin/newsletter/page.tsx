@@ -1,5 +1,6 @@
 "use client";
 import { useIsNarrow } from "@/lib/useIsNarrow";
+import DOMPurify from "isomorphic-dompurify";
 
 import { useEffect, useState, useRef, type CSSProperties, type SyntheticEvent } from "react";
 
@@ -654,7 +655,7 @@ export default function NewsletterAdminPage() {
                 Aperçu email
               </div>
               <div style={{ background: "#fff", padding: 24, maxHeight: 480, overflow: "auto" }}>
-                <div dangerouslySetInnerHTML={{ __html: buildFinalHtml() }} />
+                <div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(buildFinalHtml()) }} />
               </div>
             </div>
           )}

@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { cookieIsInternal } from "@/lib/internal-traffic";
+import { getClientIp } from "@/lib/server/client-ip";
 
 export const dynamic = "force-dynamic";
 
@@ -48,7 +49,9 @@ export async function POST(req: Request) {
     // Trafic interne (cookie posé via ?internal=milk2026) → aucun event enregistré.
     if (cookieIsInternal(req.headers.get("cookie"))) return Response.json({ ok: true, skipped: "internal" });
 
-    const ip = (req.headers.get("x-forwarded-for") ?? "").split(",")[0].trim() || "unknown";
+    // IP fiable (getClientIp : x-real-ip puis DERNIER segment XFF, non usurpable sur Vercel).
+    // Le 1er segment XFF est fourni par le client → contournement trivial du rate-limit.
+    const ip = getClientIp(req);
     if (rateLimited(ip)) return Response.json({ ok: true, skipped: "rate_limited" });
 
     const body: any = await req.json().catch(() => ({}));

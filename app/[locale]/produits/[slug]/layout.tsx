@@ -191,9 +191,9 @@ async function getProductJsonLd(slug: string, locale: string) {
         "@type":               "MerchantReturnPolicy",
         applicableCountry:     "FR",
         returnPolicyCategory:  "https://schema.org/MerchantReturnFiniteReturnWindow",
-        merchantReturnDays:    15,
+        merchantReturnDays:    14,
         returnMethod:          "https://schema.org/ReturnByMail",
-        returnFees:            "https://schema.org/FreeReturn",
+        returnFees:            "https://schema.org/ReturnFeesCustomerResponsibility",
       },
       shippingDetails: {
         "@type":               "OfferShippingDetails",

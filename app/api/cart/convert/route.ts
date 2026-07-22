@@ -12,7 +12,9 @@ export async function POST(req: Request) {
     return Response.json({ error: "Token invalide" }, { status: 401 });
   }
 
-  const { email } = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
+  const { email } = body ?? {};
   if (!email) return Response.json({ ok: false });
 
   if (user.email?.toLowerCase() !== String(email).toLowerCase()) {

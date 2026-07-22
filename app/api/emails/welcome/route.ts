@@ -1,22 +1,10 @@
 import { Resend } from "resend";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
+import { supabaseServer } from "@/lib/server/supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
-
-// Rate limiting simple en mémoire (par IP)
-// Permet ~5 envois / heure / IP — suffisant contre l'abus, transparent en usage légitime.
-const rlMap = new Map<string, { count: number; resetAt: number }>();
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rlMap.get(ip);
-  if (!entry || now > entry.resetAt) {
-    rlMap.set(ip, { count: 1, resetAt: now + 3_600_000 }); // 1h
-    return false;
-  }
-  if (entry.count >= 5) return true;
-  entry.count++;
-  return false;
-}
 
 function escapeHtml(str: string): string {
   return String(str)
@@ -93,8 +81,8 @@ function welcomeTemplate(prenom: string): string {
       </div>
       <div>
         <div style="font-size:24px;margin-bottom:6px">↩️</div>
-        <div style="color:#f2ede6;font-size:14px;font-weight:800;margin-bottom:3px">Retour gratuit</div>
-        <div style="color:rgba(242,237,230,0.45);font-size:13px">sous 15 jours</div>
+        <div style="color:#f2ede6;font-size:14px;font-weight:800;margin-bottom:3px">Retour</div>
+        <div style="color:rgba(242,237,230,0.45);font-size:13px">sous 14 jours</div>
       </div>
     </div>
   </div>
@@ -123,8 +111,8 @@ function welcomeTemplate(prenom: string): string {
  * dans auth.users via service_role avant d'envoyer.
  */
 export async function POST(req: Request) {
-  const ip = (req as any).headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(ip)) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 5/heure/IP
+  if (!rateLimit(getClientIp(req), { max: 5, window: 3600 })) {
     return Response.json({ error: "Trop de requêtes." }, { status: 429 });
   }
 
@@ -137,6 +125,13 @@ export async function POST(req: Request) {
   if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return Response.json({ error: "Email invalide" }, { status: 400 });
   }
+
+  // Anti joe-jobbing : n'envoyer le mail de bienvenue QUE si l'email correspond à un compte
+  // réellement créé (profiles est écrit à l'inscription avec l'uid du compte — un attaquant ne
+  // peut pas créer un profil pour l'email d'autrui). Sinon on ne fait rien (best-effort, jamais
+  // d'erreur), ce qui empêche l'envoi de « Bienvenue » non sollicités vers des adresses arbitraires.
+  const { data: prof } = await supabaseServer.from("profiles").select("id").eq("email", email).maybeSingle();
+  if (!prof) return Response.json({ ok: true, skipped: "no_account" });
 
   try {
     const { error } = await resend.emails.send({

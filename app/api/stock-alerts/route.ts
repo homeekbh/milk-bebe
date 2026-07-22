@@ -2,13 +2,22 @@
 import { requireAdmin }   from "@/lib/admin-auth";
 import { escapeHtml }     from "@/lib/escape-html";
 import { Resend } from "resend";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 import type { NextRequest } from "next/server";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export async function POST(req: NextRequest) {
-  const { email, product_id, taille } = await req.json();
+  // Rate limiting (helper partagé + IP fiable Vercel) — 5/min/IP.
+  if (!rateLimit(getClientIp(req), { max: 5, window: 60 })) {
+    return Response.json({ error: "Trop de requêtes. Réessaie dans une minute." }, { status: 429 });
+  }
+
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
+  const { email, product_id, taille } = body ?? {};
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   if (!email || !emailRegex.test(email)) {
@@ -31,11 +40,22 @@ export async function POST(req: NextRequest) {
   const sizes: string[] = Array.isArray(product.sizes) ? product.sizes.map(String) : [];
   const safeTaille = taille && sizes.includes(String(taille)) ? String(taille) : null;
 
+  const emailClean = email.toLowerCase().trim();
+
+  // On n'enverra l'email de confirmation QUE pour une NOUVELLE alerte (ligne réellement
+  // insérée) → tue l'email-bombing par POST répété du même (email, product_id, taille).
+  // SELECT préalable, null-aware sur la taille (.eq ne compare pas NULL correctement).
+  let existQ = supabaseServer.from("stock_alerts").select("id")
+    .eq("email", emailClean).eq("product_id", product_id);
+  existQ = safeTaille === null ? existQ.is("taille", null) : existQ.eq("taille", safeTaille);
+  const { data: existingAlert } = await existQ.maybeSingle();
+  const isNewAlert = !existingAlert;
+
   // Upsert dans stock_alerts — évite les doublons. On stocke les valeurs DERIVÉES.
   const { error } = await supabaseServer
     .from("stock_alerts")
     .upsert([{
-      email:        email.toLowerCase().trim(),
+      email:        emailClean,
       product_id,
       product_name: productName,
       product_slug: productSlug || null,
@@ -45,9 +65,10 @@ export async function POST(req: NextRequest) {
 
   if (error) return Response.json({ error: error.message }, { status: 400 });
 
-  // Email de confirmation — toutes les valeurs sont ÉCHAPPÉES avant interpolation.
+  // Email de confirmation — UNIQUEMENT pour une nouvelle alerte (anti email-bombing).
+  // Toutes les valeurs sont ÉCHAPPÉES avant interpolation.
   const tailleLabel = safeTaille ? ` — taille ${escapeHtml(safeTaille)}` : "";
-  await resend.emails.send({
+  if (isNewAlert) await resend.emails.send({
     from:    "M!LK <contact@milkbebe.fr>",
     to:      email,
     subject: `🔔 On te prévient dès le retour en stock — ${productName}${safeTaille ? ` — taille ${safeTaille}` : ""}`,

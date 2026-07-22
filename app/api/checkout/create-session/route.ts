@@ -10,12 +10,12 @@ import {
   getZoneForCountry,
   getInternationalShippingPrice,
   isFreeShippingEligibleZone,
-  isDomTom,
+  isDomTomPostalCode,
 } from "@/lib/delivery-config";
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
 import { computeParrainage } from "@/lib/parrainage";
-import { getParrainageSettings, validateParrainCode, listUsableRewards, getUserFromRequest } from "@/lib/parrainage-server";
+import { getParrainageSettings, validateParrainCode, listUsableRewards, reserveRewards, releaseRewards, getUserFromRequest } from "@/lib/parrainage-server";
 
 // Pin l'API version au plus récent supporté par le SDK installé (cf.
 // node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
@@ -77,6 +77,8 @@ async function getFreeShippingThreshold(): Promise<number> {
 }
 
 export async function POST(req: Request) {
+  // R2 : récompenses réservées pour cette session — libérées si échec/rejet avant paiement.
+  let reservedRewardIdsInFlight: string[] = [];
   try {
     const {
       items,
@@ -142,20 +144,29 @@ export async function POST(req: Request) {
       if ((delivery_type === "point_relais" || delivery_type === "locker") && (!relay || !relay.id)) {
         return Response.json({ error: "Point relais manquant" }, { status: 400 });
       }
+      // R4 (main) — refuser un point relais saisi à la main (id "manual:…") : il ne correspond à AUCUN
+      // point Sendcloud → l'étiquette d'expédition ne peut pas être générée (commande payée mais non
+      // expédiable). La saisie manuelle a été retirée de l'UI ; ceci bloque en plus toute requête forgée.
+      if ((delivery_type === "point_relais" || delivery_type === "locker") && /^manual:/i.test(String(relay?.id ?? ""))) {
+        return Response.json({ error: "Point relais invalide. Merci de sélectionner un point relais dans la liste proposée." }, { status: 400 });
+      }
       if (delivery_type === "home") {
         if (!home_address?.name?.trim() || !home_address?.line1?.trim() || !home_address?.postal_code?.trim() || !home_address?.city?.trim()) {
           return Response.json({ error: "Adresse de livraison incomplète" }, { status: 400 });
         }
       }
-      // Garde-fou DOM-TOM (97xxx / 98xxx) : livraison non assurée. CP pris de l'adresse
-      // domicile OU du relais choisi. Chemin FRANCE uniquement (l'international n'a pas
-      // de CP tunnel). Défense en profondeur : rejette même un body forgé, comme le
-      // rejet des pays non desservis. Aucune session Stripe créée.
-      const frPostalCode = delivery_type === "home"
+      // Garde-fou DOM-TOM (blocage RÉVERSIBLE, cf. G4) : la matrice DELIVERY_PRICES (Colissimo/Mondial
+      // Relay MÉTROPOLE, 3,50–7,70 €) ne couvre PAS l'outre-mer → port sous-facturé + colis non livrable.
+      // ⚠️ On utilise isDomTomPostalCode (préfixes 971-988) — PAS isDomTom (97|98)xxx qui bloquait à tort
+      //    Monaco 98000 (livré au tarif métropole). CP pris du domicile OU du relais. FRANCE uniquement
+      //    (à l'international home_address/relay sont null → destPostalCode "" → aucun blocage).
+      const destPostalCode = delivery_type === "home"
         ? String(home_address?.postal_code ?? "")
         : String(relay?.postal_code ?? "");
-      if (isDomTom(frPostalCode)) {
-        return Response.json({ error: "Livraison non disponible vers les DOM-TOM" }, { status: 400 });
+      if (isDomTomPostalCode(destPostalCode)) {
+        return Response.json({
+          error: "Nous ne livrons pas encore les DOM-TOM. Écrivez-nous à contact@milkbebe.fr pour un devis d'expédition.",
+        }, { status: 400 });
       }
     }
 
@@ -165,8 +176,14 @@ export async function POST(req: Request) {
 
     // Batch : 1 seule requête pour TOUS les produits du panier (élimine le N+1).
     const itemIds = [...new Set(itemsArr.map((i: any) => i.id).filter(Boolean))];
-    const { data: productsData } = await supabaseServer
+    const { data: productsData, error: productsErr } = await supabaseServer
       .from("products").select("*").in("id", itemIds.length ? itemIds : ["none"]);
+    // Erreur DB transitoire → NE PAS la masquer en « produit introuvable » (400, faux négatif qui
+    // fait croire à un panier invalide) : renvoyer 503 pour inviter à réessayer. (Aucune récompense
+    // n'est encore réservée à ce stade — la réservation R2 vient plus bas.)
+    if (productsErr) {
+      return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+    }
     const productMap: Record<string, any> = {};
     (productsData ?? []).forEach((p: any) => { productMap[p.id] = p; });
 
@@ -186,15 +203,34 @@ export async function POST(req: Request) {
         return Response.json({ error: `Stock insuffisant pour ${product.name}` }, { status: 400 });
       }
 
-      const taille = extractTailleFromName(item.name ?? "");
-      if (taille) {
-        const sizesStock: Record<string, number> = product.sizes_stock ?? {};
-        const stockPourTaille = sizesStock[taille] ?? 0;
-        if (stockPourTaille < qty) {
-          return Response.json({
-            error: `La taille "${taille}" n'est plus disponible pour ${product.name}. Veuillez choisir une autre taille.`,
-          }, { status: 400 });
+      // R3 — Résolution ROBUSTE de la taille (empêche le contournement du contrôle par taille
+      // quand le name se termine par la couleur, ex. "Body — 0-3 mois — Terracotta"). Priorité :
+      // item.taille (sélectionné au panier, ∈ product.sizes imposé par l'UI) ; sinon un SEGMENT du
+      // name correspondant à une taille RÉELLE du produit ; sinon la taille unique. Rejet si le
+      // produit a des tailles mais qu'aucune n'est résolue (anti-abus par requête forgée).
+      const productSizes: string[] = Array.isArray(product.sizes) ? product.sizes.map(String) : [];
+      let taille: string | null = null;
+      if (productSizes.length > 0) {
+        const explicit = item.taille != null ? String(item.taille).trim() : "";
+        if (explicit && productSizes.includes(explicit)) {
+          taille = explicit;
+        } else {
+          const seg = String(item.name ?? "").split(" — ").map(s => s.trim()).find(s => productSizes.includes(s));
+          taille = seg ?? (productSizes.length === 1 ? productSizes[0] : null);
         }
+        if (!taille) {
+          return Response.json({ error: `Taille requise pour ${product.name}. Veuillez la sélectionner.` }, { status: 400 });
+        }
+      }
+      // Contrôle du stock PAR TAILLE — uniquement si la taille est réellement suivie dans
+      // sizes_stock (certains produits ont des clés sizes_stock ≠ product.sizes → on ne casse pas
+      // ces commandes ; le stock global reste vérifié plus haut). Ne dépend plus du name.
+      const sizesStock: Record<string, number> = product.sizes_stock ?? {};
+      const trackedSize = taille && Object.prototype.hasOwnProperty.call(sizesStock, taille) ? taille : null;
+      if (trackedSize && (sizesStock[trackedSize] ?? 0) < qty) {
+        return Response.json({
+          error: `La taille "${taille}" n'est plus disponible pour ${product.name}. Veuillez choisir une autre taille.`,
+        }, { status: 400 });
       }
 
       const now = new Date();
@@ -225,7 +261,7 @@ export async function POST(req: Request) {
         price:         finalPrice,
         quantity:      qty,
         category_slug: product.category_slug ?? "",
-        taille:        taille ?? null,
+        taille:        trackedSize ?? null, // R3 : décrément par-taille uniquement si suivie dans sizes_stock
       });
     }
 
@@ -236,11 +272,15 @@ export async function POST(req: Request) {
     let packsSubtotal = 0;
     if (packsArr.length > 0) {
       const packIds = [...new Set(packsArr.map((p: any) => p.pack_id).filter(Boolean))];
-      const { data: packsData } = await supabaseServer
+      const { data: packsData, error: packsErr } = await supabaseServer
         .from("packs")
         .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock, weight_g ) )`)
         .in("id", packIds.length ? packIds : ["none"])
         .eq("active", true);
+      // Erreur DB transitoire → 503 réessayable, pas un faux « pack indisponible » (400 trompeur).
+      if (packsErr) {
+        return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+      }
       const packMap: Record<string, any> = {};
       (packsData ?? []).forEach((p: any) => { packMap[p.id] = p; });
 
@@ -407,6 +447,11 @@ export async function POST(req: Request) {
     const wantedRewardIds = new Set((Array.isArray(reward_ids) ? reward_ids : []).map(String));
     const selectedUsable = usableRewards.filter(r => wantedRewardIds.has(r.id));
 
+    // R2 — RÉSERVER atomiquement les récompenses sélectionnées (anti double-dépense concurrente).
+    // Seules les récompenses réellement réservées (gagnantes du CAS disponible→reservee) comptent.
+    const reservedRewards = requester ? await reserveRewards(requester.id, selectedUsable) : [];
+    reservedRewardIdsInFlight = reservedRewards.map(r => r.id);
+
     const cartCategorySlugs: string[] = [
       ...validatedItems.map((i: any) => i.category_slug).filter(Boolean),
       ...draftPacks.flatMap((p: any) => (Array.isArray(p.items) ? p.items : []).map((it: any) => it?.category_slug).filter(Boolean)),
@@ -419,13 +464,17 @@ export async function POST(req: Request) {
       freeShippingThreshold: freeShipThreshold,
       hasValidParrainCode,
       rewardsAvailableCount: usableRewards.length,
-      rewardsSelectedCount:  selectedUsable.length,
+      rewardsSelectedCount:  reservedRewards.length,
       cartCategorySlugs,
     });
 
     const parrainDiscount   = parrainageResult.parrainDiscount;
     const rewardDiscount    = parrainageResult.rewardDiscount;
-    const consumedRewardIds = selectedUsable.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
+    const consumedRewardIds = reservedRewards.slice(0, parrainageResult.rewardsUsable).map(r => r.id);
+    // Libérer les récompenses réservées NON retenues (au-delà du plafond de seuils) → ne pas les bloquer.
+    const notConsumedRewardIds = reservedRewards.slice(parrainageResult.rewardsUsable).map(r => r.id);
+    if (notConsumedRewardIds.length) await releaseRewards(notConsumedRewardIds);
+    reservedRewardIdsInFlight = consumedRewardIds;
     const parrainApplied    = parrainageResult.parrainApplicable && !!validParrainId;
 
     // ── ANTI-ABUS : crédit récompense parrain (méca 1) réservé à un FILLEUL
@@ -502,6 +551,7 @@ export async function POST(req: Request) {
       .select("id").single();
     if (draftErr || !draft) {
       process.env.NODE_ENV !== "production" && console.error("pending_orders insert error:", draftErr?.message);
+      await releaseRewards(reservedRewardIdsInFlight); // R2 : libérer les récompenses réservées (pas de commande)
       return Response.json({ error: "Erreur lors de la préparation de la commande." }, { status: 500 });
     }
     const pendingOrderId = draft.id as string;
@@ -612,6 +662,7 @@ export async function POST(req: Request) {
     // ✅ Vérification montant minimum Stripe (0.50€)
     const finalTotal = Math.max(0, subtotal - totalDiscount) + deliveryCost;
     if (finalTotal < 0.50) {
+      await releaseRewards(reservedRewardIdsInFlight); // R2 : libérer (session non créée)
       return Response.json({ error: "Le montant total est trop faible pour être traité (minimum 0.50€)" }, { status: 400 });
     }
 
@@ -622,6 +673,7 @@ export async function POST(req: Request) {
 
   } catch (error: any) {
     process.env.NODE_ENV !== "production" && console.error("Checkout error:", error);
+    await releaseRewards(reservedRewardIdsInFlight); // R2 : libérer les récompenses réservées sur échec
     return Response.json({ error: error.message ?? "Erreur serveur" }, { status: 500 });
   }
 }

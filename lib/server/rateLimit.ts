@@ -1,5 +1,9 @@
 ﻿// lib/server/rateLimit.ts
-// Rate limiting en mémoire — reset au redéploiement
+// Rate limiting en mémoire — reset au redéploiement.
+// ⚠️ CAVEAT : la Map vit PAR INSTANCE serverless → sur Vercel la limite est effective
+//    PAR lambda, pas globale (limite réelle ≈ max × nb d'instances). C'est une mitigation
+//    d'abus suffisante sur Hobby (faible trafic) ; pour du strict/global → Upstash/Redis.
+// Toujours passer une IP FIABLE : getClientIp() (lib/server/client-ip.ts).
 
 const store = new Map<string, { count: number; resetAt: number }>();
 

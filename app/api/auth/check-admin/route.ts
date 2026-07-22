@@ -2,7 +2,9 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { createClient }   from "@supabase/supabase-js";
 
 export async function POST(req: Request) {
-  const { access_token } = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ is_admin: false }, { status: 400 }); }
+  const { access_token } = body ?? {};
   if (!access_token) return Response.json({ is_admin: false });
 
   const supabase = createClient(

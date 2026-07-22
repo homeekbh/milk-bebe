@@ -30,6 +30,31 @@ function getOrCreate(storage: Storage, key: string): string {
   }
 }
 
+// Durée de vie de l'identifiant visiteur (mesure d'audience 1re partie). RGPD/CNIL : l'exemption
+// de consentement suppose un identifiant à durée LIMITÉE (recommandation ≤ 13 mois) — or
+// localStorage n'expire jamais. On horodate milk_vid et on le régénère au-delà de 13 mois,
+// en cohérence avec la purge DB des page_views > 13 mois (cron/daily).
+const VISITOR_ID_TTL_MS = 13 * 30 * 24 * 60 * 60 * 1000;
+
+function getOrCreateVisitorId(): string {
+  try {
+    const ls  = window.localStorage;
+    const id  = ls.getItem("milk_vid");
+    const ts  = parseInt(ls.getItem("milk_vid_ts") ?? "", 10);
+    const now = Date.now();
+    if (id && ts && now - ts < VISITOR_ID_TTL_MS) return id;
+    // Absent ou expiré (> 13 mois) → nouvel identifiant + horodatage.
+    const fresh = (typeof crypto !== "undefined" && crypto.randomUUID)
+      ? crypto.randomUUID()
+      : Math.random().toString(36).slice(2) + now.toString(36);
+    ls.setItem("milk_vid", fresh);
+    ls.setItem("milk_vid_ts", String(now));
+    return fresh;
+  } catch {
+    return Math.random().toString(36).slice(2);
+  }
+}
+
 function postView(payload: Record<string, any>) {
   if (isInternalTraffic()) return; // trafic interne (tests) → aucun enregistrement
   try {
@@ -78,7 +103,7 @@ function PageTrackerInner() {
     setInternalCookieFromUrl();
 
     sid.current = getOrCreate(window.sessionStorage, "milk_sid");
-    vid.current = getOrCreate(window.localStorage,   "milk_vid");
+    vid.current = getOrCreateVisitorId();
 
     const onScroll = () => {
       const sh = document.documentElement.scrollHeight || 1;
@@ -117,7 +142,7 @@ function PageTrackerInner() {
     if (typeof window === "undefined" || !pathname) return;
 
     if (!sid.current) sid.current = getOrCreate(window.sessionStorage, "milk_sid");
-    if (!vid.current) vid.current = getOrCreate(window.localStorage,   "milk_vid");
+    if (!vid.current) vid.current = getOrCreateVisitorId();
 
     // PATCH de la page précédente avant de tracker la nouvelle.
     if (prevPath.current && prevPath.current !== pathname) {

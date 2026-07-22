@@ -14,6 +14,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { useTranslations } from "next-intl";
 import Script from "next/script";
 import { Link } from "@/i18n/navigation";
 import GTMScript from "@/components/analytics/GTMScript";
@@ -21,7 +22,7 @@ import GTMScript from "@/components/analytics/GTMScript";
 // MerchantBadge / GoogleCustomerReviews). writeConsent y émet aussi un événement pour
 // que les autres chargements tiers réagissent au choix. Le gating ci-dessous des 3
 // traceurs (GTM/GA4/Pixel) est INCHANGÉ (toujours `status === "accepted"`).
-import { readConsent, writeConsent, type ConsentStatus } from "@/components/analytics/consent-store";
+import { readConsent, writeConsent, onOpenConsent, type ConsentStatus } from "@/components/analytics/consent-store";
 
 const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID;
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
@@ -34,6 +35,7 @@ export default function ConsentManager() {
   const [show,    setShow]    = useState(false);
   const [custom,  setCustom]  = useState(false);
   const [analytics, setAnalytics] = useState(false); // toggle « personnaliser », décoché par défaut
+  const t = useTranslations("consent");
 
   useEffect(() => {
     const c = readConsent();
@@ -42,11 +44,26 @@ export default function ConsentManager() {
     if (!c) setTimeout(() => setShow(true), 1200);
   }, []);
 
+  // « Gérer mes cookies » (footer) → ré-ouvre la bannière même si un choix existe déjà,
+  // pour permettre de le modifier ou de le retirer (RGPD art. 7-3). Pré-coche le toggle
+  // selon le choix courant pour le mode « Personnaliser ».
+  useEffect(() => onOpenConsent(() => {
+    setAnalytics(readConsent() === "accepted");
+    setCustom(false);
+    setShow(true);
+  }), []);
+
   function decide(s: "accepted" | "refused") {
-    writeConsent(s);
+    writeConsent(s);      // persiste le choix AVANT tout reload (localStorage synchrone)
     setStatus(s);
     setShow(false);
     setCustom(false);
+    // Refus / retrait : recharger pour STOPPER immédiatement GA4/GTM/Meta Pixel déjà chargés
+    // dans la session (sinon ils ne cessent qu'au prochain chargement). Pas de reload sur
+    // « accepter » (inutile). Le choix "refused" est déjà enregistré ci-dessus.
+    if (s === "refused") {
+      try { window.location.reload(); } catch {}
+    }
   }
 
   return (
@@ -90,12 +107,12 @@ export default function ConsentManager() {
               </svg>
               <div>
                 <div style={{ fontWeight: 900, fontSize: 16, color: "#f2ede6", marginBottom: 8 }}>
-                  Nous respectons votre vie privée
+                  {t("title")}
                 </div>
                 <div style={{ fontSize: 14, color: "rgba(242,237,230,0.55)", lineHeight: 1.7 }}>
-                  Les cookies techniques (panier, connexion) sont toujours actifs. Avec votre accord, nous utilisons aussi des cookies de mesure d'audience et de publicité (Google Analytics, Google Tag Manager, Meta Pixel) pour améliorer le site.{" "}
+                  {t("body")}{" "}
                   <Link href="/politique-confidentialite" style={{ color: "#c49a4a", textDecoration: "underline" }}>
-                    En savoir plus
+                    {t("learn_more")}
                   </Link>
                 </div>
               </div>
@@ -105,8 +122,8 @@ export default function ConsentManager() {
               <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "12px 14px", borderRadius: 12, background: "rgba(242,237,230,0.05)", border: "1px solid rgba(242,237,230,0.08)", cursor: "pointer", marginBottom: 16 }}>
                 <input type="checkbox" checked={analytics} onChange={e => setAnalytics(e.target.checked)} style={{ width: 18, height: 18, marginTop: 1, flexShrink: 0, accentColor: "#c49a4a" }} />
                 <div>
-                  <div style={{ fontWeight: 800, fontSize: 13, color: "#f2ede6" }}>Mesure d'audience &amp; publicité</div>
-                  <div style={{ fontSize: 12, color: "rgba(242,237,230,0.45)", marginTop: 2, lineHeight: 1.5 }}>Google Analytics, Google Tag Manager, Meta Pixel. Désactivé par défaut.</div>
+                  <div style={{ fontWeight: 800, fontSize: 13, color: "#f2ede6" }}>{t("bucket_title")}</div>
+                  <div style={{ fontSize: 12, color: "rgba(242,237,230,0.45)", marginTop: 2, lineHeight: 1.5 }}>{t("bucket_desc")}</div>
                 </div>
               </label>
             )}
@@ -115,22 +132,22 @@ export default function ConsentManager() {
               <div style={{ display: "flex", gap: 10 }}>
                 <button onClick={() => decide(analytics ? "accepted" : "refused")}
                   style={{ flex: 1, padding: "13px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}>
-                  Enregistrer mes choix
+                  {t("save")}
                 </button>
               </div>
             ) : (
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
                 <button onClick={() => decide("accepted")}
                   style={{ flex: "1 1 120px", padding: "13px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}>
-                  Tout accepter
+                  {t("accept_all")}
                 </button>
                 <button onClick={() => decide("refused")}
                   style={{ flex: "1 1 120px", padding: "13px", borderRadius: 12, background: "rgba(242,237,230,0.08)", color: "rgba(242,237,230,0.6)", fontWeight: 700, fontSize: 15, border: "1px solid rgba(242,237,230,0.1)", cursor: "pointer" }}>
-                  Tout refuser
+                  {t("refuse_all")}
                 </button>
                 <button onClick={() => { setCustom(true); }}
                   style={{ flex: "1 1 120px", padding: "13px", borderRadius: 12, background: "transparent", color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 14, border: "1px solid rgba(242,237,230,0.1)", cursor: "pointer" }}>
-                  Personnaliser
+                  {t("customize")}
                 </button>
               </div>
             )}

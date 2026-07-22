@@ -322,6 +322,9 @@ export default function Header() {
             </div>
 
             <button onClick={() => setMobileOpen(v => !v)}
+              aria-label="Menu"
+              aria-expanded={mobileOpen}
+              aria-controls="mobile-nav"
               style={{ width: 40, height: 40, borderRadius: 10, background: "none", border: "none", cursor: "pointer", display: "flex", flexDirection: "column", gap: 5, alignItems: "center", justifyContent: "center" }}>
               <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, transition: "all 0.2s", transform: mobileOpen ? "rotate(45deg) translate(5px,5px)" : "none" }} />
               <span style={{ width: 22, height: 2, background: C.text, borderRadius: 2, opacity: mobileOpen ? 0 : 1, transition: "opacity 0.2s" }} />
@@ -333,7 +336,7 @@ export default function Header() {
 
       {/* Menu mobile */}
       {mobileOpen && (
-        <div style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
+        <div id="mobile-nav" role="navigation" aria-label="Menu principal" style={{ position: "fixed", inset: 0, zIndex: 9998, background: "#0d0b09", paddingTop: 80, overflowY: "auto" }}>
           <div style={{ padding: "16px 20px", display: "flex", flexDirection: "column", gap: 6, minHeight: "calc(100vh - 80px)" }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>{t("collection_section")}</div>
             <Link href="/produits" onClick={() => setMobileOpen(false)}

@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { csvCell }        from "@/lib/csv";
 import type { NextRequest } from "next/server";
 
 const COLORWAYS = ["Lightning", "Sunny Smiles", "Milk Checker", "No.21Ribbed"];
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   rows.push([`Généré le ${new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}`]);
   rows.push([]);
   rows.push(["RÉSUMÉ PAR PRODUIT"]);
-  rows.push(["Produit", "Réf.", "Catégorie", "Tailles", "Stock total", "Prix TTC (€)", "Valeur stock (€)"]);
+  rows.push(["Produit", "Réf.", "Catégorie", "Tailles", "Stock total", "Prix (€)", "Valeur stock (€)"]);
 
   let totalStock = 0;
   let totalValue = 0;
@@ -43,10 +44,9 @@ export async function GET(req: NextRequest) {
 
   rows.push(["TOTAL", "", "", "", String(totalStock), "", totalValue.toFixed(2)]);
 
-  const csv = rows.map(row => row.map(cell => {
-    const s = String(cell ?? "");
-    return s.includes(",") || s.includes('"') || s.includes("\n") ? `"${s.replace(/"/g, '""')}"` : s;
-  }).join(",")).join("\r\n");
+  // csvCell : échappement RFC 4180 + neutralisation de l'injection de formule (= + - @), comme les
+  // 3 autres exports (commandes/clients/comptes). Les noms/réf. produits sont saisis par l'admin.
+  const csv = rows.map(row => row.map(csvCell).join(",")).join("\r\n");
 
   return new Response("\uFEFF" + csv, {
     headers: {

@@ -6,6 +6,7 @@ import { notFound } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { supabaseServer } from "@/lib/server/supabase";
 import ProductClient from "./ProductClient";
+import { computeDeliveryEstimate } from "@/lib/delivery-estimate";
 
 export const revalidate = 900;
 
@@ -96,11 +97,13 @@ export default async function ProductPage(
           <span style={{ fontSize: "clamp(24px,2.2vw,30px)", fontWeight: 950, letterSpacing: -1, color: DARK }}>
             {Number(displayPrice).toFixed(2)} €
           </span>
-          <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>TTC</span>
         </div>
       )}
     </>
   );
 
-  return <ProductClient initialProduct={product} header={header} />;
+  // Estimé de livraison calculé CÔTÉ SERVEUR (horloge unique) → transmis en prop, plus de divergence
+  // d'hydratation sur la date « Livré … » (cf. lib/delivery-estimate.ts).
+  const deliveryEstimate = computeDeliveryEstimate(t.raw("days") as string[], t.raw("months") as string[]);
+  return <ProductClient initialProduct={product} header={header} initialPromo={promo} initialDeliveryEstimate={deliveryEstimate} />;
 }

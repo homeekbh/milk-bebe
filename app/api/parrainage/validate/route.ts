@@ -3,28 +3,14 @@
 // UTILISABLE (existe, actif, pas le sien). Le seuil/applicabilité est ensuite
 // calculé par computeParrainage (client), puis RE-VALIDÉ à create-session.
 import { getParrainageSettings, validateParrainCode, getUserFromRequest } from "@/lib/parrainage-server";
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 export const dynamic = "force-dynamic";
 
-// Rate limiting simple en mémoire (10 tentatives / minute / IP) — pattern identique
-// à /api/promo/validate. Empêche l'énumération par force brute des codes parrain.
-const attempts = new Map<string, { count: number; reset: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now  = Date.now();
-  const data = attempts.get(ip);
-  if (!data || now > data.reset) {
-    attempts.set(ip, { count: 1, reset: now + 60_000 });
-    return true;
-  }
-  if (data.count >= 10) return false;
-  data.count++;
-  return true;
-}
-
 export async function POST(req: Request) {
-  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
-  if (!checkRateLimit(ip)) {
+  // Anti-énumération des codes parrain — 10/min/IP (helper partagé + IP fiable Vercel).
+  if (!rateLimit(getClientIp(req), { max: 10, window: 60 })) {
     return Response.json({ valid: false, error: "Trop de tentatives, réessaie dans 1 minute" }, { status: 429 });
   }
 

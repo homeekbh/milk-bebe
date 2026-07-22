@@ -3,6 +3,7 @@ import { Resend } from "resend";
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { logActivity }    from "@/lib/server/audit";
+import { escapeHtml }     from "@/lib/escape-html";
 import type { NextRequest } from "next/server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -70,6 +71,9 @@ async function cancelSendcloudShipment(orderId: string, parcelId: string | null)
     .update({
       sendcloud_parcel_id: null,
       label_url:           null,
+      // Vider le tracking : sinon un webhook Sendcloud tardif (livré/retiré) matcherait encore
+      // cette commande par tracking_number et tenterait de la faire repasser « livree ».
+      tracking_number:     null,
     })
     .eq("id", orderId);
   if (dbErr) {
@@ -123,12 +127,12 @@ async function sendCancellationEmailWithRetry(opts: {
         html: `
           <div style="font-family:sans-serif;padding:24px;max-width:540px">
             <h2 style="color:#b91c1c;margin:0 0 12px">Email annulation échoué (3 tentatives)</h2>
-            <p>L'email d'annulation pour la commande <strong>#${opts.order_number.slice(0,8).toUpperCase()}</strong> de <strong>${opts.email}</strong> n'a pas pu être envoyé.</p>
+            <p>L'email d'annulation pour la commande <strong>#${opts.order_number.slice(0,8).toUpperCase()}</strong> de <strong>${escapeHtml(String(opts.email ?? ""))}</strong> n'a pas pu être envoyé.</p>
             <p style="background:#fee2e2;padding:12px;border-radius:8px;font-size:13px;color:#991b1b">
-              Dernière erreur : <code>${lastError ?? "(inconnu)"}</code>
+              Dernière erreur : <code>${escapeHtml(String(lastError ?? "(inconnu)"))}</code>
             </p>
             <p>Le remboursement Stripe (<strong>${opts.refund_amount.toFixed(2)} €</strong>) <strong>a bien été effectué</strong>, mais le client n'a pas été notifié par email automatique.</p>
-            <p>📞 <strong>Action requise :</strong> contacter le client manuellement à <a href="mailto:${opts.email}">${opts.email}</a>.</p>
+            <p>📞 <strong>Action requise :</strong> contacter le client manuellement à <a href="mailto:${escapeHtml(String(opts.email ?? ""))}">${escapeHtml(String(opts.email ?? ""))}</a>.</p>
             <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
               Voir dans l'admin →
             </a>
@@ -373,8 +377,13 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!amount || amount <= 0) {
       return Response.json({ error: "Montant invalide" }, { status: 400 });
     }
-    if (amount > Number(order.amount_total ?? 0)) {
-      return Response.json({ error: "Montant supérieur à la commande" }, { status: 400 });
+    // Valider contre le RESTANT réel (amount_total − déjà remboursé), pas le brut → anti
+    // sur-remboursement. `alreadyRefunded` peut être périmé si le webhook charge.refunded n'a pas
+    // encore enregistré un remboursement antérieur ; Stripe reste le garde-fou ultime (catch ci-dessous).
+    const alreadyRefunded = Number(order.refund_amount ?? 0);
+    const remaining       = Math.max(0, Number(order.amount_total ?? 0) - alreadyRefunded);
+    if (amount > remaining) {
+      return Response.json({ error: `Montant supérieur au restant remboursable (${remaining.toFixed(2)} €)` }, { status: 400 });
     }
     if (!order.stripe_session_id) {
       return Response.json({ error: "stripe_session_id manquant" }, { status: 400 });
@@ -400,6 +409,12 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
           order_id: orderId,
           admin_reason: String(body?.reason ?? "Refund partiel").slice(0, 500),
         },
+      }, {
+        // Idempotence : un double-clic / retry réseau (même montant, même cumul déjà remboursé) →
+        // Stripe renvoie le MÊME refund au lieu d'en créer un 2ᵉ. Un remboursement partiel
+        // ULTÉRIEUR légitime (refund_amount mis à jour par le webhook) a un cumul différent →
+        // clé différente → autorisé. Empêche le double remboursement sur double-soumission.
+        idempotencyKey: `refund-partial-${orderId}-${Math.round(amount * 100)}-${Math.round(alreadyRefunded * 100)}`,
       });
     } catch (e: any) {
       console.error("[commandes/refund_partial] Stripe error:", e?.message);
@@ -407,7 +422,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
 
     // Cumul si refund partiel déjà existant
-    const previousRefund = Number(order.refund_amount ?? 0);
+    const previousRefund = alreadyRefunded;
     const cumul          = previousRefund + amount;
     const newStatus      = cumul >= Number(order.amount_total ?? 0) ? "remboursee" : "rembours_partiel";
 

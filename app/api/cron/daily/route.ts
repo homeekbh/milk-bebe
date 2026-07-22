@@ -4,6 +4,9 @@ import { supabaseServer } from "@/lib/server/supabase";
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
+// Orchestre plusieurs sous-crons en séquence (avis + taille-suivante + réassort + purges) :
+// fenêtre d'exécution élargie pour éviter un timeout avant la fin de la chaîne.
+export const maxDuration = 60;
 
 /**
  * GET /api/cron/daily
@@ -19,7 +22,8 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: Request) {
   const auth = (req as any).headers?.get?.("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail-closed : un CRON_SECRET absent/vide rejette TOUT (sinon « Bearer undefined » serait devinable).
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: "Non autorisé" }, { status: 401 });
   }
 
@@ -89,6 +93,38 @@ export async function GET(req: Request) {
   } catch (e: any) {
     console.error("[cron:daily] purge page_views exception:", e?.message);
     results.pageViewsPurge = { error: e?.message ?? "exception" };
+  }
+
+  // 6. R2 — filet de sécurité : libérer les récompenses "reservee" bloquées > 2h (session qui
+  //    n'a ni abouti ni émis d'événement d'expiration). No-op tant que "reservee"/reserved_at
+  //    n'existent pas en base (SQL à appliquer). Non bloquant.
+  try {
+    const staleCutoff = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseServer
+      .from("parrainage_recompenses")
+      .update({ status: "disponible", reserved_at: null })
+      .eq("status", "reservee")
+      .lt("reserved_at", staleCutoff)
+      .select("id");
+    results.rewardsReleased = error ? { error: error.message } : { released: data?.length ?? 0 };
+  } catch (e: any) {
+    results.rewardsReleased = { error: e?.message ?? "exception" };
+  }
+
+  // 7. RGPD — purge des drafts pending_orders ABANDONNÉS > 7 jours (PII : email/tél/adresse/panier).
+  //    Un draft "pending" > 7 j = paiement jamais abouti (session Stripe expirée depuis longtemps).
+  //    Les drafts "consumed" (commande payée) sont conservés — la donnée vit dans `orders`.
+  try {
+    const draftCutoff = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+    const { data, error } = await supabaseServer
+      .from("pending_orders")
+      .delete()
+      .eq("status", "pending")
+      .lt("created_at", draftCutoff)
+      .select("id");
+    results.pendingOrdersPurge = error ? { error: error.message } : { deleted: data?.length ?? 0 };
+  } catch (e: any) {
+    results.pendingOrdersPurge = { error: e?.message ?? "exception" };
   }
 
   return NextResponse.json({ ok: true, results });

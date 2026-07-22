@@ -1,20 +1,7 @@
 import type { NextRequest } from "next/server";
 import { validatePromoCode } from "@/lib/promo-validate";
-
-// Rate limiting simple en mémoire (10 tentatives / minute / IP)
-const attempts = new Map<string, { count: number; reset: number }>();
-
-function checkRateLimit(ip: string): boolean {
-  const now  = Date.now();
-  const data = attempts.get(ip);
-  if (!data || now > data.reset) {
-    attempts.set(ip, { count: 1, reset: now + 60_000 });
-    return true;
-  }
-  if (data.count >= 10) return false;
-  data.count++;
-  return true;
-}
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 /**
  * POST /api/promo/validate
@@ -29,8 +16,8 @@ function checkRateLimit(ip: string): boolean {
  * computeShipping() — la "vraie" décision finale est dans computeShipping.
  */
 export async function POST(req: NextRequest) {
-  const ip = req.headers.get("x-forwarded-for") ?? "unknown";
-  if (!checkRateLimit(ip)) {
+  // Anti-énumération des codes promo — 10/min/IP (helper partagé + IP fiable Vercel).
+  if (!rateLimit(getClientIp(req), { max: 10, window: 60 })) {
     return Response.json({ error: "Trop de tentatives, réessaie dans 1 minute" }, { status: 429 });
   }
 

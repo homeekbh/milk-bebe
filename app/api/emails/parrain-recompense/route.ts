@@ -1,4 +1,6 @@
 import { Resend } from "resend";
+import { escapeHtml } from "@/lib/escape-html";
+import { supabaseServer } from "@/lib/server/supabase";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -14,7 +16,8 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: Request) {
   const secret = (req as any).headers?.get?.("x-internal-secret");
-  if (secret !== process.env.INTERNAL_EMAIL_SECRET) {
+  // Fail-closed : un secret d'env vide/undefined rejette TOUT (sinon "" === "" → bypass).
+  if (!process.env.INTERNAL_EMAIL_SECRET || secret !== process.env.INTERNAL_EMAIL_SECRET) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
@@ -22,8 +25,22 @@ export async function POST(req: Request) {
     const { email, prenom, montant } = await req.json();
     if (!email) return Response.json({ error: "email manquant" }, { status: 400 });
 
-    const montantFmt = Number(montant ?? 5).toFixed(0);
-    const salut = prenom ? `${prenom}, une` : "Une";
+    // Lien de désabonnement tokenisé (même mécanisme que emails/avis). ⚠️ Le PARRAIN est un
+    // COMPTE, pas forcément un abonné newsletter : sans ligne newsletter_subscribers active
+    // pour cet email → fallback /fr/contact (un désabonnement newsletter n'a de sens que pour
+    // un abonné). L'ancien ?email= tombait toujours sur ?status=invalid (route lit ?token= seul).
+    const { data: sub } = await supabaseServer
+      .from("newsletter_subscribers")
+      .select("unsubscribe_token")
+      .eq("email", email)
+      .eq("active", true)
+      .maybeSingle();
+    const unsubUrl = sub?.unsubscribe_token
+      ? `${BASE}/api/newsletter/unsubscribe?token=${sub.unsubscribe_token}`
+      : `${BASE}/fr/contact`;
+
+    const montantFmt = Number(montant ?? 5).toFixed(0); // numérique → sûr
+    const salut = prenom ? `${escapeHtml(prenom)}, une` : "Une";
 
     const { error } = await resend.emails.send({
       from:    "M!LK <contact@milkbebe.fr>",
@@ -67,7 +84,7 @@ export async function POST(req: Request) {
   <div style="text-align:center;padding:20px 0">
     <p style="color:rgba(242,237,230,0.2);font-size:12px;margin:0">
       M!LK — Des essentiels bébé. Sans le superflu.<br>
-      <a href="${BASE}/api/newsletter/unsubscribe?email=${encodeURIComponent(email)}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
+      <a href="${unsubUrl}" style="color:rgba(242,237,230,0.2)">Se désabonner</a>
     </p>
   </div>
 

@@ -240,7 +240,7 @@ const jsonLd = {
       url:            BASE_URL,
       priceRange:     "€€",
       currenciesAccepted: "EUR",
-      paymentAccepted:    "Credit Card, PayPal",
+      paymentAccepted:    "Credit Card, Apple Pay, Google Pay",
       areaServed:     ["FR", "BE", "CH", "LU", "MC"],
       hasOfferCatalog: {
         "@type": "OfferCatalog",
@@ -293,16 +293,13 @@ export default async function LocaleLayout({
         <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
         <link rel="manifest"         href="/manifest.json" />
 
-        {/* Preconnect performances */}
+        {/* Preconnect performances — UNIQUEMENT les domaines fonctionnels (Supabase, Stripe).
+            RGPD : PAS de preconnect/dns-prefetch vers Meta/Google Tag Manager/Google Analytics
+            avant consentement — un preconnect ouvre déjà une connexion réseau vers le traceur.
+            Ces domaines sont préchargés à la volée par ConsentManager APRÈS acceptation. */}
         <link rel="preconnect"   href="https://ntkqmnenczltlwplswka.supabase.co" />
         <link rel="dns-prefetch" href="https://ntkqmnenczltlwplswka.supabase.co" />
         <link rel="preconnect"   href="https://js.stripe.com" />
-        <link rel="preconnect"   href="https://connect.facebook.net" />
-        <link rel="dns-prefetch" href="https://connect.facebook.net" />
-        <link rel="preconnect"   href="https://www.googletagmanager.com" />
-        <link rel="dns-prefetch" href="https://www.googletagmanager.com" />
-        <link rel="preconnect"   href="https://www.google-analytics.com" />
-        <link rel="dns-prefetch" href="https://www.google-analytics.com" />
 
         {/* JSON-LD Schema.org */}
         <script

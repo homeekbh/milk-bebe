@@ -1,15 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
-
-// Rate limiting simple
-const rlMap = new Map<string, { count: number; resetAt: number }>();
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const entry = rlMap.get(ip);
-  if (!entry || now > entry.resetAt) { rlMap.set(ip, { count: 1, resetAt: now + 60_000 }); return false; }
-  if (entry.count >= 2) return true;
-  entry.count++;
-  return false;
-}
+import { rateLimit } from "@/lib/server/rateLimit";
+import { getClientIp } from "@/lib/server/client-ip";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -33,13 +24,14 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  // Rate limiting
-  const ip = (req as any).headers?.get?.("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
-  if (isRateLimited(ip)) {
+  // Rate limiting (helper partagé + IP fiable Vercel) — 2/min/IP
+  if (!rateLimit(getClientIp(req), { max: 2, window: 60 })) {
     return Response.json({ error: "Trop de requêtes." }, { status: 429 });
   }
 
-  const { order_id, product_id, customer_email, customer_name, rating, comment } = await req.json();
+  let body: any;
+  try { body = await req.json(); } catch { return Response.json({ error: "Requête invalide" }, { status: 400 }); }
+  const { order_id, product_id, customer_email, customer_name, rating, comment } = body ?? {};
 
   if (!customer_email || !customer_name || !rating || !product_id) {
     return Response.json({ error: "Données manquantes" }, { status: 400 });

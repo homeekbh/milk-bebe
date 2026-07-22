@@ -10,8 +10,17 @@
  *   livrée a donc status='expediee'/'livree' — elle DOIT compter dans le CA.
  *
  *   Exclues du CA:
- *     - status ∈ { 'remboursee', 'annulee', 'echec_paiement' }
+ *     - status ∈ { 'remboursee', 'annulee', 'echec_paiement', 'litige', 'litige_gagne' }
  *     - shipping_status ∈ { 'annulee', 'retour' }
+ *   ⚠️ Statuts réellement ÉCRITS par le code (audit orders.status) :
+ *     - 'echec_paiement' : webhook payment_failed (route.ts:1244) — RARE : uniquement si une
+ *       commande NON-terminale existe pour le payment_intent échoué. Les commandes étant créées
+ *       en 'payee', ce cas ne se réalise quasi jamais → « inexistant en base » observé, MAIS la
+ *       branche existe. On GARDE l'exclusion : la retirer serait un bug latent (si un jour une
+ *       commande échoue, elle ne doit pas compter dans le CA).
+ *     - 'litige' / 'litige_gagne' : webhook charge.dispute (route.ts:1424 / :1495). 'litige_gagne'
+ *       = dispute GAGNÉE = argent CONSERVÉ → exclu ici PAR PRUDENCE. À CONFIRMER (Bou) : si les
+ *       litiges gagnés doivent compter dans le CA, déplacer 'litige_gagne' vers VALID_STATUSES.
  *
  *   Montant net:
  *     - 'rembours_partiel' → amount_total - refund_amount (clamp à 0)
@@ -43,7 +52,7 @@ export const VALID_STATUSES = [
 ];
 
 // Statuts paiement qui EXCLUENT du CA.
-const EXCLUDED_STATUSES = ["remboursee", "annulee", "echec_paiement"];
+const EXCLUDED_STATUSES = ["remboursee", "annulee", "echec_paiement", "litige", "litige_gagne"];
 
 /**
  * Renvoie true si la commande compte dans le CA.

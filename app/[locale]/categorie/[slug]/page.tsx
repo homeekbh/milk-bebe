@@ -52,6 +52,20 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
   },
 };
 
+// Sous-titres localisés (le H1 EN vit déjà dans CATEGORY_SEO ; le sous-titre, non).
+const CATEGORY_SUBTITLE: Record<string, { fr: string; en: string }> = {
+  bodies:      { fr: "L'essentiel du quotidien en bambou certifié OEKO-TEX — 0 à 6 mois", en: "Everyday essentials in OEKO-TEX certified bamboo — 0 to 6 months" },
+  pyjamas:     { fr: "Pour des nuits sereines — bambou thermorégulateur certifié OEKO-TEX", en: "For peaceful nights — temperature-regulating OEKO-TEX bamboo" },
+  gigoteuses:  { fr: "Sommeil sécurisé toute la nuit — bambou OEKO-TEX", en: "Safe sleep all night long — OEKO-TEX certified bamboo" },
+  accessoires: { fr: "Les détails qui changent tout — bambou premium OEKO-TEX", en: "The little details that make all the difference — premium OEKO-TEX bamboo" },
+  langes:      { fr: "L'emmaillotage qui calme bébé en quelques minutes — bambou OEKO-TEX", en: "Swaddling that soothes baby in minutes — OEKO-TEX bamboo" },
+};
+function getCategorySubtitle(slug: string, locale: string): string {
+  const s = CATEGORY_SUBTITLE[slug];
+  if (s) return locale === "en" ? s.en : s.fr;
+  return locale === "en" ? "Baby essentials in OEKO-TEX certified bamboo." : "Essentiels bébé en bambou certifié OEKO-TEX.";
+}
+
 type Props = { params: Promise<{ locale: string; slug: string }> };
 
 function getMeta(slug: string) {
@@ -222,6 +236,12 @@ export default async function CategoriePage({ params }: Props) {
   if (!hasCategory) notFound();
 
   const meta = getMeta(slug);
+  // Affichage LOCALISÉ (H1 + sous-titre + fil d'ariane) : évite le rendu FR sur /en (le H1 EN
+  // existe déjà dans CATEGORY_SEO ; sous-titre via CATEGORY_SUBTITLE).
+  const catH1         = getCategoryMeta(slug, locale).h1;
+  const catSub        = getCategorySubtitle(slug, locale);
+  const homeLabel     = locale === "en" ? "Home" : "Accueil";
+  const productsLabel = locale === "en" ? "Products" : "Produits";
   const url  = `${BASE}/${locale}/categorie/${slug}`;
 
   // Produits de cette catégorie pour ItemList
@@ -250,9 +270,9 @@ export default async function CategoriePage({ params }: Props) {
     "@context": "https://schema.org",
     "@type":    "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Accueil",   item: `${BASE}/${locale}` },
-      { "@type": "ListItem", position: 2, name: "Produits",  item: `${BASE}/${locale}/produits` },
-      { "@type": "ListItem", position: 3, name: meta.title,  item: url },
+      { "@type": "ListItem", position: 1, name: homeLabel,     item: `${BASE}/${locale}` },
+      { "@type": "ListItem", position: 2, name: productsLabel, item: `${BASE}/${locale}/produits` },
+      { "@type": "ListItem", position: 3, name: catH1,         item: url },
     ],
   };
 
@@ -327,7 +347,7 @@ export default async function CategoriePage({ params }: Props) {
     <>
       <JsonLd data={[collectionLd, breadcrumbLd, ...ratingNodes]} />
       <ViewItemListTracker
-        listName={meta.title}
+        listName={catH1}
         items={inCat.map(p => ({
           id:       String(p.id),
           name:     p.name,
@@ -340,16 +360,16 @@ export default async function CategoriePage({ params }: Props) {
         <Breadcrumb
           variant="dark"
           items={[
-            { label: "Accueil",  href: "/" },
-            { label: "Produits", href: "/produits" },
-            { label: meta.title },
+            { label: homeLabel,     href: "/" },
+            { label: productsLabel, href: "/produits" },
+            { label: catH1 },
           ]}
         />
       </div>
       <ProduitsGrid
         products={products}
-        title={meta.title}
-        subtitle={meta.subtitle}
+        title={catH1}
+        subtitle={catSub}
         defaultCategory={slug}
       />
       <CategorySeoContent slug={slug} />

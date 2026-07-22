@@ -2,15 +2,20 @@ import Stripe from "stripe";
 import { headers } from "next/headers";
 import { supabaseServer } from "@/lib/server/supabase";
 import { Resend } from "resend";
+import { escapeHtml } from "@/lib/escape-html";
 import { logActivity } from "@/lib/server/audit";
 import { decideRewardOnRefund } from "@/lib/parrainage-refund";
-import { getParrainageSettings } from "@/lib/parrainage-server";
+import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
 });
 const resend  = new Resend(process.env.RESEND_API_KEY);
 const BASE    = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+
+// Le webhook enchaîne plusieurs écritures DB + emails (best-effort) : fenêtre d'exécution élargie
+// pour éviter un timeout à mi-parcours (Stripe rejouerait sinon l'événement).
+export const maxDuration = 60;
 
 const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_1,
@@ -34,6 +39,44 @@ function extractTailleFromName(name: string): string | null {
   ];
   if (taillePatterns.some(p => p.test(last))) return last;
   return null;
+}
+
+// Attribution du numéro de FACTURE séquentiel (franchise 293 B — aucune TVA). Format
+// MILK-<année>-<n padé 6>. IDEMPOTENT : n'attribue QUE si absent (rejeu Stripe → déjà présent →
+// skip), + garde .is("invoice_number", null) contre la concurrence. Le numéro est FIGÉ à la 1re
+// émission. NE BLOQUE JAMAIS la commande : tant que la table facture_seq / la RPC
+// next_facture_number / la colonne orders.invoice_number ne sont pas en base (SQL à appliquer par
+// Bou — cf. rapport), l'attribution échoue GRACIEUSEMENT → log + alerte admin best-effort (esprit B2),
+// le paiement/la commande priment. S'active dès le SQL appliqué.
+async function assignInvoiceNumber(orderId: string, existingInvoiceNumber: string | null | undefined): Promise<void> {
+  if (existingInvoiceNumber) return; // déjà attribué → figé, on ne touche plus
+  try {
+    const year = new Date().getFullYear();
+    const { data: seq, error: seqErr } = await supabaseServer.rpc("next_facture_number", { p_year: year });
+    if (seqErr) throw seqErr;
+    const n = Number(seq);
+    if (!Number.isFinite(n) || n <= 0) throw new Error(`séquence invalide: ${String(seq)}`);
+    const invoiceNumber = `MILK-${year}-${String(n).padStart(6, "0")}`;
+    const { error: updErr } = await supabaseServer
+      .from("orders")
+      .update({ invoice_number: invoiceNumber })
+      .eq("id", orderId)
+      .is("invoice_number", null)  // garde concurrence : n'écrit que si toujours vide
+      .select("id").maybeSingle();
+    if (updErr) throw updErr;
+  } catch (e: any) {
+    console.error(`[webhook] attribution n° facture échouée pour ${orderId}:`, e?.message);
+    try {
+      if (ADMIN_EMAILS.length > 0) {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `⚠️ N° de facture non attribué — commande #${orderId.slice(0, 8).toUpperCase()}`,
+          html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Numéro de facture non attribué</h2><p>La commande <strong>#${escapeHtml(orderId)}</strong> a bien été payée et enregistrée, mais l'attribution du numéro de facture séquentiel a échoué : <strong>${escapeHtml(e?.message ?? "erreur inconnue")}</strong>.</p><p>Vérifier que la table <code>facture_seq</code>, la RPC <code>next_facture_number</code> et la colonne <code>orders.invoice_number</code> existent (cf. rapport). À régulariser ensuite dans l'admin « Factures ».</p></div>`,
+        });
+      }
+    } catch {}
+  }
 }
 
 // ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
@@ -105,8 +148,30 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
     .select().single();
 
-  if (orderErr) {
-    process.env.NODE_ENV !== "production" && console.error("❌ Pack order upsert:", orderErr.message);
+  // ── B2 (chemin PACK) : commande NON écrite → alerte admin best-effort + throw → 500 →
+  //    rejeu Stripe. Sans ce garde, le dispatcher renvoie 200 → Stripe ne rejoue pas →
+  //    coffret payé perdu en silence (les effets de bord sont déjà gardés par orderData?.id).
+  if (orderErr || !orderData?.id) {
+    try {
+      if (ADMIN_EMAILS.length > 0) {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `🚨 Coffret payé NON enregistré — session ${session.id.slice(0, 24)}`,
+          html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Coffret payé non enregistré</h2><p>L'écriture <code>orders</code> a échoué pour la session Stripe <strong>${escapeHtml(session.id)}</strong>.</p><p>Erreur : <strong>${escapeHtml(orderErr?.message ?? "aucune ligne retournée (orderData vide)")}</strong></p><p>⚠️ Le client a potentiellement été débité. Stripe rejoue l'événement ; si la commande n'apparaît pas dans l'admin, vérifier côté Stripe et rembourser / recréer si besoin.</p></div>`,
+        });
+      }
+    } catch (alertErr: any) {
+      console.error("[webhook] alerte admin « coffret non enregistré » échouée:", alertErr?.message);
+    }
+    throw new Error(`[webhook] upsert orders (pack) échoué (session ${session.id}) — 500 pour forcer le rejeu Stripe`);
+  }
+
+  // Persistance payment_intent_id (lookups charge.refunded / payment_failed). Best-effort.
+  const packPaymentIntentId = typeof (session as any).payment_intent === "string"
+    ? (session as any).payment_intent : (session as any).payment_intent?.id ?? null;
+  if (packPaymentIntentId) {
+    try { await supabaseServer.from("orders").update({ stripe_payment_intent_id: packPaymentIntentId }).eq("id", orderData.id); } catch {}
   }
 
   // 2) Claim atomique : le premier webhook bascule webhook_processed false→true
@@ -127,20 +192,49 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
 
   // 3) Effets de bord EXACTEMENT-UNE-FOIS par commande.
   if (isFirstProcessing) {
-    // Décrément stock atomique par produit (avec fallback non-atomique).
+    // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
+    await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
+    // Décrément stock atomique par produit (avec fallback non-atomique). Survente : on
+    // collecte les ruptures (RPC error → fallback + détection ; RPC ok=false → stock insuffisant)
+    // puis on alerte l'admin — COMME le chemin unifié. Sans ça, un refus RPC sur le dernier
+    // exemplaire d'une pièce de coffret passait en silence (course → 2 paiements, 1 non honoré).
+    const stockIssues: Array<{ name: string; size?: string; available: number; error?: string }> = [];
     for (const pid of productIds) {
       const pSize = sizeFor(pid);
-      const { error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
+      const pName = prodMap[pid]?.name ?? "Produit";
+      const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
         p_product_id: pid, p_quantity: 1, p_size: pSize,
       });
       if (rpcErr) {
         const { data: fp } = await supabaseServer.from("products").select("id, stock, sizes_stock").eq("id", pid).single();
         if (fp) {
+          if ((fp.stock ?? 0) < 1) stockIssues.push({ name: pName, size: pSize ?? undefined, available: fp.stock ?? 0 });
           const upd: any = { stock: Math.max(0, (fp.stock ?? 0) - 1) };
-          if (pSize) { const ss = fp.sizes_stock ?? {}; upd.sizes_stock = { ...ss, [pSize]: Math.max(0, (ss[pSize] ?? 0) - 1) }; }
+          if (pSize) {
+            const ss = fp.sizes_stock ?? {};
+            if ((ss[pSize] ?? 0) < 1) stockIssues.push({ name: pName, size: pSize, available: ss[pSize] ?? 0 });
+            upd.sizes_stock = { ...ss, [pSize]: Math.max(0, (ss[pSize] ?? 0) - 1) };
+          }
           await supabaseServer.from("products").update(upd).eq("id", pid);
+        } else {
+          stockIssues.push({ name: pName, size: pSize ?? undefined, available: 0, error: "product_not_found" });
         }
+        continue;
       }
+      const result = rpcResult as any;
+      if (!result?.ok) stockIssues.push({ name: pName, size: pSize ?? undefined, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
+    }
+    // Rupture APRÈS paiement (coffret) → commande CONSERVÉE + alerte admin (pas de remboursement auto).
+    if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0) {
+      const issuesHtml = stockIssues.map(i => `<li><strong>${escapeHtml(i.name)}</strong>${i.size ? ` (taille ${escapeHtml(i.size)})` : ""} — dispo ${i.available}</li>`).join("");
+      try {
+        await resend.emails.send({
+          from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
+          subject: `⚠️ STOCK INSUFFISANT (coffret) — commande #${orderData.id.slice(0, 8).toUpperCase()}`,
+          html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant après paiement (coffret)</h2><p>Commande <strong>#${orderData.id.slice(0, 8).toUpperCase()}</strong> de <strong>${escapeHtml(name || email)}</strong> :</p><ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul><p>📦 Vérifier le stock réel avant expédition ; si rupture confirmée, alternative ou remboursement.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+        });
+      } catch {}
+      try { await logActivity("stock_alert", `Stock insuffisant (coffret) #${orderData.id.slice(0, 8).toUpperCase()} — ${stockIssues.length} item(s)`, { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }); } catch {}
     }
 
     if (email && orderData) {
@@ -148,7 +242,9 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
         await fetch(`${BASE}/api/emails/confirmation`, {
           method:  "POST",
           headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-          body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress }),
+          // A5 : les coffrets sont livrés à domicile (adresse collectée par Stripe) → renseigner le
+          // bloc livraison de l'email (sinon deliveryBlock vide → le client ne voit pas son adresse).
+          body:    JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: shippingAddress, delivery_type: shippingAddress ? "home" : null, home_address: shippingAddress }),
         });
       } catch {}
     }
@@ -159,7 +255,7 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
           from:    "M!LK <contact@milkbebe.fr>",
           to:      ADMIN_EMAILS,
           subject: `🎁 Nouveau pack vendu — ${amount.toFixed(2)} € — ${name || email}`,
-          html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${meta.pack_title ?? ""}</h2><p>${name || "Client"} — ${email}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+          html: `<div style="font-family:sans-serif;padding:24px;max-width:520px"><h2 style="margin:0 0 10px">🎁 Pack : ${escapeHtml(meta.pack_title ?? "")}</h2><p>${escapeHtml(name || "Client")} — ${escapeHtml(email)}</p><p>Taille : <strong>${size || "—"}</strong> · <strong>${amount.toFixed(2)} €</strong></p><ul style="line-height:1.6">${packProducts.map(p => `<li>${p.name}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
         });
       } catch {}
     }
@@ -247,7 +343,31 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     .select().single();
   if (orderErr) process.env.NODE_ENV !== "production" && console.error("[webhook] unified order upsert:", orderErr.message);
 
-  // Best-effort (colonnes optionnelles) : carrier + téléphone + pays/zone.
+  // ── B2 : commande NON écrite → ARRÊT AVANT tout effet de bord (claim / décrément / promo).
+  //    Avec ON CONFLICT DO UPDATE (.select().single()), orderData null ⟺ échec RÉEL d'écriture.
+  //    Un rejeu d'une commande DÉJÀ écrite renvoie la ligne (DO UPDATE) → orderData peuplé → on
+  //    ne passe PAS ici, et le claim plus bas verra le draft déjà "consumed" → 200 sans rien doubler.
+  //    Ici (échec réel) : alerte admin best-effort PUIS throw → catch global (≈L1026) → 500 → Stripe
+  //    rejoue, le draft reste "pending" pour un retraitement propre.
+  if (orderErr || !orderData?.id) {
+    try {
+      if (ADMIN_EMAILS.length > 0) {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `🚨 Commande NON enregistrée — session ${session.id.slice(0, 24)}`,
+          html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Commande payée non enregistrée</h2><p>L'écriture <code>orders</code> a échoué pour la session Stripe <strong>${escapeHtml(session.id)}</strong>.</p><p>Erreur : <strong>${escapeHtml(orderErr?.message ?? "aucune ligne retournée (orderData vide)")}</strong></p><p>⚠️ Le client a potentiellement été débité. Stripe rejoue l'événement automatiquement ; si la commande n'apparaît pas rapidement dans l'admin, vérifier côté Stripe (paiement de la session) et rembourser / recréer si besoin.</p></div>`,
+        });
+      }
+    } catch (alertErr: any) {
+      // Un échec d'alerte ne doit JAMAIS empêcher le rejeu : on logge et on throw quand même.
+      console.error("[webhook] alerte admin « commande non enregistrée » échouée:", alertErr?.message);
+    }
+    // Throw INCONDITIONNEL (hors du try ci-dessus) → 500 → rejeu Stripe, draft encore "pending".
+    throw new Error(`[webhook] upsert orders échoué (session ${session.id}) — 500 pour forcer le rejeu Stripe`);
+  }
+
+  // Best-effort (colonnes optionnelles) : carrier + téléphone (E.164, priorité tunnel FR) + pays/zone + poids + payment_intent.
   if (orderData?.id) {
     const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
@@ -283,6 +403,10 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     if (Number.isFinite(draftWeightG) && draftWeightG > 0) {
       try { await supabaseServer.from("orders").update({ total_weight_g: Math.round(draftWeightG) }).eq("id", orderData.id); } catch {}
     }
+    // payment_intent (main) : indispensable aux lookups charge.refunded / payment_failed (sinon fallback API fragile).
+    const uPaymentIntentId = typeof (session as any).payment_intent === "string"
+      ? (session as any).payment_intent : (session as any).payment_intent?.id ?? null;
+    if (uPaymentIntentId) { try { await supabaseServer.from("orders").update({ stripe_payment_intent_id: uPaymentIntentId }).eq("id", orderData.id); } catch {} }
   }
 
   // ── Claim ATOMIQUE du draft (pending→consumed) → effets de bord exactement-1×.
@@ -292,6 +416,9 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     .eq("id", pendingId).eq("status", "pending")
     .select("id").maybeSingle();
   if (!claimed) return; // déjà consommé (rejeu Stripe) → pas de double décrément
+
+  // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
+  if (orderData?.id) await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
 
   // ── PARRAINAGE — exactement 1× (protégé par le claim atomique ci-dessus) ──
   //    Rattachement filleul→parrain + création/consommation des récompenses
@@ -342,13 +469,14 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       }
     }
 
-    // Méca 2 : marquer les récompenses cochées « utilisée » (disponible→utilisee).
-    // Idempotent : le filtre status='disponible' ne matche rien en cas de rejeu.
+    // Méca 2 : marquer les récompenses « utilisée ». R2 : accepte "reservee" (réservée à
+    // create-session) ET "disponible" (drafts legacy pré-R2, ou fallback si le SQL n'est pas
+    // encore appliqué). Idempotent : au rejeu la récompense est déjà "utilisee" → 0 ligne matchée.
     const rewardIds: string[] = Array.isArray(pay.reward_ids) ? pay.reward_ids.map(String) : [];
     if (orderId && rewardIds.length > 0) {
       await supabaseServer.from("parrainage_recompenses")
         .update({ status: "utilisee", used_on_order_id: orderId })
-        .in("id", rewardIds).eq("status", "disponible");
+        .in("id", rewardIds).in("status", ["reservee", "disponible"]);
     }
   } catch (e: any) {
     process.env.NODE_ENV !== "production" && console.error("[webhook] parrainage:", e?.message);
@@ -422,11 +550,22 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
 
   // Email confirmation client + alerte admin nouvelle commande.
   if (email && orderData) {
+    // Bloc livraison de l'email (régression flux unifié) : le template ne lit QUE relay /
+    // home_address. On les passe donc, comme le fait le legacy. Mode relais → delivery.relay ;
+    // sinon (domicile FR OU international) → finalShippingAddress + delivery_type "home" pour
+    // que le template affiche l'adresse (FR : home_address du draft ; intl : adresse Stripe).
+    const confirmIsRelay = delivery.delivery_type === "point_relais" || delivery.delivery_type === "locker";
     try {
       await fetch(`${BASE}/api/emails/confirmation`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-internal-secret": process.env.INTERNAL_EMAIL_SECRET ?? "" },
-        body: JSON.stringify({ to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id, shipping_address: finalShippingAddress, promo_code: draft.promo_code ?? null, discount, delivery_type: delivery.delivery_type ?? null }),
+        body: JSON.stringify({
+          to: email, email, customer_name: name, items, amount_total: amount, order_id: orderData.id,
+          shipping_address: finalShippingAddress, promo_code: draft.promo_code ?? null, discount,
+          delivery_type: confirmIsRelay ? delivery.delivery_type : "home",
+          relay:         confirmIsRelay ? relay : null,
+          home_address:  confirmIsRelay ? null : finalShippingAddress,
+        }),
       });
     } catch {}
   }
@@ -435,7 +574,7 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       await resend.emails.send({
         from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
         subject: `🛒 Nouvelle commande — ${amount.toFixed(2)} € — ${name || email}`,
-        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="margin:0 0 10px">🛒 Commande ${amount.toFixed(2)} €</h2><p>${name || "Client"} — ${email}</p><ul style="line-height:1.6">${items.map((it: any) => `<li>${it.name}${it.taille ? ` (${it.taille})` : ""} ×${it.quantity}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="margin:0 0 10px">🛒 Commande ${amount.toFixed(2)} €</h2><p>${escapeHtml(name || "Client")} — ${escapeHtml(email)}</p><ul style="line-height:1.6">${items.map((it: any) => `<li>${escapeHtml(String(it.name ?? ""))}${it.taille ? ` (${escapeHtml(String(it.taille))})` : ""} ×${it.quantity}</li>`).join("")}</ul><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
       });
     } catch {}
   }
@@ -464,9 +603,12 @@ async function handleCheckoutExpired(session: Stripe.Checkout.Session) {
 
   if (pendingId) {
     const { data: draft } = await supabaseServer
-      .from("pending_orders").select("products, packs, status").eq("id", pendingId).maybeSingle();
+      .from("pending_orders").select("products, packs, status, parrainage").eq("id", pendingId).maybeSingle();
     // Draft déjà consommé = commande payée → ne PAS créer d'abandon (double sécurité).
     if (draft?.status === "consumed") return;
+    // R2 : session expirée/abandonnée → libérer les récompenses réservées (reservee→disponible).
+    const expiredRewardIds: string[] = Array.isArray((draft?.parrainage as any)?.reward_ids) ? (draft!.parrainage as any).reward_ids.map(String) : [];
+    if (expiredRewardIds.length) await releaseRewards(expiredRewardIds);
     const products: any[] = Array.isArray(draft?.products) ? draft!.products : [];
     const packs:    any[] = Array.isArray(draft?.packs)    ? draft!.packs    : [];
     items = [
@@ -553,6 +695,28 @@ async function findOrderByPaymentIntent(piId: string | null): Promise<any | null
   return null;
 }
 
+// Échec d'une écriture de reversal parrainage (annulation OU mise en révision) → rendu VISIBLE,
+// jamais silencieux. Log non gaté (visible en prod) + alerte admin best-effort (même esprit que le
+// garde B2). NE throw PAS : le traitement du remboursement/litige lui-même ne doit pas être bloqué
+// par l'échec d'une écriture de récompense.
+async function reportRewardReversalFailure(opts: {
+  rewardId: string; orderId: string; parrainId: string | null; montant: any; kind: string; error: string;
+}): Promise<void> {
+  console.error(`[reverseReferralRewards] échec ${opts.kind} récompense ${opts.rewardId} (commande filleul ${opts.orderId}) : ${opts.error}`);
+  try {
+    if (ADMIN_EMAILS.length > 0) {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `⚠️ Reversal récompense parrain ÉCHOUÉ — récompense ${opts.rewardId.slice(0, 8)}`,
+        html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Reversal parrainage échoué (${escapeHtml(opts.kind)})</h2><p>La mise à jour de la récompense <strong>${escapeHtml(opts.rewardId)}</strong> (parrain <strong>${escapeHtml(String(opts.parrainId ?? "?"))}</strong>, ${(Number(opts.montant) || 0).toFixed(2)} €), suite au remboursement/litige de la commande filleul <strong>${escapeHtml(opts.orderId)}</strong>, a échoué.</p><p>Erreur : <strong>${escapeHtml(opts.error)}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">⚠️ Le remboursement/litige a bien été traité, mais la récompense parrain n'a PAS été annulée/flaggée. À corriger manuellement dans l'admin.</p></div>`,
+      });
+    }
+  } catch (alertErr: any) {
+    console.error("[reverseReferralRewards] alerte admin « reversal échoué » elle-même en échec :", alertErr?.message);
+  }
+}
+
 // Anti-abus parrainage (étape 22) : quand une commande FILLEUL est remboursée
 // (refund total/partiel) ou que son litige est PERDU, on applique decideRewardOnRefund
 // à chaque récompense parrain générée par cette commande. Idempotent : les filtres
@@ -569,12 +733,17 @@ async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): 
       if (action === "noop") continue;
 
       if (action === "cancel") {
-        const { data: done } = await supabaseServer
+        const { data: done, error: cancelErr } = await supabaseServer
           .from("parrainage_recompenses")
           .update({ status: "annulee", annulee_at: new Date().toISOString(), annulation_reason: reason })
           .eq("id", rew.id).eq("status", "disponible")
           .select("id").maybeSingle();
-        if (done) {
+        if (cancelErr) {
+          // Échec RÉEL (contrainte manquante, réseau) → visible + alerte admin. NB : 0 ligne
+          // matchée (récompense plus 'disponible') n'est PAS une erreur (cancelErr null) →
+          // no-op idempotent normal, pas d'alerte.
+          await reportRewardReversalFailure({ rewardId: rew.id, orderId, parrainId: rew.parrain_id, montant: rew.montant, kind: "annulation", error: cancelErr.message });
+        } else if (done) {
           await logActivity(
             "parrain_recompense_annulee",
             `Récompense parrain annulée (commande filleul remboursée) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
@@ -584,12 +753,14 @@ async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): 
       } else {
         // flag_review : cas ambigu (remboursement partiel) ou déjà utilisée →
         // révision humaine, jamais d'annulation/clawback auto.
-        const { data: done } = await supabaseServer
+        const { data: done, error: flagErr } = await supabaseServer
           .from("parrainage_recompenses")
           .update({ annulation_en_attente: true, annulation_reason: reason })
           .eq("id", rew.id).eq("annulation_en_attente", false)
           .select("id").maybeSingle();
-        if (done) {
+        if (flagErr) {
+          await reportRewardReversalFailure({ rewardId: rew.id, orderId, parrainId: rew.parrain_id, montant: rew.montant, kind: "mise_en_revision", error: flagErr.message });
+        } else if (done) {
           await logActivity(
             "parrain_recompense_a_verifier",
             `Récompense parrain à vérifier (${reason}) — ${(Number(rew.montant) || 0).toFixed(2)} €`,
@@ -599,7 +770,9 @@ async function reverseReferralRewards(orderId: string, isTotalRefund: boolean): 
       }
     }
   } catch (rewErr: any) {
-    process.env.NODE_ENV !== "production" && console.error("[reverseReferralRewards]", rewErr?.message);
+    // Exception inattendue (ex. SELECT initial, logActivity) → visible en prod aussi (plus de gate
+    // NODE_ENV) : un reversal parrainage raté doit toujours laisser une trace.
+    console.error("[reverseReferralRewards]", rewErr?.message);
   }
 }
 
@@ -933,7 +1106,7 @@ export async function POST(req: Request) {
               html: `
                 <div style="font-family:sans-serif;padding:24px;max-width:560px">
                   <h2 style="color:#b91c1c;margin:0 0 12px">Stock insuffisant détecté</h2>
-                  <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${name || email}</strong> :</p>
+                  <p>Commande <strong>#${orderData.id.slice(0,8).toUpperCase()}</strong> de <strong>${escapeHtml(name || email)}</strong> :</p>
                   <ul style="background:#fee2e2;padding:14px 24px;border-radius:8px;color:#991b1b;line-height:1.6">${issuesHtml}</ul>
                   <p>📦 <strong>Action requise :</strong> vérifier le stock réel avant expédition. Si rupture confirmée, proposer alternative ou remboursement partiel/total.</p>
                   <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">
@@ -1033,9 +1206,9 @@ export async function POST(req: Request) {
                       <span style="color:#1a1410;font-weight:950;font-size:20px">M!LK — Nouvelle commande</span>
                     </div>
                     <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
-                      <div style="font-size:15px;font-weight:800;color:#f2ede6">${name || "Client"}</div>
-                      <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${email}</div>
-                      ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${shippingAddress.line1}, ${shippingAddress.city} ${shippingAddress.postal_code}</div>` : ""}
+                      <div style="font-size:15px;font-weight:800;color:#f2ede6">${escapeHtml(name || "Client")}</div>
+                      <div style="font-size:13px;color:rgba(242,237,230,0.5);margin-top:3px">${escapeHtml(email)}</div>
+                      ${shippingAddress ? `<div style="font-size:12px;color:rgba(242,237,230,0.4);margin-top:8px">${escapeHtml(String(shippingAddress.line1 ?? ""))}, ${escapeHtml(String(shippingAddress.city ?? ""))} ${escapeHtml(String(shippingAddress.postal_code ?? ""))}</div>` : ""}
                     </div>
                     <div style="background:#2a2018;border-radius:14px;padding:20px;margin-bottom:14px">
                       ${itemsHtml}
@@ -1134,7 +1307,7 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ payment_intent.payment_failed handler:", err.message);
+      console.error("❌ payment_intent.payment_failed handler:", err.message); // non gaté : perte d'état argent doit être visible en prod
       // On ne return pas 500 — l'événement est ack
     }
   }
@@ -1256,7 +1429,7 @@ export async function POST(req: Request) {
         await reverseReferralRewards(order.id, isTotalRefund);
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ charge.refunded handler:", err.message);
+      console.error("❌ charge.refunded handler:", err.message); // non gaté : perte d'état remboursement doit être visible en prod
     }
   }
 
@@ -1299,7 +1472,7 @@ export async function POST(req: Request) {
               from:    "M!LK <contact@milkbebe.fr>",
               to:      ADMIN_EMAILS,
               subject: `⚠️ Litige/chargeback — commande #${numero} — ${amount.toFixed(2)} €`,
-              html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Litige ouvert (chargeback)</h2><p>Commande <strong>#${numero}</strong> — <strong>${order.customer_email ?? "?"}</strong></p><p>Montant contesté : <strong>${amount.toFixed(2)} €</strong><br>Motif Stripe : <strong>${dispute.reason ?? "—"}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">Aucune action automatique (stock/parrainage) n'a été prise. À traiter dans Stripe <strong>avant la date limite de réponse</strong>.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+              html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Litige ouvert (chargeback)</h2><p>Commande <strong>#${numero}</strong> — <strong>${escapeHtml(String(order.customer_email ?? "?"))}</strong></p><p>Montant contesté : <strong>${amount.toFixed(2)} €</strong><br>Motif Stripe : <strong>${escapeHtml(String(dispute.reason ?? "—"))}</strong></p><p style="background:#fee2e2;padding:12px;border-radius:8px;color:#991b1b">Aucune action automatique (stock/parrainage) n'a été prise. À traiter dans Stripe <strong>avant la date limite de réponse</strong>.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:10px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
             });
           } catch (e) {
             process.env.NODE_ENV !== "production" && console.error("[charge.dispute.created] admin alert email:", e);
@@ -1313,7 +1486,7 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ charge.dispute.created handler:", err.message);
+      console.error("❌ charge.dispute.created handler:", err.message); // non gaté : perte d'état litige doit être visible en prod
     }
   }
 
@@ -1373,7 +1546,7 @@ export async function POST(req: Request) {
         );
       }
     } catch (err: any) {
-      process.env.NODE_ENV !== "production" && console.error("❌ charge.dispute.closed handler:", err.message);
+      console.error("❌ charge.dispute.closed handler:", err.message); // non gaté : perte d'état litige doit être visible en prod
     }
   }
 
@@ -1386,7 +1559,7 @@ export async function POST(req: Request) {
       await handleCheckoutExpired(session);
     } catch (err: any) {
       // On ne renvoie pas 500 — l'événement est ack (évite les retries Stripe inutiles).
-      process.env.NODE_ENV !== "production" && console.error("❌ checkout.session.expired handler:", err.message);
+      console.error("❌ checkout.session.expired handler:", err.message); // non gaté : échec de relance doit être visible en prod
     }
   }
 

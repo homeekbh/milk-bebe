@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { logActivity }    from "@/lib/server/audit";
+import { escapeHtml }     from "@/lib/escape-html";
 import { Resend }         from "resend";
 import type { NextRequest } from "next/server";
 
@@ -97,11 +98,11 @@ export async function POST(req: NextRequest) {
       // (order_number = order.id.slice(0,30)), donc un .eq("id", orderNumber)
       // ne matche PAS l'UUID complet (36 car.). Le tracking_number, lui, est
       // stocké tel quel et identique au payload Sendcloud.
-      let order: { id: string; customer_email: string | null; customer_name: string | null; shipping_status: string } | null = null;
+      let order: { id: string; customer_email: string | null; customer_name: string | null; shipping_status: string; status: string | null } | null = null;
       if (trackingNumber) {
         const { data } = await supabaseServer
           .from("orders")
-          .select("id, customer_email, customer_name, shipping_status")
+          .select("id, customer_email, customer_name, shipping_status, status")
           .eq("tracking_number", trackingNumber)
           .limit(1);
         order = data?.[0] ?? null;
@@ -109,12 +110,21 @@ export async function POST(req: NextRequest) {
       if (!order && orderNumber) {
         const { data } = await supabaseServer
           .from("orders")
-          .select("id, customer_email, customer_name, shipping_status")
+          .select("id, customer_email, customer_name, shipping_status, status")
           .eq("id", orderNumber)
           .limit(1);
         order = data?.[0] ?? null;
       }
       if (!order) continue;
+
+      // États TERMINAUX : une commande remboursée / annulée / retournée ne doit JAMAIS repasser à
+      // un statut d'acheminement (ex. scan transporteur « livré » tardif APRÈS un remboursement →
+      // sinon shipping_status repasse « livree », delivered_at posé, email « colis livré » erroné).
+      const payStatus = String(order.status ?? "").toLowerCase();
+      if (["remboursee", "annulee", "echec_paiement"].includes(payStatus)
+          || order.shipping_status === "annulee" || order.shipping_status === "retour") {
+        continue;
+      }
 
       // Ne pas rétrograder un statut (ex: livré → expédié)
       const RANK: Record<string, number> = { en_preparation: 0, label_created: 0, expediee: 1, livree: 2, retour: 3 };
@@ -122,10 +132,16 @@ export async function POST(req: NextRequest) {
 
       // Mettre à jour le statut
       const oldStatus = order.shipping_status;
-      await supabaseServer
+      const { error: statusErr } = await supabaseServer
         .from("orders")
         .update({ shipping_status: newStatus })
         .eq("id", order.id);
+      if (statusErr) {
+        // La transition n'a PAS été persistée : NE PAS logguer « transition OK » ni envoyer
+        // l'email « livré » (la commande n'avancerait pas côté base). On signale et on passe.
+        console.error(`[sendcloud-webhook] échec update shipping_status #${String(order.id).slice(0, 8)} → ${newStatus}:`, statusErr.message);
+        continue;
+      }
 
       // delivered_at : best-effort (la colonne existe — migration 001 — mais on
       // protège le statut critique en isolant cet update secondaire).
@@ -171,8 +187,8 @@ export async function POST(req: NextRequest) {
             <div style="font-family:sans-serif;padding:24px;max-width:500px">
               <h2 style="color:#1a1410">Colis livré ✅</h2>
               <p>La commande <strong>#${shortId}</strong>
-              de <strong>${order.customer_name}</strong> a été livrée.</p>
-              <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
+              de <strong>${escapeHtml(String(order.customer_name ?? ""))}</strong> a été livrée.</p>
+              <p>Numéro de suivi : <strong>${escapeHtml(String(trackingNumber ?? "—"))}</strong></p>
               <a href="${baseUrl}/admin/commandes"
                 style="display:inline-block;margin-top:16px;padding:12px 24px;background:#c49a4a;color:#1a1410;font-weight:900;text-decoration:none;border-radius:10px">
                 Voir dans l'admin →
@@ -196,8 +212,8 @@ export async function POST(req: NextRequest) {
             <div style="font-family:sans-serif;padding:24px;max-width:500px">
               <h2 style="color:#b91c1c">Retour reçu ↩️</h2>
               <p>Un retour a été détecté pour la commande <strong>#${order.id.slice(0, 8).toUpperCase()}</strong> 
-              de <strong>${order.customer_name}</strong>.</p>
-              <p>Numéro de suivi : <strong>${trackingNumber ?? "—"}</strong></p>
+              de <strong>${escapeHtml(String(order.customer_name ?? ""))}</strong>.</p>
+              <p>Numéro de suivi : <strong>${escapeHtml(String(trackingNumber ?? "—"))}</strong></p>
               <a href="${process.env.NEXT_PUBLIC_BASE_URL}/admin/commandes"
                 style="display:inline-block;margin-top:16px;padding:12px 24px;background:#1a1410;color:#f2ede6;font-weight:900;text-decoration:none;border-radius:10px">
                 Voir dans l'admin →

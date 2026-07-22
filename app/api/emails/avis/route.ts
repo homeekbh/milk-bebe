@@ -6,12 +6,15 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
 export const dynamic = "force-dynamic";
+// Boucle d'envoi (1 email/commande éligible) : fenêtre élargie pour ne pas timeouter à mi-liste.
+export const maxDuration = 60;
 
 // Cron J+7 — demande d'avis post-achat
 // À ajouter dans vercel.json : { "path": "/api/emails/avis", "schedule": "0 10 * * *" }
 export async function GET(req: Request) {
   const auth = (req as any).headers?.get?.("authorization");
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  // Fail-closed : un CRON_SECRET absent/vide rejette TOUT (sinon « Bearer undefined » serait devinable).
+  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
     return Response.json({ error: "Non autorisé" }, { status: 401 });
   }
 
@@ -38,7 +41,7 @@ export async function GET(req: Request) {
   // Ne pas spammer ces destinataires avec une demande d'avis. Le cron
   // taille-suivante (J+45/J+75) reste actif pour ces commandes — elles
   // représentent une vraie opportunité de vente.
-  const { data: orders } = await supabaseServer
+  const { data: orders, error: ordersErr } = await supabaseServer
     .from("orders")
     .select("id, customer_email, customer_name, items, delivered_at")
     .eq("shipping_status", "livree")
@@ -51,6 +54,12 @@ export async function GET(req: Request) {
     .gte("delivered_at", j7min.toISOString())
     .lte("delivered_at", j7max.toISOString());
 
+  // Erreur DB → NE PAS la masquer en « sent: 0 » (un 0 fait croire au cron qu'il n'y avait rien
+  // à envoyer, alors que des clientes attendent leur demande d'avis). On remonte l'échec.
+  if (ordersErr) {
+    console.error("[emails:avis] lecture commandes échouée:", ordersErr.message);
+    return Response.json({ error: ordersErr.message }, { status: 500 });
+  }
   if (!orders || orders.length === 0) {
     return Response.json({ ok: true, sent: 0 });
   }

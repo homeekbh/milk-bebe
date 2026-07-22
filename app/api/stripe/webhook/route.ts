@@ -474,13 +474,16 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     throw new Error(`[webhook] upsert orders échoué (session ${session.id}) — 500 pour forcer le rejeu Stripe`);
   }
 
+  // Signal international (country renseigné et ≠ FR). create-session écrit TOUJOURS delivery.country
+  // (défaut "FR" en métropole). Portée FONCTION : réutilisé pour le tél E.164, le garde pays/zone ET
+  // l'alerte B3 — car une commande FR point relais/locker n'a PAS de home_address non plus (elle a un
+  // relay), donc « !home_address » ne signifie PAS international.
+  const isIntl = !!delivery.country && String(delivery.country).trim().toUpperCase() !== "FR";
+
   // Best-effort (colonnes optionnelles) : carrier + téléphone (E.164, priorité tunnel FR) + pays/zone + poids + payment_intent.
   if (orderData?.id) {
     const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
-    // Signal international (réutilisé pour le tél E.164 ET le garde pays/zone ci-dessous) : country
-    // renseigné et ≠ FR. create-session écrit toujours delivery.country (défaut "FR" en métropole).
-    const isIntl = !!delivery.country && String(delivery.country).trim().toUpperCase() !== "FR";
     // Téléphone (colonne orders.customer_phone, lue par create-label) : PRIORITÉ au tél saisi dans le
     // tunnel FRANCE (delivery.customer_phone). Sinon, à l'international, Stripe l'a collecté en E.164
     // via phone_number_collection → session.customer_details.phone. AUCUN faux numéro.
@@ -539,11 +542,13 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
   if (orderData?.id) await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
 
-  // B3 — INTERNATIONAL uniquement (pas d'adresse tunnel = pas de delivery.home_address) : l'adresse
-  // vient de Stripe. Si elle est absente/incomplète (ou repli facturation), NE PAS laisser partir une
-  // étiquette FedEx à la mauvaise adresse en silence → log visible + alerte admin best-effort. Après
-  // le claim atomique (return si rejeu) → l'alerte ne part qu'à la 1re émission, jamais au rejeu.
-  if (!delivery.home_address) {
+  // B3 — INTERNATIONAL uniquement (isIntl = pays ≠ FR) : l'adresse vient de Stripe (collected_information),
+  // pas du tunnel. Si elle est absente/incomplète (ou repli facturation), NE PAS laisser partir une
+  // étiquette FedEx à la mauvaise adresse en silence → log visible + alerte admin best-effort. Après le
+  // claim atomique (return si rejeu) → l'alerte ne part qu'à la 1re émission, jamais au rejeu.
+  // ⚠️ Garde sur isIntl et NON sur !delivery.home_address : une commande FR point relais/locker n'a pas
+  //    non plus de home_address (elle a un relay) → l'ancien garde alertait à tort CHAQUE relais FR.
+  if (isIntl) {
     const usedBilling = !collectedShip.address && !!session.customer_details?.address;
     if (usedBilling || !isShippingAddressComplete(finalShippingAddress)) {
       await alertIncompleteShipping(session, finalShippingAddress, "commande internationale");

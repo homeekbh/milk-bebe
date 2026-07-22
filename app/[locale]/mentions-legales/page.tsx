@@ -36,7 +36,7 @@ export default async function MentionsLegales() {
 SIREN : 104 298 260
 SIRET : 104 298 260 00019
 N° TVA intracommunautaire : FR49104298260
-TVA non applicable — article 293 B du CGI (franchise en base de TVA)
+TVA au taux normal de 20 % (assujetti à la TVA)
 Siège social : Menton (06500), France
 Email : contact@milkbebe.fr
 Design & développement : BHK — Design & Graphisme

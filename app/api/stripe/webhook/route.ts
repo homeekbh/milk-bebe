@@ -79,6 +79,47 @@ async function assignInvoiceNumber(orderId: string, existingInvoiceNumber: strin
   }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// B3 — Adresse de livraison COLLECTÉE par Stripe Checkout (shipping_address_collection).
+// ⚠️ API épinglée 2026-01-28.clover : le champ RÉEL est
+//    session.collected_information.shipping_details.{address,name}
+//    (cf. node_modules/stripe/types/Checkout/Sessions.d.ts:88 & 534-545).
+// L'ancien session.shipping_details top-level N'EXISTE PLUS sur cette version → le lire renvoyait
+// toujours undefined, d'où un repli SILENCIEUX sur l'adresse de FACTURATION (bug B3 : étiquette FedEx
+// internationale à la mauvaise adresse). On lit le champ réel en priorité, avec repli DÉFENSIF sur
+// l'ancien champ. PAS de repli facturation ici — l'appelant décide (et alerte à l'international).
+function getStripeCollectedShipping(session: Stripe.Checkout.Session): { address: Stripe.Address | null; name: string | null } {
+  const s = session as any;
+  const sd = s.collected_information?.shipping_details ?? s.shipping_details ?? null;
+  return { address: sd?.address ?? null, name: sd?.name ?? null };
+}
+
+/** Champs minimaux requis pour une étiquette d'expédition fiable (surtout à l'international). */
+function isShippingAddressComplete(a: any): boolean {
+  return !!(a && a.line1 && a.city && a.postal_code && a.country);
+}
+
+/**
+ * B3 — Adresse retenue absente/incomplète (ou repli facturation) : ne JAMAIS expédier en silence à
+ * une mauvaise adresse. Log visible (prod) + alerte admin best-effort (esprit B2, mais SANS throw :
+ * la commande est déjà enregistrée, on ne bloque pas le paiement).
+ */
+async function alertIncompleteShipping(session: Stripe.Checkout.Session, resolved: any, context: string): Promise<void> {
+  console.error(`[webhook] B3 — adresse de livraison absente/incomplète (${context}, session ${session.id}) : collected_information.shipping_details manquant/partiel → étiquette NON fiable tant qu'un admin n'a pas vérifié.`);
+  try {
+    if (ADMIN_EMAILS.length > 0) {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `⚠️ Adresse de livraison à vérifier — session ${session.id.slice(0, 24)}`,
+        html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b45309;margin:0 0 12px">Adresse de livraison à vérifier avant expédition</h2><p>Session Stripe <strong>${escapeHtml(session.id)}</strong> — ${escapeHtml(context)}.</p><p>Aucune adresse de livraison Stripe complète (<code>collected_information.shipping_details</code>).</p><p>Adresse retenue : <code>${escapeHtml(JSON.stringify(resolved ?? null))}</code></p><p>⚠️ Vérifier / compléter l'adresse dans l'admin AVANT de générer l'étiquette d'expédition — ne pas expédier à l'adresse de facturation par erreur.</p></div>`,
+      });
+    }
+  } catch (alertErr: any) {
+    console.error("[webhook] alerte admin « adresse à vérifier » échouée:", alertErr?.message);
+  }
+}
+
 // ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
 // Branche séparée du flow commande normal : crée UNE commande (items = 1 ligne
 // pack + breakdown produits, pack_id renseigné) PUIS, une seule fois (claim
@@ -100,10 +141,12 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   const name   = session.customer_details?.name ?? "";
   const amount = (session.amount_total ?? 0) / 100;
 
-  const sAny = session as any;
-  const addr = sAny.shipping_details?.address ?? session.customer_details?.address ?? null;
+  // B3 : adresse RÉELLE collectée par Stripe (collected_information.shipping_details), repli
+  // facturation en dernier recours. Le coffret est expédiable FR/BE/CH/LU/MC → l'adresse compte.
+  const packShip = getStripeCollectedShipping(session);
+  const addr = packShip.address ?? session.customer_details?.address ?? null;
   const shippingAddress = addr ? {
-    name:        sAny.shipping_details?.name ?? name,
+    name:        packShip.name ?? name,
     line1:       addr.line1 ?? "", line2: addr.line2 ?? "",
     city:        addr.city ?? "", postal_code: addr.postal_code ?? "", country: addr.country ?? "FR",
   } : null;
@@ -194,6 +237,13 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   if (isFirstProcessing) {
     // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
     await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
+    // B3 — coffret expédiable à l'international (BE/CH/LU/MC) : si l'adresse Stripe collectée est
+    // absente/incomplète (repli facturation), alerter avant qu'une étiquette FedEx ne parte à la
+    // mauvaise adresse. Dans isFirstProcessing → 1×/commande, jamais au rejeu Stripe.
+    const packUsedBilling = !packShip.address && !!session.customer_details?.address;
+    if (packUsedBilling || !isShippingAddressComplete(shippingAddress)) {
+      await alertIncompleteShipping(session, shippingAddress, "coffret/pack (expédition FR/BE/CH/LU/MC)");
+    }
     // Décrément stock atomique par produit (avec fallback non-atomique). Survente : on
     // collecte les ruptures (RPC error → fallback + détection ; RPC ok=false → stock insuffisant)
     // puis on alerte l'admin — COMME le chemin unifié. Sans ça, un refus RPC sur le dernier
@@ -290,10 +340,13 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   const amount   = (session.amount_total ?? 0) / 100;
   const discount = ((session.total_details?.amount_discount ?? 0)) / 100;
 
-  const sAny = session as any;
-  const sAddr = sAny.shipping_details?.address ?? session.customer_details?.address ?? null;
+  // B3 : adresse RÉELLE collectée par Stripe (collected_information.shipping_details) pour
+  // l'international ; repli facturation en dernier recours (alerté plus bas). La FRANCE passe par
+  // delivery.home_address (tunnel) et n'est PAS affectée par ce changement.
+  const collectedShip = getStripeCollectedShipping(session);
+  const sAddr = collectedShip.address ?? session.customer_details?.address ?? null;
   const shippingFromStripe = sAddr ? {
-    name: sAny.shipping_details?.name ?? name,
+    name: collectedShip.name ?? name,
     line1: sAddr.line1 ?? "", line2: sAddr.line2 ?? "",
     city: sAddr.city ?? "", postal_code: sAddr.postal_code ?? "", country: sAddr.country ?? "FR",
   } : null;
@@ -419,6 +472,17 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
 
   // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
   if (orderData?.id) await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
+
+  // B3 — INTERNATIONAL uniquement (pas d'adresse tunnel = pas de delivery.home_address) : l'adresse
+  // vient de Stripe. Si elle est absente/incomplète (ou repli facturation), NE PAS laisser partir une
+  // étiquette FedEx à la mauvaise adresse en silence → log visible + alerte admin best-effort. Après
+  // le claim atomique (return si rejeu) → l'alerte ne part qu'à la 1re émission, jamais au rejeu.
+  if (!delivery.home_address) {
+    const usedBilling = !collectedShip.address && !!session.customer_details?.address;
+    if (usedBilling || !isShippingAddressComplete(finalShippingAddress)) {
+      await alertIncompleteShipping(session, finalShippingAddress, "commande internationale");
+    }
+  }
 
   // ── PARRAINAGE — exactement 1× (protégé par le claim atomique ci-dessus) ──
   //    Rattachement filleul→parrain + création/consommation des récompenses
@@ -856,9 +920,10 @@ export async function POST(req: Request) {
       const name      = session.customer_details?.name  ?? "";
       const amount    = (session.amount_total ?? 0) / 100;
 
-      const sessionAny   = session as any;
-      const shippingAddr = sessionAny.shipping_details?.address ?? session.customer_details?.address ?? null;
-      const shippingName = sessionAny.shipping_details?.name ?? name;
+      // B3 : champ RÉEL collected_information.shipping_details (repli facturation en dernier recours).
+      const legacyShip   = getStripeCollectedShipping(session);
+      const shippingAddr = legacyShip.address ?? session.customer_details?.address ?? null;
+      const shippingName = legacyShip.name ?? name;
       const shippingAddress = shippingAddr ? {
         name:        shippingName,
         line1:       shippingAddr.line1       ?? "",

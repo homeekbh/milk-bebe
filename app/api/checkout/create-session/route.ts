@@ -12,6 +12,7 @@ import {
   isFreeShippingEligibleZone,
   isDomTomPostalCode,
 } from "@/lib/delivery-config";
+import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
 import { computeParrainage } from "@/lib/parrainage";
@@ -46,20 +47,8 @@ function extractTailleFromName(name: string): string | null {
   return null;
 }
 
-// ── POIDS D'EXPÉDITION (bug #5) ───────────────────────────────────────────────
-// Emballage = forfait UNIQUE par commande (1 seul colis quelle que soit la quantité :
-// sachet, ou petit carton si beaucoup d'articles). DEFAULT = fallback si un produit
-// n'a pas encore de weight_g en base. Constantes + calcul au MÊME endroit.
-const PACKAGING_WEIGHT_G    = 250; // forfait emballage, 1× par commande
-const DEFAULT_ITEM_WEIGHT_G = 250; // par article sans poids renseigné
-
-// Poids net d'un produit (products.weight_g), avec fallback nommé + avertissement.
-function resolveItemWeightG(product: any): number {
-  const w = Number(product?.weight_g);
-  if (Number.isFinite(w) && w > 0) return w;
-  console.warn(`[create-session] poids weight_g manquant pour "${product?.name ?? product?.id ?? "?"}" → défaut ${DEFAULT_ITEM_WEIGHT_G} g`);
-  return DEFAULT_ITEM_WEIGHT_G;
-}
+// Poids d'expédition (bug #5) : constantes PACKAGING_WEIGHT_G / DEFAULT_ITEM_WEIGHT_G + resolveItemWeightG
+// déplacés dans lib/weight.ts — source UNIQUE partagée avec le webhook coffret (cf. import ci-dessus).
 
 // Lit le seuil livraison offerte depuis la table settings (default 60€).
 async function getFreeShippingThreshold(): Promise<number> {

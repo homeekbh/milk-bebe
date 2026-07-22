@@ -6,6 +6,8 @@ import { escapeHtml } from "@/lib/escape-html";
 import { logActivity } from "@/lib/server/audit";
 import { decideRewardOnRefund } from "@/lib/parrainage-refund";
 import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
+import { getZoneForCountry } from "@/lib/delivery-config";
+import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -172,10 +174,15 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   } : null;
 
   const { data: prods } = await supabaseServer
-    .from("products").select("id, name, slug")
+    .from("products").select("id, name, slug, weight_g")
     .in("id", productIds.length ? productIds : ["none"]);
   const prodMap: Record<string, any> = {};
   (prods ?? []).forEach((p: any) => { prodMap[p.id] = p; });
+
+  // Poids du coffret = Σ(poids net des composants) + emballage (250 g, 1×) — MÊME logique / MÊMES
+  // constantes que le chemin unifié (resolveItemWeightG + PACKAGING_WEIGHT_G, lib/weight.ts). Un
+  // coffret = 1 exemplaire de chaque composant (create-pack-session : un id par pack_item, qté 1).
+  const packWeightG = Math.round(productIds.reduce((sum: number, pid: string) => sum + resolveItemWeightG(prodMap[pid]), 0)) + PACKAGING_WEIGHT_G;
 
   const packProducts = productIds.map(pid => ({
     id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: sizeFor(pid),
@@ -235,6 +242,33 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     ? (session as any).payment_intent : (session as any).payment_intent?.id ?? null;
   if (packPaymentIntentId) {
     try { await supabaseServer.from("orders").update({ stripe_payment_intent_id: packPaymentIntentId }).eq("id", orderData.id); } catch {}
+  }
+
+  // Poids + pays/zone (PARITÉ avec handleUnifiedOrder) — best-effort, à chaque appel (idempotent), AVANT
+  // le claim. Sans ça, un coffret INTERNATIONAL serait bloqué à la génération d'étiquette (garde poids
+  // FedEx) ou routé en FR par défaut (pays/zone absents). Le pays vient de l'adresse Stripe collectée.
+  if (orderData?.id) {
+    // Poids réel du coffret : écrase le défaut DB (retiré par migration 022 → NULL sinon).
+    if (packWeightG > 0) {
+      try { await supabaseServer.from("orders").update({ total_weight_g: packWeightG }).eq("id", orderData.id); } catch {}
+    }
+    // Pays / zone : coffret expédiable FR/BE/CH/LU/MC (create-pack-session). Pays = adresse Stripe.
+    const packCountry = String(shippingAddress?.country ?? "").trim().toUpperCase();
+    const packZone    = packCountry ? getZoneForCountry(packCountry) : null;
+    const packIsIntl  = !!packCountry && packCountry !== "FR";
+    if (packCountry) {
+      try {
+        await supabaseServer.from("orders").update({
+          shipping_country: packCountry,
+          shipping_zone:    packZone ? String(packZone) : null,
+        }).eq("id", orderData.id);
+      } catch (zoneErr: any) {
+        if (packIsIntl) {
+          console.error(`[webhook] coffret INTERNATIONAL ${orderData.id} (${packCountry}) : échec écriture shipping_country/zone — risque de routage FR par défaut.`, zoneErr?.message);
+          await alertMissingIntlZone(session, orderData.id, { country: packCountry, shipping_zone: packZone });
+        }
+      }
+    }
   }
 
   // 2) Claim atomique : le premier webhook bascule webhook_processed false→true

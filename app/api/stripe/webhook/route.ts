@@ -8,6 +8,7 @@ import { decideRewardOnRefund } from "@/lib/parrainage-refund";
 import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
 import { getZoneForCountry } from "@/lib/delivery-config";
 import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
+import { ventilateTTC } from "@/lib/tva";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -142,6 +143,37 @@ async function alertMissingIntlZone(session: Stripe.Checkout.Session, orderId: s
   }
 }
 
+// Ventilation TVA (assujetti 20 %, TVA « en dedans ») FIGÉE sur la commande. Idempotent (mêmes valeurs à
+// chaque appel). Best-effort NON silencieux (esprit B2, SANS throw) : si l'écriture échoue (colonnes
+// montant_ht/montant_tva/taux_tva absentes tant que la migration 024 n'est pas appliquée, ou erreur DB)
+// → log visible + alerte admin best-effort. La ventilation reste recalculable à la volée (HT = TTC/1,20).
+async function writeTvaVentilation(session: Stripe.Checkout.Session, orderId: string, amountTTC: number): Promise<void> {
+  const { ht, tva, ratePct } = ventilateTTC(amountTTC);
+  let failMsg = "";
+  try {
+    const { error } = await supabaseServer.from("orders")
+      .update({ montant_ht: ht, montant_tva: tva, taux_tva: ratePct })
+      .eq("id", orderId);
+    if (!error) return;
+    failMsg = error.message;
+  } catch (e: any) {
+    failMsg = e?.message ?? "exception";
+  }
+  console.error(`[webhook] ventilation TVA NON écrite pour ${orderId} (TTC ${Number(amountTTC).toFixed(2)} → HT ${ht} / TVA ${tva}) : ${failMsg}. Vérifier orders.montant_ht/montant_tva/taux_tva (migration 024).`);
+  try {
+    if (ADMIN_EMAILS.length > 0) {
+      await resend.emails.send({
+        from:    "M!LK <contact@milkbebe.fr>",
+        to:      ADMIN_EMAILS,
+        subject: `⚠️ Ventilation TVA non enregistrée — commande #${orderId.slice(0, 8).toUpperCase()}`,
+        html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b45309;margin:0 0 12px">Ventilation TVA non écrite</h2><p>La commande <strong>#${escapeHtml(orderId)}</strong> (session ${escapeHtml(session.id)}) est payée, mais l'écriture de la ventilation TVA a échoué (HT ${ht} € / TVA ${tva} € / taux ${ratePct} %).</p><p>Cause probable : colonnes <code>montant_ht</code> / <code>montant_tva</code> / <code>taux_tva</code> absentes → appliquer la migration <code>024_orders_tva.sql</code>. La ventilation reste recalculable (HT = TTC / 1,20).</p></div>`,
+      });
+    }
+  } catch (alertErr: any) {
+    console.error("[webhook] alerte admin « ventilation TVA » échouée:", alertErr?.message);
+  }
+}
+
 // ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
 // Branche séparée du flow commande normal : crée UNE commande (items = 1 ligne
 // pack + breakdown produits, pack_id renseigné) PUIS, une seule fois (claim
@@ -269,6 +301,8 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
         }
       }
     }
+    // Ventilation TVA (assujetti 20 %, « en dedans ») — idempotent, best-effort non silencieux. amount = TTC.
+    await writeTvaVentilation(session, orderData.id, amount);
   }
 
   // 2) Claim atomique : le premier webhook bascule webhook_processed false→true
@@ -529,6 +563,8 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     const uPaymentIntentId = typeof (session as any).payment_intent === "string"
       ? (session as any).payment_intent : (session as any).payment_intent?.id ?? null;
     if (uPaymentIntentId) { try { await supabaseServer.from("orders").update({ stripe_payment_intent_id: uPaymentIntentId }).eq("id", orderData.id); } catch {} }
+    // Ventilation TVA (assujetti 20 %, « en dedans ») — idempotent, best-effort non silencieux. amount = TTC.
+    await writeTvaVentilation(session, orderData.id, amount);
   }
 
   // ── Claim ATOMIQUE du draft (pending→consumed) → effets de bord exactement-1×.

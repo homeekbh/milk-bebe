@@ -2,16 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-
-// Émetteur (franchise 293 B — AUCUNE TVA facturée). Coordonnées fournies par Bou.
-const EMETTEUR = {
-  brand:   "M!LK",
-  legal:   "EKBH — SASU",
-  address: "6 impasse des Cabrolles, 06500 Menton, France",
-  siren:   "104 298 260",
-  tva:     "FR49104298260",
-  email:   "contact@milkbebe.fr",
-};
+import { EMETTEUR } from "../emetteur";
 
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";

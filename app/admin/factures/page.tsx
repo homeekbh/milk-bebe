@@ -104,8 +104,13 @@ export default function AdminFactures() {
           </select>
           <button onClick={handleExport} disabled={exporting || factures.length === 0}
             style={{ padding: "11px 22px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, border: "none", cursor: exporting ? "wait" : "pointer", opacity: (exporting || factures.length === 0) ? 0.5 : 1 }}>
-            {exporting ? "..." : "⬇ Exporter le journal"}
+            {exporting ? "..." : "⬇ Exporter CSV"}
           </button>
+          {/* Journal imprimable / PDF — s'ouvre dans un nouvel onglet, filtre période CONSERVÉ (?year=…). */}
+          <Link href={`/admin/factures/journal?year=${year}`} target="_blank"
+            style={{ padding: "11px 22px", borderRadius: 10, background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 14, border: "1px solid rgba(0,0,0,0.15)", textDecoration: "none", ...(factures.length === 0 ? { opacity: 0.5, pointerEvents: "none" as const } : {}) }}>
+            🖨 Imprimer / PDF
+          </Link>
         </div>
       </div>
 

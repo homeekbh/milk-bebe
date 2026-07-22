@@ -437,6 +437,17 @@
     "oeko": "🌿 100% Bambou OEKO-TEX",
     "returns": "↩️ Retour sous 14 jours"
   },
+  "consent": {
+    "title": "Nous respectons votre vie privée",
+    "body": "Les cookies techniques (panier, connexion) sont toujours actifs. Avec votre accord, nous utilisons aussi des cookies de mesure d'audience et de publicité (Google Analytics, Google Tag Manager, Meta Pixel) pour améliorer le site.",
+    "learn_more": "En savoir plus",
+    "bucket_title": "Mesure d'audience & publicité",
+    "bucket_desc": "Google Analytics, Google Tag Manager, Meta Pixel. Désactivé par défaut.",
+    "save": "Enregistrer mes choix",
+    "accept_all": "Tout accepter",
+    "refuse_all": "Tout refuser",
+    "customize": "Personnaliser"
+  },
   "footer": {
     "tagline": "Des essentiels bébé. Sans le superflu.",
     "desc": "Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Juste ce qui compte quand t'es épuisé.",

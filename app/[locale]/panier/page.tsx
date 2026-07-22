@@ -230,11 +230,11 @@ export default function CartPage() {
   async function searchServicePoints() {
     const cp = postalSearch.trim();
     if (!/^\d{4,5}$/.test(cp)) {
-      setSearchError("Code postal invalide (4 ou 5 chiffres)");
+      setSearchError(t("err_zip_invalid"));
       return;
     }
     if (!carrier) {
-      setSearchError("Sélectionnez d'abord un transporteur");
+      setSearchError(t("err_select_carrier"));
       return;
     }
     setSearching(true);
@@ -246,7 +246,7 @@ export default function CartPage() {
       const res = await fetch(`/api/servicepoints?postal_code=${encodeURIComponent(cp)}&carrier=${encodeURIComponent(carrier)}`);
       const data = await res.json();
       if (!res.ok || data.error === true) {
-        setSearchError(data.message ?? "Impossible de charger les points relais. Réessayez.");
+        setSearchError(data.message ?? t("err_relay_load"));
         setFallbackManual(true);
       } else {
         // Filtre côté client : distance max 10 km. Si Sendcloud ne fournit pas
@@ -260,7 +260,7 @@ export default function CartPage() {
         }
       }
     } catch (e: any) {
-      setSearchError("Erreur réseau : " + (e?.message ?? "inconnue"));
+      setSearchError(t("err_network") + (e?.message ?? ""));
       setFallbackManual(true);
     } finally {
       setSearching(false);
@@ -496,7 +496,7 @@ export default function CartPage() {
     const code = promoCode.trim().toUpperCase();
     if (!code) return;
     if (promoCodes.some(p => p.code === code)) {
-      setPromoError("Ce code est déjà appliqué.");
+      setPromoError(t("err_code_already"));
       return;
     }
     setPromoLoading(true); setPromoError("");
@@ -507,7 +507,7 @@ export default function CartPage() {
         body:    JSON.stringify({ code, order_total: subtotal }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Code invalide");
+      if (!res.ok) throw new Error(data.error ?? t("err_promo_invalid"));
       // Tester le CUMUL avant d'ajouter : compat mutuelle + plafond 60 %.
       // Si le nouveau code casse la combinaison, on affiche le refus (jamais d'ajout partiel).
       const next = [...promoCodes, toValidatedPromo(data)];
@@ -556,7 +556,7 @@ export default function CartPage() {
         body:    JSON.stringify({ code: parrainCode.trim(), email: user?.email ?? (guestEmail.trim() || null) }),
       });
       const data = await res.json();
-      if (!data.valid) throw new Error(data.error ?? "Code parrain invalide");
+      if (!data.valid) throw new Error(data.error ?? t("err_referral_invalid"));
       setParrainData({ code: data.code, montant_recompense: data.montant_recompense, seuil_filleul: data.seuil_filleul });
     } catch (e: any) {
       setParrainError(e.message);
@@ -579,21 +579,21 @@ export default function CartPage() {
     if (!user) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
       if (!guestEmail.trim() || !emailRegex.test(guestEmail.trim())) {
-        setGuestError("Saisis un email valide pour continuer.");
-        setCheckoutError("Saisis un email valide pour continuer.");
+        setGuestError(t("err_email_valid"));
+        setCheckoutError(t("err_email_valid"));
         return;
       }
     }
 
     // Vérifier téléphone
     if (!isValidPhone(customerPhone)) {
-      setPhoneError("Numéro de téléphone obligatoire (10 chiffres).");
-      setCheckoutError("Veuillez saisir un numéro de téléphone valide.");
+      setPhoneError(t("err_phone_required"));
+      setCheckoutError(t("err_phone_valid"));
       return;
     }
     // Vérifier que la livraison est complète
     if (!deliveryReady) {
-      setCheckoutError("Veuillez compléter votre choix de livraison.");
+      setCheckoutError(t("err_complete_delivery"));
       return;
     }
 
@@ -663,9 +663,9 @@ export default function CartPage() {
         window.location.href = data.url;
         return;
       }
-      setCheckoutError(data.error ?? "Erreur lors du paiement. Réessaie.");
+      setCheckoutError(data.error ?? t("err_payment"));
     } catch (e: any) {
-      setCheckoutError(e?.message ?? "Erreur réseau. Réessaie.");
+      setCheckoutError(e?.message ?? t("err_network_retry"));
     } finally {
       setLoading(false);
     }
@@ -692,9 +692,9 @@ export default function CartPage() {
         {items.length === 0 && packs.length === 0 ? (
           <div style={{ background: "#fff", borderRadius: 20, padding: 60, textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
             <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 12, color: "#1a1410" }}>{t("empty")}</div>
-            <p style={{ opacity: 0.5, marginBottom: 28 }}>Découvrez nos essentiels en bambou pour nourrisson.</p>
+            <p style={{ opacity: 0.5, marginBottom: 28 }}>{t("empty_desc")}</p>
             <Link href="/produits" style={{ padding: "14px 28px", borderRadius: 12, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 15, textDecoration: "none" }}>
-              Voir les produits →
+              {t("see_products")}
             </Link>
           </div>
         ) : (
@@ -710,14 +710,14 @@ export default function CartPage() {
               <div style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                 {comboOk?.free_shipping ? (
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>
-                    ✓ Livraison offerte avec ton code promo !
+                    {t("free_ship_promo")}
                   </div>
                 ) : shippingFree ? (
-                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>✓ Livraison offerte !</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#16a34a" }}>{t("free_ship_ok")}</div>
                 ) : remaining > 0 ? (
                   <>
                     <div style={{ fontSize: 14, fontWeight: 700, marginBottom: 10, color: "#1a1410" }}>
-                      Plus que <strong>{remaining.toFixed(2)} €</strong> pour la livraison offerte
+                      {t("free_ship_remaining", { amount: remaining.toFixed(2) })}
                     </div>
                     <div style={{ height: 6, background: "#ede8df", borderRadius: 99, overflow: "hidden" }}>
                       <div style={{ height: "100%", width: `${pct}%`, background: "#c49a4a", borderRadius: 99, transition: "width 0.4s ease" }} />
@@ -725,7 +725,7 @@ export default function CartPage() {
                   </>
                 ) : (
                   <div style={{ fontSize: 14, fontWeight: 700, color: "rgba(26,20,16,0.55)" }}>
-                    Livraison : <strong style={{ color: "#1a1410" }}>{shipping.toFixed(2)} €</strong>
+                    {t("shipping")} : <strong style={{ color: "#1a1410" }}>{shipping.toFixed(2)} €</strong>
                   </div>
                 )}
               </div>
@@ -735,7 +735,7 @@ export default function CartPage() {
                 <div key={item.id} style={{ background: "#fff", borderRadius: 16, padding: "18px 22px", border: "1px solid rgba(26,20,16,0.07)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                   <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>{item.name}</div>
-                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} € / unité</div>
+                    <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>{Number(item.price).toFixed(2)} € / {t("per_unit")}</div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", background: "#ede8df", borderRadius: 10, padding: 4, flexShrink: 0 }}>
                     <button onClick={() => updateQuantity(item.id, item.quantity - 1, item.taille, item.couleur)} style={{ width: 34, height: 34, borderRadius: 8, border: "none", background: "none", cursor: "pointer", fontSize: 18, display: "grid", placeItems: "center", color: "#1a1410" }}>−</button>
@@ -757,7 +757,7 @@ export default function CartPage() {
                   <div style={{ flex: 1, minWidth: 120 }}>
                     <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410", marginBottom: 4 }}>🎁 {p.title}</div>
                     <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)" }}>
-                      Coffret · {p.items.length} pièces{p.size ? ` · taille ${p.size}` : ""} · {Number(p.price).toFixed(2)} € / pack
+                      {t("pack_line", { count: p.items.length, size: p.size ? t("pack_size", { size: p.size }) : "", price: Number(p.price).toFixed(2) })}
                     </div>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", background: "#ede8df", borderRadius: 10, padding: "8px 14px", flexShrink: 0, fontWeight: 900, fontSize: 15, color: "#1a1410" }}>
@@ -766,7 +766,7 @@ export default function CartPage() {
                   <div style={{ fontWeight: 950, fontSize: 18, color: "#1a1410", minWidth: 70, textAlign: "right", flexShrink: 0 }}>
                     {(p.price * p.quantity).toFixed(2)} €
                   </div>
-                  <button onClick={() => removePack(p.pack_id, p.size)} aria-label="Retirer le coffret" style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
+                  <button onClick={() => removePack(p.pack_id, p.size)} aria-label={t("remove_pack_aria")} style={{ padding: "8px 12px", borderRadius: 8, border: "none", background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 13, cursor: "pointer", flexShrink: 0 }}>
                     ✕
                   </button>
                 </div>
@@ -774,7 +774,7 @@ export default function CartPage() {
 
               {/* Code promo */}
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>Code promo</div>
+                <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 12, color: "#1a1410" }}>{t("promo_title")}</div>
 
                 {/* Codes appliqués — un par un, avec SA remise (combo.entries) + suppression individuelle */}
                 {promoCodes.length > 0 && (
@@ -782,8 +782,8 @@ export default function CartPage() {
                     {promoCodes.map(pc => {
                       const e     = comboOk?.entries.find(x => x.code === pc.code);
                       const label = e && e.discount > 0 ? `− ${e.discount.toFixed(2)} €`
-                                  : pc.free_shipping    ? "Livraison offerte"
-                                  : e                   ? "Appliqué"
+                                  : pc.free_shipping    ? t("free_shipping_badge")
+                                  : e                   ? t("applied")
                                   :                       "…";
                       return (
                         <div key={pc.code} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderRadius: 12, background: "#dcfce7", border: "1px solid #86efac" }}>
@@ -793,7 +793,7 @@ export default function CartPage() {
                           </div>
                           <button onClick={() => removePromo(pc.code)}
                             style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>
-                            Supprimer
+                            {t("remove")}
                           </button>
                         </div>
                       );
@@ -807,18 +807,18 @@ export default function CartPage() {
                     <input type="text" value={promoCode}
                       onChange={e => { setPromoCode(e.target.value.toUpperCase()); setPromoError(""); }}
                       onKeyDown={e => e.key === "Enter" && applyPromo()}
-                      placeholder={promoCodes.length > 0 ? "Ajouter un autre code" : "Ex : BIENVENUE10"}
+                      placeholder={promoCodes.length > 0 ? t("promo_add_another") : t("promo_placeholder")}
                       style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
                     />
                     <button onClick={applyPromo} disabled={promoLoading || !promoCode.trim()}
                       style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: promoLoading || !promoCode.trim() ? 0.5 : 1 }}>
-                      {promoLoading ? "..." : "Appliquer"}
+                      {promoLoading ? "..." : t("promo_apply")}
                     </button>
                   </div>
                 )}
                 {canAddPromo && promoCodes.length > 0 && (
                   <div style={{ marginTop: 8, fontSize: 12, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>
-                    Tu peux cumuler un autre code compatible.
+                    {t("promo_combine")}
                   </div>
                 )}
                 {promoError && (
@@ -831,7 +831,7 @@ export default function CartPage() {
               <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
                 <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>{t("referral_label")}</div>
                 <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
-                  Un ami t'a donné son code&nbsp;? Saisis-le pour −{parrainageSettingsForCalc.montant_recompense.toFixed(0)}€ dès {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ d'achat.
+                  {t("referral_desc", { amount: parrainageSettingsForCalc.montant_recompense.toFixed(0), threshold: parrainageSettingsForCalc.seuil_filleul.toFixed(0) })}
                 </div>
                 {parrainData ? (
                   <>
@@ -839,14 +839,14 @@ export default function CartPage() {
                       <div>
                         <span style={{ fontFamily: "monospace", fontWeight: 900, fontSize: 15 }}>{parrainData.code}</span>
                         <span style={{ marginLeft: 10, fontSize: 14, fontWeight: 700, color: parrainageCalc.parrainApplicable ? "#16a34a" : "#92400e" }}>
-                          {parrainageCalc.parrainApplicable ? `− ${parrainDiscount.toFixed(2)} €` : `il manque ${parrainageCalc.parrainShortfall.toFixed(2)} €`}
+                          {parrainageCalc.parrainApplicable ? `− ${parrainDiscount.toFixed(2)} €` : t("referral_shortfall", { amount: parrainageCalc.parrainShortfall.toFixed(2) })}
                         </span>
                       </div>
-                      <button onClick={removeParrain} style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>Supprimer</button>
+                      <button onClick={removeParrain} style={{ fontSize: 13, fontWeight: 700, color: "#b91c1c", background: "none", border: "none", cursor: "pointer" }}>{t("remove")}</button>
                     </div>
                     {!parrainageCalc.parrainApplicable && (
                       <div style={{ marginTop: 8, fontSize: 12.5, color: "#92400e", fontWeight: 600 }}>
-                        Code parrain valable à partir de {parrainageSettingsForCalc.seuil_filleul.toFixed(0)}€ (après code promo).
+                        {t("referral_min", { threshold: parrainageSettingsForCalc.seuil_filleul.toFixed(0) })}
                       </div>
                     )}
                   </>
@@ -855,12 +855,12 @@ export default function CartPage() {
                     <input type="text" value={parrainCode}
                       onChange={e => { setParrainCode(e.target.value.toUpperCase()); setParrainError(""); }}
                       onKeyDown={e => e.key === "Enter" && applyParrain()}
-                      placeholder="Ex : K7PMR4TX"
+                      placeholder={t("referral_placeholder")}
                       style={{ flex: 1, padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontWeight: 700, fontFamily: "monospace", letterSpacing: 1, outline: "none", background: "#ede8df" }}
                     />
                     <button onClick={applyParrain} disabled={parrainLoading || !parrainCode.trim()}
                       style={{ padding: "11px 20px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", opacity: parrainLoading || !parrainCode.trim() ? 0.5 : 1 }}>
-                      {parrainLoading ? "..." : "Appliquer"}
+                      {parrainLoading ? "..." : t("promo_apply")}
                     </button>
                   </div>
                 )}
@@ -873,11 +873,11 @@ export default function CartPage() {
               {/* Mes récompenses parrainage (compte connecté) — barème PROGRESSIF */}
               {user && meActif && meRewards.length > 0 && (
                 <div style={{ background: "#fff", borderRadius: 16, padding: "20px 22px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                  <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>Mes récompenses parrainage 🎉</div>
+                  <div style={{ fontSize: 14, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>{t("rewards_title")}</div>
                   <div style={{ fontSize: 12.5, color: "rgba(26,20,16,0.5)", marginBottom: 12, lineHeight: 1.5 }}>
                     {parrainageCalc.rewardsUnlocked > 0
-                      ? `Coche jusqu'à ${parrainageCalc.rewardsUnlocked} récompense${parrainageCalc.rewardsUnlocked > 1 ? "s" : ""} sur cette commande — débloquées par paliers.`
-                      : `Ajoute ${parrainageCalc.rewardsShortfall.toFixed(2)} € pour débloquer ta 1ʳᵉ récompense.`}
+                      ? t("rewards_unlocked", { count: parrainageCalc.rewardsUnlocked })
+                      : t("rewards_shortfall", { amount: parrainageCalc.rewardsShortfall.toFixed(2) })}
                   </div>
                   <div style={{ display: "grid", gap: 8 }}>
                     {meRewards.map((r, i) => {
@@ -887,22 +887,21 @@ export default function CartPage() {
                       const capReached   = !checked && selectedRewardIds.length >= parrainageCalc.rewardsUnlocked;
                       const disabled     = !tierUnlocked || capReached;
                       const manque       = tier != null ? Math.max(0, tier - parrainageCalc.totalApresParrain) : 0;
-                      const ord          = i === 0 ? "1ʳᵉ" : `${i + 1}ᵉ`;
                       return (
                         <label key={r.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: 10, background: disabled ? "rgba(26,20,16,0.04)" : "#ede8df", opacity: disabled ? 0.55 : 1, cursor: disabled ? "not-allowed" : "pointer" }}>
                           <input type="checkbox" checked={checked} disabled={disabled} onChange={() => toggleReward(r.id)} />
                           <span style={{ fontWeight: 800, fontSize: 14, color: "#1a1410" }}>− {r.montant.toFixed(2)} €</span>
                           {!tierUnlocked && tier != null ? (
                             <span style={{ marginLeft: "auto", fontSize: 12, color: "#b45309", fontWeight: 700, textAlign: "right" }}>
-                              ajoute {manque.toFixed(2)} € pour débloquer la {ord} remise
+                              {t("rewards_add_unlock", { amount: manque.toFixed(2), n: i + 1 })}
                             </span>
                           ) : !tierUnlocked && tier == null ? (
                             <span style={{ marginLeft: "auto", fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
-                              max {parrainageSettingsForCalc.max_recompenses_par_commande} / commande
+                              {t("rewards_max", { max: parrainageSettingsForCalc.max_recompenses_par_commande })}
                             </span>
                           ) : (
                             <span style={{ marginLeft: "auto", fontSize: 12, color: r.days_left <= 7 ? "#b45309" : "rgba(26,20,16,0.45)", fontWeight: 600 }}>
-                              expire dans {r.days_left} j
+                              {t("rewards_expires", { days: r.days_left })}
                             </span>
                           )}
                         </label>
@@ -910,7 +909,7 @@ export default function CartPage() {
                     })}
                   </div>
                   <div style={{ marginTop: 10, fontSize: 11.5, color: "rgba(26,20,16,0.4)", lineHeight: 1.5 }}>
-                    Les remises finales sont confirmées au paiement.
+                    {t("rewards_confirm")}
                   </div>
                 </div>
               )}
@@ -919,7 +918,7 @@ export default function CartPage() {
             {/* ── Récapitulatif ── */}
             <div className="cart-sticky">
               <div style={{ background: "#fff", borderRadius: 20, padding: "28px 24px", border: "1px solid rgba(26,20,16,0.07)" }}>
-                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 20, color: "#1a1410" }}>Récapitulatif</div>
+                <div style={{ fontWeight: 900, fontSize: 18, marginBottom: 20, color: "#1a1410" }}>{t("summary_title")}</div>
 
                 <div style={{ display: "grid", gap: 12, marginBottom: 20 }}>
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
@@ -928,31 +927,31 @@ export default function CartPage() {
                   </div>
                   {comboOk?.entries.map(e => (
                     <div key={e.code} style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Code {e.code}</span>
-                      <span style={{ fontWeight: 800 }}>{e.discount > 0 ? `− ${e.discount.toFixed(2)} €` : "Livraison offerte"}</span>
+                      <span style={{ fontWeight: 700 }}>{t("code_prefix")} {e.code}</span>
+                      <span style={{ fontWeight: 800 }}>{e.discount > 0 ? `− ${e.discount.toFixed(2)} €` : t("free_shipping_badge")}</span>
                     </div>
                   ))}
                   {parrainData && parrainageCalc.parrainApplicable && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Code parrain {parrainData.code}</span>
+                      <span style={{ fontWeight: 700 }}>{t("referral_code_prefix")} {parrainData.code}</span>
                       <span style={{ fontWeight: 800 }}>− {parrainDiscount.toFixed(2)} €</span>
                     </div>
                   )}
                   {rewardDiscount > 0 && (
                     <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "#16a34a" }}>
-                      <span style={{ fontWeight: 700 }}>Récompenses ({parrainageCalc.rewardsUsable})</span>
+                      <span style={{ fontWeight: 700 }}>{t("rewards_word")} ({parrainageCalc.rewardsUsable})</span>
                       <span style={{ fontWeight: 800 }}>− {rewardDiscount.toFixed(2)} €</span>
                     </div>
                   )}
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 15, color: "rgba(26,20,16,0.7)" }}>
-                    <span>Livraison</span>
+                    <span>{t("shipping")}</span>
                     {!carrier || !deliveryType ? (
                       <span style={{ fontWeight: 700, color: "rgba(26,20,16,0.4)", fontStyle: "italic" }}>
-                        À calculer
+                        {t("to_calculate")}
                       </span>
                     ) : shippingFree ? (
                       <span style={{ fontWeight: 700, color: "#16a34a" }}>
-                        Offerte
+                        {t("shipping_free")}
                       </span>
                     ) : (
                       <span style={{ fontWeight: 700 }}>
@@ -962,7 +961,7 @@ export default function CartPage() {
                   </div>
                   <div style={{ height: 1, background: "rgba(26,20,16,0.08)", margin: "4px 0" }} />
                   <div style={{ display: "flex", justifyContent: "space-between", fontSize: 20, fontWeight: 950, color: "#1a1410" }}>
-                    <span>Total</span>
+                    <span>{t("total")}</span>
                     <span>{grandTotal.toFixed(2)} €</span>
                   </div>
                 </div>
@@ -984,8 +983,8 @@ export default function CartPage() {
                     </div>
                     <div style={{ display: "grid", gap: 6 }}>
                       {([
-                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Retrait chez un commerçant", price: getDeliveryPrice("mondial_relay", "point_relais"), badge: "Le moins cher" },
-                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",       price: getDeliveryPrice("mondial_relay", "home"),   badge: null },
+                        { type: "point_relais" as const, icon: "📍", label: t("delivery_pr_label"),   sub: t("delivery_pr_sub_mr"), price: getDeliveryPrice("mondial_relay", "point_relais"), badge: t("badge_cheapest") },
+                        { type: "home"         as const, icon: "🏠", label: t("delivery_home_label"), sub: t("delivery_home_sub"),  price: getDeliveryPrice("mondial_relay", "home"),   badge: null },
                       ]).map(opt => {
                         const active = carrier === "mondial_relay" && deliveryType === opt.type;
                         return (
@@ -1017,7 +1016,7 @@ export default function CartPage() {
                               {freeShippingEligible ? (
                                 <>
                                   <span style={{ fontSize: 12, fontWeight: 700, textDecoration: "line-through", color: active ? "rgba(242,237,230,0.55)" : "rgba(26,20,16,0.4)" }}>{opt.price.toFixed(2)} €</span>
-                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>Gratuit</span>
+                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>{t("free")}</span>
                                 </>
                               ) : (
                                 <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
@@ -1039,8 +1038,8 @@ export default function CartPage() {
                     </div>
                     <div style={{ display: "grid", gap: 6 }}>
                       {([
-                        { type: "point_relais" as const, icon: "📍", label: "Point Relais",     sub: "Bureau de Poste ou commerçant", price: getDeliveryPrice("colissimo", "point_relais"), badge: "Le plus rapide" },
-                        { type: "home"         as const, icon: "🏠", label: "Domicile",         sub: "Livraison à domicile",          price: getDeliveryPrice("colissimo", "home"),         badge: "Le plus rapide" },
+                        { type: "point_relais" as const, icon: "📍", label: t("delivery_pr_label"),   sub: t("delivery_pr_sub_col"), price: getDeliveryPrice("colissimo", "point_relais"), badge: t("badge_fastest") },
+                        { type: "home"         as const, icon: "🏠", label: t("delivery_home_label"), sub: t("delivery_home_sub"),   price: getDeliveryPrice("colissimo", "home"),         badge: t("badge_fastest") },
                       ]).map(opt => {
                         const active = carrier === "colissimo" && deliveryType === opt.type;
                         return (
@@ -1072,7 +1071,7 @@ export default function CartPage() {
                               {freeShippingEligible ? (
                                 <>
                                   <span style={{ fontSize: 12, fontWeight: 700, textDecoration: "line-through", color: active ? "rgba(242,237,230,0.55)" : "rgba(26,20,16,0.4)" }}>{opt.price.toFixed(2)} €</span>
-                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>Gratuit</span>
+                                  <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#16a34a" }}>{t("free")}</span>
                                 </>
                               ) : (
                                 <span style={{ fontWeight: 900, fontSize: 15, color: active ? "#c49a4a" : "#1a1410" }}>{opt.price.toFixed(2)} €</span>
@@ -1092,7 +1091,7 @@ export default function CartPage() {
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10, flexWrap: "wrap" }}>
                         <div style={{ flex: "1 1 200px", minWidth: 0 }}>
                           <div style={{ fontSize: 11, fontWeight: 800, color: "#166534", marginBottom: 4, letterSpacing: 0.5, textTransform: "uppercase" }}>
-                            📍 {deliveryType === "locker" ? "Locker" : "Point Relais"} sélectionné
+                            📍 {deliveryType === "locker" ? t("relay_selected_locker") : t("relay_selected_pr")}
                           </div>
                           <div style={{ fontSize: 14, fontWeight: 900, color: "#166534", marginBottom: 4, wordBreak: "break-word" }}>{selectedRelay.name}</div>
                           <div style={{ fontSize: 12, color: "#1a1410", wordBreak: "break-word" }}>{selectedRelay.street}, {selectedRelay.postal_code} {selectedRelay.city}</div>
@@ -1103,7 +1102,7 @@ export default function CartPage() {
                         <button
                           onClick={openRelayModal}
                           style={{ background: "transparent", border: "1px solid #166534", fontSize: 12, fontWeight: 800, color: "#166534", padding: "10px 14px", minHeight: 44, borderRadius: 8, cursor: "pointer", flexShrink: 0 }}>
-                          Changer
+                          {t("change")}
                         </button>
                       </div>
                     </div>
@@ -1116,25 +1115,25 @@ export default function CartPage() {
                     <button
                       onClick={openRelayModal}
                       style={{ width: "100%", padding: "14px 16px", borderRadius: 12, background: "#fef3c7", color: "#92400e", fontWeight: 800, fontSize: 13, border: "2px dashed #fde68a", cursor: "pointer", marginBottom: 10 }}>
-                      📍 Choisir votre {deliveryType === "locker" ? "locker" : "point relais"} →
+                      📍 {deliveryType === "locker" ? t("choose_relay_locker") : t("choose_relay_pr")} →
                     </button>
                   )}
 
                   {/* Adresse domicile */}
                   {deliveryType === "home" && (
                     <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 8, marginBottom: 10 }}>
-                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>🏠 Adresse de livraison</div>
-                      <input type="text" autoComplete="name" placeholder="Prénom Nom"
+                      <div style={{ fontSize: 13, fontWeight: 800, marginBottom: 4, color: "#1a1410" }}>{t("home_address_title")}</div>
+                      <input type="text" autoComplete="name" placeholder={t("placeholder_name")}
                         value={homeAddress.name} onChange={e => setHomeAddress(a => ({ ...a, name: e.target.value }))}
                         style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
-                      <input type="text" autoComplete="street-address" placeholder="Adresse complète"
+                      <input type="text" autoComplete="street-address" placeholder={t("placeholder_address")}
                         value={homeAddress.line1} onChange={e => setHomeAddress(a => ({ ...a, line1: e.target.value }))}
                         style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
                       <div style={{ display: "grid", gridTemplateColumns: "100px 1fr", gap: 8 }}>
-                        <input type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder="CP"
+                        <input type="text" inputMode="numeric" autoComplete="postal-code" maxLength={5} placeholder={t("placeholder_zip")}
                           value={homeAddress.postal_code} onChange={e => setHomeAddress(a => ({ ...a, postal_code: e.target.value.replace(/\D/g, "") }))}
                           style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, fontFamily: "monospace", outline: "none", background: "#fff" }} />
-                        <input type="text" autoComplete="address-level2" placeholder="Ville"
+                        <input type="text" autoComplete="address-level2" placeholder={t("placeholder_city")}
                           value={homeAddress.city} onChange={e => setHomeAddress(a => ({ ...a, city: e.target.value }))}
                           style={{ padding: "10px 12px", borderRadius: 8, border: "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }} />
                       </div>
@@ -1149,7 +1148,7 @@ export default function CartPage() {
                 )}
                 {!deliveryReady && deliveryType && (
                   <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                    Veuillez compléter votre choix de livraison
+                    {t("complete_delivery")}
                   </div>
                 )}
                 <button onClick={handleCheckout} disabled={loading || !finalPayReady}
@@ -1158,7 +1157,7 @@ export default function CartPage() {
                 </button>
                 <button onClick={() => { setCheckoutError(""); setStep(1); }}
                   style={{ width: "100%", padding: "11px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer", marginBottom: 12 }}>
-                  ← Modifier mes informations
+                  {t("edit_info")}
                 </button>
                 </div>
                 )}{/* fin étape 2 */}
@@ -1173,25 +1172,25 @@ export default function CartPage() {
                       {/* Option recommandée : créer un compte (amber + pulse doux) */}
                       <Link href="/inscription?redirect=/panier"
                         style={{ display: "block", padding: "14px 18px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, textDecoration: "none", textAlign: "center", animation: "milk-cart-glow 1.8s ease-in-out infinite" }}>
-                        Créer un compte →
+                        {t("create_account")}
                       </Link>
                       <div style={{ fontSize: 12, color: "rgba(242,237,230,0.6)", marginTop: 8, textAlign: "center", lineHeight: 1.5 }}>
-                        ✨ Recommandé — suivi de commande, historique et avantages membres.
+                        {t("account_recommended")}
                       </div>
 
                       {/* Séparateur */}
                       <div style={{ display: "flex", alignItems: "center", gap: 10, margin: "16px 0 14px" }}>
                         <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.12)" }} />
-                        <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.4)" }}>ou</span>
+                        <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(242,237,230,0.4)" }}>{t("or")}</span>
                         <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.12)" }} />
                       </div>
 
                       {/* Option neutre : payer sans compte */}
                       <div style={{ fontSize: 14, fontWeight: 800, color: "#f2ede6", marginBottom: 4 }}>
-                        Payer sans créer de compte
+                        {t("guest_title")}
                       </div>
                       <div style={{ fontSize: 13, color: "rgba(242,237,230,0.55)", marginBottom: 12, lineHeight: 1.6 }}>
-                        Entre ton email pour recevoir la confirmation et suivre ta livraison.
+                        {t("guest_desc")}
                       </div>
                       <input
                         type="email"
@@ -1199,7 +1198,7 @@ export default function CartPage() {
                         autoComplete="email"
                         value={guestEmail}
                         onChange={e => { setGuestEmail(e.target.value); setGuestError(""); }}
-                        placeholder="ton@email.fr"
+                        placeholder={t("placeholder_email")}
                         style={{ width: "100%", padding: "12px 14px", borderRadius: 10, border: guestError ? "1.5px solid #ef4444" : "1px solid rgba(242,237,230,0.15)", fontSize: 14, fontWeight: 600, background: "rgba(255,255,255,0.06)", color: "#f2ede6", outline: "none", boxSizing: "border-box", marginBottom: 8 }}
                       />
                       {guestError && (
@@ -1207,7 +1206,7 @@ export default function CartPage() {
                       )}
                       <Link href="/connexion?redirect=/panier"
                         style={{ display: "inline-block", marginTop: 2, color: "rgba(242,237,230,0.5)", fontWeight: 700, fontSize: 13, textDecoration: "underline" }}>
-                        J'ai déjà un compte
+                        {t("have_account")}
                       </Link>
                     </div>
                   )}
@@ -1216,18 +1215,18 @@ export default function CartPage() {
                       affiché sans condition transporteur (collecté avant la livraison). */}
                   <div style={{ background: "#ede8df", borderRadius: 12, padding: 14, display: "grid", gap: 6, marginBottom: 10 }}>
                     <label style={{ fontSize: 13, fontWeight: 800, color: "#1a1410" }}>
-                      📞 Numéro de téléphone <span style={{ color: "#b91c1c" }}>*</span>
+                      {t("phone_label")} <span style={{ color: "#b91c1c" }}>*</span>
                     </label>
                     <input
                       type="tel"
                       inputMode="tel"
                       autoComplete="tel"
-                      placeholder="Ex : 06 12 34 56 78"
+                      placeholder={t("phone_placeholder")}
                       value={customerPhone}
                       onChange={e => { setCustomerPhone(e.target.value); setPhoneError(""); }}
                       onBlur={() => {
                         if (customerPhone && !isValidPhone(customerPhone)) {
-                          setPhoneError("Format invalide (10 chiffres, ex : 06 12 34 56 78 ou +33 6 12 34 56 78)");
+                          setPhoneError(t("err_phone_format"));
                         }
                       }}
                       style={{ padding: "10px 12px", borderRadius: 8, border: phoneError ? "1.5px solid #b91c1c" : "1px solid rgba(26,20,16,0.15)", fontSize: 14, outline: "none", background: "#fff" }}
@@ -1236,7 +1235,7 @@ export default function CartPage() {
                       <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>⚠ {phoneError}</div>
                     )}
                     <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)", lineHeight: 1.5 }}>
-                      Utilisé par le transporteur pour vous prévenir en cas de problème de livraison.
+                      {t("phone_hint")}
                     </div>
                   </div>
 
@@ -1247,12 +1246,12 @@ export default function CartPage() {
                   )}
                   {!emailReady && cartNonEmpty && (
                     <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                      Saisis ton email ci-dessus pour continuer.
+                      {t("need_email")}
                     </div>
                   )}
                   {emailReady && !phoneOk && cartNonEmpty && (
                     <div style={{ padding: "10px 12px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", marginBottom: 10 }}>
-                      Saisis un numéro de téléphone valide pour continuer.
+                      {t("need_phone")}
                     </div>
                   )}
                   <button onClick={() => { setCheckoutError(""); setStep(2); }} disabled={!step1Ready}
@@ -1268,8 +1267,8 @@ export default function CartPage() {
                 </button>
 
                 <div style={{ marginTop: 16, display: "grid", gap: 8 }}>
-                  {["Paiement sécurisé Stripe", "100% Bambou OEKO-TEX", "Retours sous 14 jours"].map(r => (
-                    <div key={r} style={{ fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.45)", textAlign: "center" }}>{r}</div>
+                  {[t("trust_payment"), t("trust_bamboo"), t("trust_returns")].map((r, i) => (
+                    <div key={i} style={{ fontSize: 12, fontWeight: 600, color: "rgba(26,20,16,0.45)", textAlign: "center" }}>{r}</div>
                   ))}
                 </div>
               </div>
@@ -1292,7 +1291,7 @@ export default function CartPage() {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 18, gap: 12 }}>
               <div>
                 <h2 style={{ margin: 0, fontSize: 20, fontWeight: 950, color: "#1a1410", letterSpacing: -0.5 }}>
-                  Choisir votre {deliveryType === "locker" ? "locker" : "point relais"}
+                  {deliveryType === "locker" ? t("choose_relay_locker") : t("choose_relay_pr")}
                 </h2>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(26,20,16,0.5)", marginTop: 4 }}>
                   {carrier === "mondial_relay" ? "📦 Mondial Relay" : "🚀 Colissimo / La Poste"}
@@ -1300,7 +1299,7 @@ export default function CartPage() {
               </div>
               <button
                 onClick={closeRelayModal}
-                aria-label="Fermer"
+                aria-label={t("close")}
                 style={{ background: "none", border: "none", fontSize: 26, lineHeight: 1, cursor: "pointer", color: "rgba(26,20,16,0.4)", padding: 0, width: 32, height: 32 }}>
                 ×
               </button>
@@ -1312,7 +1311,7 @@ export default function CartPage() {
                 type="text"
                 inputMode="numeric"
                 maxLength={5}
-                placeholder="Code postal"
+                placeholder={t("postal_code_ph")}
                 value={postalSearch}
                 onChange={e => setPostalSearch(e.target.value.replace(/\D/g, ""))}
                 onKeyDown={e => e.key === "Enter" && searchServicePoints()}
@@ -1322,7 +1321,7 @@ export default function CartPage() {
                 onClick={searchServicePoints}
                 disabled={searching}
                 style={{ padding: "11px 22px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", border: "none", fontWeight: 800, fontSize: 14, cursor: searching ? "wait" : "pointer", opacity: searching ? 0.6 : 1, whiteSpace: "nowrap" }}>
-                {searching ? "..." : "🔍 Rechercher"}
+                {searching ? "..." : t("search_action")}
               </button>
             </div>
 
@@ -1334,7 +1333,7 @@ export default function CartPage() {
 
             {searching && (
               <div style={{ padding: "24px 14px", fontSize: 13, color: "rgba(26,20,16,0.5)", textAlign: "center" }}>
-                ⏳ Recherche {deliveryType === "locker" ? "des lockers" : "des Points Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} à proximité...
+                ⏳ {deliveryType === "locker" ? t("searching_locker") : t("searching_pr")} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} {t("searching_suffix")}
               </div>
             )}
 
@@ -1350,7 +1349,7 @@ export default function CartPage() {
                     onMouseOut={e => { e.currentTarget.style.background = "#faf8f4"; e.currentTarget.style.borderColor = "rgba(26,20,16,0.08)"; }}
                   >
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 10 }}>
-                      <div style={{ fontSize: 14, fontWeight: 900, color: "#1a1410", lineHeight: 1.3 }}>{sp.name ?? "(sans nom)"}</div>
+                      <div style={{ fontSize: 14, fontWeight: 900, color: "#1a1410", lineHeight: 1.3 }}>{sp.name ?? t("no_name")}</div>
                       {sp.distance != null && (
                         <div style={{ fontSize: 11, fontWeight: 800, color: "#c49a4a", whiteSpace: "nowrap", flexShrink: 0 }}>
                           {Number(sp.distance).toFixed(1)} km
@@ -1373,7 +1372,7 @@ export default function CartPage() {
             {/* Aucun résultat */}
             {!searching && searchEmpty && searchResults.length === 0 && (
               <div style={{ padding: "14px 16px", borderRadius: 8, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 700, textAlign: "center", marginBottom: 10 }}>
-                Aucun {deliveryType === "locker" ? "locker" : "Point Relais"} {carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo"} trouvé à moins de {MAX_RELAY_DISTANCE_KM} km.
+                {t("no_relay_found", { type: deliveryType === "locker" ? t("no_relay_locker") : t("no_relay_pr"), carrier: carrier === "mondial_relay" ? "Mondial Relay" : "Colissimo", km: MAX_RELAY_DISTANCE_KM })}
               </div>
             )}
 
@@ -1382,8 +1381,7 @@ export default function CartPage() {
                 aucun point Sendcloud → étiquette impossible → commande payée mais non expédiable. */}
             {fallbackManual && (
               <div style={{ marginTop: 12, padding: "12px 14px", borderRadius: 10, background: "#faf8f4", border: "1px solid rgba(26,20,16,0.1)", fontSize: 12.5, color: "#1a1410", lineHeight: 1.5 }}>
-                Aucun point relais exploitable ici. Essayez un autre code postal, ou choisissez la
-                {" "}<strong>livraison à domicile</strong> pour être livré directement chez vous.
+                {t("no_relay_fallback")}
               </div>
             )}
 
@@ -1392,7 +1390,7 @@ export default function CartPage() {
               <button
                 onClick={closeRelayModal}
                 style={{ padding: "10px 22px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.6)", fontWeight: 700, fontSize: 13, border: "1px solid rgba(26,20,16,0.15)", cursor: "pointer" }}>
-                Annuler
+                {t("cancel")}
               </button>
             </div>
           </div>

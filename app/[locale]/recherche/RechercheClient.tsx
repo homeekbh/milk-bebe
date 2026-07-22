@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { trackSearch } from "@/lib/analytics";
+import { useTranslations } from "next-intl";
 
 function slugify(input: any) {
   return String(input ?? "").trim().toLowerCase()
@@ -38,6 +39,7 @@ function highlightMatch(text: string, query: string) {
 }
 
 function ProductCard({ p, query }: { p: any; query: string }) {
+  const t = useTranslations("search");
   const promo = isPromoActive(p);
   const price = promo ? p.promo_price : p.price_ttc;
   const slug  = p.slug || slugify(p.name);
@@ -51,8 +53,8 @@ function ProductCard({ p, query }: { p: any; query: string }) {
             <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontWeight: 950, fontSize: 28, color: "rgba(242,237,230,0.1)" }}>M!LK</div>
           )}
           <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
-            {promo && <span style={{ padding: "4px 10px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 10, fontWeight: 800 }}>PROMO</span>}
-            {p.stock <= 0 && <span style={{ padding: "4px 10px", borderRadius: 99, background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 10, fontWeight: 800 }}>Épuisé</span>}
+            {promo && <span style={{ padding: "4px 10px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 10, fontWeight: 800 }}>{t("promo")}</span>}
+            {p.stock <= 0 && <span style={{ padding: "4px 10px", borderRadius: 99, background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 10, fontWeight: 800 }}>{t("sold_out")}</span>}
           </div>
           {p.category_slug && (
             <div style={{ position: "absolute", top: 12, right: 12 }}>
@@ -127,6 +129,7 @@ export default function RechercheClient() {
   const inputRef     = useRef<HTMLInputElement>(null);
   const q = searchParams.get("q") ?? "";
 
+  const t = useTranslations("search");
   const [query,       setQuery]       = useState(q);
   const [products,    setProducts]    = useState<any[]>([]);
   const [results,     setResults]     = useState<any[]>([]);
@@ -205,7 +208,7 @@ export default function RechercheClient() {
 
       <div style={{ maxWidth: 900, margin: "0 auto", padding: "0 32px" }}>
         <div style={{ marginBottom: 48 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 16 }}>Recherche</div>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: "#c49a4a", marginBottom: 16 }}>{t("eyebrow")}</div>
 
           {/* Input avec suggestions prédictives */}
           <div style={{ position: "relative" }}>
@@ -214,7 +217,7 @@ export default function RechercheClient() {
               onChange={e => handleSearch(e.target.value)}
               onFocus={() => setShowSuggest(true)}
               onBlur={() => setTimeout(() => setShowSuggest(false), 150)}
-              placeholder="Body, pyjama, gigoteuse, lange, bambou..."
+              placeholder={t("placeholder")}
               autoComplete="off"
               style={{ width: "100%", padding: "20px 60px 20px 24px", borderRadius: 16, border: "1px solid rgba(242,237,230,0.12)", background: "#221c16", color: "#f2ede6", fontSize: 18, fontWeight: 600, outline: "none", boxSizing: "border-box", caretColor: "#c49a4a" }}
             />
@@ -240,7 +243,7 @@ export default function RechercheClient() {
           {/* Suggestions rapides quand vide */}
           {!hasQuery && (
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 16 }}>
-              <span style={{ fontSize: 13, color: "rgba(242,237,230,0.3)", fontWeight: 600, marginRight: 4 }}>Suggestions :</span>
+              <span style={{ fontSize: 13, color: "rgba(242,237,230,0.3)", fontWeight: 600, marginRight: 4 }}>{t("suggestions")}</span>
               {SUGGESTIONS.map(s => (
                 <button key={s} onClick={() => handleSearch(s)}
                   style={{ padding: "6px 14px", borderRadius: 99, background: "rgba(242,237,230,0.06)", border: "1px solid rgba(242,237,230,0.1)", color: "rgba(242,237,230,0.6)", fontSize: 13, fontWeight: 700, cursor: "pointer" }}>
@@ -254,34 +257,34 @@ export default function RechercheClient() {
           {hasQuery && !loading && (
             <div style={{ marginTop: 12, fontSize: 13, color: "rgba(242,237,230,0.35)", fontWeight: 600 }}>
               {results.length > 0
-                ? <><span style={{ color: "#c49a4a", fontWeight: 900 }}>{results.length}</span> résultat{results.length > 1 ? "s" : ""} pour «<span style={{ color: "#f2ede6" }}> {query} </span>»</>
-                : <>Aucun résultat pour « {query} »</>
+                ? <><span style={{ color: "#c49a4a", fontWeight: 900 }}>{results.length}</span> {t("results", { count: results.length })} {t("results_for")} «<span style={{ color: "#f2ede6" }}> {query} </span>»</>
+                : <>{t("no_results")} « {query} »</>
               }
             </div>
           )}
         </div>
 
         {loading ? (
-          <div style={{ textAlign: "center", padding: 60, color: "rgba(242,237,230,0.3)", fontSize: 14 }}>Chargement...</div>
+          <div style={{ textAlign: "center", padding: 60, color: "rgba(242,237,230,0.3)", fontSize: 14 }}>{t("loading")}</div>
         ) : !hasQuery ? (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 48, marginBottom: 20 }}>🔍</div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#f2ede6", marginBottom: 10 }}>Que cherches-tu ?</div>
-            <div style={{ fontSize: 15, color: "rgba(242,237,230,0.4)", marginBottom: 32 }}>Tape un mot-clé pour trouver un produit.</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#f2ede6", marginBottom: 10 }}>{t("prompt_title")}</div>
+            <div style={{ fontSize: 15, color: "rgba(242,237,230,0.4)", marginBottom: 32 }}>{t("prompt_desc")}</div>
             <Link href="/produits" style={{ padding: "13px 28px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 14, textDecoration: "none" }}>
-              Voir tous les produits →
+              {t("see_all")}
             </Link>
           </div>
         ) : results.length === 0 ? (
           <div style={{ textAlign: "center", padding: "60px 0" }}>
             <div style={{ fontSize: 48, marginBottom: 20 }}>😕</div>
-            <div style={{ fontSize: 20, fontWeight: 900, color: "#f2ede6", marginBottom: 10 }}>Aucun résultat pour &quot;{query}&quot;</div>
+            <div style={{ fontSize: 20, fontWeight: 900, color: "#f2ede6", marginBottom: 10 }}>{t("no_results")} &quot;{query}&quot;</div>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 28 }}>
               <button onClick={() => handleSearch("")} style={{ padding: "13px 28px", borderRadius: 12, background: "rgba(242,237,230,0.08)", border: "1px solid rgba(242,237,230,0.12)", color: "#f2ede6", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
-                Effacer
+                {t("clear")}
               </button>
               <Link href="/produits" style={{ padding: "13px 28px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 14, textDecoration: "none" }}>
-                Voir tous les produits
+                {t("see_all_short")}
               </Link>
             </div>
           </div>

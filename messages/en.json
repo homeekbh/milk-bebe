@@ -448,6 +448,22 @@
     "refuse_all": "Decline all",
     "customize": "Customize"
   },
+  "search": {
+    "eyebrow": "Search",
+    "placeholder": "Bodysuit, pyjamas, sleep bag, swaddle, bamboo...",
+    "suggestions": "Suggestions:",
+    "results": "{count, plural, one {result} other {results}}",
+    "results_for": "for",
+    "no_results": "No results for",
+    "loading": "Loading...",
+    "prompt_title": "What are you looking for?",
+    "prompt_desc": "Type a keyword to find a product.",
+    "see_all": "See all products →",
+    "see_all_short": "See all products",
+    "clear": "Clear",
+    "promo": "PROMO",
+    "sold_out": "Sold out"
+  },
   "footer": {
     "tagline": "Baby essentials. Nothing superfluous.",
     "desc": "Every M!LK product solves a real problem. No design for design's sake. Just what matters when you're exhausted.",

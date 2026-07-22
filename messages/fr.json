@@ -448,6 +448,22 @@
     "refuse_all": "Tout refuser",
     "customize": "Personnaliser"
   },
+  "search": {
+    "eyebrow": "Recherche",
+    "placeholder": "Body, pyjama, gigoteuse, lange, bambou...",
+    "suggestions": "Suggestions :",
+    "results": "{count, plural, one {résultat} other {résultats}}",
+    "results_for": "pour",
+    "no_results": "Aucun résultat pour",
+    "loading": "Chargement...",
+    "prompt_title": "Que cherches-tu ?",
+    "prompt_desc": "Tape un mot-clé pour trouver un produit.",
+    "see_all": "Voir tous les produits →",
+    "see_all_short": "Voir tous les produits",
+    "clear": "Effacer",
+    "promo": "PROMO",
+    "sold_out": "Épuisé"
+  },
   "footer": {
     "tagline": "Des essentiels bébé. Sans le superflu.",
     "desc": "Chaque produit M!LK répond à un problème réel. Pas de design pour le design. Juste ce qui compte quand t'es épuisé.",

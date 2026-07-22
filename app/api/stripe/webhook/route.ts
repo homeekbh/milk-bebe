@@ -41,6 +41,44 @@ function extractTailleFromName(name: string): string | null {
   return null;
 }
 
+// Attribution du numéro de FACTURE séquentiel (franchise 293 B — aucune TVA). Format
+// MILK-<année>-<n padé 6>. IDEMPOTENT : n'attribue QUE si absent (rejeu Stripe → déjà présent →
+// skip), + garde .is("invoice_number", null) contre la concurrence. Le numéro est FIGÉ à la 1re
+// émission. NE BLOQUE JAMAIS la commande : tant que la table facture_seq / la RPC
+// next_facture_number / la colonne orders.invoice_number ne sont pas en base (SQL à appliquer par
+// Bou — cf. rapport), l'attribution échoue GRACIEUSEMENT → log + alerte admin best-effort (esprit B2),
+// le paiement/la commande priment. S'active dès le SQL appliqué.
+async function assignInvoiceNumber(orderId: string, existingInvoiceNumber: string | null | undefined): Promise<void> {
+  if (existingInvoiceNumber) return; // déjà attribué → figé, on ne touche plus
+  try {
+    const year = new Date().getFullYear();
+    const { data: seq, error: seqErr } = await supabaseServer.rpc("next_facture_number", { p_year: year });
+    if (seqErr) throw seqErr;
+    const n = Number(seq);
+    if (!Number.isFinite(n) || n <= 0) throw new Error(`séquence invalide: ${String(seq)}`);
+    const invoiceNumber = `MILK-${year}-${String(n).padStart(6, "0")}`;
+    const { error: updErr } = await supabaseServer
+      .from("orders")
+      .update({ invoice_number: invoiceNumber })
+      .eq("id", orderId)
+      .is("invoice_number", null)  // garde concurrence : n'écrit que si toujours vide
+      .select("id").maybeSingle();
+    if (updErr) throw updErr;
+  } catch (e: any) {
+    console.error(`[webhook] attribution n° facture échouée pour ${orderId}:`, e?.message);
+    try {
+      if (ADMIN_EMAILS.length > 0) {
+        await resend.emails.send({
+          from:    "M!LK <contact@milkbebe.fr>",
+          to:      ADMIN_EMAILS,
+          subject: `⚠️ N° de facture non attribué — commande #${orderId.slice(0, 8).toUpperCase()}`,
+          html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b91c1c;margin:0 0 12px">Numéro de facture non attribué</h2><p>La commande <strong>#${escapeHtml(orderId)}</strong> a bien été payée et enregistrée, mais l'attribution du numéro de facture séquentiel a échoué : <strong>${escapeHtml(e?.message ?? "erreur inconnue")}</strong>.</p><p>Vérifier que la table <code>facture_seq</code>, la RPC <code>next_facture_number</code> et la colonne <code>orders.invoice_number</code> existent (cf. rapport). À régulariser ensuite dans l'admin « Factures ».</p></div>`,
+        });
+      }
+    } catch {}
+  }
+}
+
 // ── Traitement d'une commande PACK (metadata.type === "pack") ────────────────
 // Branche séparée du flow commande normal : crée UNE commande (items = 1 ligne
 // pack + breakdown produits, pack_id renseigné) PUIS, une seule fois (claim
@@ -154,6 +192,8 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
 
   // 3) Effets de bord EXACTEMENT-UNE-FOIS par commande.
   if (isFirstProcessing) {
+    // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
+    await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
     // Décrément stock atomique par produit (avec fallback non-atomique). Survente : on
     // collecte les ruptures (RPC error → fallback + détection ; RPC ok=false → stock insuffisant)
     // puis on alerte l'admin — COMME le chemin unifié. Sans ça, un refus RPC sur le dernier
@@ -345,6 +385,9 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
     .eq("id", pendingId).eq("status", "pending")
     .select("id").maybeSingle();
   if (!claimed) return; // déjà consommé (rejeu Stripe) → pas de double décrément
+
+  // Numéro de facture séquentiel (idempotent, non bloquant) — attribué à la 1re émission.
+  if (orderData?.id) await assignInvoiceNumber(orderData.id, (orderData as any)?.invoice_number);
 
   // ── PARRAINAGE — exactement 1× (protégé par le claim atomique ci-dessus) ──
   //    Rattachement filleul→parrain + création/consommation des récompenses

@@ -172,6 +172,9 @@ function PhilosophyCard({ text }: { text: string }) {
 }
 
 const TAILLES_ORDER = ["Nouveau-né","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120×120 cm"];
+// "Taille unique" est une VRAIE taille (avec son propre stock). Un produit dont c'est la SEULE taille est
+// traité « sans choix de taille » : pas de sélecteur, taille imposée automatiquement (cf. isTailleUniqueOnly).
+const TAILLE_UNIQUE = "Taille unique";
 const GUIDE_TAILLES = [
   { taille: "Nouveau-né", poids: "2,5 – 4 kg", poitrine: "21 cm", longueur: "50 cm" },
   { taille: "0-3 mois",   poids: "3,5 – 6 kg", poitrine: "22 cm", longueur: "54 cm" },
@@ -410,9 +413,10 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
   function handleAddToCart() {
     if (!product) return;
-    if (taillesDispos.length > 0 && !taille) {
+    if (needsTaille) {
       // Pas d'alert() bloquant : feedback visuel (sélecteur qui clignote rouge + message rouge
-      // rapproché du bouton) et on ramène le sélecteur dans le viewport.
+      // rapproché du bouton) et on ramène le sélecteur dans le viewport. (needsTaille exclut déjà
+      // le cas « Taille unique » → aucun clignotement pour un produit sans choix de taille.)
       setBlink(b => b + 1);
       const el = document.getElementById("taille-selector");
       if (el) {
@@ -421,9 +425,10 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
       }
       return;
     }
-    const name = [product.name, taille, couleur].filter(Boolean).join(" — ");
+    const name = [product.name, effectiveTaille, couleur].filter(Boolean).join(" — ");
     // Tracking add_to_cart (GA4) + AddToCart (Meta) est centralisé dans CartContext.addToCart()
-    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: taille || undefined, couleur: couleur || undefined, category_slug: product.category_slug || undefined });
+    // effectiveTaille = "Taille unique" pour un produit sans choix → stock décrémenté sur cette taille réelle.
+    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: effectiveTaille || undefined, couleur: couleur || undefined, category_slug: product.category_slug || undefined });
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }
 
@@ -447,8 +452,13 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const taillesDispos  : string[]              = Array.isArray(product.sizes)  ? product.sizes  : [];
   const sizesStock     : Record<string,number> = product.sizes_stock ?? {};
   const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
-  const outTaille      = taille ? Number(sizesStock[taille] ?? product.stock ?? 0) <= 0 : out;
-  const needsTaille     = taillesDispos.length > 0 && !taille;
+  // Détection AUTO « sans choix de taille » : la SEULE taille du produit est "Taille unique" (vraie taille
+  // en base, avec son stock). Multi-tailles dont "Taille unique" → NON détecté (traité produit à tailles).
+  // effectiveTaille impose "Taille unique" pour l'ajout panier ET le contrôle de stock (aucun bypass R3).
+  const isTailleUniqueOnly = taillesDispos.length === 1 && taillesDispos[0] === TAILLE_UNIQUE;
+  const effectiveTaille    = isTailleUniqueOnly ? TAILLE_UNIQUE : taille;
+  const outTaille      = effectiveTaille ? Number(sizesStock[effectiveTaille] ?? product.stock ?? 0) <= 0 : out;
+  const needsTaille     = taillesDispos.length > 0 && !isTailleUniqueOnly && !taille;
   const cartCount      = items.reduce((s, i) => s + i.quantity, 0);
 
   const productSlug   = product.slug ?? "";
@@ -717,42 +727,16 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
             </div>
           )}
 
-          {taillesDispos.length > 0 && (
-            <div id="taille-selector" style={{ display: "grid", gap: 10, ...(blink > 0 ? { outline: "2px solid #dc2626", outlineOffset: 8, borderRadius: 12, animation: "size-blink 0.45s ease-in-out 3" } : {}) }}>
-              <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                <span>{t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}</span>
-                {/* Lien direct « Guide des tailles » visible dès le choix de la taille →
-                    ouvre le panneau déroulant existant (juste en dessous). Hors bonnets. */}
-                {!productSlug.includes("bonnet") && (
-                  <button type="button" onClick={() => setGuideOpen(true)}
-                    style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: 0.3, textTransform: "none", color: AMBER, textDecoration: "underline", padding: 0, display: "inline-flex", alignItems: "center", gap: 4 }}>
-                    📏 {t("size_guide")}
-                  </button>
-                )}
-              </span>
-              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {
-                  const stockT = Number(sizesStock[t] ?? product.stock ?? 0);
-                  const epuise = stockT <= 0;
-                  const selected = taille === t;
-                  return (
-                    <button key={t} onClick={() => { if (!epuise) { setTaille(selected ? "" : t); setBlink(0); } }}
-                      style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
-                      {getSizeLabel(t, locale)}
-                      {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
-                      {!epuise && stockT <= 3 && <span style={{ marginLeft: 5, fontSize: 10, color: AMBER, fontWeight: 700 }}>({stockT})</span>}
-                    </button>
-                  );
-                })}
-              </div>
-              <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>
-                <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>{t("size_hint")}</span>
-              </div>
+          {/* Réassurance taille « bambou stretch » — SORTIE du sélecteur pour ne pas s'intercaler entre
+              taille et quantité (désormais côte à côte, plus bas). Placée AU-DESSUS du bloc taille+quantité. */}
+          {taillesDispos.length > 0 && !isTailleUniqueOnly && (
+            <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>
+              <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>{t("size_hint")}</span>
             </div>
           )}
 
-          {taillesDispos.length > 0 && !productSlug.includes("bonnet") && (
+          {taillesDispos.length > 0 && !isTailleUniqueOnly && !productSlug.includes("bonnet") && (
             <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid rgba(26,20,16,0.12)` }}>
               <button onClick={() => setGuideOpen(v => !v)} style={{ width: "100%", padding: "11px 14px", background: guideOpen ? DARK : "rgba(26,20,16,0.06)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -788,12 +772,63 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
             </div>
           )}
 
-          <div style={{ display: "grid", gap: 8 }}>
-            <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>{t("qty_label")}</span>
-            <div style={{ display: "flex", alignItems: "center", background: "rgba(26,20,16,0.06)", borderRadius: 12, padding: 4, width: "fit-content" }}>
-              <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>−</button>
-              <span style={{ width: 40, textAlign: "center", fontWeight: 900, fontSize: 16, color: DARK }}>{qty}</span>
-              <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>+</button>
+          {/* TAILLE + QUANTITÉ toujours CÔTE À CÔTE (2 colonnes desktop ; empilées taille AU-DESSUS de
+              quantité en < 700px), DIRECTEMENT au-dessus du bouton. Rien ne s'intercale entre les deux
+              colonnes. Gauche = taille (sélecteur si vraies tailles / libellé "Taille unique" en détection
+              auto) ; droite = quantité. */}
+          <div className="taille-qty-row" style={{ display: "flex", alignItems: "flex-start", gap: 20, flexWrap: "wrap" }}>
+
+            {/* Colonne gauche (a) — sélecteur de taille : produit à VRAIES tailles. Clignote rouge si tentative
+                d'ajout sans sélection (id="taille-selector" ciblé par handleAddToCart). */}
+            {taillesDispos.length > 0 && !isTailleUniqueOnly && (
+              <div id="taille-selector" style={{ flex: "1 1 auto", minWidth: 0, display: "grid", gap: 10, ...(blink > 0 ? { outline: "2px solid #dc2626", outlineOffset: 8, borderRadius: 12, animation: "size-blink 0.45s ease-in-out 3" } : {}) }}>
+                <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
+                  <span>{t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}</span>
+                  {!productSlug.includes("bonnet") && (
+                    <button type="button" onClick={() => setGuideOpen(true)}
+                      style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 800, letterSpacing: 0.3, textTransform: "none", color: AMBER, textDecoration: "underline", padding: 0, display: "inline-flex", alignItems: "center", gap: 4 }}>
+                      📏 {t("size_guide")}
+                    </button>
+                  )}
+                </span>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {
+                    const stockT = Number(sizesStock[t] ?? product.stock ?? 0);
+                    const epuise = stockT <= 0;
+                    const selected = taille === t;
+                    return (
+                      <button key={t} onClick={() => { if (!epuise) { setTaille(selected ? "" : t); setBlink(0); } }}
+                        style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
+                        {getSizeLabel(t, locale)}
+                        {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
+                        {!epuise && stockT <= 3 && <span style={{ marginLeft: 5, fontSize: 10, color: AMBER, fontWeight: 700 }}>({stockT})</span>}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Colonne gauche (b) — produit « Taille unique » (détection auto) : libellé AMBRE (#c49a4a) avec
+                pulse DOUX (info neutre, pas une erreur). Aucun sélecteur ; "Taille unique" retenue auto. */}
+            {isTailleUniqueOnly && (
+              <div style={{ display: "grid", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>{t("size_label")}</span>
+                <div className="taille-unique-badge" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 48, padding: "0 20px", borderRadius: 12, background: "rgba(196,154,74,0.12)", border: `1px solid rgba(196,154,74,0.4)`, width: "fit-content", fontWeight: 900, fontSize: 14, letterSpacing: 0.3, color: AMBER }}>
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M8.5 12l2.5 2.5 4.5-5" stroke={AMBER} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                  {getSizeLabel(TAILLE_UNIQUE, locale)}
+                </div>
+              </div>
+            )}
+
+            {/* Colonne droite — QUANTITÉ (toujours présente) */}
+            <div style={{ display: "grid", gap: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>{t("qty_label")}</span>
+              <div style={{ display: "flex", alignItems: "center", background: "rgba(26,20,16,0.06)", borderRadius: 12, padding: 4, width: "fit-content" }}>
+                <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>−</button>
+                <span style={{ width: 40, textAlign: "center", fontWeight: 900, fontSize: 16, color: DARK }}>{qty}</span>
+                <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>+</button>
+              </div>
             </div>
           </div>
 
@@ -832,7 +867,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                 productId={String(product.id)}
                 productName={product.name}
                 productSlug={product.slug}
-                taille={taille}
+                taille={effectiveTaille}
               />
             )}
 
@@ -946,7 +981,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
           {added ? t("mobile_added") : outTaille ? t("sold_out") : needsTaille ? t("choose_size") : t("add_price", { price: (Number(displayPrice) * qty).toFixed(2) })}
         </button>
       </div>
-      <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}@keyframes size-blink{0%,100%{outline-color:#dc2626}50%{outline-color:rgba(220,38,38,0.2)}}@keyframes size-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}`}</style>
+      <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}@media(max-width:700px){.taille-qty-row{flex-direction:column;align-items:flex-start;gap:16px}}@keyframes size-blink{0%,100%{outline-color:#dc2626}50%{outline-color:rgba(220,38,38,0.2)}}@keyframes size-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}@keyframes taille-unique-pulse{0%,100%{opacity:1}50%{opacity:0.6}}.taille-unique-badge{animation:taille-unique-pulse 2.6s ease-in-out infinite}`}</style>
     </div>
     </>
   );

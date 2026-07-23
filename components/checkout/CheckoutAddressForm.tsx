@@ -2,6 +2,7 @@
 
 import { useLocale } from "next-intl";
 import { isDomTom, domTomMessage } from "@/lib/delivery-config";
+import { postalInputMode, postalMaxLength } from "@/lib/postal";
 
 /**
  * Formulaire d'adresse du tunnel (FR domicile + international). Contrôlé :
@@ -67,8 +68,8 @@ export default function CheckoutAddressForm({
           <label style={LBL} htmlFor="addr-postal_code">{en ? "Postal code" : "Code postal"}</label>
           <input
             id="addr-postal_code"
-            inputMode="numeric"
-            maxLength={5}
+            inputMode={postalInputMode(country)}
+            maxLength={postalMaxLength(country)}
             value={(v.postal_code as string) ?? ""}
             onChange={e => onChange({ postal_code: e.target.value })}
             style={{ ...INP, ...(cpDomTom ? { borderColor: "#ef4444" } : {}) }}

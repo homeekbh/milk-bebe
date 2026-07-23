@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import { useState, Suspense } from "react";
-import { useTranslations, useLocale } from "next-intl";
+import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
-import { deliverableCountryOptions } from "@/lib/delivery-config";
+import CountrySelector from "@/components/checkout/CountrySelector";
 
 const COMMENT_CONNU = [
   "Instagram", "Bouche à oreille", "Google", "Facebook",
@@ -61,7 +61,6 @@ function InscriptionForm() {
     ? redirect
     : "/profil?welcome=1";
   const t = useTranslations("auth");
-  const locale = useLocale();
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -272,15 +271,9 @@ function InscriptionForm() {
                 </div>
 
                 <Field label={t("f_country")}>
-                  <select value={form.pays} onChange={(e) => set("pays", e.target.value)} style={selectStyle}>
-                    {/* Pays réellement livrables (FR + 21 UE), source UNIQUE deliverableCountryOptions →
-                        aucune liste dupliquée. Options en palette sombre (#1a1410/#f2ede6) pour rester
-                        LISIBLES sur le fond foncé du formulaire. Monaco absent : tarif métropole via
-                        adresse FR + CP 98000 (pas une zone internationale). */}
-                    {deliverableCountryOptions(locale).map(({ code, name }) => (
-                      <option key={code} value={code} style={{ background: "#1a1410", color: "#f2ede6" }}>{name}</option>
-                    ))}
-                  </select>
+                  {/* Composant UNIQUE partagé (source listDeliverableCountries → 22 pays). Variante sombre
+                      pour rester lisible sur le fond foncé du formulaire. Label porté par <Field>. */}
+                  <CountrySelector value={form.pays} onChange={(v) => set("pays", v)} hideLabel variant="dark" id="signup-country" />
                 </Field>
 
                 <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#f2ede6" }}>

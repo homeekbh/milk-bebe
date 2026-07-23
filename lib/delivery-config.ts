@@ -258,21 +258,6 @@ export function listDeliverableCountries(): { code: string; zone: ShippingZone }
 }
 
 /**
- * Options localisées des pays livrables (code ISO-2 + nom), France en tête puis tri par nom.
- * Source UNIQUE (listDeliverableCountries → COUNTRY_TO_ZONE) réutilisée par le sélecteur du tunnel ET
- * les formulaires compte (inscription, profil) → aucune liste de pays dupliquée.
- */
-export function deliverableCountryOptions(locale: string): { code: string; name: string }[] {
-  let dn: Intl.DisplayNames | null = null;
-  try { dn = new Intl.DisplayNames([locale], { type: "region" }); } catch { dn = null; }
-  const nameOf = (code: string): string => { try { return dn?.of(code) ?? code; } catch { return code; } };
-  const all  = listDeliverableCountries().map(({ code }) => ({ code, name: nameOf(code) }));
-  const fr   = all.filter(c => c.code === "FR");
-  const rest = all.filter(c => c.code !== "FR").sort((a, b) => a.name.localeCompare(b.name, locale));
-  return [...fr, ...rest];
-}
-
-/**
  * Éligible au seuil de livraison OFFERTE ? UNIQUEMENT la France ("FR").
  * L'international est TOUJOURS payant — aucun seuil de gratuité hors FR.
  */

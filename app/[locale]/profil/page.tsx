@@ -9,8 +9,7 @@ import { useAuth } from "@/context/AuthContext";
 import ParrainageProfil from "@/components/ParrainageProfil";
 import { useCart } from "@/context/CartContext";
 import { supabase } from "@/lib/supabase-client";
-import { useLocale } from "next-intl";
-import { deliverableCountryOptions } from "@/lib/delivery-config";
+import CountrySelector from "@/components/checkout/CountrySelector";
 
 type Address = {
   line1: string; line2: string; city: string;
@@ -69,7 +68,6 @@ function isPromoActive(p: any) {
 }
 
 function AddressFields({ addr, onChange }: { addr: Address; onChange: (a: Address) => void }) {
-  const locale = useLocale();
   function set(k: keyof Address, v: string) { onChange({ ...addr, [k]: v }); }
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -84,14 +82,9 @@ function AddressFields({ addr, onChange }: { addr: Address; onChange: (a: Addres
           <input value={addr.city} onChange={e => set("city", e.target.value)} placeholder="Paris" style={IS} /></div>
       </div>
       <div><label style={LS}>Pays</label>
-        {/* Pays réellement livrables (FR + 21 UE), source UNIQUE deliverableCountryOptions → aucune liste
-            dupliquée. Ce code ISO-2 PRÉ-REMPLIT le pays au checkout (checkout/livraison). Monaco absent :
-            livré au tarif métropole via une adresse FR + CP 98000 (pas une zone internationale). */}
-        <select value={addr.country} onChange={e => set("country", e.target.value)} style={IS}>
-          {deliverableCountryOptions(locale).map(({ code, name }) => (
-            <option key={code} value={code}>{name}</option>
-          ))}
-        </select>
+        {/* Composant UNIQUE partagé (source listDeliverableCountries → 22 pays). Ce code ISO-2 pré-remplit
+            le pays au checkout. Label "Pays" porté par le <label> ci-dessus (hideLabel). */}
+        <CountrySelector value={addr.country} onChange={(v) => set("country", v)} hideLabel variant="light" id="profil-country" />
       </div>
     </div>
   );

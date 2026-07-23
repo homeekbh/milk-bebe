@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
 import { supabase } from "@/lib/supabase-client";
@@ -8,7 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
-import { ALL_COUNTRY_CODES } from "@/lib/countries";
+import CountrySelector from "@/components/checkout/CountrySelector";
+import { isValidPostalCode, postalInputMode, postalMaxLength } from "@/lib/postal";
 
 // Miroir de app/[locale]/inscription/page.tsx (authErrorKey non exporté) : mappe
 // un message d'erreur Supabase Auth → clé de traduction du namespace "auth".
@@ -31,7 +32,6 @@ function isValidPhoneIntl(p: string): boolean {
 }
 
 const INP: React.CSSProperties = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.14)", fontSize: 15, outline: "none", background: "rgba(242,237,230,0.06)", color: "#f2ede6", boxSizing: "border-box" };
-const INP_DARK_SELECT: React.CSSProperties = { ...INP, appearance: "none" };
 const INP_LIGHT: React.CSSProperties = { width: "100%", padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 15, outline: "none", background: "#fff", color: "#1a1410", boxSizing: "border-box" };
 
 type AccountForm = {
@@ -62,14 +62,6 @@ export default function CheckoutComptePage() {
   const [loading, setLoading] = useState(false);
   const [error,   setError]   = useState("");
   const setF = (k: keyof AccountForm, v: string) => { setForm(f => ({ ...f, [k]: v })); setError(""); };
-
-  const countryName = (code: string): string => {
-    try { return new Intl.DisplayNames([en ? "en" : "fr"], { type: "region" }).of(code) ?? code; } catch { return code; }
-  };
-  const countryOptions = useMemo(
-    () => ALL_COUNTRY_CODES.map(c => ({ code: c, name: countryName(c) })).sort((a, b) => a.name.localeCompare(b.name, en ? "en" : "fr")),
-    [en],
-  );
 
   // Garde : panier vide → /panier.
   useEffect(() => {
@@ -171,6 +163,10 @@ export default function CheckoutComptePage() {
     if (password.length < 8)                  { setError(t("err_pwd_short"));      return; }
     if (!form.prenom.trim() || !form.nom.trim() || !form.line1.trim() || !form.postal_code.trim() || !form.city.trim() || !form.country) {
       setError(en ? "Please complete all required fields." : "Merci de compléter tous les champs obligatoires."); return;
+    }
+    // CP validé selon le pays (strict FR/MC = 5 chiffres ; souple ailleurs — ne bloque pas un CP UE valide).
+    if (!isValidPostalCode(form.postal_code, form.country)) {
+      setError(en ? "Invalid postal code for the selected country." : "Code postal invalide pour le pays sélectionné."); return;
     }
     if (!isValidPhoneIntl(form.phone)) {
       setError(en ? "Invalid phone number." : "Numéro de téléphone invalide."); return;
@@ -319,14 +315,14 @@ export default function CheckoutComptePage() {
                 <input autoComplete="address-line2" value={form.line2} onChange={e => setF("line2", e.target.value)} style={INP} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
                 <div><label style={darkLabel}>{en ? "Postal code" : "Code postal"} {req}</label>
-                  <input inputMode="numeric" value={form.postal_code} onChange={e => setF("postal_code", e.target.value)} style={INP} /></div>
+                  <input inputMode={postalInputMode(form.country)} maxLength={postalMaxLength(form.country)} value={form.postal_code} onChange={e => setF("postal_code", e.target.value)} style={INP} /></div>
                 <div><label style={darkLabel}>{en ? "City" : "Ville"} {req}</label>
                   <input autoComplete="address-level2" value={form.city} onChange={e => setF("city", e.target.value)} style={INP} /></div>
               </div>
               <div><label style={darkLabel}>{en ? "Country" : "Pays"} {req}</label>
-                <select value={form.country} onChange={e => setF("country", e.target.value)} style={INP_DARK_SELECT}>
-                  {countryOptions.map(o => <option key={o.code} value={o.code}>{o.name}</option>)}
-                </select></div>
+                {/* Composant UNIQUE partagé (source listDeliverableCountries → 22 pays livrables). Fini
+                    les ~250 pays du monde ; plus aucun pays non livrable sélectionnable. Variante sombre. */}
+                <CountrySelector value={form.country} onChange={(v) => setF("country", v)} hideLabel variant="dark" id="account-country" /></div>
               <div><label style={darkLabel}>{en ? "Phone number" : "Numéro de téléphone"} {req}</label>
                 <input type="tel" inputMode="tel" autoComplete="tel" placeholder={en ? "e.g. +33 6 12 34 56 78" : "Ex : +33 6 12 34 56 78"}
                   value={form.phone} onChange={e => setF("phone", e.target.value)} style={INP} /></div>

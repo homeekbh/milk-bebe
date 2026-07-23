@@ -10,6 +10,7 @@ import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import CountrySelector from "@/components/checkout/CountrySelector";
 import RelaySelector from "@/components/checkout/RelaySelector";
 import CheckoutAddressForm, { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
+import { postalInputMode, postalMaxLength } from "@/lib/postal";
 import {
   DELIVERY_PRICES,
   getDeliveryPrice,
@@ -322,7 +323,7 @@ export default function CheckoutLivraisonPage() {
                 <input value={sa.line2 ?? ""} onChange={e => setIntlAddr({ line2: e.target.value })} style={inp} /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
                 <div><label style={lbl}>{en ? "Postal code" : "Code postal"}</label>
-                  <input value={sa.postal_code ?? ""} onChange={e => setIntlAddr({ postal_code: e.target.value })} style={inp} /></div>
+                  <input inputMode={postalInputMode(country)} maxLength={postalMaxLength(country)} value={sa.postal_code ?? ""} onChange={e => setIntlAddr({ postal_code: e.target.value })} style={inp} /></div>
                 <div><label style={lbl}>{en ? "City" : "Ville"}</label>
                   <input value={sa.city ?? ""} onChange={e => setIntlAddr({ city: e.target.value })} style={inp} /></div>
               </div>

@@ -7,11 +7,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import CountrySelector from "@/components/checkout/CountrySelector";
 
-const COMMENT_CONNU = [
-  "Instagram", "Bouche à oreille", "Google", "Facebook",
-  "Un ami / famille", "Blog ou article", "Autre",
-];
-
 // Mappe les messages d'erreur Supabase Auth vers une CLÉ de traduction (auth.*).
 function authErrorKey(msg?: string | null): string {
   const m = String(msg ?? "").toLowerCase();
@@ -44,11 +39,6 @@ const inputStyle = {
   color: "#f2ede6",
 };
 
-const selectStyle = {
-  ...inputStyle,
-  appearance: "none" as const,
-};
-
 function InscriptionForm() {
   const router = useRouter();
   // Redirection post-inscription : revenir là d'où on vient (?redirect=/panier envoyé
@@ -71,7 +61,6 @@ function InscriptionForm() {
     adresse_livraison: "", ville: "", code_postal: "", pays: "FR",
     adresse_diff: false,
     adresse_livraison_alt: "", ville_alt: "", code_postal_alt: "",
-    instagram: "", facebook: "", comment_connu: "",
     newsletter: true,
   });
 
@@ -134,10 +123,7 @@ function InscriptionForm() {
       adresse_livraison_alt: form.adresse_diff ? form.adresse_livraison_alt : null,
       ville_alt: form.adresse_diff ? form.ville_alt : null,
       code_postal_alt: form.adresse_diff ? form.code_postal_alt : null,
-      instagram: form.instagram || null,
-      facebook: form.facebook || null,
-      comment_connu: form.comment_connu || null,
-      newsletter: true, // opt-in systématique (plus de case à décocher)
+      newsletter: true, // opt-in systématique — consentement affiché à l'étape 2 (RGPD)
     }]);
 
     // Email de bienvenue — fire-and-forget. N'attend pas la réponse pour
@@ -154,17 +140,12 @@ function InscriptionForm() {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (step < 3) { setStep(s => s + 1); return; }
+    if (step < 2) { setStep(s => s + 1); return; }
     const ok = await createAccount();
     if (ok) router.push(safeRedirect);
   }
 
-  async function handleSkip() {
-    const ok = await createAccount();
-    if (ok) router.push(safeRedirect);
-  }
-
-  const stepLabels = [t("register_step1"), t("register_step2"), t("register_step3")];
+  const stepLabels = [t("register_step1"), t("register_step2")];
 
   return (
     <div style={{ minHeight: "100vh", background: "#1a1410", padding: "100px 24px 60px", display: "grid", placeItems: "start center" }}>
@@ -183,7 +164,7 @@ function InscriptionForm() {
             const active = n === step;
             const done = n < step;
             return (
-              <div key={label} style={{ display: "flex", alignItems: "center", flex: i < 2 ? 1 : "none" }}>
+              <div key={label} style={{ display: "flex", alignItems: "center", flex: i < stepLabels.length - 1 ? 1 : "none" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <div style={{
                     width: 32, height: 32, borderRadius: "50%",
@@ -198,7 +179,7 @@ function InscriptionForm() {
                     {label}
                   </span>
                 </div>
-                {i < 2 && (
+                {i < stepLabels.length - 1 && (
                   <div style={{ flex: 1, height: 2, background: done ? "#16a34a" : "rgba(242,237,230,0.1)", margin: "0 12px" }} />
                 )}
               </div>
@@ -297,60 +278,10 @@ function InscriptionForm() {
                     </div>
                   </div>
                 )}
-              </>
-            )}
 
-            {/* ── ÉTAPE 3 : PROFIL OPTIONNEL ── */}
-            {step === 3 && (
-              <>
-                <div style={{ textAlign: "center", padding: "8px 0 4px" }}>
-                  <div style={{ display: "inline-block", padding: "6px 16px", borderRadius: 99, background: "rgba(196,154,74,0.15)", border: "1px solid rgba(196,154,74,0.3)", fontSize: 12, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", marginBottom: 16, color: "#c49a4a" }}>
-                    {t("step_optional")}
-                  </div>
-                  <div style={{ fontWeight: 950, fontSize: 20, letterSpacing: -0.5, marginBottom: 10, color: "#f2ede6" }}>
-                    {t("step3_title")}
-                  </div>
-                  <div style={{ fontSize: 14, color: "rgba(242,237,230,0.45)", lineHeight: 1.7, maxWidth: 380, margin: "0 auto" }}>
-                    {t("step3_desc")}
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={handleSkip}
-                  disabled={loading}
-                  style={{ padding: "13px", borderRadius: 12, border: "1px dashed rgba(242,237,230,0.2)", background: "transparent", fontWeight: 700, fontSize: 14, cursor: loading ? "not-allowed" : "pointer", color: "rgba(242,237,230,0.55)", opacity: loading ? 0.6 : 1 }}
-                >
-                  {loading ? t("register_creating") : t("skip_btn")}
-                </button>
-
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                  <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.08)" }} />
-                  <span style={{ fontSize: 12, color: "rgba(242,237,230,0.3)", fontWeight: 600 }}>{t("or_fill")}</span>
-                  <div style={{ flex: 1, height: 1, background: "rgba(242,237,230,0.08)" }} />
-                </div>
-
-                <Field label={t("how_known")}>
-                  <select value={form.comment_connu} onChange={(e) => set("comment_connu", e.target.value)} style={selectStyle}>
-                    <option value="">{t("select_placeholder")}</option>
-                    {COMMENT_CONNU.map((c) => (
-                      <option key={c} value={c}>{c}</option>
-                    ))}
-                  </select>
-                </Field>
-
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                  <Field label="Instagram (pseudo)">
-                    <input type="text" value={form.instagram} onChange={(e) => set("instagram", e.target.value)} placeholder="@tonpseudo" style={inputStyle} />
-                  </Field>
-                  <Field label="Facebook (pseudo)">
-                    <input type="text" value={form.facebook} onChange={(e) => set("facebook", e.target.value)} placeholder="Ton prénom nom" style={inputStyle} />
-                  </Field>
-                </div>
-
-                {/* Newsletter : opt-in automatique à la création de compte (demande de
-                    Bou). Plus de case à décocher — mention passive RGPD suffisante, le
-                    lien de désabonnement est présent dans les emails marketing envoyés. */}
+                {/* Consentement email (RGPD) — DÉPLACÉ depuis l'ancienne étape « Pour mieux vous
+                    connaître » (supprimée). DOIT rester visible AVANT « Créer mon compte » : opt-in
+                    newsletter à la création, désabonnement en 1 clic dans chaque email marketing. */}
                 <div style={{ padding: 14, borderRadius: 12, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.2)", fontSize: 12, color: "rgba(242,237,230,0.55)", lineHeight: 1.6 }}>
                   📩 En créant un compte, tu acceptes de recevoir nos actualités et offres M!LK par email. Désabonnement possible à tout moment en un clic.
                 </div>
@@ -380,7 +311,7 @@ function InscriptionForm() {
                 disabled={loading}
                 style={{ flex: 1, padding: "15px", borderRadius: 12, background: "#f2ede6", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: loading ? "not-allowed" : "pointer", opacity: loading ? 0.6 : 1 }}
               >
-                {loading ? t("register_creating") : step < 3 ? t("register_next") : t("register_btn")}
+                {loading ? t("register_creating") : step < 2 ? t("register_next") : t("register_btn")}
               </button>
             </div>
           </div>

@@ -246,6 +246,19 @@ export async function POST(req: Request) {
 
       shippingWeightG += resolveItemWeightG(product) * qty;
 
+      // R-MOTIF (phase 2 — TRANSPORT SEUL, aucun contrôle de stock ici) : résoudre le motif choisi,
+      // validé ANTI-FORGE contre product.colors (jamais cru depuis le body). N=1 auto-résolu serveur.
+      // Absent / invalide / legacy sans id → null (fallback gracieux). Le décrément reste sur
+      // products.stock (phase 4). Ne rouvre PAS R3 (la taille est résolue au-dessus, inchangée).
+      const productColors: any[] = Array.isArray(product.colors) ? product.colors : [];
+      const explicitMotif = item.motif_id != null ? String(item.motif_id).trim() : "";
+      let motifId: string | null = null;
+      if (explicitMotif && productColors.some((c: any) => String(c?.id ?? "") === explicitMotif)) {
+        motifId = explicitMotif;
+      } else if (productColors.length === 1 && productColors[0]?.id) {
+        motifId = String(productColors[0].id);
+      }
+
       validatedItems.push({
         id:            product.id,
         name:          displayName,
@@ -254,6 +267,7 @@ export async function POST(req: Request) {
         quantity:      qty,
         category_slug: product.category_slug ?? "",
         taille:        trackedSize ?? null, // R3 : décrément par-taille uniquement si suivie dans sizes_stock
+        motif_id:      motifId,             // phase 2 : transport (non consommé). Décrément phase 4.
       });
     }
 
@@ -266,7 +280,7 @@ export async function POST(req: Request) {
       const packIds = [...new Set(packsArr.map((p: any) => p.pack_id).filter(Boolean))];
       const { data: packsData, error: packsErr } = await supabaseServer
         .from("packs")
-        .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock, weight_g ) )`)
+        .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock, weight_g, colors ) )`)
         .in("id", packIds.length ? packIds : ["none"])
         .eq("active", true);
       // Erreur DB transitoire → 503 réessayable, pas un faux « pack indisponible » (400 trompeur).
@@ -286,7 +300,7 @@ export async function POST(req: Request) {
         const prods = (pack.pack_items ?? []).map((it: any) => it.product).filter(Boolean);
         if (prods.length === 0) return Response.json({ error: `Coffret vide : ${pack.title}` }, { status: 400 });
 
-        const pieces: { product_id: string; name: string; size: string | null }[] = [];
+        const pieces: { product_id: string; name: string; size: string | null; motif_id: string | null }[] = [];
         for (const p of prods) {
           const sizes: string[] = Array.isArray(p.sizes) ? p.sizes : [];
           let pieceSize: string | null;
@@ -306,7 +320,11 @@ export async function POST(req: Request) {
           } else if ((p.stock ?? 0) < qty) {
             return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
           }
-          pieces.push({ product_id: p.id, name: p.name, size: pieceSize });
+          // Motif par pièce (phase 2, transport) : N=1 auto-résolu ; multi-motif → null (sélection par
+          // pièce déférée). Le décrément pack reste sur products.stock (phase 4).
+          const pcColors: any[] = Array.isArray(p.colors) ? p.colors : [];
+          const pieceMotifId = pcColors.length === 1 && pcColors[0]?.id ? String(pcColors[0].id) : null;
+          pieces.push({ product_id: p.id, name: p.name, size: pieceSize, motif_id: pieceMotifId });
         }
 
         // Poids du pack = Σ poids nets de ses pièces, × quantité de packs.

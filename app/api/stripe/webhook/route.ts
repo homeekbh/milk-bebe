@@ -206,7 +206,7 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   } : null;
 
   const { data: prods } = await supabaseServer
-    .from("products").select("id, name, slug, weight_g")
+    .from("products").select("id, name, slug, weight_g, colors")
     .in("id", productIds.length ? productIds : ["none"]);
   const prodMap: Record<string, any> = {};
   (prods ?? []).forEach((p: any) => { prodMap[p.id] = p; });
@@ -216,9 +216,12 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
   // coffret = 1 exemplaire de chaque composant (create-pack-session : un id par pack_item, qté 1).
   const packWeightG = Math.round(productIds.reduce((sum: number, pid: string) => sum + resolveItemWeightG(prodMap[pid]), 0)) + PACKAGING_WEIGHT_G;
 
-  const packProducts = productIds.map(pid => ({
-    id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: sizeFor(pid),
-  }));
+  const packProducts = productIds.map(pid => {
+    // Motif par pièce (phase 2, transport) : N=1 auto-résolu depuis colors ; multi-motif → null.
+    const pcColors: any[] = Array.isArray(prodMap[pid]?.colors) ? prodMap[pid].colors : [];
+    const pieceMotifId = pcColors.length === 1 && pcColors[0]?.id ? String(pcColors[0].id) : null;
+    return { id: pid, name: prodMap[pid]?.name ?? "Produit", slug: prodMap[pid]?.slug ?? null, taille: sizeFor(pid), motif_id: pieceMotifId };
+  });
   const items = [{
     id:            `pack:${packId}`,
     is_pack:       true,
@@ -446,14 +449,14 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   const items = [
     ...products.map((p: any) => ({
       id: p.id, name: p.name, slug: p.slug, price: p.price, quantity: p.quantity,
-      taille: p.taille ?? null, category_slug: p.category_slug ?? "",
+      taille: p.taille ?? null, motif_id: p.motif_id ?? null, category_slug: p.category_slug ?? "",
     })),
     ...packs.map((pk: any) => ({
       id: `pack:${pk.pack_id}`, is_pack: true, pack_id: pk.pack_id,
       name: `${pk.title}${pk.size ? ` — ${pk.size}` : ""}`,
       price: pk.price, quantity: pk.quantity, taille: pk.size ?? null,
       slug: pk.slug ?? null, category_slug: "pack",
-      products: (pk.pieces ?? []).map((pc: any) => ({ id: pc.product_id, name: pc.name, taille: pc.size })),
+      products: (pk.pieces ?? []).map((pc: any) => ({ id: pc.product_id, name: pc.name, taille: pc.size, motif_id: pc.motif_id ?? null })),
     })),
   ];
 

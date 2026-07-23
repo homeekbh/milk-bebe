@@ -11,7 +11,8 @@ type CartItem = {
   quantity: number;
   image_url?: string;
   taille?: string;        // taille sélectionnée
-  couleur?: string;       // couleur/motif sélectionné
+  couleur?: string;       // couleur/motif sélectionné (label affiché)
+  motif_id?: string;      // uuid stable du motif (colors[].id) — transport phase 2 "stock par motif"
   category_slug?: string; // catégorie (pyjamas, bodies, etc.) — utile pour upsell post-achat
 };
 

@@ -375,6 +375,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const [taille,      setTaille]      = useState("");
   const [blink,       setBlink]       = useState(0); // >0 = tentative d'ajout sans taille → clignotement rouge du sélecteur
   const [couleur,     setCouleur]     = useState("");
+  const [motifId,     setMotifId]     = useState(""); // uuid stable du motif choisi (colors[].id) — transport phase 2
   const [qty,         setQty]         = useState(1);
   const [added,       setAdded]       = useState(false);
   const [lightboxIdx, setLightboxIdx] = useState<number | null>(null);
@@ -428,7 +429,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
     const name = [product.name, effectiveTaille, couleur].filter(Boolean).join(" — ");
     // Tracking add_to_cart (GA4) + AddToCart (Meta) est centralisé dans CartContext.addToCart()
     // effectiveTaille = "Taille unique" pour un produit sans choix → stock décrémenté sur cette taille réelle.
-    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: effectiveTaille || undefined, couleur: couleur || undefined, category_slug: product.category_slug || undefined });
+    addToCart({ id: String(product.id), slug: product.slug, name, price: promo ? product.promo_price : product.price_ttc, quantity: qty, taille: effectiveTaille || undefined, couleur: couleur || undefined, motif_id: effectiveMotifId || undefined, category_slug: product.category_slug || undefined });
     setAdded(true); setTimeout(() => setAdded(false), 2500);
   }
 
@@ -452,6 +453,9 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const taillesDispos  : string[]              = Array.isArray(product.sizes)  ? product.sizes  : [];
   const sizesStock     : Record<string,number> = product.sizes_stock ?? {};
   const couleursDispos : any[]                 = Array.isArray(product.colors) ? product.colors : [];
+  // Motif unique (N=1) : motif auto-sélectionné → son id voyage même sans clic. Sinon = motif cliqué.
+  const isSingleColorOnly = couleursDispos.length === 1;
+  const effectiveMotifId  = isSingleColorOnly ? String(couleursDispos[0]?.id ?? "") : motifId;
   // Détection AUTO « sans choix de taille » : la SEULE taille du produit est "Taille unique" (vraie taille
   // en base, avec son stock). Multi-tailles dont "Taille unique" → NON détecté (traité produit à tailles).
   // effectiveTaille impose "Taille unique" pour l'ajout panier ET le contrôle de stock (aucun bypass R3).
@@ -690,7 +694,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                   const epuise  = Number(col.stock ?? 0) <= 0;
                   const selected = couleur === col.name;
                   return (
-                    <button key={col.name} onClick={() => { if (!epuise) setCouleur(col.name); }} title={col.name}
+                    <button key={col.name} onClick={() => { if (!epuise) { setCouleur(col.name); setMotifId(String(col.id ?? "")); } }} title={col.name}
                       style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? `3px solid ${DARK}` : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: col.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` : "none" }}>
                       {col.image_url && <Image src={col.image_url} alt={col.name} fill sizes="40px" style={{ objectFit: "cover" }} />}
                       {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: AMBER, transform: "rotate(45deg)" }} /></div>}

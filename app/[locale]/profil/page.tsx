@@ -9,6 +9,8 @@ import { useAuth } from "@/context/AuthContext";
 import ParrainageProfil from "@/components/ParrainageProfil";
 import { useCart } from "@/context/CartContext";
 import { supabase } from "@/lib/supabase-client";
+import { useLocale } from "next-intl";
+import { deliverableCountryOptions } from "@/lib/delivery-config";
 
 type Address = {
   line1: string; line2: string; city: string;
@@ -67,6 +69,7 @@ function isPromoActive(p: any) {
 }
 
 function AddressFields({ addr, onChange }: { addr: Address; onChange: (a: Address) => void }) {
+  const locale = useLocale();
   function set(k: keyof Address, v: string) { onChange({ ...addr, [k]: v }); }
   return (
     <div style={{ display: "grid", gap: 12 }}>
@@ -81,14 +84,13 @@ function AddressFields({ addr, onChange }: { addr: Address; onChange: (a: Addres
           <input value={addr.city} onChange={e => set("city", e.target.value)} placeholder="Paris" style={IS} /></div>
       </div>
       <div><label style={LS}>Pays</label>
-        {/* Code ISO-2 : cette valeur PRÉ-REMPLIT le pays au checkout (checkout/livraison) → n'offrir
-            que des pays réellement livrables au tunnel, sinon pré-remplissage cassé. CH (Suisse) retiré :
-            bloqué au tunnel (douane non validée) — réactiver avec CH dans COUNTRY_TO_ZONE. MC (Monaco)
-            retiré : livré au tarif métropole via une adresse FR + CP 98000 (pas une zone intl). */}
+        {/* Pays réellement livrables (FR + 21 UE), source UNIQUE deliverableCountryOptions → aucune liste
+            dupliquée. Ce code ISO-2 PRÉ-REMPLIT le pays au checkout (checkout/livraison). Monaco absent :
+            livré au tarif métropole via une adresse FR + CP 98000 (pas une zone internationale). */}
         <select value={addr.country} onChange={e => set("country", e.target.value)} style={IS}>
-          <option value="FR">🇫🇷 France</option>
-          <option value="BE">🇧🇪 Belgique</option>
-          <option value="LU">🇱🇺 Luxembourg</option>
+          {deliverableCountryOptions(locale).map(({ code, name }) => (
+            <option key={code} value={code}>{name}</option>
+          ))}
         </select>
       </div>
     </div>

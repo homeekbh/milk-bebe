@@ -59,8 +59,6 @@ function InscriptionForm() {
     email: "", password: "", confirmPassword: "",
     prenom: "", nom: "", telephone: "",
     adresse_livraison: "", ville: "", code_postal: "", pays: "FR",
-    adresse_diff: false,
-    adresse_livraison_alt: "", ville_alt: "", code_postal_alt: "",
     newsletter: true,
   });
 
@@ -120,9 +118,6 @@ function InscriptionForm() {
         city:        form.ville,
         country:     form.pays,
       },
-      adresse_livraison_alt: form.adresse_diff ? form.adresse_livraison_alt : null,
-      ville_alt: form.adresse_diff ? form.ville_alt : null,
-      code_postal_alt: form.adresse_diff ? form.code_postal_alt : null,
       newsletter: true, // opt-in systématique — consentement affiché à l'étape 2 (RGPD)
     }]);
 
@@ -256,28 +251,6 @@ function InscriptionForm() {
                     <input type="text" value={form.ville} onChange={(e) => set("ville", e.target.value)} required placeholder="Paris" style={inputStyle} />
                   </Field>
                 </div>
-
-                <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#f2ede6" }}>
-                  <input type="checkbox" checked={form.adresse_diff} onChange={(e) => set("adresse_diff", e.target.checked)} style={{ width: 18, height: 18 }} />
-                  {t("diff_address")}
-                </label>
-
-                {form.adresse_diff && (
-                  <div style={{ padding: 20, borderRadius: 14, background: "rgba(242,237,230,0.04)", border: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 14 }}>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: "#f2ede6" }}>{t("secondary_address")}</div>
-                    <Field label={t("f_address")}>
-                      <input type="text" value={form.adresse_livraison_alt} onChange={(e) => set("adresse_livraison_alt", e.target.value)} placeholder={t("ph_alt_address")} style={inputStyle} />
-                    </Field>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
-                      <Field label={t("f_postal")}>
-                        <input type="text" value={form.code_postal_alt} onChange={(e) => set("code_postal_alt", e.target.value)} placeholder="75001" style={inputStyle} />
-                      </Field>
-                      <Field label={t("f_city")}>
-                        <input type="text" value={form.ville_alt} onChange={(e) => set("ville_alt", e.target.value)} placeholder="Paris" style={inputStyle} />
-                      </Field>
-                    </div>
-                  </div>
-                )}
 
                 {/* Consentement email (RGPD) — DÉPLACÉ depuis l'ancienne étape « Pour mieux vous
                     connaître » (supprimée). DOIT rester visible AVANT « Créer mon compte » : opt-in

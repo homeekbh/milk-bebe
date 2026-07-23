@@ -242,6 +242,12 @@ function InscriptionForm() {
                   <input type="text" value={form.adresse_livraison} onChange={(e) => set("adresse_livraison", e.target.value)} required placeholder="12 rue des Fleurs" style={inputStyle} />
                 </Field>
 
+                {/* PAYS en premier : la validation du CP dépend du pays (5 chiffres FR, 6 RO…) → on choisit
+                    le pays AVANT le code postal. Pays pleine largeur, CP + ville en dessous. */}
+                <Field label={t("f_country")}>
+                  <CountrySelector value={form.pays} onChange={(v) => set("pays", v)} hideLabel variant="dark" id="signup-country" />
+                </Field>
+
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14 }}>
                   <Field label={t("f_postal")} required>
                     <input type="text" value={form.code_postal} onChange={(e) => set("code_postal", e.target.value)} required placeholder="75001" style={inputStyle} />
@@ -250,12 +256,6 @@ function InscriptionForm() {
                     <input type="text" value={form.ville} onChange={(e) => set("ville", e.target.value)} required placeholder="Paris" style={inputStyle} />
                   </Field>
                 </div>
-
-                <Field label={t("f_country")}>
-                  {/* Composant UNIQUE partagé (source listDeliverableCountries → 22 pays). Variante sombre
-                      pour rester lisible sur le fond foncé du formulaire. Label porté par <Field>. */}
-                  <CountrySelector value={form.pays} onChange={(v) => set("pays", v)} hideLabel variant="dark" id="signup-country" />
-                </Field>
 
                 <label style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer", fontSize: 14, fontWeight: 700, color: "#f2ede6" }}>
                   <input type="checkbox" checked={form.adresse_diff} onChange={(e) => set("adresse_diff", e.target.checked)} style={{ width: 18, height: 18 }} />

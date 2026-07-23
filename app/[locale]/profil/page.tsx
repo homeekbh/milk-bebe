@@ -75,16 +75,17 @@ function AddressFields({ addr, onChange }: { addr: Address; onChange: (a: Addres
         <input value={addr.line1} onChange={e => set("line1", e.target.value)} placeholder="12 rue de la Paix" style={IS} /></div>
       <div><label style={LS}>Complément (optionnel)</label>
         <input value={addr.line2} onChange={e => set("line2", e.target.value)} placeholder="Bâtiment A..." style={IS} /></div>
+      {/* PAYS avant le CP : la validation du code postal dépend du pays (5 chiffres FR, 6 RO…).
+          Composant UNIQUE partagé (source listDeliverableCountries → 22 pays). Ce code ISO-2 pré-remplit
+          le pays au checkout. Label "Pays" porté par le <label> ci-dessus (hideLabel). */}
+      <div><label style={LS}>Pays</label>
+        <CountrySelector value={addr.country} onChange={(v) => set("country", v)} hideLabel variant="light" id="profil-country" />
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: 12 }}>
         <div><label style={LS}>Code postal</label>
           <input value={addr.postal_code} onChange={e => set("postal_code", e.target.value)} placeholder="75001" style={IS} /></div>
         <div><label style={LS}>Ville</label>
           <input value={addr.city} onChange={e => set("city", e.target.value)} placeholder="Paris" style={IS} /></div>
-      </div>
-      <div><label style={LS}>Pays</label>
-        {/* Composant UNIQUE partagé (source listDeliverableCountries → 22 pays). Ce code ISO-2 pré-remplit
-            le pays au checkout. Label "Pays" porté par le <label> ci-dessus (hideLabel). */}
-        <CountrySelector value={addr.country} onChange={(v) => set("country", v)} hideLabel variant="light" id="profil-country" />
       </div>
     </div>
   );

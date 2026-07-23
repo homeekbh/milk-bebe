@@ -65,6 +65,12 @@ export default function CheckoutAddressForm({
       {field("name",  en ? "Full name" : "Nom complet")}
       {field("line1", en ? "Address" : "Adresse")}
       {field("line2", en ? "Address line 2 (optional)" : "Complément (optionnel)")}
+      {/* Pays (lecture seule — choisi via CountrySelector plus haut) AVANT le CP : pattern « pays d'abord »
+          cohérent avec les autres formulaires (la validation du CP dépend du pays). */}
+      <div>
+        <label style={LBL}>{en ? "Country" : "Pays"}</label>
+        <div style={{ ...INP, color: "rgba(26,20,16,0.6)", background: "#f7f5f1" }}>{countryName}</div>
+      </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, alignItems: "start" }}>
         <div>
           <label style={LBL} htmlFor="addr-postal_code">{en ? "Postal code" : "Code postal"}</label>
@@ -83,10 +89,6 @@ export default function CheckoutAddressForm({
           )}
         </div>
         {field("city", en ? "City" : "Ville")}
-      </div>
-      <div>
-        <label style={LBL}>{en ? "Country" : "Pays"}</label>
-        <div style={{ ...INP, color: "rgba(26,20,16,0.6)", background: "#f7f5f1" }}>{countryName}</div>
       </div>
     </div>
   );

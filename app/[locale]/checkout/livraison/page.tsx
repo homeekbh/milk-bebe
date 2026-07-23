@@ -321,14 +321,16 @@ export default function CheckoutLivraisonPage() {
                 <input value={sa.line1 ?? ""} onChange={e => setIntlAddr({ line1: e.target.value })} style={inp} /></div>
               <div><label style={lbl}>{en ? "Address line 2 (optional)" : "Complément (optionnel)"}</label>
                 <input value={sa.line2 ?? ""} onChange={e => setIntlAddr({ line2: e.target.value })} style={inp} /></div>
+              {/* Pays (lecture seule — choisi via CountrySelector plus haut) AVANT le CP : pattern
+                  « pays d'abord » cohérent (la validation du CP dépend du pays). */}
+              <div><label style={lbl}>{en ? "Country" : "Pays"}</label>
+                <div style={{ ...inp, color: "rgba(26,20,16,0.6)", background: "#f7f5f1" }}>{countryLabel(country)}</div></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
                 <div><label style={lbl}>{en ? "Postal code" : "Code postal"}</label>
                   <input inputMode={postalInputMode(country)} maxLength={postalMaxLength(country)} value={sa.postal_code ?? ""} onChange={e => setIntlAddr({ postal_code: e.target.value })} style={inp} /></div>
                 <div><label style={lbl}>{en ? "City" : "Ville"}</label>
                   <input value={sa.city ?? ""} onChange={e => setIntlAddr({ city: e.target.value })} style={inp} /></div>
               </div>
-              <div><label style={lbl}>{en ? "Country" : "Pays"}</label>
-                <div style={{ ...inp, color: "rgba(26,20,16,0.6)", background: "#f7f5f1" }}>{countryLabel(country)}</div></div>
               <div style={{ padding: "12px 14px", borderRadius: 10, background: "rgba(196,154,74,0.08)", border: "1px solid rgba(196,154,74,0.25)", fontSize: 13, color: "rgba(26,20,16,0.75)", lineHeight: 1.6 }}>
                 📦 {en ? "You can confirm this address at the secure payment step."
                       : "Vous pourrez confirmer cette adresse à l'étape de paiement sécurisée."}

@@ -313,16 +313,17 @@ export default function CheckoutComptePage() {
                 <input autoComplete="address-line1" value={form.line1} onChange={e => setF("line1", e.target.value)} style={INP} /></div>
               <div><label style={darkLabel}>{en ? "Address line 2 (optional)" : "Complément (optionnel)"}</label>
                 <input autoComplete="address-line2" value={form.line2} onChange={e => setF("line2", e.target.value)} style={INP} /></div>
+              {/* PAYS avant le CP : la validation du code postal dépend du pays (5 chiffres FR, 6 RO…) →
+                  inputMode/maxLength et isValidPostalCode s'appliquent au pays déjà choisi. Source unique
+                  listDeliverableCountries (22 pays livrables + Monaco). Variante sombre. */}
+              <div><label style={darkLabel}>{en ? "Country" : "Pays"} {req}</label>
+                <CountrySelector value={form.country} onChange={(v) => setF("country", v)} hideLabel variant="dark" id="account-country" /></div>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12 }}>
                 <div><label style={darkLabel}>{en ? "Postal code" : "Code postal"} {req}</label>
                   <input inputMode={postalInputMode(form.country)} maxLength={postalMaxLength(form.country)} value={form.postal_code} onChange={e => setF("postal_code", e.target.value)} style={INP} /></div>
                 <div><label style={darkLabel}>{en ? "City" : "Ville"} {req}</label>
                   <input autoComplete="address-level2" value={form.city} onChange={e => setF("city", e.target.value)} style={INP} /></div>
               </div>
-              <div><label style={darkLabel}>{en ? "Country" : "Pays"} {req}</label>
-                {/* Composant UNIQUE partagé (source listDeliverableCountries → 22 pays livrables). Fini
-                    les ~250 pays du monde ; plus aucun pays non livrable sélectionnable. Variante sombre. */}
-                <CountrySelector value={form.country} onChange={(v) => setF("country", v)} hideLabel variant="dark" id="account-country" /></div>
               <div><label style={darkLabel}>{en ? "Phone number" : "Numéro de téléphone"} {req}</label>
                 <input type="tel" inputMode="tel" autoComplete="tel" placeholder={en ? "e.g. +33 6 12 34 56 78" : "Ex : +33 6 12 34 56 78"}
                   value={form.phone} onChange={e => setF("phone", e.target.value)} style={INP} /></div>

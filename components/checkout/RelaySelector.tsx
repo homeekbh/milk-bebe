@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
-import { isDomTom, domTomMessage, type Carrier, type DeliveryType } from "@/lib/delivery-config";
+import { isDomTomPostalCode, domTomMessage, type Carrier, type DeliveryType } from "@/lib/delivery-config";
 
 /**
  * Sélecteur de point relais / locker — EXTRAIT de /panier (refactoring pur, Lot
@@ -81,7 +81,7 @@ export default function RelaySelector({
       return;
     }
     // DOM-TOM (97xxx / 98xxx) : refus AVANT tout appel /api/servicepoints.
-    if (blockDomTom && isDomTom(cp)) {
+    if (blockDomTom && isDomTomPostalCode(cp)) {
       setSearchError(domTomMessage(en));
       return;
     }

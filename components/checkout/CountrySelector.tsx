@@ -62,10 +62,11 @@ export default function CountrySelector({
 
     const all  = listDeliverableCountries().map(({ code }) => ({ code, name: nameOf(code) }));
     const fr   = all.filter(c => c.code === "FR");
+    const mc   = all.filter(c => c.code === "MC"); // Monaco JUSTE après la France (métropole FR, pas l'UE)
     const rest = all
-      .filter(c => c.code !== "FR")
+      .filter(c => c.code !== "FR" && c.code !== "MC")
       .sort((a, b) => a.name.localeCompare(b.name, locale));
-    return [...fr, ...rest]; // France TOUJOURS en premier
+    return [...fr, ...mc, ...rest]; // France, puis Monaco, puis l'UE triée par nom
   }, [locale]);
 
   const dark = variant === "dark";

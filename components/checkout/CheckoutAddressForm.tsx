@@ -1,7 +1,7 @@
 "use client";
 
 import { useLocale } from "next-intl";
-import { isDomTom, domTomMessage } from "@/lib/delivery-config";
+import { isDomTomPostalCode, domTomMessage } from "@/lib/delivery-config";
 import { postalInputMode, postalMaxLength } from "@/lib/postal";
 
 /**
@@ -24,7 +24,9 @@ export function isAddressComplete(a: CheckoutAddress | null | undefined): boolea
   // DOM-TOM (CP 97xxx / 98xxx) non livrés → adresse INVALIDE tant que le CP l'est.
   // (Ce formulaire n'est utilisé que pour le domicile FRANCE ; l'international n'a
   //  plus de saisie d'adresse dans le tunnel.)
-  return !isDomTom(a.postal_code ?? "");
+  // isDomTomPostalCode (préfixes RÉELS 971-988) — PAS le générique 97|98 qui bloquerait Monaco (98000),
+  // livré au tarif métropole. Les vrais DOM-TOM restent bloqués, Monaco passe.
+  return !isDomTomPostalCode(a.postal_code ?? "");
 }
 
 const LBL: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 };
@@ -41,7 +43,7 @@ export default function CheckoutAddressForm({
 }) {
   const en = useLocale() === "en";
   const v = value ?? {};
-  const cpDomTom = isDomTom(v.postal_code ?? "");
+  const cpDomTom = isDomTomPostalCode(v.postal_code ?? "");
 
   let countryName = country;
   try { countryName = new Intl.DisplayNames([en ? "en" : "fr"], { type: "region" }).of(country) ?? country; } catch {}

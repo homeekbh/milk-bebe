@@ -197,6 +197,11 @@ export type ShippingZone = "FR" | "EU" | "EUROPE_NON_EU" | "UK";
  */
 export const COUNTRY_TO_ZONE: Record<string, ShippingZone> = {
   FR: "FR",
+  // Monaco : TARIF MÉTROPOLE FR (Colissimo/Mondial Relay, CP 98000), JAMAIS FedEx / zone internationale.
+  // Mappé "FR" → getZoneForCountry("MC")="FR" : tunnel isFrance, prix métropole (pas 11,90 €), douane
+  // absente, seuil de gratuité FR. La valeur PERSISTÉE + le country_code transporteur sont normalisés en
+  // "FR" (cf. routingCountry) → un colis Monaco ne peut PAS partir en FedEx. Affiché "Monaco" (sélecteur).
+  MC: "FR",
   // UE livrable via FedEx International (21 pays, hors FR). EXCLUS volontairement :
   // CY, CZ, EE, LV (non desservis sur ce contrat FedEx) ; MT (Malte) retiré pour coût
   // FedEx trop élevé (28,62 € réel vs 11,90 € facturé = perte à chaque envoi).
@@ -234,6 +239,17 @@ const normalizeCountryCode = (country: string): string => String(country ?? "").
 /** Zone d'un pays (ISO-2, casse/espaces normalisés), ou null si non livrable. */
 export function getZoneForCountry(country: string): ShippingZone | null {
   return COUNTRY_TO_ZONE[normalizeCountryCode(country)] ?? null;
+}
+
+/**
+ * Pays de ROUTAGE / transporteur : normalise le pays pour toute décision transporteur et toute valeur
+ * PERSISTÉE (orders.shipping_country, country_code Sendcloud). Monaco (MC) → "FR" : GARANTIT qu'un colis
+ * Monaco part en Colissimo/Mondial Relay métropole, JAMAIS en FedEx (create-label bascule FedEx dès que
+ * le pays ≠ "FR"). L'AFFICHAGE reste "Monaco" (le sélecteur montre MC) ; seule la valeur technique = "FR".
+ */
+export function routingCountry(country: string): string {
+  const c = normalizeCountryCode(country);
+  return c === "MC" ? "FR" : c;
 }
 
 /** Le pays est-il livrable ? */

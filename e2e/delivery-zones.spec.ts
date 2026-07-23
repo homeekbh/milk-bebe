@@ -74,10 +74,12 @@ test("seuil de livraison offerte UNIQUEMENT en France", () => {
   expect(isFreeShippingEligibleZone("UK")).toBe(false);
 });
 
-test("listDeliverableCountries — 22 pays (1 FR + 21 UE ; CH/UK bloqués go-live)", () => {
+test("listDeliverableCountries — 23 (1 FR + 1 MC métropole + 21 UE ; CH/UK bloqués go-live)", () => {
   const list  = listDeliverableCountries();
   const codes = list.map(c => c.code);
   expect(codes).toContain("FR");
+  expect(codes).toContain("MC");                 // Monaco = métropole FR (zone "FR", jamais FedEx)
+  expect(getZoneForCountry("MC")).toBe("FR");
   expect(codes).toContain("BE");
   expect(codes).not.toContain("CH"); // Suisse bloquée (douane non validée)
   expect(codes).not.toContain("GB"); // Royaume-Uni bloqué (douane non validée)
@@ -85,14 +87,14 @@ test("listDeliverableCountries — 22 pays (1 FR + 21 UE ; CH/UK bloqués go-liv
   expect(codes).not.toContain("RU");
   expect(codes).not.toContain("MT"); // Malte retiré (coût FedEx non rentable)
   expect(codes).not.toContain("NO"); // Norvège hors contrat FedEx
-  expect(list.length).toBe(22);
+  expect(list.length).toBe(23);
 
   // Décompte par zone dérivé du code réel (doit refléter COUNTRY_TO_ZONE).
   const byZone = list.reduce<Record<string, number>>((acc, { zone }) => {
     acc[zone] = (acc[zone] ?? 0) + 1;
     return acc;
   }, {});
-  expect(byZone.FR).toBe(1);
+  expect(byZone.FR).toBe(2); // FR + MC (Monaco livré au tarif métropole FR)
   expect(byZone.EU).toBe(21);
   expect(byZone.EUROPE_NON_EU).toBeUndefined(); // CH retiré → plus aucun pays
   expect(byZone.UK).toBeUndefined();            // GB retiré → plus aucun pays

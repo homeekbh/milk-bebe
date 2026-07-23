@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { getZoneForCountry } from "@/lib/delivery-config";
+import { getZoneForCountry, routingCountry } from "@/lib/delivery-config";
 import type { NextRequest } from "next/server";
 
 // API v3 Sendcloud — host panel.sendcloud.sc (les endpoints v3 y sont exposés
@@ -219,9 +219,11 @@ export async function POST(req: NextRequest) {
     // shipping_country / shipping_zone posés par create-session→webhook. FR (ou
     // colonnes absentes, ex. commandes FR historiques) → chemin domestique INCHANGÉ.
     // Fallback sur l'adresse Stripe (shipping_address.country) si les colonnes manquent.
-    const destCountryCol  = order.shipping_country ? String(order.shipping_country).toUpperCase().slice(0, 2) : null;
+    // routingCountry : Monaco (MC) → "FR" à CHAQUE lecture de pays → isInternational reste FALSE pour
+    // Monaco (Colissimo/Mondial Relay, JAMAIS FedEx), quelle que soit la valeur persistée (garde ultime).
+    const destCountryCol  = order.shipping_country ? routingCountry(String(order.shipping_country).toUpperCase().slice(0, 2)) : null;
     const shippingZoneCol = order.shipping_zone ? String(order.shipping_zone) : null;
-    const addrCountry     = String((order.shipping_address ?? {}).country ?? "").toUpperCase().slice(0, 2) || null;
+    const addrCountry     = routingCountry(String((order.shipping_address ?? {}).country ?? "").toUpperCase().slice(0, 2)) || null;
     const isInternational = !!(
       (destCountryCol && destCountryCol !== "FR") ||
       (shippingZoneCol && shippingZoneCol !== "FR") ||
@@ -372,7 +374,7 @@ export async function POST(req: NextRequest) {
     const recipientPostalCode = isRelayMode
       ? String(order.relay_postal_code ?? "")
       : String(addr.postal_code ?? "");
-    const recipientCountry = String(addr.country ?? "FR").toUpperCase().slice(0, 2);
+    const recipientCountry = routingCountry(String(addr.country ?? "FR").toUpperCase().slice(0, 2)); // MC → FR (métropole, CP 98000) pour Sendcloud/Colissimo
 
     // Log explicite pour diagnostiquer les sources d'adresse
     console.log("[sendcloud:address]", JSON.stringify({

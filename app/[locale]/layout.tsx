@@ -243,9 +243,9 @@ const jsonLd = {
       currenciesAccepted: "EUR",
       paymentAccepted:    "Credit Card, Apple Pay, Google Pay",
       // Pays réellement desservis (SEO — exactitude prime), DÉRIVÉS de COUNTRY_TO_ZONE (aucun tableau
-      // dupliqué) : FR + 21 UE + Monaco (livré au tarif métropole via FR). Suisse/UK réapparaissent
-      // AUTOMATIQUEMENT ici dès qu'ils reviennent dans COUNTRY_TO_ZONE (lib/delivery-config).
-      areaServed:     [...listDeliverableCountries().map(c => c.code), "MC"],
+      // dupliqué) : FR + Monaco (métropole) + 21 UE. Monaco est désormais DANS COUNTRY_TO_ZONE (MC="FR"),
+      // plus besoin de l'ajouter à la main. Suisse/UK réapparaissent AUTOMATIQUEMENT dès leur retour.
+      areaServed:     [...listDeliverableCountries().map(c => c.code)],
       hasOfferCatalog: {
         "@type": "OfferCatalog",
         name:    "Essentiels bébé bambou",

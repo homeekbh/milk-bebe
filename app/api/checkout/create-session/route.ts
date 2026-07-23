@@ -11,6 +11,7 @@ import {
   getInternationalShippingPrice,
   isFreeShippingEligibleZone,
   isDomTomPostalCode,
+  routingCountry,
 } from "@/lib/delivery-config";
 import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
 import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/promo-validate";
@@ -110,7 +111,9 @@ export async function POST(req: Request) {
     // desservi → rejet dur : aucune session Stripe créée, même si le body est forgé.
     // isFreeShippingEligibleZone est true UNIQUEMENT pour "FR" → garde unique
     // pour tout le branchement domestique vs international.
-    const shippingCountry = String(country ?? "").trim().toUpperCase() || "FR";
+    // routingCountry : Monaco (MC) → "FR" → tout le pipeline serveur (draft, metadata, webhook,
+    // create-label) traite Monaco comme la métropole → Colissimo/Mondial Relay, jamais FedEx.
+    const shippingCountry = routingCountry(country) || "FR";
     const shippingZone    = getZoneForCountry(shippingCountry);
     if (shippingZone === null) {
       return Response.json({ error: "Pays non desservi" }, { status: 400 });

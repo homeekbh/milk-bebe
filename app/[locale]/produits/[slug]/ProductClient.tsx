@@ -370,6 +370,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const [related,     setRelated]     = useState<any[]>([]);
   const [loading]     = useState(false);
   const [taille,      setTaille]      = useState("");
+  const [blink,       setBlink]       = useState(0); // >0 = tentative d'ajout sans taille → clignotement rouge du sélecteur
   const [couleur,     setCouleur]     = useState("");
   const [qty,         setQty]         = useState(1);
   const [added,       setAdded]       = useState(false);
@@ -410,7 +411,14 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   function handleAddToCart() {
     if (!product) return;
     if (taillesDispos.length > 0 && !taille) {
-      alert(t("select_size_alert"));
+      // Pas d'alert() bloquant : feedback visuel (sélecteur qui clignote rouge + message rouge
+      // rapproché du bouton) et on ramène le sélecteur dans le viewport.
+      setBlink(b => b + 1);
+      const el = document.getElementById("taille-selector");
+      if (el) {
+        const y = el.getBoundingClientRect().top + window.scrollY - 100;
+        window.scrollTo({ top: y, behavior: "smooth" });
+      }
       return;
     }
     const name = [product.name, taille, couleur].filter(Boolean).join(" — ");
@@ -710,7 +718,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
           )}
 
           {taillesDispos.length > 0 && (
-            <div id="taille-selector" style={{ display: "grid", gap: 10 }}>
+            <div id="taille-selector" style={{ display: "grid", gap: 10, ...(blink > 0 ? { outline: "2px solid #dc2626", outlineOffset: 8, borderRadius: 12, animation: "size-blink 0.45s ease-in-out 3" } : {}) }}>
               <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
                 <span>{t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}</span>
                 {/* Lien direct « Guide des tailles » visible dès le choix de la taille →
@@ -728,7 +736,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                   const epuise = stockT <= 0;
                   const selected = taille === t;
                   return (
-                    <button key={t} onClick={() => { if (!epuise) setTaille(selected ? "" : t); }}
+                    <button key={t} onClick={() => { if (!epuise) { setTaille(selected ? "" : t); setBlink(0); } }}
                       style={{ position: "relative", padding: "10px 18px", borderRadius: 10, border: "none", fontWeight: 800, fontSize: "clamp(12px,1vw,14px)", cursor: epuise ? "not-allowed" : "pointer", background: selected ? DARK : "rgba(26,20,16,0.08)", color: selected ? WARM : epuise ? "rgba(26,20,16,0.3)" : DARK, boxShadow: selected ? "none" : "0 1px 4px rgba(0,0,0,0.06)", overflow: "hidden", whiteSpace: "nowrap" }}>
                       {getSizeLabel(t, locale)}
                       {epuise && <div style={{ position: "absolute", top: "50%", left: "5%", width: "90%", height: 2, background: AMBER, transform: "translateY(-50%) rotate(-6deg)", borderRadius: 2 }} />}
@@ -790,6 +798,14 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
           </div>
 
           <div style={{ display: "grid", gap: 10 }}>
+            {/* Rappel taille rapproché du bouton (visible sans scroller) : ambre tant qu'on n'a pas
+                tenté d'ajouter, rouge + secousse dès qu'on tente d'ajouter sans taille (key={blink}
+                force le replay de l'animation à chaque tentative). */}
+            {needsTaille && (
+              <div key={blink} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", borderRadius: 12, fontWeight: 800, fontSize: 14, textAlign: "center", color: blink > 0 ? "#fff" : AMBER, background: blink > 0 ? "#dc2626" : "rgba(196,154,74,0.12)", border: blink > 0 ? "none" : "1px solid rgba(196,154,74,0.28)", ...(blink > 0 ? { animation: "size-shake 0.45s ease-in-out 2" } : {}) }}>
+                ☝️ {t("select_size_alert")}
+              </div>
+            )}
             <button onClick={handleAddToCart} disabled={outTaille}
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? t("added") : outTaille ? t("sold_out") : needsTaille ? t("choose_size_up") : t("add_price", { price: (Number(displayPrice) * qty).toFixed(2) })}
@@ -924,23 +940,13 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
       {/* CTA mobile */}
       <div className="mobile-cta-bar" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 50, padding: "12px 16px", background: `rgba(216,200,176,0.97)`, backdropFilter: "blur(8px)", borderTop: `1px solid rgba(26,20,16,0.1)` }}>
         <button
-          onClick={() => {
-            if (needsTaille) {
-              const el = document.getElementById("taille-selector");
-            if (el) {
-              const y = el.getBoundingClientRect().top + window.scrollY - 100;
-              window.scrollTo({ top: y, behavior: "smooth" });
-            }
-            } else {
-              handleAddToCart();
-            }
-          }}
+          onClick={handleAddToCart}
           disabled={outTaille}
           style={{ width: "100%", padding: "17px", borderRadius: 14, border: "none", fontWeight: 900, fontSize: 17, cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: WARM }}>
           {added ? t("mobile_added") : outTaille ? t("sold_out") : needsTaille ? t("choose_size") : t("add_price", { price: (Number(displayPrice) * qty).toFixed(2) })}
         </button>
       </div>
-      <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}`}</style>
+      <style>{`.mobile-cta-bar{display:none!important}@media(max-width:900px){.mobile-cta-bar{display:block!important}}@keyframes size-blink{0%,100%{outline-color:#dc2626}50%{outline-color:rgba(220,38,38,0.2)}}@keyframes size-shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-5px)}40%,80%{transform:translateX(5px)}}`}</style>
     </div>
     </>
   );

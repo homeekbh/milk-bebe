@@ -122,6 +122,16 @@ export async function PUT(req: NextRequest) {
     .select("name, price_ttc, promo_price, stock, published, category_slug, slug, subcategory_slug")
     .eq("id", id).single();
 
+  // RENOMMAGE DE SLUG → on PERSISTE l'ancien slug dans old_slug (le redirect 301 old→nouveau
+  // viendra au Lot 6 : lookup par old_slug avant notFound sur la fiche). old_slug est SERVEUR-ONLY
+  // (jamais depuis le body) : on purge toute valeur entrante, puis on l'écrit UNIQUEMENT si le
+  // nouveau slug diffère de l'ancien (lu en base). Slug inchangé / absent du body → old_slug non
+  // touché (aucune régression). Renommage en chaîne → écrase avec le dernier ancien (D4 : 1 niveau).
+  delete clean.old_slug;
+  if (before?.slug && clean.slug != null && String(clean.slug) !== String(before.slug)) {
+    clean.old_slug = before.slug;
+  }
+
   const { data, error } = await supabaseServer
     .from("products").update(clean).eq("id", id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });

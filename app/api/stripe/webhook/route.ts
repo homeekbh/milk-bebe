@@ -9,6 +9,7 @@ import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
 import { getZoneForCountry } from "@/lib/delivery-config";
 import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
 import { ventilateTTC } from "@/lib/tva";
+import { revalidateProduct } from "@/lib/revalidate-product";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -737,6 +738,17 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
         console.error(`[webhook] DUAL-WRITE divergence — decrement_stock_motif KO (produit ${d.id}, motif ${d.motif_id}, taille ${d.motif_size ?? "—"}): ${reason}`);
       }
     }
+  }
+
+  // ── Revalidation ISR ciblée (best-effort, POST-CLAIM) : rafraîchit la fiche des produits vendus
+  //    pour que la dispo PAR MOTIF soit à jour immédiatement (règle le décalage 15 min, phase 6).
+  //    JAMAIS bloquant : revalidateProduct ne throw pas ; try/catch supplémentaire par principe —
+  //    une revalidation ratée ne doit pas casser le traitement du paiement. Rejeu Stripe → ce bloc
+  //    n'est PAS réatteint (return post-claim plus haut) ; revalider 2× serait de toute façon inoffensif.
+  try {
+    for (const p of products) revalidateProduct(p.slug, p.category_slug);
+  } catch (e: any) {
+    console.error("[webhook] revalidation fiche best-effort échec (non bloquant):", e?.message ?? e);
   }
 
   // GARDE-FOU B : rupture APRÈS paiement → commande CONSERVÉE + alerte Erika

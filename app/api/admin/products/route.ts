@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { logActivity }    from "@/lib/server/audit";
+import { revalidateProduct } from "@/lib/revalidate-product";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -46,6 +47,9 @@ export async function POST(req: NextRequest) {
   const { data, error } = await supabaseServer
     .from("products").insert([clean]).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  // Revalidation ciblée : liste + catégorie du nouveau produit (+ sa fiche). Best-effort.
+  revalidateProduct(data.slug, data.category_slug);
 
   await logActivity(
     "produit_cree",
@@ -110,15 +114,28 @@ export async function PUT(req: NextRequest) {
     }
   }
 
-  // Charger l'état actuel pour détecter les champs modifiés (prix/stock/published)
+  // Charger l'état actuel pour détecter les champs modifiés (prix/stock/published) ET
+  // capturer l'ANCIEN category_slug/slug AVANT l'update (nécessaire à la revalidation ciblée :
+  // changement de catégorie = revalider ancienne + nouvelle ; renommage = ancienne + nouvelle fiche).
   const { data: before } = await supabaseServer
     .from("products")
-    .select("name, price_ttc, promo_price, stock, published")
+    .select("name, price_ttc, promo_price, stock, published, category_slug, slug")
     .eq("id", id).single();
 
   const { data, error } = await supabaseServer
     .from("products").update(clean).eq("id", id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  // Revalidation ciblée on-demand (best-effort) — fiche (+ layout/JSON-LD, 2 locales), liste,
+  // et catégorie(s). CHANGEMENT DE CATÉGORIE : ancienne (before) ET nouvelle (data) → l'ancienne
+  // ne reste pas en 404, la nouvelle apparaît (fix fil d'ariane). RENOMMAGE : ancienne + nouvelle
+  // URL de fiche. DÉPUBLICATION : la fiche revalidée repasse en 404, les listes la retirent.
+  // MODIF STOCK/MOTIF : la fiche revalidée reflète la dispo à jour (règle le décalage phase 6).
+  revalidateProduct(
+    data.slug,
+    [before?.category_slug, data.category_slug],
+    before?.slug && before.slug !== data.slug ? before.slug : undefined,
+  );
 
   // Détecter les changements significatifs
   const changes: Record<string, { old: any; new: any }> = {};
@@ -159,7 +176,7 @@ export async function DELETE(req: NextRequest) {
 
   const { data: product } = await supabaseServer
     .from("products")
-    .select("name, image_url, image_url_2, image_url_3, image_url_4")
+    .select("name, slug, category_slug, image_url, image_url_2, image_url_3, image_url_4")
     .eq("id", id).single();
 
   if (product) {
@@ -173,6 +190,9 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabaseServer.from("products").delete().eq("id", id);
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  // Revalidation ciblée : fiche (→ 404), liste et catégorie du produit supprimé. Best-effort.
+  revalidateProduct(product?.slug, product?.category_slug);
 
   await logActivity(
     "produit_supprime",

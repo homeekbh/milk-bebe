@@ -54,6 +54,7 @@ const EMPTY: Record<string, string> = {
   name: "", slug: "", price_ttc: "", promo_price: "",
   promo_start: "", promo_end: "", stock: "0",
   category_slug: "bodies",
+  subcategory_slug: "",
   image_url: "", image_url_2: "", image_url_3: "", image_url_4: "", image_url_5: "", image_url_6: "", image_url_7: "", image_url_8: "",
   description: "", description_en: "", main_image_index: "0",
   label: "", highlight: "",
@@ -1034,6 +1035,8 @@ export default function AdminProductForm() {
     { slug: "gigoteuses", label: "Gigoteuses" },
     { slug: "accessoires",label: "Accessoires"},
   ]);
+  // Sous-catégories dynamiques (toutes) — filtrées par catégorie du produit dans le sélecteur.
+  const [dynSubcategories, setDynSubcategories] = useState<{category_slug:string;slug:string;label:string}[]>([]);
 
   const TABS = [
     { id: "general",  label: "Infos générales" },
@@ -1062,6 +1065,12 @@ export default function AdminProductForm() {
       })
       .catch(() => {}); // garde les défauts si l'API échoue
 
+    // Charger les sous-catégories (pour le sélecteur "Sous-catégorie"). Défensif : [] si vide/KO.
+    adminFetch("/api/admin/subcategories")
+      .then(r => r.json())
+      .then(data => { if (Array.isArray(data)) setDynSubcategories(data); })
+      .catch(() => {});
+
     if (isNew) {
       try { const s = localStorage.getItem(draftKey); if (s) setForm(f => ({ ...f, ...JSON.parse(s) })); } catch {}
       return;
@@ -1079,6 +1088,7 @@ export default function AdminProductForm() {
             promo_end:        data.promo_end    ? data.promo_end.slice(0, 10)    : "",
             stock:            String(data.stock      ?? 0),
             category_slug:    data.category_slug     ?? "bodies",
+            subcategory_slug: data.subcategory_slug  ?? "",
             image_url:        data.image_url         ?? "",
             image_url_2:      data.image_url_2       ?? "",
             image_url_3:      data.image_url_3       ?? "",
@@ -1352,6 +1362,7 @@ export default function AdminProductForm() {
         ...form,
         published,
         stock_touched: stockTouched,
+        subcategory_slug: form.subcategory_slug || null,   // "" (— Aucune —) → null en base
         price_ttc:        parseFloat(form.price_ttc),
         promo_price:      form.promo_price ? parseFloat(form.promo_price) : null,
         promo_start:      form.promo_start  || null,
@@ -1504,7 +1515,14 @@ export default function AdminProductForm() {
               <Field label="Slug (URL)" fieldKey="slug" placeholder="pyjama-bambou-eclair" value={form.slug} onChange={set} hint="Généré depuis le nom" />
               <div style={{ display: "grid", gap: 6 }}>
                 <label style={LS}>Catégorie</label>
-                <select value={form.category_slug} onChange={e => set("category_slug", e.target.value)} style={IS}>
+                <select value={form.category_slug} onChange={e => {
+                  const newCat = e.target.value;
+                  set("category_slug", newCat);
+                  // Réinitialise la sous-catégorie si elle n'appartient pas à la nouvelle catégorie.
+                  if (form.subcategory_slug && !dynSubcategories.some(s => s.category_slug === newCat && s.slug === form.subcategory_slug)) {
+                    set("subcategory_slug", "");
+                  }
+                }} style={IS}>
                   {dynCategories.map(c => (
                     <option key={c.slug} value={c.slug}>{c.label}</option>
                   ))}
@@ -1516,6 +1534,25 @@ export default function AdminProductForm() {
                 {!isNew && (
                   <div style={{ fontSize: 11, color: "rgba(196,154,74,0.8)", marginTop: 2 }}>
                     ⚠️ Changer la catégorie déplace le produit. Les contenus par défaut de l'onglet "Contenu fiche" s'adapteront à la nouvelle catégorie.
+                  </div>
+                )}
+              </div>
+              {/* Sous-catégorie (facultative) — filtrée par la catégorie du produit. Écrit subcategory_slug. */}
+              <div style={{ display: "grid", gap: 6 }}>
+                <label style={LS}>Sous-catégorie (facultatif)</label>
+                <select value={form.subcategory_slug} onChange={e => set("subcategory_slug", e.target.value)} style={IS}>
+                  <option value="">— Aucune —</option>
+                  {dynSubcategories.filter(s => s.category_slug === form.category_slug).map(s => (
+                    <option key={s.slug} value={s.slug}>{s.label || s.slug}</option>
+                  ))}
+                  {/* Secours : sous-catégorie du produit absente de la liste (ex. supprimée). */}
+                  {form.subcategory_slug && !dynSubcategories.some(s => s.category_slug === form.category_slug && s.slug === form.subcategory_slug) && (
+                    <option value={form.subcategory_slug}>{form.subcategory_slug}</option>
+                  )}
+                </select>
+                {dynSubcategories.filter(s => s.category_slug === form.category_slug).length === 0 && (
+                  <div style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", marginTop: 2 }}>
+                    Aucune sous-catégorie pour cette catégorie. Crée-en dans l'onglet <strong>Catégories</strong>.
                   </div>
                 )}
               </div>
@@ -1632,7 +1669,15 @@ export default function AdminProductForm() {
             <div style={{ padding: "40px 32px", borderRadius: 16, background: "#fff", border: "1.5px dashed rgba(26,20,16,0.15)", textAlign: "center" }}>
               <div style={{ fontSize: 40, marginBottom: 12 }}>🎨</div>
               <div style={{ fontSize: 16, fontWeight: 700, color: "#1a1410", marginBottom: 8 }}>Aucun motif pour l'instant</div>
-              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)" }}>Clique sur "+ Ajouter un motif" pour commencer</div>
+              <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginBottom: 18 }}>
+                Ajoute au moins un motif pour saisir le stock par taille. Chaque produit a désormais un motif
+                (couleur/pastille).
+              </div>
+              {/* Action claire au lieu d'un simple message : bouton fonctionnel (pas un blocage). */}
+              <button onClick={addColor}
+                style={{ padding: "12px 22px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer" }}>
+                + Ajouter un motif
+              </button>
             </div>
           )}
 

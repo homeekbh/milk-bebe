@@ -35,6 +35,13 @@ type Category = {
   product_count?: number;
 };
 
+type Subcat = {
+  category_slug: string;
+  slug: string;
+  label: string;
+  product_count?: number;
+};
+
 export default function AdminCategoriesPage() {
   const narrow = useIsNarrow();
   const [categories,  setCategories]  = useState<Category[]>([]);
@@ -48,14 +55,22 @@ export default function AdminCategoriesPage() {
   const [deleting,    setDeleting]    = useState<string | null>(null);
   const [error,       setError]       = useState("");
   const [success,     setSuccess]     = useState("");
+  // Sous-catégories (rattachées à une catégorie via category_slug).
+  const [subcats,     setSubcats]     = useState<Subcat[]>([]);
+  const [subDraft,    setSubDraft]    = useState<Record<string, { label: string; slug: string }>>({});
+  const [addingSub,   setAddingSub]   = useState<string | null>(null); // catSlug en cours d'ajout
+  const [deletingSub, setDeletingSub] = useState<string | null>(null); // `${cat}/${sub}` en cours de suppr.
 
   async function load() {
     setLoading(true);
-    const res  = await adminFetch("/api/admin/categories");
-    const data = await res.json();
-    if (Array.isArray(data)) {
-      setCategories(data);
-    }
+    const [catRes, subRes] = await Promise.all([
+      adminFetch("/api/admin/categories"),
+      adminFetch("/api/admin/subcategories"),
+    ]);
+    const catData = await catRes.json().catch(() => null);
+    const subData = await subRes.json().catch(() => null);
+    if (Array.isArray(catData)) setCategories(catData);
+    if (Array.isArray(subData)) setSubcats(subData);
     setLoading(false);
   }
 
@@ -128,6 +143,59 @@ export default function AdminCategoriesPage() {
       setError(d.error ?? "Erreur lors de la suppression.");
     }
     setDeleting(null);
+  }
+
+  // ── Sous-catégories ──────────────────────────────────────────────────────────
+  function setDraft(cat: string, patch: Partial<{ label: string; slug: string }>) {
+    setSubDraft(d => ({ ...d, [cat]: { label: d[cat]?.label ?? "", slug: d[cat]?.slug ?? "", ...patch } }));
+  }
+
+  async function handleAddSub(catSlug: string) {
+    setError(""); setSuccess("");
+    const draft = subDraft[catSlug] ?? { label: "", slug: "" };
+    const slug  = draft.slug.trim() || slugify(draft.label);
+    const label = draft.label.trim() || slug;
+    if (!slug) { setError("Saisis un nom de sous-catégorie."); return; }
+    if (subcats.some(s => s.category_slug === catSlug && s.slug === slug)) {
+      setError("Cette sous-catégorie existe déjà dans cette catégorie."); return;
+    }
+    setAddingSub(catSlug);
+    const res = await adminFetch("/api/admin/subcategories", {
+      method: "POST",
+      body: JSON.stringify({ category_slug: catSlug, slug, label }),
+    });
+    if (res.ok) {
+      setSubDraft(d => ({ ...d, [catSlug]: { label: "", slug: "" } }));
+      setSuccess("Sous-catégorie créée !");
+      await load();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Erreur lors de la création.");
+    }
+    setAddingSub(null);
+  }
+
+  async function handleDeleteSub(catSlug: string, subSlug: string, count: number) {
+    setError(""); setSuccess("");
+    if (count > 0) {
+      setError(`Impossible de supprimer "${subSlug}" — ${count} produit(s) utilisent cette sous-catégorie. Réassignez-les d'abord.`);
+      return;
+    }
+    if (!confirm(`Supprimer la sous-catégorie "${subSlug}" ?`)) return;
+    const key = `${catSlug}/${subSlug}`;
+    setDeletingSub(key);
+    const res = await adminFetch("/api/admin/subcategories", {
+      method: "DELETE",
+      body: JSON.stringify({ category_slug: catSlug, slug: subSlug }),
+    });
+    if (res.ok) {
+      setSuccess("Sous-catégorie supprimée.");
+      await load();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error ?? "Erreur lors de la suppression.");
+    }
+    setDeletingSub(null);
   }
 
   const IS: React.CSSProperties = {
@@ -215,12 +283,15 @@ export default function AdminCategoriesPage() {
         ) : categories.length === 0 ? (
           <div style={{ padding: "32px", textAlign: "center", color: "rgba(26,20,16,0.35)" }}>Aucune catégorie.</div>
         ) : (
-          categories.map((cat, idx) => (
+          categories.map((cat, idx) => {
+            const catSubs = subcats.filter(s => s.category_slug === cat.slug);
+            const draft   = subDraft[cat.slug] ?? { label: "", slug: "" };
+            return (
             <div key={cat.slug} style={{
-              padding: "14px 22px",
               borderBottom: idx < categories.length - 1 ? "1px solid rgba(26,20,16,0.07)" : "none",
-              display: "flex", alignItems: "center", gap: 12,
             }}>
+              {/* ── Ligne catégorie ── */}
+              <div style={{ padding: "14px 22px", display: "flex", alignItems: "center", gap: 12 }}>
               {editSlug === cat.slug ? (
                 // Mode édition
                 <>
@@ -269,8 +340,56 @@ export default function AdminCategoriesPage() {
                   </button>
                 </>
               )}
+              </div>
+
+              {/* ── Sous-catégories de cette catégorie (mode affichage seulement) ── */}
+              {editSlug !== cat.slug && (
+                <div style={{ padding: "2px 22px 16px 34px", background: "rgba(26,20,16,0.015)" }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 0.5, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", margin: "6px 0 8px" }}>
+                    Sous-catégories
+                  </div>
+                  {catSubs.length === 0 && (
+                    <div style={{ fontSize: 12, color: "rgba(26,20,16,0.35)", marginBottom: 8 }}>Aucune sous-catégorie.</div>
+                  )}
+                  {catSubs.map(sub => {
+                    const key = `${cat.slug}/${sub.slug}`;
+                    return (
+                      <div key={sub.slug} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <span style={{ fontWeight: 700, fontSize: 13, color: DARK }}>{sub.label || sub.slug}</span>
+                          <span style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", marginLeft: 8 }}>
+                            slug : {sub.slug}
+                            {sub.product_count !== undefined && ` · ${sub.product_count} produit${sub.product_count > 1 ? "s" : ""}`}
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => handleDeleteSub(cat.slug, sub.slug, sub.product_count ?? 0)}
+                          disabled={deletingSub === key}
+                          style={{ padding: "5px 12px", borderRadius: 8, border: "1px solid rgba(220,38,38,0.2)", background: "rgba(220,38,38,0.05)", cursor: "pointer", fontSize: 11, fontWeight: 700, color: "#dc2626", opacity: deletingSub === key ? 0.5 : 1 }}>
+                          {deletingSub === key ? "..." : "Supprimer"}
+                        </button>
+                      </div>
+                    );
+                  })}
+                  {/* Ajout d'une sous-catégorie */}
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <input
+                      value={draft.label}
+                      onChange={e => setDraft(cat.slug, { label: e.target.value, slug: slugify(e.target.value) })}
+                      onKeyDown={e => e.key === "Enter" && handleAddSub(cat.slug)}
+                      placeholder="Nouvelle sous-catégorie (ex : Bonnet uni)…"
+                      style={{ ...IS, flex: 1, fontSize: 13, padding: "8px 12px" }}
+                    />
+                    <button onClick={() => handleAddSub(cat.slug)} disabled={addingSub === cat.slug}
+                      style={{ ...BTN(DARK, ""), fontSize: 12, padding: "8px 14px", whiteSpace: "nowrap", opacity: addingSub === cat.slug ? 0.6 : 1 }}>
+                      {addingSub === cat.slug ? "..." : "+ Ajouter"}
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
-          ))
+            );
+          })
         )}
       </div>
 

@@ -159,7 +159,7 @@ export default function WorldVisitorsMap({ cities }: { cities: City[] }) {
 
       {!hasData && (
         <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "rgba(242,237,230,0.45)", fontSize: 13, fontStyle: "italic", textAlign: "center", padding: 24 }}>
-          Carte disponible avec des données de géolocalisation<br />(remplie en production Vercel).
+          Aucune donnée de visite géolocalisable sur cette période.
         </div>
       )}
     </div>

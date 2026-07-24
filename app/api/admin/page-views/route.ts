@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { normalizePeriod, periodRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct, botSessionIds } from "@/lib/analytics-server";
+import { geocodeCity } from "@/lib/geo/geocode-fr";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -266,13 +267,18 @@ export async function GET(req: NextRequest) {
       }
     });
     const by_country = [...countryMap.entries()].map(([country, set]) => ({ country, sessions: set.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
-    const by_city = [...cityMap.values()].map(c => ({
-      city: c.city,
-      region: c.region,
-      sessions: c.sessions.size,
-      lat: c.lats.length ? mean(c.lats) : null,
-      lng: c.lngs.length ? mean(c.lngs) : null,
-    })).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
+    const by_city = [...cityMap.values()].map(c => {
+      // Coordonnée RÉELLE si une ancienne ligne en portait (rétro-compat) ; sinon
+      // géocodage local du nom de ville → commune, avec repli sur le centroïde régional.
+      // (Le tracking ne collecte plus de géo précise, cf. track-view — RGPD.)
+      let lat = c.lats.length ? mean(c.lats) : null;
+      let lng = c.lngs.length ? mean(c.lngs) : null;
+      if (lat == null || lng == null) {
+        const geo = geocodeCity(c.city, c.region);
+        if (geo) { lat = geo.lat; lng = geo.lng; }
+      }
+      return { city: c.city, region: c.region, sessions: c.sessions.size, lat, lng };
+    }).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
 
     // ── Appareils ───────────────────────────────────────────────────────────
     const bucketSessions = (key: (r: any) => string | null) => {

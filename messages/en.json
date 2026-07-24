@@ -193,6 +193,8 @@
     "select_size_alert": "Please select a size before adding to the cart.",
     "added": "✓ Added to cart!",
     "sold_out": "Sold out",
+    "motif_size_sold_out": "This pattern is sold out in this size.",
+    "motif_sold_out": "This pattern is sold out in every size.",
     "choose_size_up": "Choose a size ↑",
     "choose_size": "Choose a size",
     "add_price": "Add — €{price}",

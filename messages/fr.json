@@ -193,6 +193,8 @@
     "select_size_alert": "Merci de sélectionner une taille avant d'ajouter au panier.",
     "added": "✓ Ajouté au panier !",
     "sold_out": "Épuisé",
+    "motif_size_sold_out": "Ce motif est épuisé dans cette taille.",
+    "motif_sold_out": "Ce motif est épuisé dans toutes les tailles.",
     "choose_size_up": "Choisir une taille ↑",
     "choose_size": "Choisir une taille",
     "add_price": "Ajouter — {price} €",

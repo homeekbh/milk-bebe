@@ -445,10 +445,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   // divergence d'hydratation (isPromoActive dépend de new Date() : recalculée au client, elle
   // pouvait différer près d'une bascule de fenêtre promo). Repli défensif si le prop manque.
   const promo          = initialPromo ?? isPromoActive(product);
-  const out            = Number(product.stock ?? 0) <= 0;
-  const lowStock       = !out && Number(product.stock ?? 0) <= 5;
   const displayPrice   = promo ? product.promo_price : product.price_ttc;
-  const badgeLabel     = out ? undefined : (product.label || (promo ? "promo" : undefined));
   const allImages      = [product.image_url, product.image_url_2, product.image_url_3, product.image_url_4, product.image_url_5, product.image_url_6, product.image_url_7, product.image_url_8].filter(Boolean) as string[];
   const taillesDispos  : string[]              = Array.isArray(product.sizes)  ? product.sizes  : [];
   const sizesStock     : Record<string,number> = product.sizes_stock ?? {};
@@ -461,8 +458,52 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   // effectiveTaille impose "Taille unique" pour l'ajout panier ET le contrôle de stock (aucun bypass R3).
   const isTailleUniqueOnly = taillesDispos.length === 1 && taillesDispos[0] === TAILLE_UNIQUE;
   const effectiveTaille    = isTailleUniqueOnly ? TAILLE_UNIQUE : taille;
-  const outTaille      = effectiveTaille ? Number(sizesStock[effectiveTaille] ?? product.stock ?? 0) <= 0 : out;
-  const needsTaille     = taillesDispos.length > 0 && !isTailleUniqueOnly && !taille;
+  const needsTaille        = taillesDispos.length > 0 && !isTailleUniqueOnly && !taille;
+
+  // ── STOCK PAR MOTIF (source de vérité = colors[motif].sizes_stock ; phases 1-5) ─────────────
+  // La fiche REFLÈTE et BLOQUE selon le stock RÉEL du motif choisi. R3 (create-session) revalide
+  // toujours côté serveur — la fiche est une commodité UX, jamais un bypass.
+  //
+  // Motif sélectionné : N=1 → auto (effectiveMotifId) ; multi → clic. null = produit SANS motif
+  // (Bandeau/Bonnet) OU motif pas encore choisi → on retombe sur l'ANCIEN products.stock (inchangé).
+  const selectedMotif: any = effectiveMotifId
+    ? (couleursDispos.find((c: any) => String(c.id ?? "") === effectiveMotifId) ?? null)
+    : null;
+  // sizes_stock 2D (objet NON vide) du motif, sinon null (motif 1D → stock agrégé seul).
+  const motifSizesStock = (col: any): Record<string, number> | null => {
+    const ms = col?.sizes_stock;
+    return (ms && typeof ms === "object" && !Array.isArray(ms) && Object.keys(ms).length > 0) ? ms as Record<string, number> : null;
+  };
+  // Stock d'une taille pour le motif sélectionné — MIROIR EXACT de decrement_stock_motif :
+  //   motif 2D → colors[motif].sizes_stock[taille] (taille absente = 0) ; motif 1D → colors[motif].stock.
+  //   SANS motif → ancien système : products.sizes_stock[taille] sinon products.stock.
+  const stockForSize = (sz: string | null): number => {
+    if (selectedMotif) {
+      const ms = motifSizesStock(selectedMotif);
+      if (ms) return sz != null ? Number(ms[sz] ?? 0) : Number(selectedMotif.stock ?? 0);
+      return Number(selectedMotif.stock ?? 0);
+    }
+    if (sz != null && sizesStock && sz in sizesStock) return Number(sizesStock[sz] ?? 0);
+    return Number(product.stock ?? 0);
+  };
+  // Stock TOTAL d'un motif (somme des tailles) → pastille « épuisé » + badge produit.
+  const motifTotal = (col: any): number => {
+    const ms = motifSizesStock(col);
+    if (ms) return Object.values(ms).reduce((s: number, v: any) => s + Math.max(0, Number(v || 0)), 0);
+    return Number(col?.stock ?? 0);
+  };
+
+  // Dispo effective (motif si résolu, sinon ancien products.stock) → badge/CTA/estimé cohérents.
+  const displayStock   = selectedMotif ? motifTotal(selectedMotif) : Number(product.stock ?? 0);
+  const out            = displayStock <= 0;
+  const lowStock       = !out && displayStock <= 5;
+  const badgeLabel     = out ? undefined : (product.label || (promo ? "promo" : undefined));
+  // Rupture de la combinaison motif × taille EXACTE choisie (miroir de la validation R-MOTIF).
+  const outTaille      = effectiveTaille ? stockForSize(effectiveTaille) <= 0 : out;
+  // Motif choisi entièrement épuisé (toutes tailles à 0) → message dédié « toutes les tailles ».
+  const motifSoldOut   = !!selectedMotif && motifTotal(selectedMotif) <= 0;
+  // Plafond quantité = stock réel de la combinaison courante (UX ; R3 revalide de toute façon).
+  const maxQty         = Math.max(1, effectiveTaille ? stockForSize(effectiveTaille) : displayStock);
   const cartCount      = items.reduce((s, i) => s + i.quantity, 0);
 
   const productSlug   = product.slug ?? "";
@@ -623,7 +664,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                           />
                           {ri === 0 && ci === 0 && lowStock && (
                             <div style={{ position: "absolute", top: 10, left: 10, zIndex: 5 }}>
-                              <span style={{ padding: "5px 11px", borderRadius: 99, background: "rgba(180,80,60,0.85)", color: "#fff", fontSize: 11, fontWeight: 800 }}>{t("low_stock", { n: product.stock })}</span>
+                              <span style={{ padding: "5px 11px", borderRadius: 99, background: "rgba(180,80,60,0.85)", color: "#fff", fontSize: 11, fontWeight: 800 }}>{t("low_stock", { n: displayStock })}</span>
                             </div>
                           )}
                         </>
@@ -691,7 +732,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
                 {/* Pastilles couleurs du produit courant */}
                 {couleursDispos.map((col: any) => {
-                  const epuise  = Number(col.stock ?? 0) <= 0;
+                  // Pastille épuisée = motif entièrement en rupture (somme sizes_stock à 0).
+                  const epuise  = motifTotal(col) <= 0;
                   const selected = couleur === col.name;
                   return (
                     <button key={col.name} onClick={() => { if (!epuise) { setCouleur(col.name); setMotifId(String(col.id ?? "")); } }} title={col.name}
@@ -797,7 +839,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                 </span>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                   {[...TAILLES_ORDER, ...taillesDispos.filter(t => !TAILLES_ORDER.includes(t))].filter(t => taillesDispos.includes(t)).map(t => {
-                    const stockT = Number(sizesStock[t] ?? product.stock ?? 0);
+                    // Dispo de CETTE taille pour le motif sélectionné (colors[motif].sizes_stock[t]).
+                    const stockT = stockForSize(t);
                     const epuise = stockT <= 0;
                     const selected = taille === t;
                     return (
@@ -831,7 +874,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
               <div style={{ display: "flex", alignItems: "center", background: "rgba(26,20,16,0.06)", borderRadius: 12, padding: 4, width: "fit-content" }}>
                 <button onClick={() => setQty(Math.max(1, qty - 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>−</button>
                 <span style={{ width: 40, textAlign: "center", fontWeight: 900, fontSize: 16, color: DARK }}>{qty}</span>
-                <button onClick={() => setQty(Math.min(Number(product.stock ?? 10), qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>+</button>
+                <button onClick={() => setQty(Math.min(maxQty, qty + 1))} style={{ width: 40, height: 40, borderRadius: 10, border: "none", background: "none", cursor: "pointer", fontSize: 20, display: "grid", placeItems: "center", color: DARK }}>+</button>
               </div>
             </div>
           </div>
@@ -849,6 +892,17 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? t("added") : outTaille ? t("sold_out") : needsTaille ? t("choose_size_up") : t("add_price", { price: (Number(displayPrice) * qty).toFixed(2) })}
             </button>
+
+            {/* Message dédié RUPTURE motif × taille (source de vérité colors[motif].sizes_stock).
+                Affiché uniquement pour un produit À MOTIF : sans motif (Bandeau/Bonnet), on garde
+                l'ancien parcours (bouton « Épuisé » + alerte réassort ci-dessous). motifSoldOut →
+                « épuisé dans toutes les tailles » ; sinon → « épuisé dans cette taille ». */}
+            {outTaille && !needsTaille && selectedMotif && (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "11px 14px", borderRadius: 12, fontWeight: 800, fontSize: 13.5, textAlign: "center", color: "#b91c1c", background: "rgba(220,38,38,0.08)", border: "1px solid rgba(220,38,38,0.25)" }}>
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" stroke="#b91c1c" strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke="#b91c1c" strokeWidth="2" strokeLinecap="round"/></svg>
+                {motifSoldOut ? t("motif_sold_out") : t("motif_size_sold_out")}
+              </div>
+            )}
 
             {/* Réassurance rapprochée du CTA (juste sous « Ajouter au panier ») :
                 OEKO-TEX · livraison offerte · retours 14j · paiement sécurisé. */}

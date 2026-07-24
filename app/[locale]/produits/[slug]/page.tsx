@@ -14,7 +14,7 @@ const AMBER = "#c49a4a";
 const DARK  = "#1a1410";
 
 // ⚠️ Select IDENTIQUE à /api/produits?slug= (contrat attendu par ProductClient).
-const SELECT = "id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8, description, description_en, featured, published, label, position, sizes, sizes_stock, colors, main_image_index, weight_g, seo_title, seo_description, fiche_cards, fiche_faqs, fiche_cards_en, fiche_faqs_en";
+const SELECT = "id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, subcategory_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8, description, description_en, featured, published, label, position, sizes, sizes_stock, colors, main_image_index, weight_g, seo_title, seo_description, fiche_cards, fiche_faqs, fiche_cards_en, fiche_faqs_en";
 
 // Même logique que ProductClient (pure) — pour calculer le prix affiché côté serveur.
 function isPromoActive(p: any) {

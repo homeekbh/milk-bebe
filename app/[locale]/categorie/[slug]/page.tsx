@@ -219,7 +219,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 async function getAllProducts() {
   const { data } = await supabaseServer
     .from("products")
-    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, description, description_en, featured, published, label, position, sizes, sizes_stock, colors")
+    .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, subcategory_slug, image_url, description, description_en, featured, published, label, position, sizes, sizes_stock, colors")
     .eq("published", true)
     .order("position", { ascending: true });
   return data ?? [];

@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { useCart }                     from "@/context/CartContext";
 import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
+import { capitalizeSlug }              from "@/lib/category-labels";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
 import ShareButtons                    from "@/components/shared/ShareButtons";
 import { trackViewItem, metaViewContent } from "@/lib/analytics";
@@ -173,8 +174,13 @@ function PhilosophyCard({ text }: { text: string }) {
 
 const TAILLES_ORDER = ["Nouveau-né","0-3 mois","3-6 mois","6-12 mois","0-6 mois","Taille unique","120×120 cm"];
 // "Taille unique" est une VRAIE taille (avec son propre stock). Un produit dont c'est la SEULE taille est
-// traité « sans choix de taille » : pas de sélecteur, taille imposée automatiquement (cf. isTailleUniqueOnly).
+// traité « sans choix de taille » : pas de sélecteur, taille imposée automatiquement (cf. isSingleSizeOnly).
 const TAILLE_UNIQUE = "Taille unique";
+
+// D3 : regroupement des pastilles « autres produits ». `false` = par catégorie (comportement
+// actuel, 1 modèle/catégorie). Passer à `true` pour regrouper par sous-catégorie (subcategory_slug)
+// quand plusieurs modèles cohabiteront dans une catégorie — aucune autre modif nécessaire.
+const GROUP_PASTILLES_BY_SUBCATEGORY = false;
 const GUIDE_TAILLES = [
   { taille: "Nouveau-né", poids: "2,5 – 4 kg", poitrine: "21 cm", longueur: "50 cm" },
   { taille: "0-3 mois",   poids: "3,5 – 6 kg", poitrine: "22 cm", longueur: "54 cm" },
@@ -361,7 +367,7 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ProductClient({ initialProduct, header, initialPromo, initialDeliveryEstimate }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean; initialDeliveryEstimate?: string }) {
+export default function ProductClient({ initialProduct, header, initialPromo, initialDeliveryEstimate, categoryLabel, subcategoryLabel }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean; initialDeliveryEstimate?: string; categoryLabel?: string; subcategoryLabel?: string }) {
   const t                    = useTranslations("product") as unknown as TFn;
   const locale               = useLocale();
   const { addToCart, items }               = useCart();
@@ -391,7 +397,13 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
     // les recommandations, et on émet le tracking de vue produit.
     fetch("/api/produits")
       .then(r => r.json())
-      .then((all) => setRelated((Array.isArray(all) ? all : []).filter((p: any) => p.id !== initialProduct.id && p.category_slug === initialProduct.category_slug).slice(0, 4)))
+      .then((all) => setRelated((Array.isArray(all) ? all : []).filter((p: any) => {
+        if (p.id === initialProduct.id) return false;                       // exclut le produit courant
+        // D3 : regroupement par sous-catégorie si activé ET si le produit courant en a une ; sinon catégorie.
+        return (GROUP_PASTILLES_BY_SUBCATEGORY && initialProduct.subcategory_slug)
+          ? p.subcategory_slug === initialProduct.subcategory_slug
+          : p.category_slug === initialProduct.category_slug;
+      })))
       .catch(() => {});
     const viewPrice = initialProduct.promo_price || initialProduct.price_ttc || 0;
     trackViewItem({ id: String(initialProduct.id), name: initialProduct.name, price: viewPrice, category: initialProduct.category_slug || "" });
@@ -453,12 +465,13 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   // Motif unique (N=1) : motif auto-sélectionné → son id voyage même sans clic. Sinon = motif cliqué.
   const isSingleColorOnly = couleursDispos.length === 1;
   const effectiveMotifId  = isSingleColorOnly ? String(couleursDispos[0]?.id ?? "") : motifId;
-  // Détection AUTO « sans choix de taille » : la SEULE taille du produit est "Taille unique" (vraie taille
-  // en base, avec son stock). Multi-tailles dont "Taille unique" → NON détecté (traité produit à tailles).
-  // effectiveTaille impose "Taille unique" pour l'ajout panier ET le contrôle de stock (aucun bypass R3).
-  const isTailleUniqueOnly = taillesDispos.length === 1 && taillesDispos[0] === TAILLE_UNIQUE;
-  const effectiveTaille    = isTailleUniqueOnly ? TAILLE_UNIQUE : taille;
-  const needsTaille        = taillesDispos.length > 0 && !isTailleUniqueOnly && !taille;
+  // Détection AUTO « sans choix de taille » GÉNÉRALISÉE (tâche 8) : un produit avec UNE SEULE taille
+  // — quel que soit son nom ("Taille unique", "120×120 cm", "0-6 mois"…) — est traité sans sélecteur,
+  // la taille étant imposée automatiquement. effectiveTaille sert à l'ajout panier ET au contrôle de
+  // stock (aucun bypass R3). Règle notamment le Lange (120×120 cm).
+  const isSingleSizeOnly = taillesDispos.length === 1;
+  const effectiveTaille    = isSingleSizeOnly ? taillesDispos[0] : taille;
+  const needsTaille        = taillesDispos.length > 0 && !isSingleSizeOnly && !taille;
 
   // ── STOCK PAR MOTIF (source de vérité = colors[motif].sizes_stock ; phases 1-5) ─────────────
   // La fiche REFLÈTE et BLOQUE selon le stock RÉEL du motif choisi. R3 (create-session) revalide
@@ -626,8 +639,12 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
             { label: t("breadcrumb_home"),  href: "/" },
             { label: t("breadcrumb_products"), href: "/produits" },
             ...(productCat ? [{
-              label: catLabel(productCat),
+              label: categoryLabel || catLabel(productCat),   // libellé dynamique (resolver Lot 2), fallback next-intl
               href:  `/categorie/${productCat}`,
+            }] : []),
+            // Sous-catégorie (tâche 5) — n'apparaît QUE si le produit en a une. D1 : NON cliquable (pas de href).
+            ...(product.subcategory_slug ? [{
+              label: subcategoryLabel || capitalizeSlug(product.subcategory_slug),
             }] : []),
             { label: product.name },
           ]}
@@ -687,6 +704,11 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
               visuel. Le H1 unique de la page est dans ce nœud. */}
           {header}
 
+          {/* Continuer mes achats — HAUT (tâche 12) : retour vers la navigation produits. */}
+          <Link href="/produits" style={{ display: "inline-flex", alignItems: "center", gap: 6, alignSelf: "flex-start", padding: "8px 14px", borderRadius: 12, border: "1.5px solid rgba(26,20,16,0.15)", background: "transparent", color: "rgba(26,20,16,0.6)", fontWeight: 800, fontSize: 13, textDecoration: "none" }}>
+            {t("continue_shopping")}
+          </Link>
+
           {subtitle && <p style={{ margin: 0, fontSize: "clamp(14px,1.3vw,16px)", fontWeight: 700, color: "rgba(26,20,16,0.7)", lineHeight: 1.5 }}>{subtitle}</p>}
           {extraDesc && <p style={{ margin: 0, fontSize: "clamp(13px,1.1vw,14px)", color: "rgba(26,20,16,0.6)", lineHeight: 1.8 }}>{extraDesc}</p>}
 
@@ -730,17 +752,19 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
               </span>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
 
-                {/* Pastilles couleurs du produit courant */}
+                {/* Pastille(s) du produit COURANT (tâche 3) — NON cliquable(s), avec le NOM du motif.
+                    Anneau foncé = « produit actuel ». Chaque produit M!LK = 1 motif → 1 pastille ici. */}
                 {couleursDispos.map((col: any) => {
-                  // Pastille épuisée = motif entièrement en rupture (somme sizes_stock à 0).
-                  const epuise  = motifTotal(col) <= 0;
-                  const selected = couleur === col.name;
+                  const epuise = motifTotal(col) <= 0;   // motif entièrement en rupture (Σ sizes_stock à 0)
                   return (
-                    <button key={col.name} onClick={() => { if (!epuise) { setCouleur(col.name); setMotifId(String(col.id ?? "")); } }} title={col.name}
-                      style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: selected ? `3px solid ${DARK}` : "2px solid rgba(0,0,0,0.15)", overflow: "hidden", background: col.hex, cursor: epuise ? "not-allowed" : "pointer", opacity: epuise ? 0.5 : 1, boxShadow: selected ? `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}` : "none" }}>
-                      {col.image_url && <Image src={col.image_url} alt={col.name} fill sizes="40px" style={{ objectFit: "cover" }} />}
-                      {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: AMBER, transform: "rotate(45deg)" }} /></div>}
-                    </button>
+                    <div key={col.name} title={`${col.name} — produit actuel`}
+                      style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                      <div style={{ position: "relative", width: 40, height: 40, borderRadius: 99, border: `3px solid ${DARK}`, overflow: "hidden", background: col.hex, boxShadow: `0 0 0 3px ${BG}, 0 0 0 5px ${DARK}`, opacity: epuise ? 0.5 : 1, cursor: "default", flexShrink: 0 }}>
+                        {col.image_url && <Image src={col.image_url} alt={col.name} fill sizes="40px" style={{ objectFit: "cover" }} />}
+                        {epuise && <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}><div style={{ width: "130%", height: 2, background: AMBER, transform: "rotate(45deg)" }} /></div>}
+                      </div>
+                      <span style={{ fontSize: 13, fontWeight: 800, color: DARK, whiteSpace: "nowrap" }}>{col.name}</span>
+                    </div>
                   );
                 })}
 
@@ -775,14 +799,14 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
           {/* Réassurance taille « bambou stretch » — SORTIE du sélecteur pour ne pas s'intercaler entre
               taille et quantité (désormais côte à côte, plus bas). Placée AU-DESSUS du bloc taille+quantité. */}
-          {taillesDispos.length > 0 && !isTailleUniqueOnly && (
+          {taillesDispos.length > 0 && !isSingleSizeOnly && (
             <div style={{ display: "flex", alignItems: "flex-start", gap: 8, padding: "9px 12px", borderRadius: 10, background: "rgba(196,154,74,0.1)", border: "1px solid rgba(196,154,74,0.2)" }}>
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0, marginTop: 1 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M12 8v4M12 16h.01" stroke={AMBER} strokeWidth="2" strokeLinecap="round"/></svg>
               <span style={{ fontSize: 12, color: "rgba(26,20,16,0.6)", lineHeight: 1.5, fontWeight: 600 }}>{t("size_hint")}</span>
             </div>
           )}
 
-          {taillesDispos.length > 0 && !isTailleUniqueOnly && !productSlug.includes("bonnet") && (
+          {taillesDispos.length > 0 && !isSingleSizeOnly && !productSlug.includes("bonnet") && (
             <div style={{ borderRadius: 12, overflow: "hidden", border: `1px solid rgba(26,20,16,0.12)` }}>
               <button onClick={() => setGuideOpen(v => !v)} style={{ width: "100%", padding: "11px 14px", background: guideOpen ? DARK : "rgba(26,20,16,0.06)", border: "none", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -826,7 +850,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
             {/* Colonne gauche (a) — sélecteur de taille : produit à VRAIES tailles. Clignote rouge si tentative
                 d'ajout sans sélection (id="taille-selector" ciblé par handleAddToCart). */}
-            {taillesDispos.length > 0 && !isTailleUniqueOnly && (
+            {taillesDispos.length > 0 && !isSingleSizeOnly && (
               <div id="taille-selector" style={{ flex: "1 1 auto", minWidth: 0, display: "grid", gap: 10, ...(blink > 0 ? { outline: "2px solid #dc2626", outlineOffset: 8, borderRadius: 12, animation: "size-blink 0.45s ease-in-out 3" } : {}) }}>
                 <span style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, flexWrap: "wrap", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
                   <span>{t("size_label")} {taille && <span style={{ color: DARK }}>— {getSizeLabel(taille, locale)}</span>}</span>
@@ -856,14 +880,14 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
               </div>
             )}
 
-            {/* Colonne gauche (b) — produit « Taille unique » (détection auto) : libellé AMBRE (#c49a4a) avec
-                pulse DOUX (info neutre, pas une erreur). Aucun sélecteur ; "Taille unique" retenue auto. */}
-            {isTailleUniqueOnly && (
+            {/* Colonne gauche (b) — produit MONO-TAILLE (détection auto, tâche 8) : libellé AMBRE avec
+                pulse DOUX (info neutre). Aucun sélecteur ; l'unique taille (effectiveTaille) est retenue auto. */}
+            {isSingleSizeOnly && (
               <div style={{ display: "grid", gap: 8 }}>
                 <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>{t("size_label")}</span>
                 <div className="taille-unique-badge" style={{ display: "inline-flex", alignItems: "center", gap: 8, height: 48, padding: "0 20px", borderRadius: 12, background: "rgba(196,154,74,0.12)", border: `1px solid rgba(196,154,74,0.4)`, width: "fit-content", fontWeight: 900, fontSize: 14, letterSpacing: 0.3, color: AMBER }}>
                   <svg width="15" height="15" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}><circle cx="12" cy="12" r="9" stroke={AMBER} strokeWidth="1.8"/><path d="M8.5 12l2.5 2.5 4.5-5" stroke={AMBER} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  {getSizeLabel(TAILLE_UNIQUE, locale)}
+                  {getSizeLabel(effectiveTaille, locale)}
                 </div>
               </div>
             )}
@@ -944,6 +968,10 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                 {t("view_cart", { count: cartCount })}
               </Link>
             )}
+            {/* Continuer mes achats — BAS (tâche 12) : pleine largeur sous les actions d'achat. */}
+            <Link href="/produits" style={{ padding: "13px 24px", borderRadius: 16, border: "1.5px solid rgba(26,20,16,0.2)", background: "transparent", fontWeight: 800, fontSize: 14, textDecoration: "none", color: "rgba(26,20,16,0.65)", textAlign: "center", display: "block" }}>
+              {t("continue_shopping")}
+            </Link>
           </div>
 
 {/* ── Estimé livraison ── */}

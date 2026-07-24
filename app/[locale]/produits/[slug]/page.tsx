@@ -7,6 +7,7 @@ import { getTranslations, setRequestLocale } from "next-intl/server";
 import { supabaseServer } from "@/lib/server/supabase";
 import ProductClient from "./ProductClient";
 import { computeDeliveryEstimate } from "@/lib/delivery-estimate";
+import { getCategoryLabel, getSubcategoryLabel } from "@/lib/category-labels-server";
 
 export const revalidate = 900;
 
@@ -49,11 +50,17 @@ export default async function ProductPage(
   const productCat   = product.category_slug ?? "";
   const catLabel = (c: string) => (({ bodies: t("cat_bodies"), pyjamas: t("cat_pyjamas"), gigoteuses: t("cat_gigoteuses"), accessoires: t("cat_accessoires"), bonnet: t("cat_bonnets"), langes: t("cat_langes") } as Record<string,string>)[c] || c);
 
+  // Libellés d'affichage DYNAMIQUES (resolver Lot 2 : table DB → hardcodé → slug). Résolus côté
+  // serveur (async DB) puis passés à ProductClient pour le fil d'ariane (catégorie + sous-catégorie).
+  const localeKey: "fr" | "en" = locale === "en" ? "en" : "fr";
+  const categoryLabel    = productCat ? await getCategoryLabel(productCat, localeKey) : "";
+  const subcategoryLabel = product.subcategory_slug ? await getSubcategoryLabel(productCat, product.subcategory_slug, localeKey) : "";
+
   // Header SSR — reproduit À L'IDENTIQUE l'ancien bloc eyebrow + <h1> + prix.
   const header = (
     <>
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
-        {productCat ? catLabel(productCat) : "M!LK"} · {t("eyebrow_oeko")}
+        {productCat ? (categoryLabel || catLabel(productCat)) : "M!LK"} · {t("eyebrow_oeko")}
       </div>
 
       <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>
@@ -106,5 +113,5 @@ export default async function ProductPage(
   // Estimé de livraison calculé CÔTÉ SERVEUR (horloge unique) → transmis en prop, plus de divergence
   // d'hydratation sur la date « Livré … » (cf. lib/delivery-estimate.ts).
   const deliveryEstimate = computeDeliveryEstimate(t.raw("days") as string[], t.raw("months") as string[]);
-  return <ProductClient initialProduct={product} header={header} initialPromo={promo} initialDeliveryEstimate={deliveryEstimate} />;
+  return <ProductClient initialProduct={product} header={header} initialPromo={promo} initialDeliveryEstimate={deliveryEstimate} categoryLabel={categoryLabel} subcategoryLabel={subcategoryLabel} />;
 }

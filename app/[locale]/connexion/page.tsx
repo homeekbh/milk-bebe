@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function ConnexionPage() {
   const router = useRouter();
@@ -60,13 +61,16 @@ export default function ConnexionPage() {
   {t("login_forgot")}
 </Link>
               </div>
-              <input
-                type="password"
+              <PasswordInput
                 value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                onChange={setPassword}
                 required
+                autoComplete="current-password"
                 placeholder="••••••••"
-                style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.12)", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box", background: "rgba(242,237,230,0.05)", color: "#f2ede6" }}
+                variant="dark"
+                labelShow={t("pwd_show")}
+                labelHide={t("pwd_hide")}
+                inputStyle={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.12)", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box", background: "rgba(242,237,230,0.05)", color: "#f2ede6" }}
               />
             </div>
 

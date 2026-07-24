@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
+import PasswordInput from "@/components/PasswordInput";
 
 export default function NouveauMotDePassePage() {
   const router = useRouter();
@@ -104,11 +105,11 @@ export default function NouveauMotDePassePage() {
                   <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>
                     {t("newpwd_label")}
                   </label>
-                  <input
-                    type="password" value={password}
-                    onChange={e => setPassword(e.target.value)}
-                    required placeholder={t("ph_password")}
-                    style={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.12)", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
+                  <PasswordInput
+                    value={password} onChange={setPassword}
+                    required autoComplete="new-password" placeholder={t("ph_password")}
+                    variant="dark" labelShow={t("pwd_show")} labelHide={t("pwd_hide")}
+                    inputStyle={{ padding: "12px 14px", borderRadius: 10, border: "1px solid rgba(242,237,230,0.12)", background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
                   />
                   {/* Indicateur de force */}
                   {password.length > 0 && (
@@ -135,11 +136,11 @@ export default function NouveauMotDePassePage() {
                   <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.4)" }}>
                     {t("f_confirm")}
                   </label>
-                  <input
-                    type="password" value={confirmPassword}
-                    onChange={e => setConfirmPassword(e.target.value)}
-                    required placeholder="••••••••"
-                    style={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${confirmPassword && confirmPassword !== password ? "rgba(239,68,68,0.4)" : "rgba(242,237,230,0.12)"}`, background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
+                  <PasswordInput
+                    value={confirmPassword} onChange={setConfirmPassword}
+                    required autoComplete="new-password" placeholder="••••••••"
+                    variant="dark" labelShow={t("pwd_show")} labelHide={t("pwd_hide")}
+                    inputStyle={{ padding: "12px 14px", borderRadius: 10, border: `1px solid ${confirmPassword && confirmPassword !== password ? "rgba(239,68,68,0.4)" : "rgba(242,237,230,0.12)"}`, background: "rgba(242,237,230,0.05)", color: "#f2ede6", fontSize: 15, outline: "none", width: "100%", boxSizing: "border-box" }}
                   />
                   {confirmPassword && confirmPassword !== password && (
                     <div style={{ fontSize: 11, color: "#ef4444", fontWeight: 700 }}>

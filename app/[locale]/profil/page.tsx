@@ -10,6 +10,7 @@ import ParrainageProfil from "@/components/ParrainageProfil";
 import { useCart } from "@/context/CartContext";
 import { supabase } from "@/lib/supabase-client";
 import CountrySelector from "@/components/checkout/CountrySelector";
+import PasswordInput from "@/components/PasswordInput";
 
 type Address = {
   line1: string; line2: string; city: string;
@@ -124,6 +125,14 @@ export default function ProfilPage() {
   const [billingAddr,  setBillingAddr]  = useState<Address>(EMPTY_ADDRESS);
   const [billingSame,  setBillingSame]  = useState(true);
 
+  // Sécurité — changement de mot de passe (utilisateur connecté). Supabase updateUser ne
+  // redemande PAS l'ancien mot de passe nativement (session déjà valide) — cf. rapport.
+  const [newPassword,        setNewPassword]        = useState("");
+  const [confirmNewPassword, setConfirmNewPassword] = useState("");
+  const [pwdSaving,          setPwdSaving]          = useState(false);
+  const [pwdError,           setPwdError]           = useState("");
+  const [pwdSaved,           setPwdSaved]           = useState(false);
+
   // Favoris — produits chargés depuis Supabase
   const [wishProducts, setWishProducts] = useState<any[]>([]);
   const [wishLoading,  setWishLoading]  = useState(false);
@@ -178,6 +187,23 @@ export default function ProfilPage() {
       .in("id", wishIds)
       .then(({ data }) => { setWishProducts(data ?? []); setWishLoading(false); });
   }, [tab, wishIds, mounted]);
+
+  async function handleChangePassword() {
+    setPwdError(""); setPwdSaved(false);
+    if (newPassword.length < 8) { setPwdError("Le mot de passe doit faire au moins 8 caractères."); return; }
+    if (newPassword !== confirmNewPassword) { setPwdError("Les mots de passe ne correspondent pas."); return; }
+    setPwdSaving(true);
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      setPwdError("Erreur lors de la mise à jour du mot de passe. Réessaie.");
+      setPwdSaving(false);
+      return;
+    }
+    setNewPassword(""); setConfirmNewPassword("");
+    setPwdSaved(true);
+    setPwdSaving(false);
+    setTimeout(() => setPwdSaved(false), 4000);
+  }
 
   async function handleSave() {
     if (!user) return;
@@ -359,6 +385,7 @@ export default function ProfilPage() {
 
         {/* ══ INFOS ══ */}
         {tab === "infos" && (
+          <div style={{ display: "grid", gap: 20 }}>
           <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid rgba(26,20,16,0.07)", display: "grid", gap: 20 }}>
             <div style={{ fontWeight: 900, fontSize: 18, color: DARK }}>Informations personnelles</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(140px,1fr))", gap: 16 }}>
@@ -393,6 +420,30 @@ export default function ProfilPage() {
               style={{ padding: "15px", borderRadius: 12, background: DARK, color: WARM, fontWeight: 900, fontSize: 16, border: "none", cursor: saving ? "not-allowed" : "pointer", opacity: saving ? 0.6 : 1 }}>
               {saving ? "Enregistrement..." : "✅ Enregistrer"}
             </button>
+          </div>
+
+          {/* Sécurité — mot de passe */}
+          <div style={{ background: "#fff", borderRadius: 20, padding: 28, border: "1px solid rgba(26,20,16,0.07)", display: "grid", gap: 16 }}>
+            <div style={{ fontWeight: 900, fontSize: 18, color: DARK }}>🔒 Sécurité — mot de passe</div>
+            <div style={{ fontSize: 13, color: "rgba(26,20,16,0.5)", marginTop: -6 }}>Choisis un nouveau mot de passe (8 caractères minimum).</div>
+            <div>
+              <label style={LS}>Nouveau mot de passe</label>
+              <PasswordInput value={newPassword} onChange={setNewPassword} autoComplete="new-password" placeholder="8 caractères minimum" variant="light" inputStyle={IS} />
+            </div>
+            <div>
+              <label style={LS}>Confirmer le nouveau mot de passe</label>
+              <PasswordInput value={confirmNewPassword} onChange={setConfirmNewPassword} autoComplete="new-password" placeholder="••••••••" variant="light" inputStyle={{ ...IS, borderColor: confirmNewPassword && confirmNewPassword !== newPassword ? "rgba(239,68,68,0.5)" : "rgba(26,20,16,0.12)" }} />
+              {confirmNewPassword && confirmNewPassword !== newPassword && (
+                <div style={{ fontSize: 12, color: "#b91c1c", fontWeight: 700, marginTop: 5 }}>❌ Les mots de passe ne correspondent pas</div>
+              )}
+            </div>
+            {pwdError && <div style={{ padding: "12px 16px", borderRadius: 10, background: "#fee2e2", color: "#b91c1c", fontWeight: 700, fontSize: 14 }}>❌ {pwdError}</div>}
+            {pwdSaved && <div style={{ padding: "12px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 700, fontSize: 14 }}>✅ Mot de passe mis à jour !</div>}
+            <button onClick={handleChangePassword} disabled={pwdSaving || newPassword.length < 8 || newPassword !== confirmNewPassword}
+              style={{ padding: "15px", borderRadius: 12, background: DARK, color: WARM, fontWeight: 900, fontSize: 16, border: "none", cursor: (pwdSaving || newPassword.length < 8 || newPassword !== confirmNewPassword) ? "not-allowed" : "pointer", opacity: (pwdSaving || newPassword.length < 8 || newPassword !== confirmNewPassword) ? 0.5 : 1 }}>
+              {pwdSaving ? "Mise à jour..." : "🔒 Changer le mot de passe"}
+            </button>
+          </div>
           </div>
         )}
 

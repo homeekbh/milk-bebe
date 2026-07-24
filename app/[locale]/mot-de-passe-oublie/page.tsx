@@ -1,12 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Link } from "@/i18n/navigation";
 import { supabase } from "@/lib/supabase-client";
 
 export default function MotDePasseOubliePage() {
   const t = useTranslations("auth");
+  const locale = useLocale();
   const [email,   setEmail]   = useState("");
   const [loading, setLoading] = useState(false);
   const [sent,    setSent]    = useState(false);
@@ -15,12 +16,25 @@ export default function MotDePasseOubliePage() {
   async function handleReset(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true); setError("");
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/nouveau-mot-de-passe`,
-    });
-    if (error) { setError(t("forgot_error")); setLoading(false); return; }
-    setSent(true);
-    setLoading(false);
+    try {
+      // redirectTo AVEC préfixe de locale (/fr, /en) : un lien sans locale subit une redirection
+      // 307 côté middleware i18n qui casse certaines webviews mail (cf. mémoire projet).
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/${locale}/nouveau-mot-de-passe`,
+      });
+      // NON-ÉNUMÉRANT : Supabase ne signale PAS si l'email existe. On n'affiche donc JAMAIS
+      // « email introuvable » : succès OU email inexistant → même message neutre « sent ».
+      // Seul un vrai rate-limit est signalé honnêtement (ne révèle pas l'existence d'un compte).
+      if (error && /rate|too many|429/i.test(error.message ?? "")) {
+        setError(t("err_rate_limit"));
+      } else {
+        setSent(true);
+      }
+    } catch {
+      setError(t("forgot_error")); // erreur réseau (message neutre, cf. i18n)
+    } finally {
+      setLoading(false);
+    }
   }
 
   return (

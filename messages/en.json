@@ -667,13 +667,13 @@
     "err_rate_limit": "Too many attempts. Try again in a few minutes.",
     "err_generic": "Something went wrong during registration. Please try again.",
     "forgot_title": "Forgot password",
-    "forgot_error": "Email not found or an error occurred.",
+    "forgot_error": "A network error occurred. Please try again.",
     "reset_title": "Reset your password",
     "reset_desc": "Enter your email — we'll send you a link to create a new password.",
     "sending": "Sending...",
     "send_link": "Send link →",
     "sent_title": "Email sent!",
-    "sent_desc": "Check your inbox and click the link to reset your password. The link is valid for 1 hour.",
+    "sent_desc": "If an account exists for this email, a reset link has just been sent. Check your inbox (and spam). The link is valid for 1 hour.",
     "back_to_login": "Back to sign in",
     "back_to_login_arrow": "← Back to sign in",
     "newpwd_title": "New password",
@@ -692,7 +692,9 @@
     "str_ok": "OK",
     "str_strong": "Strong ✓",
     "updating": "Updating...",
-    "save_newpwd": "Save new password →"
+    "save_newpwd": "Save new password →",
+    "pwd_show": "Show password",
+    "pwd_hide": "Hide password"
   },
   "sizes": {
     "newborn": "Newborn",

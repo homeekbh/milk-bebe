@@ -6,6 +6,7 @@ import { Link } from "@/i18n/navigation";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabase-client";
 import CountrySelector from "@/components/checkout/CountrySelector";
+import PasswordInput from "@/components/PasswordInput";
 
 // Mappe les messages d'erreur Supabase Auth vers une CLÉ de traduction (auth.*).
 function authErrorKey(msg?: string | null): string {
@@ -210,11 +211,11 @@ function InscriptionForm() {
                 </Field>
 
                 <Field label={t("f_password")} required>
-                  <input type="password" value={form.password} onChange={(e) => set("password", e.target.value)} required placeholder={t("ph_password")} style={inputStyle} />
+                  <PasswordInput value={form.password} onChange={(v) => set("password", v)} required autoComplete="new-password" placeholder={t("ph_password")} variant="dark" labelShow={t("pwd_show")} labelHide={t("pwd_hide")} inputStyle={inputStyle} />
                 </Field>
 
                 <Field label={t("f_confirm")} required>
-                  <input type="password" value={form.confirmPassword} onChange={(e) => set("confirmPassword", e.target.value)} required placeholder="••••••••" style={inputStyle} />
+                  <PasswordInput value={form.confirmPassword} onChange={(v) => set("confirmPassword", v)} required autoComplete="new-password" placeholder="••••••••" variant="dark" labelShow={t("pwd_show")} labelHide={t("pwd_hide")} inputStyle={inputStyle} />
                 </Field>
 
                 <div style={{ textAlign: "center", fontSize: 14, color: "rgba(242,237,230,0.45)", marginTop: 4 }}>

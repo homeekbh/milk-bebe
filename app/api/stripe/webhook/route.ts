@@ -340,9 +340,11 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     // puis on alerte l'admin — COMME le chemin unifié. Sans ça, un refus RPC sur le dernier
     // exemplaire d'une pièce de coffret passait en silence (course → 2 paiements, 1 non honoré).
     const stockIssues: Array<{ name: string; size?: string; available: number; error?: string }> = [];
+    const motifStockIssues: Array<{ name: string; motif_id: string; size?: string; error: string }> = [];  // dual-write phase 4
     for (const pid of productIds) {
       const pSize = sizeFor(pid);
       const pName = prodMap[pid]?.name ?? "Produit";
+      // ── ANCIEN système (FILET, products.stock) — decrement_stock_atomic. INCHANGÉ. ──
       const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
         p_product_id: pid, p_quantity: 1, p_size: pSize,
       });
@@ -360,10 +362,25 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
         } else {
           stockIssues.push({ name: pName, size: pSize ?? undefined, available: 0, error: "product_not_found" });
         }
-        continue;
+      } else {
+        const result = rpcResult as any;
+        if (!result?.ok) stockIssues.push({ name: pName, size: pSize ?? undefined, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
       }
-      const result = rpcResult as any;
-      if (!result?.ok) stockIssues.push({ name: pName, size: pSize ?? undefined, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
+
+      // ── NOUVEAU système (DUAL-WRITE, colors[motif].sizes_stock) — pièce à motif UNIQUE (N=1). ──
+      //    Pièce sans motif → SEUL l'ancien système. Échec → alerte B2, jamais de blocage (payé).
+      const pcColors: any[] = Array.isArray(prodMap[pid]?.colors) ? prodMap[pid].colors : [];
+      const pMotifId = pcColors.length === 1 && pcColors[0]?.id ? String(pcColors[0].id) : null;
+      if (pMotifId) {
+        const { data: motifRes, error: motifErr } = await supabaseServer.rpc("decrement_stock_motif", {
+          p_product_id: pid, p_motif_id: pMotifId, p_size: pSize, p_quantity: 1,
+        });
+        if (motifErr || !(motifRes as any)?.ok) {
+          const reason = motifErr?.message ?? String((motifRes as any)?.error ?? "unknown");
+          motifStockIssues.push({ name: pName, motif_id: pMotifId, size: pSize ?? undefined, error: reason });
+          console.error(`[webhook] DUAL-WRITE divergence (coffret) — decrement_stock_motif KO (produit ${pid}, motif ${pMotifId}): ${reason}`);
+        }
+      }
     }
     // Rupture APRÈS paiement (coffret) → commande CONSERVÉE + alerte admin (pas de remboursement auto).
     if (stockIssues.length > 0 && ADMIN_EMAILS.length > 0) {
@@ -376,6 +393,19 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
         });
       } catch {}
       try { await logActivity("stock_alert", `Stock insuffisant (coffret) #${orderData.id.slice(0, 8).toUpperCase()} — ${stockIssues.length} item(s)`, { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }); } catch {}
+    }
+    // GARDE-FOU DUAL-WRITE (motif, coffret) : divergence colors[motif] vs products.stock → commande
+    // CONSERVÉE + alerte, jamais de remboursement auto.
+    if (motifStockIssues.length > 0 && ADMIN_EMAILS.length > 0 && orderData) {
+      const mHtml = motifStockIssues.map(i => `<li><strong>${escapeHtml(i.name)}</strong>${i.size ? ` (taille ${escapeHtml(i.size)})` : ""} — motif ${escapeHtml(i.motif_id)} — ${escapeHtml(i.error)}</li>`).join("");
+      try {
+        await resend.emails.send({
+          from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
+          subject: `⚠️ DIVERGENCE STOCK MOTIF (coffret, dual-write) — commande #${orderData.id.slice(0, 8).toUpperCase()}`,
+          html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b45309;margin:0 0 12px">Décrément par motif divergent (coffret)</h2><p>Commande <strong>#${orderData.id.slice(0, 8).toUpperCase()}</strong> — colors[motif].sizes_stock n'a pas suivi products.stock :</p><ul style="background:#fef3c7;padding:14px 24px;border-radius:8px;color:#92400e;line-height:1.6">${mHtml}</ul><p>📦 Reconcilier à la main. Commande CONSERVÉE (payée), pas de remboursement auto.</p></div>`,
+        });
+      } catch {}
+      try { await logActivity("stock_motif_divergence", `Divergence dual-write motif (coffret) #${orderData.id.slice(0, 8).toUpperCase()} — ${motifStockIssues.length} item(s)`, { entity_id: orderData.id, meta: { motifStockIssues, customer_email: email } }); } catch {}
     }
 
     if (email && orderData) {
@@ -658,13 +688,17 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
 
   // ── Décrément : produits + chaque pièce de chaque pack, sur SA taille (× qty).
   const stockIssues: Array<{ name: string; size?: string; requested: number; available: number; error?: string }> = [];
-  const dec: { id: string; qty: number; size: string | null; name: string }[] = [];
-  for (const p of products) dec.push({ id: p.id, qty: Number(p.quantity) || 1, size: p.taille ?? null, name: p.name });
+  // DUAL-WRITE (phase 4) : divergences du décrément par motif (colors[motif]) — n'échouent JAMAIS la
+  // commande (payée), juste alertées (esprit B2). Séparé de stockIssues pour tracer la source.
+  const motifStockIssues: Array<{ name: string; motif_id: string; size?: string; requested: number; error: string }> = [];
+  const dec: { id: string; qty: number; size: string | null; motif_id: string | null; motif_size: string | null; name: string }[] = [];
+  for (const p of products) dec.push({ id: p.id, qty: Number(p.quantity) || 1, size: p.taille ?? null, motif_id: p.motif_id ?? null, motif_size: p.motif_size ?? null, name: p.name });
   for (const pk of packs) {
     const pq = Number(pk.quantity) || 1;
-    for (const pc of (pk.pieces ?? [])) dec.push({ id: pc.product_id, qty: pq, size: pc.size ?? null, name: pc.name });
+    for (const pc of (pk.pieces ?? [])) dec.push({ id: pc.product_id, qty: pq, size: pc.size ?? null, motif_id: pc.motif_id ?? null, motif_size: pc.size ?? null, name: pc.name });
   }
   for (const d of dec) {
+    // ── ANCIEN système (FILET, products.stock) — decrement_stock_atomic. INCHANGÉ. ──
     const { data: rpcResult, error: rpcErr } = await supabaseServer.rpc("decrement_stock_atomic", {
       p_product_id: d.id, p_quantity: d.qty, p_size: d.size,
     });
@@ -682,10 +716,25 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       } else {
         stockIssues.push({ name: d.name, size: d.size ?? undefined, requested: d.qty, available: 0, error: "product_not_found" });
       }
-      continue;
+    } else {
+      const result = rpcResult as any;
+      if (!result?.ok) stockIssues.push({ name: d.name, size: d.size ?? undefined, requested: d.qty, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
     }
-    const result = rpcResult as any;
-    if (!result?.ok) stockIssues.push({ name: d.name, size: d.size ?? undefined, requested: d.qty, available: Number(result?.available ?? 0), error: String(result?.error ?? "unknown") });
+
+    // ── NOUVEAU système (DUAL-WRITE phase 4, colors[motif].sizes_stock) — decrement_stock_motif. ──
+    //    UNIQUEMENT si l'item a un motif_id (Bandeau/Bonnet/legacy sans motif → SEUL l'ancien système).
+    //    Échec (stock motif insuffisant / motif introuvable) → on NE bloque PAS (commande payée) :
+    //    log + collecte pour alerte B2. MÊME bloc idempotent (post-claim) → rejeu = pas de double décrément.
+    if (d.motif_id) {
+      const { data: motifRes, error: motifErr } = await supabaseServer.rpc("decrement_stock_motif", {
+        p_product_id: d.id, p_motif_id: d.motif_id, p_size: d.motif_size, p_quantity: d.qty,
+      });
+      if (motifErr || !(motifRes as any)?.ok) {
+        const reason = motifErr?.message ?? String((motifRes as any)?.error ?? "unknown");
+        motifStockIssues.push({ name: d.name, motif_id: d.motif_id, size: d.motif_size ?? undefined, requested: d.qty, error: reason });
+        console.error(`[webhook] DUAL-WRITE divergence — decrement_stock_motif KO (produit ${d.id}, motif ${d.motif_id}, taille ${d.motif_size ?? "—"}): ${reason}`);
+      }
+    }
   }
 
   // GARDE-FOU B : rupture APRÈS paiement → commande CONSERVÉE + alerte Erika
@@ -700,6 +749,22 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       });
     } catch {}
     try { await logActivity("stock_alert", `Stock insuffisant (commande unifiée) #${orderData.id.slice(0, 8).toUpperCase()} — ${stockIssues.length} item(s)`, { entity_id: orderData.id, meta: { issues: stockIssues, customer_email: email } }); } catch {}
+  }
+
+  // GARDE-FOU DUAL-WRITE (motif) : le décrément colors[motif] a divergé de products.stock (échec RPC
+  // motif / stock motif insuffisant) alors que la commande est PAYÉE → CONSERVÉE, jamais de remboursement
+  // auto. Alerte admin pour reconcilier colors[motif].sizes_stock à la main. Rare une fois les stocks
+  // colors[] fiabilisés (phase de transition).
+  if (motifStockIssues.length > 0 && ADMIN_EMAILS.length > 0 && orderData) {
+    const html = motifStockIssues.map(i => `<li><strong>${i.name}</strong>${i.size ? ` (taille ${i.size})` : ""} — motif ${i.motif_id}, commandé ${i.requested} — ${i.error}</li>`).join("");
+    try {
+      await resend.emails.send({
+        from: "M!LK <contact@milkbebe.fr>", to: ADMIN_EMAILS,
+        subject: `⚠️ DIVERGENCE STOCK MOTIF (dual-write) — commande #${orderData.id.slice(0, 8).toUpperCase()}`,
+        html: `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b45309;margin:0 0 12px">Décrément par motif divergent</h2><p>Commande <strong>#${orderData.id.slice(0, 8).toUpperCase()}</strong> — le stock global (products.stock) a été décrémenté, mais colors[motif].sizes_stock n'a pas suivi :</p><ul style="background:#fef3c7;padding:14px 24px;border-radius:8px;color:#92400e;line-height:1.6">${html}</ul><p>📦 Reconcilier le stock du motif dans l'admin. Commande CONSERVÉE (payée), pas de remboursement auto.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+      });
+    } catch {}
+    try { await logActivity("stock_motif_divergence", `Divergence dual-write motif (commande unifiée) #${orderData.id.slice(0, 8).toUpperCase()} — ${motifStockIssues.length} item(s)`, { entity_id: orderData.id, meta: { motifStockIssues, customer_email: email } }); } catch {}
   }
 
   // Promo uses_count — CHAQUE code appliqué (cumul étape 21) + conversion panier.

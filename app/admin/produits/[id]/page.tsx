@@ -161,6 +161,7 @@ function buildDefaultFaqs(cat: string, slug: string, withId: () => string) {
 }
 
 type ColorEntry = {
+  id?:        string;     // uuid stable du motif (clé de jointure décrément/restock) — PRÉSERVÉ au save
   name:       string;
   hex:        string;
   stock:      string;     // calculé automatiquement = somme des tailles
@@ -185,6 +186,26 @@ type FaqItem = {
 };
 
 function newId() { return Math.random().toString(36).slice(2, 9); }
+
+// ── BUG #1 (résurrection stock) — signature du stock chargé ────────────────────
+// Empreinte NORMALISÉE de tout ce qui touche au stock (scalaire + tailles produit +
+// tailles/quantités par motif, par id). On la calcule à l'ouverture (valeurs DB) et au
+// save (valeurs formulaire) : si identiques → l'admin n'a PAS touché au stock (cas B) →
+// on ne réécrit rien (le serveur garde le stock LIVE = ventes préservées, pas de survente).
+function stockSignature(
+  stockScalar: string | number,
+  sizes: string[],
+  sizesStock: Record<string, string | number>,
+  colors: Array<{ id?: string; sizes?: string[]; sizes_stock?: Record<string, string | number> }>,
+): string {
+  const normMap = (m: Record<string, string | number> = {}) =>
+    Object.keys(m).sort().map(k => `${k}=${parseInt(String(m[k])) || 0}`).join(",");
+  const head = `${parseInt(String(stockScalar)) || 0}|[${[...sizes].sort().join(",")}]|{${normMap(sizesStock)}}`;
+  const cols = (colors ?? [])
+    .map(c => `${c.id ?? ""}:[${[...(c.sizes ?? [])].sort().join(",")}]:{${normMap(c.sizes_stock)}}`)
+    .join("||");
+  return `${head}##${cols}`;
+}
 
 function slugify(s: string) {
   return s.trim().toLowerCase().normalize("NFD")
@@ -982,6 +1003,9 @@ export default function AdminProductForm() {
   const [sizes,        setSizes]        = useState<string[]>([]);
   const [sizesStock,   setSizesStock]   = useState<Record<string, string>>({});
   const [colors,       setColors]       = useState<ColorEntry[]>([]);
+  // Empreinte du stock au chargement (cf. stockSignature) → détecte si l'admin a modifié
+  // un stock (cas A) ou non (cas B). "" tant que non chargé (produit neuf = toujours cas A).
+  const initialStockRef = useRef<string>("");
   const [customTaille, setCustomTaille] = useState("");
   const [loading,      setLoading]      = useState(!isNew);
   const [saving,       setSaving]       = useState(false);
@@ -1084,6 +1108,7 @@ export default function AdminProductForm() {
           setColors(
             Array.isArray(data.colors)
               ? data.colors.map((c: any) => ({
+                  id:        c.id ?? "",   // uuid stable — PRÉSERVÉ (clé de jointure décrément/restock)
                   sizes: Array.isArray(c.sizes) ? c.sizes : [],
                   sizes_stock: (c.sizes_stock && typeof c.sizes_stock === "object") ? Object.fromEntries(Object.entries(c.sizes_stock).map(([k,v]) => [k, String(v)])) : {},
                   validated: true,
@@ -1093,6 +1118,14 @@ export default function AdminProductForm() {
                   image_url: c.image_url ?? "",
                 }))
               : []
+          );
+          // Empreinte du stock TEL QUE CHARGÉ (valeurs DB actuelles, déjà décrémentées par
+          // les ventes) → référence pour détecter une vraie modif de stock au moment du save.
+          initialStockRef.current = stockSignature(
+            data.stock ?? 0,
+            Array.isArray(data.sizes) ? data.sizes : [],
+            (data.sizes_stock && typeof data.sizes_stock === "object") ? data.sizes_stock : {},
+            Array.isArray(data.colors) ? data.colors.map((c: any) => ({ id: c.id, sizes: c.sizes, sizes_stock: c.sizes_stock })) : [],
           );
           // Charger cards et faqs — ou pré-remplir depuis contenu hardcodé
           const cat  = data.category_slug ?? "";
@@ -1189,7 +1222,9 @@ export default function AdminProductForm() {
 
   const totalFromSizes  = sizes.length > 0 ? sizes.reduce((s, t) => s + (parseInt(sizesStock[t] ?? "0") || 0), 0) : null;
   const totalFromColors = colors.length > 0 ? colors.reduce((s, c) => s + (parseInt(c.stock) || 0), 0) : null;
-  const computedStock   = totalFromSizes ?? totalFromColors;
+  // Priorité aux MOTIFS : products.stock = Σ colors[].stock (la vérité, alignée sur le RPC de
+  // décrément). Repli sur les tailles produit (sans motif : Bandeau/Bonnet), puis le scalaire.
+  const computedStock   = totalFromColors ?? totalFromSizes;
 
   function addColor() { setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0", image_url: "", sizes: [], sizes_stock: {}, validated: false }]); }
   function removeColor(i: number) { setColors(p => p.filter((_, idx) => idx !== i)); }
@@ -1306,9 +1341,17 @@ export default function AdminProductForm() {
       if (!form.name.trim()) throw new Error("Le nom est obligatoire");
       if (!form.price_ttc)   throw new Error("Le prix est obligatoire — va dans l'onglet Tarif & Promos");
 
+      // ── BUG #1 — l'admin a-t-il RÉELLEMENT modifié un stock depuis l'ouverture ? ──
+      // Compare l'empreinte courante à celle du chargement. Produit neuf → toujours "touché"
+      // (création). Sinon : identique = cas B (édition sans stock) → le serveur préserve le
+      // stock LIVE (ventes non écrasées). Différent = cas A (recomptage) → valeurs saisies.
+      const currentStockSig = stockSignature(form.stock, sizes, sizesStock, colors);
+      const stockTouched = isNew || initialStockRef.current === "" ? isNew : (currentStockSig !== initialStockRef.current);
+
       const body = {
         ...form,
         published,
+        stock_touched: stockTouched,
         price_ttc:        parseFloat(form.price_ttc),
         promo_price:      form.promo_price ? parseFloat(form.promo_price) : null,
         promo_start:      form.promo_start  || null,
@@ -1325,6 +1368,7 @@ export default function AdminProductForm() {
         sizes,
         sizes_stock: Object.fromEntries(sizes.map(t => [t, parseInt(sizesStock[t] ?? "0") || 0])),
         colors: colors.map(c => ({
+          ...(c.id ? { id: c.id } : {}),   // PRÉSERVE l'uuid du motif (jointure décrément/restock)
           name:        c.name,
           hex:         c.hex,
           stock:       parseInt(c.stock) || 0,

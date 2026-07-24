@@ -159,49 +159,141 @@ function extractTailleFromName(name: string): string | null {
   return patterns.some(p => p.test(last)) ? last : null;
 }
 
+type MotifRestockIssue = { product_id: string; motif_id: string; size: string | null; qty: number; error: string };
+
 /**
- * Réintègre le stock pour chaque item d'une commande annulée.
- * Best-effort : on continue même si un produit échoue.
+ * Réintègre le stock pour chaque item d'une commande annulée/remboursée — DUAL-WRITE (phase 5).
+ * Pour chaque unité vendue on re-crédite :
+ *   (a) ANCIEN système  → products.stock (+ products.sizes_stock[taille]) — le FILET, inchangé.
+ *   (b) NOUVEAU système → colors[motif].sizes_stock[taille] via restock_motif(), UNIQUEMENT
+ *       si l'item porte un motif_id (miroir exact du décrément motif de la phase 4).
+ *
+ * BUG #2 corrigé : une ligne "pack:<id>" n'est PAS un produit → on DESCEND dans item.products
+ *   (pièces {id, name, taille, motif_id}) et on restocke CHAQUE pièce (ancien + motif),
+ *   qty = quantité du pack. Avant, la ligne pack tombait en "Produit introuvable" → 0 restock.
+ *
+ * ⚠️ restock_motif() N'A AUCUN PLAFOND : appelé 2× il crédite 2×. L'idempotence NE vient PAS
+ *   d'ici mais du CLAIM atomique de cancel_refund (bascule pending→remboursee gagnée une seule
+ *   fois → restoreStock exécuté une seule fois). Voir cancel_refund.
+ * Best-effort : on continue même si un produit/motif échoue (le client DOIT être remboursé).
+ *   Les échecs motif sont collectés dans `motifIssues` → alerte admin, sans bloquer.
  */
-async function restoreStock(items: any[]): Promise<{ restored: number; errors: string[] }> {
+async function restoreStock(items: any[]): Promise<{
+  restored: number; errors: string[]; motifRestored: number; motifIssues: MotifRestockIssue[];
+}> {
   const errors: string[] = [];
+  const motifIssues: MotifRestockIssue[] = [];
   let restored = 0;
+  let motifRestored = 0;
 
-  for (const item of (Array.isArray(items) ? items : [])) {
-    const qty = Number(item.quantity ?? 1);
-    if (qty < 1) continue;
-
-    // Trouver le produit par id ou slug
+  // (a) ANCIEN système : products.stock + products.sizes_stock[taille]. Comportement historique.
+  const restockLegacy = async (lookupId: string | null, lookupSlug: string | null, name: string, taille: string | null, qty: number) => {
     let product: any = null;
-    if (item.id) {
-      const { data } = await supabaseServer.from("products").select("id, stock, sizes_stock, slug").eq("id", item.id).single();
+    if (lookupId) {
+      const { data } = await supabaseServer.from("products").select("id, stock, sizes_stock, slug").eq("id", lookupId).single();
       product = data;
     }
-    if (!product && item.slug) {
-      const { data } = await supabaseServer.from("products").select("id, stock, sizes_stock, slug").eq("slug", item.slug).single();
+    if (!product && lookupSlug) {
+      const { data } = await supabaseServer.from("products").select("id, stock, sizes_stock, slug").eq("slug", lookupSlug).single();
       product = data;
     }
     if (!product) {
-      errors.push(`Produit introuvable: ${item.name ?? item.id ?? item.slug}`);
-      continue;
+      errors.push(`Produit introuvable: ${name || lookupId || lookupSlug}`);
+      return;
     }
-
-    const newStock = (product.stock ?? 0) + qty;
-    const updatePayload: Record<string, any> = { stock: newStock };
-
-    const taille = extractTailleFromName(item.name ?? "");
+    const updatePayload: Record<string, any> = { stock: (product.stock ?? 0) + qty };
     if (taille && product.sizes_stock && typeof product.sizes_stock === "object") {
       const sizes = { ...product.sizes_stock };
       sizes[taille] = (sizes[taille] ?? 0) + qty;
       updatePayload.sizes_stock = sizes;
     }
-
     const { error } = await supabaseServer.from("products").update(updatePayload).eq("id", product.id);
     if (error) errors.push(`${product.slug}: ${error.message}`);
     else restored++;
+  };
+
+  // (b) NOUVEAU système : colors[motif].sizes_stock[taille] via restock_motif(). Best-effort.
+  const restockMotif = async (productId: string | null, motifId: string, size: string | null, qty: number, label: string) => {
+    if (!productId || !motifId || qty < 1) return;
+    const { data, error } = await supabaseServer.rpc("restock_motif", {
+      p_product_id: productId, p_motif_id: motifId, p_size: size, p_quantity: qty,
+    });
+    if (error || !(data as any)?.ok) {
+      const reason = error?.message ?? (data as any)?.reason ?? "restock_motif KO";
+      motifIssues.push({ product_id: productId, motif_id: motifId, size, qty, error: reason });
+      console.error(`[restoreStock] DUAL-WRITE motif KO (${label}) product=${productId} motif=${motifId} size=${size ?? "—"} qty=${qty}: ${reason}`);
+    } else {
+      motifRestored++;
+    }
+  };
+
+  for (const item of (Array.isArray(items) ? items : [])) {
+    const qty = Number(item.quantity ?? 1);
+    if (qty < 1) continue;
+
+    // ── Ligne PACK ("pack:<id>", is_pack) → descendre dans les pièces (BUG #2) ────────────
+    if (item.is_pack || (typeof item.id === "string" && item.id.startsWith("pack:"))) {
+      const pieces: any[] = Array.isArray(item.products) ? item.products : [];
+      if (pieces.length === 0) errors.push(`Pack sans pièces: ${item.name ?? item.id}`);
+      for (const pc of pieces) {
+        // pc.taille = pc.size au décrément → même clé pour l'ancien ET le motif (cohérent phase 4).
+        const pieceTaille = pc.taille ?? null;
+        await restockLegacy(pc.id ?? null, pc.slug ?? null, pc.name ?? "", pieceTaille, qty);
+        if (pc.motif_id) await restockMotif(pc.id ?? null, pc.motif_id, pieceTaille, qty, `pack ${item.pack_id ?? item.id} · ${pc.name ?? pc.id}`);
+      }
+      continue;
+    }
+
+    // ── Ligne PRODUIT ────────────────────────────────────────────────────────────────────
+    // Ancien système : taille dérivée du NOM (comportement historique, inchangé).
+    await restockLegacy(item.id ?? null, item.slug ?? null, item.name ?? "", extractTailleFromName(item.name ?? ""), qty);
+    // Motif : taille = motif_size (miroir exact du décrément motif) ; repli sur item.taille pour
+    // les commandes créées avant l'ajout de motif_size aux orders.items.
+    if (item.motif_id) {
+      const motifSize = item.motif_size ?? item.taille ?? null;
+      await restockMotif(item.id ?? null, item.motif_id, motifSize, qty, item.name ?? item.id);
+    }
   }
 
-  return { restored, errors };
+  return { restored, errors, motifRestored, motifIssues };
+}
+
+/**
+ * Alerte admin dédiée : divergence du stock MOTIF au remboursement (restock_motif KO).
+ * Best-effort — n'échoue jamais l'appelant. Le remboursement Stripe est déjà effectué et
+ * products.stock (filet legacy) re-crédité ; seul colors[motif] n'a pas pu l'être (motif
+ * introuvable, RPC KO…). Un humain réaligne le motif — la divergence reste tracée, isolée.
+ */
+async function sendMotifRestockAlert(orderId: string, issues: MotifRestockIssue[]): Promise<void> {
+  if (ADMIN_EMAILS.length === 0 || issues.length === 0) return;
+  try {
+    const rows = issues.map(i =>
+      `<tr><td style="padding:4px 8px;border:1px solid #eee">${escapeHtml(i.product_id)}</td>` +
+      `<td style="padding:4px 8px;border:1px solid #eee">${escapeHtml(i.motif_id)}</td>` +
+      `<td style="padding:4px 8px;border:1px solid #eee">${escapeHtml(i.size ?? "—")}</td>` +
+      `<td style="padding:4px 8px;border:1px solid #eee">${i.qty}</td>` +
+      `<td style="padding:4px 8px;border:1px solid #eee">${escapeHtml(i.error)}</td></tr>`
+    ).join("");
+    await resend.emails.send({
+      from:    "M!LK <contact@milkbebe.fr>",
+      to:      ADMIN_EMAILS,
+      subject: `⚠️ Stock motif NON re-crédité — remboursement #${orderId.slice(0,8).toUpperCase()}`,
+      html: `
+        <div style="font-family:sans-serif;padding:24px;max-width:640px">
+          <h2 style="color:#b91c1c;margin:0 0 12px">Divergence stock par motif (restock)</h2>
+          <p>Le remboursement de la commande <strong>#${orderId.slice(0,8).toUpperCase()}</strong> a bien été effectué et le stock <em>legacy</em> (products.stock) re-crédité, mais le stock <strong>par motif</strong> (colors[motif]) n'a pas pu l'être pour :</p>
+          <table style="border-collapse:collapse;font-size:13px;margin:12px 0">
+            <tr style="background:#f6f6f6"><th style="padding:4px 8px;border:1px solid #eee">produit</th><th style="padding:4px 8px;border:1px solid #eee">motif</th><th style="padding:4px 8px;border:1px solid #eee">taille</th><th style="padding:4px 8px;border:1px solid #eee">qté</th><th style="padding:4px 8px;border:1px solid #eee">erreur</th></tr>
+            ${rows}
+          </table>
+          <p style="font-size:13px;color:#555">👉 Action : réaligner manuellement le stock du/des motif(s) ci-dessus dans l'admin produit.</p>
+          <a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir dans l'admin →</a>
+        </div>
+      `,
+    });
+  } catch (e) {
+    console.error("[commandes/cancel] Admin motif-restock alert failed:", e);
+  }
 }
 
 /**
@@ -272,34 +364,49 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       return Response.json({ error: "Erreur Stripe refund", details: e?.message }, { status: 502 });
     }
 
-    // 3. Réintégrer le stock
-    const stockResult = await restoreStock(order.items ?? []);
-
-    // 3b. Annuler le shipment Sendcloud (best-effort, ne bloque pas)
-    const sendcloudCancel = await cancelSendcloudShipment(orderId, order.sendcloud_parcel_id ?? null);
-
-    // 4. Update Supabase — EN 2 ÉTAPES pour ne pas tout perdre si certaines
-    // colonnes optionnelles n'existent pas en base (refund_id, refunded_at, etc.).
-    //
-    // Étape 1 (GARANTI) — colonnes qui existent à coup sûr (status + shipping_status)
-    const { error: updateErr1 } = await supabaseServer.from("orders").update({
-      status:          "remboursee",
-      shipping_status: "annulee",
-    }).eq("id", orderId);
-    if (updateErr1) {
-      console.error("[commandes/cancel] Supabase update statuts:", updateErr1.message);
-      // Stripe a déjà remboursé — on retourne l'erreur mais le refund reste valide
+    // 3. CLAIM ATOMIQUE anti-double-restock — bascule status→remboursee UNIQUEMENT si la commande
+    //    n'est pas déjà remboursée. Le filtre .neq rend l'UPDATE atomique côté Postgres : en cas de
+    //    double-clic / concurrence, une SEULE requête gagne le claim et a le droit de restocker.
+    //    C'est CE garde — et non restock_motif (qui n'a AUCUN plafond) — qui empêche le double
+    //    crédit de products.stock ET de colors[motif]. (Rejeu webhook : charge.refunded ne restocke
+    //    pas → il n'existe aucun 2e chemin de restock à coordonner.)
+    const { data: refundClaim, error: claimErr } = await supabaseServer.from("orders")
+      .update({ status: "remboursee", shipping_status: "annulee" })
+      .eq("id", orderId).neq("status", "remboursee")
+      .select("id").maybeSingle();
+    if (claimErr) {
+      console.error("[commandes/cancel] Supabase claim statuts:", claimErr.message);
+      // Stripe a déjà remboursé — on retourne l'erreur mais le refund reste valide.
       return Response.json({
-        error:           "Refund Stripe OK mais update Supabase a échoué",
-        details:         updateErr1.message,
-        refund_id:       refundId,
-        refund_amount:   refundAmount,
-        stock_restored:  stockResult.restored,
+        error:         "Refund Stripe OK mais update Supabase a échoué",
+        details:       claimErr.message,
+        refund_id:     refundId,
+        refund_amount: refundAmount,
       }, { status: 500 });
     }
+    if (!refundClaim) {
+      // Claim perdu → commande DÉJÀ remboursée (double-clic concurrent / rejeu). Le refund Stripe
+      // est idempotent (idempotencyKey refund-<id>) → on NE re-restocke PAS. Sortie propre.
+      console.warn(`[commandes/cancel] Claim perdu — commande #${orderId.slice(0,8)} déjà remboursée. Pas de re-restock.`);
+      return Response.json({ ok: true, already_refunded: true, refund_id: refundId, refund_amount: refundAmount });
+    }
 
-    // Étape 2 (BEST-EFFORT) — colonnes optionnelles. Si manquantes en base,
-    // l'erreur est loggée mais ne bloque pas (les statuts sont déjà à jour).
+    // 4. Restock DUAL-WRITE (ancien products.stock + nouveau colors[motif]) — garanti UNE SEULE
+    //    fois par le claim ci-dessus. Best-effort : n'échoue jamais le remboursement.
+    const stockResult = await restoreStock(order.items ?? []);
+
+    // 4b. Divergence motif (restock_motif KO : motif introuvable, RPC KO…) → log + alerte admin
+    //     dédiée, SANS bloquer (le client est déjà remboursé, products.stock reste le filet).
+    if (stockResult.motifIssues.length > 0) {
+      console.error(`[commandes/cancel] DIVERGENCE STOCK MOTIF (restock) #${orderId.slice(0,8)}:`, JSON.stringify(stockResult.motifIssues));
+      await sendMotifRestockAlert(orderId, stockResult.motifIssues);
+    }
+
+    // 4c. Annuler le shipment Sendcloud (best-effort, ne bloque pas)
+    const sendcloudCancel = await cancelSendcloudShipment(orderId, order.sendcloud_parcel_id ?? null);
+
+    // 5. Colonnes optionnelles (BEST-EFFORT) — statuts déjà basculés par le claim (étape 3).
+    // Si manquantes en base, l'erreur est loggée mais ne bloque pas.
     const { error: updateErr2 } = await supabaseServer.from("orders").update({
       refund_id:        refundId,
       refund_amount:    refundAmount,

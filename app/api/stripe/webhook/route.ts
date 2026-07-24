@@ -479,7 +479,9 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   const items = [
     ...products.map((p: any) => ({
       id: p.id, name: p.name, slug: p.slug, price: p.price, quantity: p.quantity,
-      taille: p.taille ?? null, motif_id: p.motif_id ?? null, category_slug: p.category_slug ?? "",
+      // taille = trackedSize (ancien système). motif_size = taille RÉELLE décrémentée sur
+      // colors[motif] (phase 4) → indispensable au restock motif exact au remboursement (phase 5).
+      taille: p.taille ?? null, motif_id: p.motif_id ?? null, motif_size: p.motif_size ?? null, category_slug: p.category_slug ?? "",
     })),
     ...packs.map((pk: any) => ({
       id: `pack:${pk.pack_id}`, is_pack: true, pack_id: pk.pack_id,

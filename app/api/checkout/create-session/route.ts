@@ -191,10 +191,6 @@ export async function POST(req: Request) {
         return Response.json({ error: `Quantité invalide pour ${product.name}` }, { status: 400 });
       }
 
-      if ((product.stock ?? 0) < qty) {
-        return Response.json({ error: `Stock insuffisant pour ${product.name}` }, { status: 400 });
-      }
-
       // R3 — Résolution ROBUSTE de la taille (empêche le contournement du contrôle par taille
       // quand le name se termine par la couleur, ex. "Body — 0-3 mois — Terracotta"). Priorité :
       // item.taille (sélectionné au panier, ∈ product.sizes imposé par l'UI) ; sinon un SEGMENT du
@@ -214,15 +210,48 @@ export async function POST(req: Request) {
           return Response.json({ error: `Taille requise pour ${product.name}. Veuillez la sélectionner.` }, { status: 400 });
         }
       }
-      // Contrôle du stock PAR TAILLE — uniquement si la taille est réellement suivie dans
-      // sizes_stock (certains produits ont des clés sizes_stock ≠ product.sizes → on ne casse pas
-      // ces commandes ; le stock global reste vérifié plus haut). Ne dépend plus du name.
+
+      // R-MOTIF — résolution du motif choisi, validée ANTI-FORGE contre product.colors (jamais cru du
+      // body). N=1 auto-résolu serveur. Absent / invalide / legacy sans id → null (fallback stock global).
+      const productColors: any[] = Array.isArray(product.colors) ? product.colors : [];
+      const explicitMotif = item.motif_id != null ? String(item.motif_id).trim() : "";
+      let motifId: string | null = null;
+      if (explicitMotif && productColors.some((c: any) => String(c?.id ?? "") === explicitMotif)) {
+        motifId = explicitMotif;
+      } else if (productColors.length === 1 && productColors[0]?.id) {
+        motifId = String(productColors[0].id);
+      }
+
       const sizesStock: Record<string, number> = product.sizes_stock ?? {};
       const trackedSize = taille && Object.prototype.hasOwnProperty.call(sizesStock, taille) ? taille : null;
-      if (trackedSize && (sizesStock[trackedSize] ?? 0) < qty) {
-        return Response.json({
-          error: `La taille "${taille}" n'est plus disponible pour ${product.name}. Veuillez choisir une autre taille.`,
-        }, { status: 400 });
+
+      // ── STOCK (PHASE 3) — VALIDATION SEULE, AUCUN décrément (le décrément reste products.stock via
+      //    decrement_stock_atomic, phase 4). Lecture DB (product.colors), jamais le body. Reflète la
+      //    VÉRITÉ FUTURE décrémentée en phase 4 → « ce qu'on autorise » = « ce qu'on décrémentera ».
+      if (motifId) {
+        // Produit à motif : valide colors[motif].sizes_stock[taille] (2D) ou colors[motif].stock (1D /
+        // taille non pistée dans ce motif). Remplace le contrôle du stock GLOBAL pour cet item.
+        const motif = productColors.find((c: any) => String(c?.id ?? "") === motifId);
+        const motifSizes: Record<string, any> = (motif?.sizes_stock && typeof motif.sizes_stock === "object") ? motif.sizes_stock : {};
+        const dispo = (taille && Object.prototype.hasOwnProperty.call(motifSizes, taille))
+          ? Number(motifSizes[taille] ?? 0)
+          : Number(motif?.stock ?? 0);
+        if (dispo < qty) {
+          return Response.json({
+            error: `Stock insuffisant pour ${product.name}${taille ? ` — taille ${taille}` : ""} (motif sélectionné).`,
+          }, { status: 400 });
+        }
+      } else {
+        // Produit SANS motif (Bandeau/Bonnet) OU produit à motifs mais motif_id absent (ancien panier,
+        // legacy) → on CONSERVE la validation actuelle sur products.stock / sizes_stock (aucune régression).
+        if ((product.stock ?? 0) < qty) {
+          return Response.json({ error: `Stock insuffisant pour ${product.name}` }, { status: 400 });
+        }
+        if (trackedSize && (sizesStock[trackedSize] ?? 0) < qty) {
+          return Response.json({
+            error: `La taille "${taille}" n'est plus disponible pour ${product.name}. Veuillez choisir une autre taille.`,
+          }, { status: 400 });
+        }
       }
 
       const now = new Date();
@@ -246,19 +275,6 @@ export async function POST(req: Request) {
 
       shippingWeightG += resolveItemWeightG(product) * qty;
 
-      // R-MOTIF (phase 2 — TRANSPORT SEUL, aucun contrôle de stock ici) : résoudre le motif choisi,
-      // validé ANTI-FORGE contre product.colors (jamais cru depuis le body). N=1 auto-résolu serveur.
-      // Absent / invalide / legacy sans id → null (fallback gracieux). Le décrément reste sur
-      // products.stock (phase 4). Ne rouvre PAS R3 (la taille est résolue au-dessus, inchangée).
-      const productColors: any[] = Array.isArray(product.colors) ? product.colors : [];
-      const explicitMotif = item.motif_id != null ? String(item.motif_id).trim() : "";
-      let motifId: string | null = null;
-      if (explicitMotif && productColors.some((c: any) => String(c?.id ?? "") === explicitMotif)) {
-        motifId = explicitMotif;
-      } else if (productColors.length === 1 && productColors[0]?.id) {
-        motifId = String(productColors[0].id);
-      }
-
       validatedItems.push({
         id:            product.id,
         name:          displayName,
@@ -266,8 +282,9 @@ export async function POST(req: Request) {
         price:         finalPrice,
         quantity:      qty,
         category_slug: product.category_slug ?? "",
-        taille:        trackedSize ?? null, // R3 : décrément par-taille uniquement si suivie dans sizes_stock
-        motif_id:      motifId,             // phase 2 : transport (non consommé). Décrément phase 4.
+        taille:        trackedSize ?? null,               // décrément products.stock ACTUEL (inchangé, phase 4 basculera)
+        motif_id:      motifId,                            // motif validé (stock motif contrôlé ci-dessus, phase 3)
+        motif_size:    motifId ? (taille ?? null) : null,  // taille produit = clé du décrément MOTIF (phase 4)
       });
     }
 
@@ -313,17 +330,28 @@ export async function POST(req: Request) {
           } else {
             pieceSize = null;
           }
-          if (pieceSize) {
-            if (((p.sizes_stock ?? {})[pieceSize] ?? 0) < qty) {
-              return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
-            }
-          } else if ((p.stock ?? 0) < qty) {
-            return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
-          }
-          // Motif par pièce (phase 2, transport) : N=1 auto-résolu ; multi-motif → null (sélection par
-          // pièce déférée). Le décrément pack reste sur products.stock (phase 4).
+          // Motif par pièce : N=1 auto-résolu ; multi-motif → null (sélection par pièce déférée).
           const pcColors: any[] = Array.isArray(p.colors) ? p.colors : [];
           const pieceMotifId = pcColors.length === 1 && pcColors[0]?.id ? String(pcColors[0].id) : null;
+          // ── STOCK (PHASE 3) — VALIDATION SEULE, aucun décrément (phase 4). Lecture DB (p.colors). ──
+          if (pieceMotifId) {
+            // Vérité future : colors[motif].sizes_stock[taille] (2D) ou colors[motif].stock (1D).
+            const pcMotif = pcColors.find((c: any) => String(c?.id ?? "") === pieceMotifId);
+            const pcMotifSizes: Record<string, any> = (pcMotif?.sizes_stock && typeof pcMotif.sizes_stock === "object") ? pcMotif.sizes_stock : {};
+            const dispo = (pieceSize && Object.prototype.hasOwnProperty.call(pcMotifSizes, pieceSize))
+              ? Number(pcMotifSizes[pieceSize] ?? 0)
+              : Number(pcMotif?.stock ?? 0);
+            if (dispo < qty) return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
+          } else {
+            // Pièce sans motif OU motif non résolu → validation actuelle sur products.stock / sizes_stock.
+            if (pieceSize) {
+              if (((p.sizes_stock ?? {})[pieceSize] ?? 0) < qty) {
+                return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
+              }
+            } else if ((p.stock ?? 0) < qty) {
+              return Response.json({ error: "Rupture de stock", product: p.name }, { status: 400 });
+            }
+          }
           pieces.push({ product_id: p.id, name: p.name, size: pieceSize, motif_id: pieceMotifId });
         }
 

@@ -2,7 +2,7 @@
 // <h1> + prix) en HTML brut (SEO/LCP), puis délègue tout l'interactif au composant
 // client (galerie, tailles/couleurs, panier, FAQ). Le Product JSON-LD
 // reste émis par layout.tsx (non modifié).
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { supabaseServer } from "@/lib/server/supabase";
 import ProductClient from "./ProductClient";
@@ -43,7 +43,27 @@ export default async function ProductPage(
     .eq("slug", slug)
     .eq("published", true)
     .single();
-  if (!product) notFound();
+  if (!product) {
+    // Aucun produit PUBLIÉ à ce slug. Avant de 404, tenter une redirection permanente depuis un
+    // ANCIEN slug (renommage — old_slug persisté au Lot 3). Ce lookup ne s'exécute QUE sur un 404 :
+    // un slug normal / un produit non renommé sort à la 1re requête → ce bloc est sauté (zéro coût).
+    // Priorité au produit ACTUEL garantie par l'ORDRE : si un produit publié a `slug` comme slug
+    // courant, la 1re requête l'a déjà renvoyé (pas de redirection). Anti-boucle : le Lot 3 garantit
+    // old_slug ≠ slug courant → renamed.slug ≠ slug ; garde explicite en plus.
+    const { data: renamed } = await supabaseServer
+      .from("products")
+      .select("slug")
+      .eq("old_slug", slug)
+      .eq("published", true)
+      .limit(1)
+      .maybeSingle();
+    if (renamed?.slug && renamed.slug !== slug) {
+      // permanentRedirect → 308 (Permanent Redirect), équivalent SEO du 301 : les moteurs suivent le
+      // nouveau slug et transfèrent le référencement. Locale préservée (/fr, /en).
+      permanentRedirect(`/${locale}/produits/${renamed.slug}`);
+    }
+    notFound();
+  }
 
   const promo        = isPromoActive(product);
   const displayPrice = promo ? product.promo_price : product.price_ttc;

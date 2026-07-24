@@ -9,6 +9,41 @@ async function logActivity(type: string, message: string, meta?: Record<string, 
   } catch {}
 }
 
+// ── Portée d'un code (Lot 7a) — NORMALISÉE + VALIDÉE côté serveur (jamais le body brut) ─────────
+// Convention (cf. migration 029) :
+//   'all'      → scope_value null, scope_product_ids []            (produits ET packs)
+//   'category' → scope_value = category_slug EXISTANT, ids []      (produits de la catégorie, pas les packs)
+//   'product'  → scope_value null, scope_product_ids = ids EXISTANTS (ces produits, pas les packs)
+// Anti-forge : le slug catégorie et les ids produits sont vérifiés en DB (existence). Portée invalide → erreur.
+type ScopeNorm = { scope_type: string; scope_value: string | null; scope_product_ids: string[] };
+async function normalizeScope(input: any): Promise<{ ok: true; scope: ScopeNorm } | { ok: false; error: string }> {
+  const type = ["all", "category", "product"].includes(String(input?.scope_type)) ? String(input.scope_type) : "all";
+
+  if (type === "category") {
+    const slug = String(input?.scope_value ?? "").trim().toLowerCase();
+    if (!slug) return { ok: false, error: "Portée catégorie : catégorie manquante." };
+    // Existe si ≥1 produit la porte OU si elle est déclarée dans la table categories.
+    const { count } = await supabaseServer.from("products").select("id", { count: "exact", head: true }).eq("category_slug", slug);
+    let exists = (count ?? 0) > 0;
+    if (!exists) {
+      try { const { data } = await supabaseServer.from("categories").select("slug").eq("slug", slug).maybeSingle(); exists = !!data; } catch {}
+    }
+    if (!exists) return { ok: false, error: `Catégorie inconnue : ${slug}` };
+    return { ok: true, scope: { scope_type: "category", scope_value: slug, scope_product_ids: [] } };
+  }
+
+  if (type === "product") {
+    const wanted = Array.isArray(input?.scope_product_ids) ? [...new Set(input.scope_product_ids.map((x: any) => String(x)).filter(Boolean))] : [];
+    if (wanted.length === 0) return { ok: false, error: "Portée produit : sélectionne au moins un produit." };
+    const { data } = await supabaseServer.from("products").select("id").in("id", wanted);
+    const valid = [...new Set((data ?? []).map((p: any) => String(p.id)))];
+    if (valid.length === 0) return { ok: false, error: "Aucun produit valide sélectionné." };
+    return { ok: true, scope: { scope_type: "product", scope_value: null, scope_product_ids: valid } };
+  }
+
+  return { ok: true, scope: { scope_type: "all", scope_value: null, scope_product_ids: [] } };
+}
+
 export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
@@ -52,6 +87,13 @@ export async function POST(req: NextRequest) {
 
   if (!clean.code) return Response.json({ error: "Code manquant" }, { status: 400 });
 
+  // Portée (Lot 7a) — normalisée + validée en DB (slug/ids). Défaut 'all' si absent.
+  const scope = await normalizeScope(body);
+  if (!scope.ok) return Response.json({ error: scope.error }, { status: 400 });
+  clean.scope_type        = scope.scope.scope_type;
+  clean.scope_value       = scope.scope.scope_value;
+  clean.scope_product_ids = scope.scope.scope_product_ids;
+
   const { data, error } = await supabaseServer
     .from("promo_codes").insert([clean]).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
@@ -90,6 +132,15 @@ export async function PUT(req: NextRequest) {
   if (clean.discount_type === "free_shipping") clean.free_shipping = true;
   // Un code explicitement rendu non cumulable perd sa liste de compatibilité.
   if (clean.cumulable === false) clean.cumulable_codes = null;
+
+  // Portée (Lot 7a) — mise à jour SEULEMENT si scope_type est fourni (triple cohérent type+value+ids).
+  if (rest.scope_type !== undefined) {
+    const scope = await normalizeScope(rest);
+    if (!scope.ok) return Response.json({ error: scope.error }, { status: 400 });
+    clean.scope_type        = scope.scope.scope_type;
+    clean.scope_value       = scope.scope.scope_value;
+    clean.scope_product_ids = scope.scope.scope_product_ids;
+  }
 
   const { data, error } = await supabaseServer
     .from("promo_codes").update(clean).eq("id", id).select().single();

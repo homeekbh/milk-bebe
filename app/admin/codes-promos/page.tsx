@@ -220,10 +220,17 @@ export default function AdminCodes() {
     cumulable_avec_livraison: true,
     cumulable: false,
     cumulable_codes: [] as string[],
+    // Portée du code (Lot 7a) — all / category / product(s multiples)
+    scopeType: "all",
+    scopeCategory: "",
+    scopeProductIds: [] as string[],
   });
   const [saving,  setSaving]  = useState(false);
   const [error,   setError]   = useState("");
   const [success, setSuccess] = useState("");
+  // Listes pour la portée : produits (liste à cocher) + catégories (sélecteur).
+  const [allProducts, setAllProducts] = useState<{ id: string; name: string; category_slug: string }[]>([]);
+  const [catOptions,  setCatOptions]  = useState<{ slug: string; label: string }[]>([]);
 
   // Bloc paramètres livraison (settings)
   const [freeShipThreshold, setFreeShipThreshold] = useState<string>("60");
@@ -252,6 +259,18 @@ export default function AdminCodes() {
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // Charge produits + catégories pour les sélecteurs de portée (Lot 7a).
+  useEffect(() => {
+    adminFetch("/api/admin/products")
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setAllProducts(d.map((p: any) => ({ id: String(p.id), name: p.name ?? p.slug ?? String(p.id), category_slug: p.category_slug ?? "" }))); })
+      .catch(() => {});
+    adminFetch("/api/admin/categories")
+      .then(r => r.json())
+      .then(d => { if (Array.isArray(d)) setCatOptions(d.map((c: any) => ({ slug: c.slug, label: c.label || c.slug }))); })
+      .catch(() => {});
+  }, []);
 
   async function saveThreshold() {
     const n = parseFloat(freeShipThreshold);
@@ -321,6 +340,10 @@ export default function AdminCodes() {
       }
     }
 
+    // Portée (Lot 7a) — garde client (le serveur re-valide/normalise en DB).
+    if (form.scopeType === "category" && !form.scopeCategory) { setError("Choisis une catégorie pour la portée du code."); return; }
+    if (form.scopeType === "product" && form.scopeProductIds.length === 0) { setError("Sélectionne au moins un produit pour la portée du code."); return; }
+
     setSaving(true); setError(""); setSuccess("");
     const body: Record<string, unknown> = {
       code:                     codeUp,
@@ -336,6 +359,10 @@ export default function AdminCodes() {
       // Cumul de codes classiques entre eux (étape 21).
       cumulable:                form.cumulable,
       cumulable_codes:          form.cumulable ? form.cumulable_codes : null,
+      // Portée (Lot 7a) — le serveur re-valide/normalise (slug/ids vérifiés en DB).
+      scope_type:               form.scopeType,
+      scope_value:              form.scopeType === "category" ? form.scopeCategory : null,
+      scope_product_ids:        form.scopeType === "product"  ? form.scopeProductIds : [],
     };
     const res  = await adminFetch("/api/admin/promos", {
       method: "POST", body: JSON.stringify(body),
@@ -363,6 +390,7 @@ export default function AdminCodes() {
       starts_at: "", expires_at: "",
       free_shipping: false, cumulable_avec_livraison: true,
       cumulable: false, cumulable_codes: [],
+      scopeType: "all", scopeCategory: "", scopeProductIds: [],
     });
     setTimeout(() => setSuccess(""), 4000);
     await load();
@@ -500,6 +528,71 @@ export default function AdminCodes() {
               onChange={e => setForm(f => ({ ...f, max_uses: e.target.value }))}
               placeholder="Illimité" min="1" style={IS} />
           </div>
+        </div>
+
+        {/* Ligne 2-portée : à quels produits le code s'applique (Lot 7a) */}
+        <div style={{ background: "#faf8f4", borderRadius: 12, padding: "16px 18px", marginBottom: 16, border: "1px solid rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", marginBottom: 12 }}>
+            Portée du code
+          </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={LS}>À quels articles s'applique la remise ?</label>
+            <select value={form.scopeType}
+              onChange={e => setForm(f => ({ ...f, scopeType: e.target.value, scopeCategory: "", scopeProductIds: [] }))}
+              style={IS}>
+              <option value="all">Tous les produits (et packs)</option>
+              <option value="category">Une catégorie</option>
+              <option value="product">Un ou plusieurs produits</option>
+            </select>
+          </div>
+
+          {form.scopeType === "category" && (
+            <div style={{ display: "grid", gap: 6, marginTop: 12 }}>
+              <label style={LS}>Catégorie ciblée</label>
+              <select value={form.scopeCategory}
+                onChange={e => setForm(f => ({ ...f, scopeCategory: e.target.value }))}
+                style={IS}>
+                <option value="">— Choisir une catégorie —</option>
+                {catOptions.map(c => <option key={c.slug} value={c.slug}>{c.label}</option>)}
+              </select>
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)" }}>
+                Le code ne remise que les produits de cette catégorie. Les packs ne sont pas couverts.
+              </div>
+            </div>
+          )}
+
+          {form.scopeType === "product" && (
+            <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
+              <label style={LS}>
+                Produits ciblés ({form.scopeProductIds.length} sélectionné{form.scopeProductIds.length > 1 ? "s" : ""})
+              </label>
+              <div style={{ maxHeight: 220, overflowY: "auto", border: "1px solid rgba(0,0,0,0.1)", borderRadius: 10, background: "#fff", padding: 8, display: "grid", gap: 2 }}>
+                {allProducts.length === 0 && (
+                  <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", padding: 8 }}>Chargement des produits…</div>
+                )}
+                {allProducts.map(p => {
+                  const checked = form.scopeProductIds.includes(p.id);
+                  return (
+                    <label key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 8, cursor: "pointer", background: checked ? "rgba(196,154,74,0.12)" : "transparent" }}>
+                      <input type="checkbox" checked={checked}
+                        onChange={e => setForm(f => ({
+                          ...f,
+                          scopeProductIds: e.target.checked
+                            ? [...f.scopeProductIds, p.id]
+                            : f.scopeProductIds.filter(x => x !== p.id),
+                        }))}
+                        style={{ width: 15, height: 15, accentColor: "#1a1410" }} />
+                      <span style={{ fontSize: 13, fontWeight: 600, color: "#1a1410" }}>{p.name}</span>
+                      {p.category_slug && <span style={{ fontSize: 11, color: "rgba(26,20,16,0.4)", marginLeft: "auto" }}>{p.category_slug}</span>}
+                    </label>
+                  );
+                })}
+              </div>
+              <div style={{ fontSize: 11, color: "rgba(26,20,16,0.55)" }}>
+                Le code ne remise QUE les produits cochés. Les packs ne sont jamais couverts par une portée produit.
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Ligne 2bis : options livraison (checkboxes) */}

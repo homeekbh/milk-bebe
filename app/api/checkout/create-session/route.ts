@@ -18,6 +18,7 @@ import { validatePromoCode, validatePromoCombo, PROMO_CAP_RATE } from "@/lib/pro
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
 import { computeParrainage } from "@/lib/parrainage";
 import { getParrainageSettings, validateParrainCode, listUsableRewards, reserveRewards, releaseRewards, getUserFromRequest } from "@/lib/parrainage-server";
+import { computeScopedShadow, maskEmail } from "@/lib/promo-scope-adapter";
 
 // Pin l'API version au plus récent supporté par le SDK installé (cf.
 // node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
@@ -414,6 +415,32 @@ export async function POST(req: Request) {
     // Alias 1er code (compat aval : nom de coupon, draft.promo_code).
     const serverPromoCode = serverPromoCodes[0] ?? "";
 
+    // ── SHADOW (Lot 7c-1) : moteur promo SCOPÉ calculé EN PARALLÈLE, JAMAIS facturé tant que
+    //    PROMO_ENGINE !== 'scoped'. NON bloquant (computeScopedShadow ne throw jamais → null si KO).
+    //    legacyServerDiscount = la valeur LEGACY PURE, capturée AVANT tout override (pour le log).
+    //    Le branchement 'scoped' existe pour que le flip 7c-2 soit instantané ; INERTE en 7c-1.
+    const legacyServerDiscount = serverDiscount;
+    const rawCodesInOrder: string[] = (() => {
+      const raw = Array.isArray(promo_codes)
+        ? promo_codes.map((c: any) => String(c ?? "").toUpperCase().trim())
+        : (promo_code ? [String(promo_code).toUpperCase().trim()] : []);
+      return [...new Set(raw.filter(Boolean))]; // dédup, ordre de 1re occurrence préservé
+    })();
+    const scopedResult = await computeScopedShadow({
+      codes:           rawCodesInOrder,
+      validatedItems,                    // prix + catégorie = DB (validatedItems), jamais le body
+      draftPacks,
+      subtotal,
+      isInternational: !isFrance,
+    });
+    const promoEngine = process.env.PROMO_ENGINE === "scoped" ? "scoped" : "legacy"; // 7c-1 : toujours legacy
+    let scopedEngineNote: string | null = null;
+    if (promoEngine === "scoped") {
+      // 7c-2 uniquement (flag activé). En 7c-1 cette branche n'est JAMAIS prise → facturation legacy.
+      if (scopedResult) serverDiscount = scopedResult.totalDiscount;
+      else scopedEngineNote = "scoped_result_null_fallback_legacy";
+    }
+
     // ── PORT : France = matrice transporteur + seuil 60€ (computeCartTotals,
     //    MÊME fonction que le panier, INCHANGÉ) ; international = port FIXE de zone,
     //    JAMAIS gratuit. freeShipThreshold est calculé dans les DEUX cas car
@@ -553,6 +580,42 @@ export async function POST(req: Request) {
       reward_ids:       consumedRewardIds,
       reward_discount:  rewardDiscount,
     };
+
+    // ── SHADOW LOG (Lot 7c-1) : compare scoped vs legacy sur trafic réel anonymisé. BEST-EFFORT :
+    //    un échec d'insert (table absente comprise) ne fait JAMAIS échouer le checkout. legacy_discount
+    //    = valeur LEGACY PURE (capturée avant tout override), même si PROMO_ENGINE='scoped'. On recompute
+    //    ici la MÊME signature de panier que le coupon (~plus bas) pour laisser ce bloc-là INCHANGÉ.
+    try {
+      const shadowCartSig = [
+        ...validatedItems.map(i => `${i.id}:${i.quantity}`),
+        ...draftPacks.map(p => `pack:${p.pack_id}:${p.size ?? ""}:${p.quantity}`),
+        `promo:${serverPromoCodes.join("+")}`,
+        `parrain:${parrainApplied ? validParrainCode : ""}`,
+        `rewards:${consumedRewardIds.join("+")}`,
+      ].join(",");
+      const shadowCartHash = crypto.createHash("sha1").update(shadowCartSig).digest("hex").slice(0, 12);
+      const scopedDiscount = scopedResult?.totalDiscount ?? 0;
+      const discountDelta  = Math.round((scopedDiscount - legacyServerDiscount) * 100) / 100;
+      await supabaseServer.from("promo_shadow_log").insert([{
+        cart_hash:            shadowCartHash,
+        email_masked:         maskEmail(customer_email),
+        subtotal,
+        promo_codes:          rawCodesInOrder,
+        parrain_code:         parrainApplied ? validParrainCode : null,
+        reward_count:         consumedRewardIds.length,
+        legacy_discount:      legacyServerDiscount,
+        scoped_discount:      scopedDiscount,
+        scoped_ratio:         scopedResult?.discountRatio ?? 0,
+        scoped_cap_exceeded:  scopedResult?.capExceeded ?? false,
+        scoped_free_shipping: scopedResult?.freeShipping ?? false,
+        discount_delta:       discountDelta,
+        is_match:             Math.abs(discountDelta) < 0.01,
+        scoped_rejected:      scopedResult?.rejectedCodes ?? [],
+        notes:                scopedEngineNote ?? (scopedResult === null ? "scoped_result_null" : null),
+      }]);
+    } catch (e: any) {
+      process.env.NODE_ENV !== "production" && console.error("[create-session] promo_shadow_log (non bloquant):", e?.message);
+    }
 
     // Poids total d'expédition (bug #5) : Σ produits + pièces de packs, PUIS emballage
     // ajouté UNE seule fois (1 commande = 1 colis). Persisté via le draft → webhook →

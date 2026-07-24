@@ -33,6 +33,12 @@ export type PromoValidationOk = {
   cumulable_avec_livraison: boolean;   // passthrough DB, default true
   cumulable:               boolean;    // accepte le cumul avec d'AUTRES codes (étape 21)
   cumulable_codes:         string[];   // codes explicitement déclarés compatibles
+  // ── Portée (Lot 7a/7c) — AJOUT ADDITIF (sur-ensemble). combinePromos/validatePromoCombo les
+  //    IGNORENT (ils lisent un sous-ensemble). Consommés par le moteur scopé (lib/promo-scope-adapter). ──
+  min_order:               number | null;   // seuil brut saisi admin (le contrôle legacy reste interne)
+  scope_type:              string;          // DB : 'all' | 'category' | 'product' (défaut 'all' si absent)
+  scope_value:             string | null;   // category_slug si scope_type='category', sinon null
+  scope_product_ids:       string[];        // ids produits si scope_type='product', sinon []
 };
 
 export type PromoValidationKo = {
@@ -117,6 +123,11 @@ export async function validatePromoCode(
     cumulable_codes:          Array.isArray(data.cumulable_codes)
                                 ? data.cumulable_codes.map((c: any) => String(c).toUpperCase().trim()).filter(Boolean)
                                 : [],
+    // ── Portée (additif) — defaults DÉFENSIFS si colonnes 028/029 non encore migrées : 'all' / null / [].
+    min_order:                data.min_order != null ? Number(data.min_order) : null,
+    scope_type:               typeof data.scope_type === "string" ? data.scope_type : "all",
+    scope_value:              data.scope_value != null ? String(data.scope_value) : null,
+    scope_product_ids:        Array.isArray(data.scope_product_ids) ? data.scope_product_ids.map((x: any) => String(x)) : [],
   };
 }
 

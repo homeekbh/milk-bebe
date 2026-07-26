@@ -10,6 +10,7 @@ import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import CountrySelector from "@/components/checkout/CountrySelector";
 import RelaySelector from "@/components/checkout/RelaySelector";
 import CheckoutAddressForm, { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
+import Modal from "@/components/ui/Modal";
 import { postalInputMode, postalMaxLength } from "@/lib/postal";
 import {
   DELIVERY_PRICES,
@@ -100,6 +101,11 @@ export default function CheckoutLivraisonPage() {
   const [relayPostalSearch, setRelayPostalSearch] = useState("");
   const [relayResetKey,     setRelayResetKey]     = useState(0);
 
+  // Adresse « différente » (FR domicile connecté) : modale de saisie pays-first.
+  const [addrModalOpen, setAddrModalOpen] = useState(false);
+  const [addrDraft,     setAddrDraft]     = useState<CheckoutAddress>({});
+  const [draftCountry,  setDraftCountry]  = useState("FR");
+
   const country = state.country || "FR";
   const zone    = getZoneForCountry(country);
   const isFrance = zone === "FR";
@@ -173,6 +179,69 @@ export default function CheckoutLivraisonPage() {
     if (Object.keys(patch).length) update(patch);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated, isFrance, zone, intlPrice, country, hasAccount]);
+
+  // ── FR domicile + compte : PRÉ-REMPLISSAGE de l'adresse depuis le compte (Bug 2) ──
+  // Symétrique de l'effet international ci-dessus, mais pour dc.kind="fr"/type="home".
+  // Garde « une seule fois » (ne réécrit pas une adresse déjà saisie). On conserve
+  // first_name/last_name EN PLUS de `name` → compat si le client bascule à l'international.
+  useEffect(() => {
+    if (!hydrated || !isFrance) return;
+    const d = state.deliveryChoice;
+    if (!(d?.kind === "fr" && d.type === "home")) return;
+    const acc = state.accountAddress;
+    if (!acc) return;
+    const cur = (state.shippingAddress ?? {}) as Record<string, string>;
+    if (cur.line1) return;
+    update({ shippingAddress: {
+      first_name: acc.first_name, last_name: acc.last_name,
+      name: `${acc.first_name} ${acc.last_name}`.trim(),
+      line1: acc.line1, line2: acc.line2,
+      postal_code: acc.postal_code, city: acc.city, country: "FR",
+    } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, isFrance, state.deliveryChoice, state.accountAddress]);
+
+  // Adresse du compte projetée dans la forme CheckoutAddress (name concaténé).
+  const accountAsAddress = (): (CheckoutAddress & { first_name?: string; last_name?: string }) | null => {
+    const acc = state.accountAddress;
+    if (!acc) return null;
+    return {
+      first_name: acc.first_name, last_name: acc.last_name,
+      name: `${acc.first_name} ${acc.last_name}`.trim(),
+      line1: acc.line1, line2: acc.line2,
+      postal_code: acc.postal_code, city: acc.city, country: "FR",
+    };
+  };
+  // L'adresse courante diffère-t-elle de celle du compte ? → propose de revenir au compte.
+  const shippingDiffersFromAccount = (() => {
+    const a = accountAsAddress();
+    if (!a) return false;
+    const s = (state.shippingAddress ?? {}) as CheckoutAddress;
+    return (s.name ?? "") !== (a.name ?? "") || (s.line1 ?? "") !== (a.line1 ?? "")
+      || (s.postal_code ?? "") !== (a.postal_code ?? "") || (s.city ?? "") !== (a.city ?? "")
+      || (s.country ?? "FR") !== "FR";
+  })();
+  // Ouvre la modale avec l'adresse courante comme brouillon (pays inclus).
+  const openAddrModal = () => {
+    const cur = (state.shippingAddress ?? {}) as CheckoutAddress;
+    setAddrDraft({ ...cur });
+    setDraftCountry((cur.country as string) || country);
+    setAddrModalOpen(true);
+  };
+  // Valide la modale : shippingAddress = adresse saisie ; le pays se synchronise via
+  // onCountryChange existant (aucune logique de port/zone dupliquée).
+  const confirmAddrModal = () => {
+    const finalAddr: CheckoutAddress = { ...addrDraft, country: draftCountry, name: (addrDraft.name ?? "").trim() };
+    if (!isAddressComplete(finalAddr)) return;
+    if (draftCountry !== country) onCountryChange(draftCountry);
+    update({ shippingAddress: finalAddr });
+    setAddrModalOpen(false);
+  };
+  // Revenir à l'adresse du compte (lecture seule).
+  const resetToAccountAddress = () => {
+    const a = accountAsAddress();
+    if (a) update({ shippingAddress: a });
+  };
 
   // ── Complétude de l'étape ──────────────────────────────────────────────────
   const dc = state.deliveryChoice;
@@ -266,7 +335,25 @@ export default function CheckoutLivraisonPage() {
           {/* FR domicile → adresse ; FR point relais / locker → RelaySelector partagé */}
           {dc?.kind === "fr" && dc.type === "home" && (
             <div style={{ marginTop: 18 }}>
-              <CheckoutAddressForm value={state.shippingAddress as CheckoutAddress} onChange={setAddr} country={country} />
+              {state.accountAddress ? (
+                /* Compte : adresse pré-remplie en LECTURE SEULE + onglet « adresse différente ». */
+                <>
+                  <CheckoutAddressForm value={state.shippingAddress as CheckoutAddress} onChange={() => {}} country={country} readOnly />
+                  <button type="button" onClick={openAddrModal}
+                    style={{ marginTop: 12, width: "100%", padding: "12px 16px", borderRadius: 10, border: "1px dashed rgba(26,20,16,0.3)", background: "#faf8f4", color: "#1a1410", fontWeight: 800, fontSize: 13.5, cursor: "pointer" }}>
+                    {en ? "Deliver to a different address, click here" : "Adresse de livraison différente, cliquez ici"}
+                  </button>
+                  {shippingDiffersFromAccount && (
+                    <button type="button" onClick={resetToAccountAddress}
+                      style={{ marginTop: 8, background: "none", border: "none", color: "#c49a4a", fontWeight: 700, fontSize: 12.5, cursor: "pointer", textDecoration: "underline", padding: 0 }}>
+                      {en ? "↩ Use my account address" : "↩ Utiliser l'adresse de mon compte"}
+                    </button>
+                  )}
+                </>
+              ) : (
+                /* Invité (pas de compte) : formulaire éditable — comportement INCHANGÉ. */
+                <CheckoutAddressForm value={state.shippingAddress as CheckoutAddress} onChange={setAddr} country={country} />
+              )}
             </div>
           )}
           {isRelayType && dc?.kind === "fr" && (
@@ -357,6 +444,38 @@ export default function CheckoutLivraisonPage() {
           {en ? "Continue" : "Continuer"}
         </button>
       </div>
+
+      {/* ── Modale « adresse de livraison différente » (FR domicile connecté) ── */}
+      <Modal
+        open={addrModalOpen}
+        onClose={() => setAddrModalOpen(false)}
+        title={en ? "Different delivery address" : "Adresse de livraison différente"}
+      >
+        <div style={{ display: "grid", gap: 16 }}>
+          {/* Pays EN PREMIER (la validation du CP dépend du pays). */}
+          <CountrySelector value={draftCountry} onChange={setDraftCountry} />
+          <CheckoutAddressForm
+            value={{ ...(addrDraft as CheckoutAddress), country: draftCountry }}
+            onChange={patch => setAddrDraft(prev => ({ ...prev, ...patch }))}
+            country={draftCountry}
+          />
+          <div style={{ display: "flex", gap: 12, justifyContent: "flex-end", flexWrap: "wrap" }}>
+            <button type="button" onClick={() => setAddrModalOpen(false)}
+              style={{ padding: "11px 20px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.2)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 14, cursor: "pointer" }}>
+              {en ? "Cancel" : "Annuler"}
+            </button>
+            {(() => {
+              const ok = isAddressComplete({ ...(addrDraft as CheckoutAddress), country: draftCountry });
+              return (
+                <button type="button" onClick={confirmAddrModal} disabled={!ok}
+                  style={{ padding: "11px 20px", borderRadius: 10, border: "none", background: ok ? "#1a1410" : "#d1cdc8", color: "#f2ede6", fontWeight: 900, fontSize: 14, cursor: ok ? "pointer" : "not-allowed" }}>
+                  {en ? "Use this address" : "Valider cette adresse"}
+                </button>
+              );
+            })()}
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

@@ -36,27 +36,38 @@ export default function CheckoutAddressForm({
   value,
   onChange,
   country,
+  readOnly = false,
 }: {
   value: CheckoutAddress | null;
   onChange: (patch: Partial<CheckoutAddress>) => void;
   country: string;
+  // Lecture seule (Bug 2) : rend les champs en <div> (comme le pays), non éditables.
+  // Absent/false → rendu et comportement STRICTEMENT identiques (rétro-compat).
+  readOnly?: boolean;
 }) {
   const en = useLocale() === "en";
   const v = value ?? {};
-  const cpDomTom = isDomTomPostalCode(v.postal_code ?? "");
+  const cpDomTom = !readOnly && isDomTomPostalCode(v.postal_code ?? "");
 
   let countryName = country;
   try { countryName = new Intl.DisplayNames([en ? "en" : "fr"], { type: "region" }).of(country) ?? country; } catch {}
 
+  // Style d'un champ en lecture seule — même look que le pays (déjà en <div>).
+  const RO: React.CSSProperties = { ...INP, color: "rgba(26,20,16,0.6)", background: "#f7f5f1", minHeight: 44, display: "flex", alignItems: "center" };
+
   const field = (key: keyof CheckoutAddress, label: string) => (
     <div>
       <label style={LBL} htmlFor={`addr-${key}`}>{label}</label>
-      <input
-        id={`addr-${key}`}
-        value={(v[key] as string) ?? ""}
-        onChange={e => onChange({ [key]: e.target.value })}
-        style={INP}
-      />
+      {readOnly ? (
+        <div style={RO}>{(v[key] as string) ?? ""}</div>
+      ) : (
+        <input
+          id={`addr-${key}`}
+          value={(v[key] as string) ?? ""}
+          onChange={e => onChange({ [key]: e.target.value })}
+          style={INP}
+        />
+      )}
     </div>
   );
 
@@ -74,14 +85,18 @@ export default function CheckoutAddressForm({
       <div style={{ display: "grid", gridTemplateColumns: "1fr 2fr", gap: 12, alignItems: "start" }}>
         <div>
           <label style={LBL} htmlFor="addr-postal_code">{en ? "Postal code" : "Code postal"}</label>
-          <input
-            id="addr-postal_code"
-            inputMode={postalInputMode(country)}
-            maxLength={postalMaxLength(country)}
-            value={(v.postal_code as string) ?? ""}
-            onChange={e => onChange({ postal_code: e.target.value })}
-            style={{ ...INP, ...(cpDomTom ? { borderColor: "#ef4444" } : {}) }}
-          />
+          {readOnly ? (
+            <div style={RO}>{(v.postal_code as string) ?? ""}</div>
+          ) : (
+            <input
+              id="addr-postal_code"
+              inputMode={postalInputMode(country)}
+              maxLength={postalMaxLength(country)}
+              value={(v.postal_code as string) ?? ""}
+              onChange={e => onChange({ postal_code: e.target.value })}
+              style={{ ...INP, ...(cpDomTom ? { borderColor: "#ef4444" } : {}) }}
+            />
+          )}
           {cpDomTom && (
             <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 700, lineHeight: 1.4 }}>
               {domTomMessage(en)}

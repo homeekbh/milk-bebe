@@ -46,6 +46,10 @@ type Order = {
   items: any[];
   shipping_status: string;
   shipping_address: any;
+  // Pays / zone de destination (retournés par le select("*") de commandes-data,
+  // non typés jusqu'ici) — distinguent une commande INTERNATIONALE (FedEx) d'une FR.
+  shipping_country?: string | null;
+  shipping_zone?: string | null;
   tracking_number?: string;
   notes?: string;
   promo_code?: string;
@@ -275,7 +279,7 @@ export default function AdminCommandes() {
   const [statusFilter,   setStatusFilter]   = useState("");
   // Filtre transporteur — peut filtrer par carrier (mondial_relay/colissimo)
   // OU par delivery_type (home/point_relais/locker). "all" = tout.
-  const [carrierFilter,  setCarrierFilter]  = useState<"all" | "mondial_relay" | "colissimo" | "home" | "point_relais" | "locker">("all");
+  const [carrierFilter,  setCarrierFilter]  = useState<"all" | "mondial_relay" | "colissimo" | "fedex" | "home" | "point_relais" | "locker">("all");
   const [saving,     setSaving]     = useState(false);
   const [saved,      setSaved]      = useState(false);
 
@@ -788,10 +792,8 @@ export default function AdminCommandes() {
         return;
       }
 
-      const carrierStr =
-        (order as any).carrier === "mondial_relay" ? "Mondial Relay" :
-        (order as any).carrier === "colissimo"     ? "Colissimo / La Poste" :
-        "Colissimo / La Poste";
+      // Nom transporteur RÉEL via la source unique (gère mondial_relay / colissimo / fedex).
+      const carrierStr = carrierLabel((order as any).carrier);
 
       try {
         const emailRes = await adminFetch("/api/emails/shipped", {
@@ -847,7 +849,7 @@ export default function AdminCommandes() {
     const orderType    = o.delivery_type as string | undefined;
     const matchCarrier =
       carrierFilter === "all"                                                  ? true :
-      carrierFilter === "mondial_relay" || carrierFilter === "colissimo"        ? orderCarrier === carrierFilter :
+      carrierFilter === "mondial_relay" || carrierFilter === "colissimo" || carrierFilter === "fedex" ? orderCarrier === carrierFilter :
       /* home|point_relais|locker */                                              orderType === carrierFilter;
     return matchSearch && matchStatus && matchCarrier;
   });
@@ -920,6 +922,7 @@ export default function AdminCommandes() {
           <option value="all">Tous transporteurs</option>
           <option value="mondial_relay">📦 Mondial Relay</option>
           <option value="colissimo">🚀 Colissimo</option>
+          <option value="fedex">✈️ FedEx</option>
           <option value="home">🏠 Domicile (tous carriers)</option>
           <option value="point_relais">📍 Point Relais (tous carriers)</option>
           <option value="locker">🔒 Locker (tous carriers)</option>
@@ -970,13 +973,13 @@ export default function AdminCommandes() {
                       const c   = (order as any).carrier as string | undefined;
                       const dt  = normalizeDeliveryType(order.delivery_type);
                       if (!c && !dt) return null;
-                      const carrierLabel = c === "mondial_relay" ? "📦 Mondial Relay" : c === "colissimo" ? "🚀 Colissimo" : null;
+                      const carrierBadge = c === "mondial_relay" ? "📦 Mondial Relay" : c === "colissimo" ? "🚀 Colissimo" : c === "fedex" ? "✈️ FedEx" : null;
                       const typeLabel    = dt === "home" ? "Domicile" : dt === "point_relais" ? "Point Relais" : dt === "locker" ? "Locker" : null;
                       return (
                         <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "flex-end" }}>
-                          {carrierLabel && (
+                          {carrierBadge && (
                             <span style={{ padding: "2px 8px", borderRadius: 99, background: "rgba(26,20,16,0.06)", color: "rgba(26,20,16,0.7)", fontSize: 10, fontWeight: 800, whiteSpace: "nowrap" }}>
-                              {carrierLabel}
+                              {carrierBadge}
                             </span>
                           )}
                           {typeLabel && (
@@ -1185,8 +1188,42 @@ export default function AdminCommandes() {
                               </div>
                             );
                           })()
+                        ) : ((order.shipping_country && order.shipping_country !== "FR")
+                            || (order.shipping_zone && order.shipping_zone !== "FR")
+                            || (order.shipping_address?.country && order.shipping_address.country !== "FR")) ? (
+                          /* INTERNATIONAL (FedEx) — read-only, AVANT le fallback COLISSIMO */
+                          (() => {
+                            const country = String(order.shipping_country ?? order.shipping_address?.country ?? "").toUpperCase();
+                            const zone    = order.shipping_zone ?? "";
+                            let countryName = country;
+                            try { countryName = new Intl.DisplayNames(["fr"], { type: "region" }).of(country) ?? country; } catch {}
+                            const addr2 = order.shipping_address;
+                            return (
+                              <div style={{ background: "#1a1410", borderRadius: 12, padding: "16px 18px", color: "#f2ede6" }}>
+                                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(196,154,74,0.8)", marginBottom: 8 }}>
+                                  Mode de livraison
+                                </div>
+                                <div style={{ fontSize: 15, fontWeight: 900, marginBottom: 10 }}>
+                                  ✈️ FedEx International Connect — Domicile
+                                </div>
+                                <div style={{ fontSize: 13, color: "rgba(242,237,230,0.75)", marginBottom: 10 }}>
+                                  {countryName}{country ? ` (${country})` : ""}{zone ? ` — zone ${zone}` : ""}
+                                </div>
+                                {addr2 ? (
+                                  <div style={{ fontSize: 13, color: "rgba(242,237,230,0.7)", lineHeight: 1.6 }}>
+                                    {addr2.line1}<br />
+                                    {addr2.postal_code} {addr2.city}{addr2.country ? ` — ${String(addr2.country).toUpperCase()}` : ""}
+                                  </div>
+                                ) : null}
+                                <div style={{ fontSize: 11, color: "rgba(242,237,230,0.5)", marginTop: 10, padding: "8px 10px", background: "rgba(196,154,74,0.1)", borderRadius: 6, lineHeight: 1.6 }}>
+                                  ↪ Transporteur : <strong style={{ color: "#c49a4a" }}>FedEx</strong>
+                                  <br />Transporteur déterminé automatiquement par le pays de destination et la tranche de poids — aucune sélection requise.
+                                </div>
+                              </div>
+                            );
+                          })()
                         ) : (
-                          /* Fallback : delivery_type absent (ancienne commande) → select manuel */
+                          /* Fallback : delivery_type absent (ancienne commande FR) → select manuel */
                           <div style={{ display: "grid", gap: 6 }}>
                             <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#92400e" }}>
                               ⚠️ Mode de livraison non renseigné — sélection manuelle requise

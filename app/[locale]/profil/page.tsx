@@ -10,6 +10,7 @@ import ParrainageProfil from "@/components/ParrainageProfil";
 import { useCart } from "@/context/CartContext";
 import { supabase } from "@/lib/supabase-client";
 import CountrySelector from "@/components/checkout/CountrySelector";
+import { getTrackingInfo } from "@/lib/sendcloud-utils";
 import PasswordInput from "@/components/PasswordInput";
 
 type Address = {
@@ -31,10 +32,10 @@ const BG = "#ede8df"; const DARK = "#1a1410"; const AMBER = "#c49a4a"; const WAR
 
 function getTrackingUrl(notes: string | undefined, tracking: string): string | null {
   if (!tracking) return null;
-  const n = (notes ?? "").toLowerCase();
-  if (n.includes("colissimo") || n.includes("poste")) return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
-  if (n.includes("chronopost")) return `https://www.chronopost.fr/fr/chrono_suivi_display?listeNumerosLT=${tracking}`;
-  return `https://www.laposte.fr/outils/suivre-vos-envois?code=${tracking}`;
+  // Source unique de vérité (Colissimo / Mondial Relay / FedEx) — plus de logique
+  // dupliquée. Les notes contiennent « Transporteur: X » → getTrackingInfo matche
+  // par sous-chaîne (et détecte Mondial Relay via le préfixe "MR" du numéro).
+  return getTrackingInfo(notes, tracking).url;
 }
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", postal_code: "", country: "FR" };
 

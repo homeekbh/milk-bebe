@@ -26,6 +26,7 @@ export function carrierLabel(carrier: string | null | undefined): string {
   const c = String(carrier ?? "").toLowerCase();
   if (c.includes("mondial")) return "Mondial Relay";
   if (c.includes("colissimo") || c.includes("poste")) return "Colissimo";
+  if (c.includes("fedex")) return "FedEx";
   // Fallback historique : les commandes M!LK n'ont que ces 2 transporteurs.
   return "Colissimo";
 }
@@ -51,6 +52,16 @@ export function getTrackingInfo(
       url:           "https://www.mondialrelay.fr/suivi-de-colis/",
       displayNumber: cleanNumber,
       instructions:  `Entrez le numéro ${cleanNumber} et votre code postal sur la page Mondial Relay`,
+    };
+  }
+
+  // FedEx International Connect (colis internationaux hors France).
+  // TODO: vérifier sur 1re étiquette réelle
+  if (c.includes("fedex")) {
+    return {
+      url:           `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(raw)}`,
+      displayNumber: raw,
+      instructions:  null,
     };
   }
 

@@ -6,7 +6,7 @@ import { escapeHtml } from "@/lib/escape-html";
 import { logActivity } from "@/lib/server/audit";
 import { decideRewardOnRefund } from "@/lib/parrainage-refund";
 import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
-import { getZoneForCountry } from "@/lib/delivery-config";
+import { getZoneForCountry, routingCountry } from "@/lib/delivery-config";
 import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
 import { ventilateTTC } from "@/lib/tva";
 import { revalidateProduct } from "@/lib/revalidate-product";
@@ -291,7 +291,7 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     // Pays / zone : coffret expédiable FR/BE/CH/LU/MC (create-pack-session). Pays = adresse Stripe.
     const packCountry = String(shippingAddress?.country ?? "").trim().toUpperCase();
     const packZone    = packCountry ? getZoneForCountry(packCountry) : null;
-    const packIsIntl  = !!packCountry && packCountry !== "FR";
+    const packIsIntl  = !!packCountry && routingCountry(packCountry) !== "FR"; // Monaco (MC) → "FR" → jamais FedEx
     if (packCountry) {
       try {
         await supabaseServer.from("orders").update({
@@ -304,6 +304,12 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
           await alertMissingIntlZone(session, orderData.id, { country: packCountry, shipping_zone: packZone });
         }
       }
+    }
+    // Carrier international (bug FedEx) : un coffret hors-FR est expédié via FedEx
+    // (create-label route sur shipping_country/zone). On écrit "fedex" pour un
+    // affichage admin + email de suivi corrects. FR → rien (DEFAULT 'colissimo' inchangé).
+    if (packIsIntl) {
+      try { await supabaseServer.from("orders").update({ carrier: "fedex" }).eq("id", orderData.id); } catch {}
     }
     // Ventilation TVA (assujetti 20 %, « en dedans ») — idempotent, best-effort non silencieux. amount = TTC.
     await writeTvaVentilation(session, orderData.id, amount);
@@ -552,7 +558,9 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
 
   // Best-effort (colonnes optionnelles) : carrier + téléphone (E.164, priorité tunnel FR) + pays/zone + poids + payment_intent.
   if (orderData?.id) {
-    const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo") ? delivery.carrier : "colissimo";
+    const carrierValue = (delivery.carrier === "mondial_relay" || delivery.carrier === "colissimo")
+      ? delivery.carrier
+      : isIntl ? "fedex" : "colissimo"; // international sans carrier lisible → FedEx (create-label route par pays/zone) ; FR → défaut inchangé
     try { await supabaseServer.from("orders").update({ carrier: carrierValue }).eq("id", orderData.id); } catch {}
     // Téléphone (colonne orders.customer_phone, lue par create-label) : PRIORITÉ au tél saisi dans le
     // tunnel FRANCE (delivery.customer_phone). Sinon, à l'international, Stripe l'a collecté en E.164
@@ -1200,10 +1208,14 @@ export async function POST(req: Request) {
           const carrierFromMeta = session.metadata?.carrier;
           process.env.NODE_ENV !== "production" && console.log("[webhook] carrier from metadata:", carrierFromMeta);
           process.env.NODE_ENV !== "production" && console.log("[webhook] full metadata keys:", Object.keys(session.metadata ?? {}).join(", "));
+          // International (flux legacy) : pays de l'adresse Stripe/finale ≠ FR → FedEx.
+          // Monaco (MC) → routingCountry le mappe en "FR" (Colissimo métropole, jamais FedEx).
+          const legacyCountry = routingCountry(String((finalShippingAddress as any)?.country ?? ""));
+          const legacyIsIntl  = !!legacyCountry && legacyCountry !== "FR";
           const carrierValue =
             carrierFromMeta === "mondial_relay" || carrierFromMeta === "colissimo"
               ? carrierFromMeta
-              : "colissimo";
+              : legacyIsIntl ? "fedex" : "colissimo";
           process.env.NODE_ENV !== "production" && console.log("[webhook] persisting carrier:", carrierValue, "for order:", orderData.id);
           const { error: cErr } = await supabaseServer
             .from("orders")

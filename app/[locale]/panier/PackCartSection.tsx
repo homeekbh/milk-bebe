@@ -26,15 +26,31 @@ export default function PackCartSection() {
   const [busyIdx, setBusyIdx] = useState<number | null>(null);
 
   useEffect(() => {
-    try {
-      const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]");
-      if (Array.isArray(raw)) setPacks(raw);
-    } catch {}
+    const reload = () => {
+      try {
+        const raw = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]");
+        const next = Array.isArray(raw) ? raw : [];
+        // Garde d'égalité → pas de re-render en boucle (y compris sur notre propre write).
+        setPacks(prev => (JSON.stringify(prev) === JSON.stringify(next) ? prev : next));
+      } catch {}
+    };
+    reload();
+    // Reflète les changements externes : fusion au login (milk-pack-cart-changed) et
+    // modifications cross-onglet (storage). Parité avec le panier produits (live).
+    window.addEventListener("milk-pack-cart-changed", reload);
+    window.addEventListener("storage", reload);
+    return () => {
+      window.removeEventListener("milk-pack-cart-changed", reload);
+      window.removeEventListener("storage", reload);
+    };
   }, []);
 
   function persist(next: PackCartItem[]) {
     setPacks(next);
     try { localStorage.setItem("milk_pack_cart", JSON.stringify(next)); } catch {}
+    // Prévient Header (badge) + la synchro serveur (CartContext écoute cet event) que
+    // les packs ont changé — sans ce dispatch, un retrait de pack n'était jamais miroité.
+    try { window.dispatchEvent(new Event("milk-pack-cart-changed")); } catch {}
   }
   function remove(idx: number) { persist(packs.filter((_, i) => i !== idx)); }
 

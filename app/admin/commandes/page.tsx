@@ -123,6 +123,26 @@ const COLISSIMO_OPTIONS: SendcloudProduct[] = [
   },
 ];
 
+// Option UI synthétique pour l'international. Le backend (create-label) route sur
+// shipping_country/zone et IGNORE cette valeur — elle sert uniquement à débloquer les
+// gardes client (bouton étiquette, canShip). Ne pas utiliser pour du routage.
+const FEDEX_INTL_OPTION: SendcloudProduct = {
+  code: "fedex:internationalconnect", name: "FedEx International Connect — Domicile",
+  carrier_name: "FedEx", carrier_code: "fedex",
+  contract_id: null, weight_min: 0, weight_max: 1,
+  delivery_type: "home",
+};
+
+// Prédicat UNIQUE « commande internationale » — réutilisé par l'auto-sélection du
+// transporteur ET par le rendu du bloc read-only FedEx (pour qu'ils ne divergent JAMAIS).
+function isIntlOrder(order: Order): boolean {
+  return !!(
+    (order.shipping_country && order.shipping_country !== "FR") ||
+    (order.shipping_zone && order.shipping_zone !== "FR") ||
+    (order.shipping_address?.country && order.shipping_address.country !== "FR")
+  );
+}
+
 /**
  * Normalise le delivery_type pour l'affichage admin : les anciennes commandes
  * en 'locker' sont traitées comme 'point_relais' (purge définitive de l'option,
@@ -334,9 +354,14 @@ export default function AdminCommandes() {
     if (order) {
       setTracking(order.tracking_number ?? "");
       setNotes(cleanNotes(order.notes));
-      // Auto-sélection selon delivery_type
-      const matched = COLISSIMO_OPTIONS.find(o => o.delivery_type === order.delivery_type);
-      setTransporteur(matched ? JSON.stringify(matched) : "");
+      // Auto-sélection : international → FedEx synthétique (débloque les gardes bouton
+      // étiquette / canShip) ; sinon match COLISSIMO_OPTIONS sur delivery_type (inchangé).
+      if (isIntlOrder(order)) {
+        setTransporteur(JSON.stringify(FEDEX_INTL_OPTION));
+      } else {
+        const matched = COLISSIMO_OPTIONS.find(o => o.delivery_type === order.delivery_type);
+        setTransporteur(matched ? JSON.stringify(matched) : "");
+      }
     }
   }, [selected, orders]);
 
@@ -1188,9 +1213,7 @@ export default function AdminCommandes() {
                               </div>
                             );
                           })()
-                        ) : ((order.shipping_country && order.shipping_country !== "FR")
-                            || (order.shipping_zone && order.shipping_zone !== "FR")
-                            || (order.shipping_address?.country && order.shipping_address.country !== "FR")) ? (
+                        ) : isIntlOrder(order) ? (
                           /* INTERNATIONAL (FedEx) — read-only, AVANT le fallback COLISSIMO */
                           (() => {
                             const country = String(order.shipping_country ?? order.shipping_address?.country ?? "").toUpperCase();

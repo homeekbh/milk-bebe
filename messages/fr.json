@@ -4,6 +4,42 @@
     "copied": "Lien copié !",
     "share": "Partager"
   },
+  "sizeguide": {
+    "meta_title": "Taille bébé en cm : 0, 3 et 6 mois",
+    "meta_description": "0 mois : ~50 cm · 3 mois : 50–60 cm · 6 mois : 60–67 cm. Tableau des tailles bébé avec poids indicatifs, conseils pour mesurer et bien choisir.",
+    "og_title": "Guide des tailles bébé 0-6 mois — M!LK",
+    "og_description": "Tableau des tailles bébé 0-6 mois, comment mesurer et bien choisir. Vêtements bébé bambou OEKO-TEX M!LK.",
+    "eyebrow": "Tailles M!LK",
+    "breadcrumb": "Guide des tailles",
+    "crumb_home": "Accueil",
+    "h1": "Guide des tailles bébé : de la naissance à 6 mois",
+    "intro": "Choisir la bonne taille, c'est éviter deux galères : le vêtement trop grand qui flotte, et celui qu'on ne met jamais parce qu'il est déjà trop petit. Voici comment viser juste, de la maternité aux 6 mois.",
+    "col_size": "Taille M!LK",
+    "col_age": "Âge indicatif",
+    "col_length": "Taille de bébé",
+    "col_weight": "Poids indicatif",
+    "rows": [
+      { "size": "Nouveau-né", "age": "Naissance–1 mois", "length": "~50 cm", "weight": "~2,5–4 kg" },
+      { "size": "0-3 mois", "age": "0–3 mois", "length": "~50–60 cm", "weight": "~4–6 kg" },
+      { "size": "3-6 mois", "age": "3–6 mois", "length": "~60–67 cm", "weight": "~6–8 kg" }
+    ],
+    "sections": [
+      { "h2": "Comment mesurer bébé", "p": "La taille en vêtement se base sur la taille (longueur), pas l'âge. Deux bébés de 2 mois peuvent avoir un écart de gabarit. Mesure bébé allongé, de la tête aux talons, jambes tendues. C'est cette valeur qui compte." },
+      { "h2": "Quelle taille à la naissance ?", "p": "Si tu prépares la valise de maternité sans connaître le poids : prends du Nouveau-né ET du 0-3 mois. Les bébés grandissent vite — le 0-3 sert souvent dès les premières semaines. Pour un bébé annoncé costaud ou un terme dépassé, mise direct sur le 0-3." },
+      { "h2": "Et pour un cadeau ?", "p": "Évite le Nouveau-né (trop vite trop petit). Le 3-6 mois est le choix malin : bébé le portera plus longtemps, et c'est rarement ce que les parents achètent en premier." }
+    ],
+    "faq_title": "Questions fréquentes",
+    "faq": [
+      { "q": "Bébé est entre deux tailles, je prends laquelle ?", "a": "La plus grande. Un peu d'aisance vaut mieux qu'un vêtement qui serre." },
+      { "q": "Le bambou rétrécit-il au lavage ?", "a": "Lavé à 30°, non." },
+      { "q": "Quelle différence entre Nouveau-né et 0-3 mois ?", "a": "Environ 10 cm et un bon kilo. Le Nouveau-né est taillé pour les premières semaines, le 0-3 prend le relais vite." }
+    ],
+    "links": [
+      { "label": "Voir les bodies", "href": "/categorie/bodies" },
+      { "label": "Voir les pyjamas", "href": "/categorie/pyjamas" },
+      { "label": "Voir les gigoteuses", "href": "/categorie/gigoteuses" }
+    ]
+  },
   "nav": {
     "collection": "Notre collection",
     "about": "Qui sommes-nous",
@@ -194,6 +230,7 @@
     "guide_col_chest": "Poitrine",
     "guide_col_length": "Longueur",
     "guide_note": "En cas de doute, prenez la taille supérieure.",
+    "size_guide_full_link": "Voir le guide des tailles complet →",
     "qty_label": "Quantité",
     "select_size_alert": "Merci de sélectionner une taille avant d'ajouter au panier.",
     "added": "✓ Ajouté au panier !",
@@ -379,6 +416,7 @@
   },
   "catalog": {
     "eyebrow": "Collection M!LK",
+    "size_guide_link": "Guide des tailles bébé →",
     "collection_title": "Notre collection",
     "collection_subtitle": "Vêtements nourrisson en bambou certifié OEKO-TEX",
     "filter_all": "Tout",

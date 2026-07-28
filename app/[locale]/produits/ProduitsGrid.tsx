@@ -287,6 +287,12 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
             <div className="pg-eyebrow" style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>{t("eyebrow")}</div>
             <h1 style={{ margin: "0 0 10px", fontSize: "clamp(28px,5vw,52px)", fontWeight: 950, letterSpacing: -2, color: C.dark, lineHeight: 1 }}>{title}</h1>
             {subtitle && <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,16px)", color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>{subtitle}</p>}
+            {/* I-1a — lien réciproque vers le guide des tailles, UNIQUEMENT sur les catégories habillement
+                (bodies/pyjamas/gigoteuses). Absent de /produits (defaultCategory indéfini) et des autres
+                catégories. Dans le bloc header → pas de gap supplémentaire, ajout vertical minimal. */}
+            {["bodies", "pyjamas", "gigoteuses"].includes(defaultCategory ?? "") && (
+              <Link href="/guide-des-tailles" style={{ display: "inline-block", marginTop: 12, fontSize: 13, fontWeight: 800, color: C.amber, textDecoration: "none" }}>{t("size_guide_link")}</Link>
+            )}
           </div>
         </Reveal>
 

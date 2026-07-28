@@ -819,6 +819,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                     </tbody>
                   </table>
                   <div style={{ padding: "7px 12px", fontSize: 11, color: "rgba(26,20,16,0.4)", background: "rgba(26,20,16,0.04)" }}>{t("guide_note")}</div>
+                  {/* I-1a — maillage interne : lien vers la page guide complète (auto-préfixé /fr /en). */}
+                  <Link href="/guide-des-tailles" style={{ display: "block", padding: "9px 12px", fontSize: 12, fontWeight: 800, color: AMBER, textDecoration: "none" }}>{t("size_guide_full_link")}</Link>
                 </div>
               )}
             </div>

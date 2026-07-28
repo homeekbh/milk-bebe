@@ -4,6 +4,42 @@
     "copied": "Link copied!",
     "share": "Share"
   },
+  "sizeguide": {
+    "meta_title": "Baby size in cm: 0, 3 and 6 months",
+    "meta_description": "0 months: ~50 cm · 3 months: 50–60 cm · 6 months: 60–67 cm. Baby size chart with weight guidance and tips for choosing the right fit.",
+    "og_title": "Baby size guide 0-6 months — M!LK",
+    "og_description": "Baby size chart 0-6 months, how to measure and choose the right fit. M!LK bamboo OEKO-TEX baby clothing.",
+    "eyebrow": "M!LK sizes",
+    "breadcrumb": "Size guide",
+    "crumb_home": "Home",
+    "h1": "Baby size guide: from birth to 6 months",
+    "intro": "Choosing the right size means avoiding two headaches: the outfit that's too big and swamps baby, and the one you never use because it's already too small. Here's how to get it right, from hospital to 6 months.",
+    "col_size": "M!LK size",
+    "col_age": "Approx. age",
+    "col_length": "Baby length",
+    "col_weight": "Approx. weight",
+    "rows": [
+      { "size": "Newborn", "age": "Birth–1 month", "length": "~50 cm", "weight": "~2.5–4 kg" },
+      { "size": "0-3 months", "age": "0–3 months", "length": "~50–60 cm", "weight": "~4–6 kg" },
+      { "size": "3-6 months", "age": "3–6 months", "length": "~60–67 cm", "weight": "~6–8 kg" }
+    ],
+    "sections": [
+      { "h2": "How to measure your baby", "p": "Clothing size is based on length, not age. Two babies the same age can differ noticeably in build. Measure your baby lying down, from head to heels with legs extended. That's the figure that matters." },
+      { "h2": "What size at birth?", "p": "If you're packing the hospital bag without knowing the birth weight, take both Newborn AND 0-3 months. Babies grow fast — 0-3 often fits within the first few weeks. For a baby expected to be big, or a baby born past their due date, go straight for 0-3." },
+      { "h2": "What about a gift?", "p": "Avoid Newborn (outgrown too fast). 3-6 months is the smart pick: baby will wear it longer, and it's rarely what parents buy first." }
+    ],
+    "faq_title": "Frequently asked questions",
+    "faq": [
+      { "q": "Baby is between two sizes — which do I pick?", "a": "The bigger one. A little room is better than a garment that's too tight." },
+      { "q": "Does bamboo shrink in the wash?", "a": "Washed at 30°C, no." },
+      { "q": "What's the difference between Newborn and 0-3 months?", "a": "About 10 cm and a full kilo. Newborn is cut for the first few weeks; 0-3 takes over quickly." }
+    ],
+    "links": [
+      { "label": "See bodysuits", "href": "/categorie/bodies" },
+      { "label": "See pyjamas", "href": "/categorie/pyjamas" },
+      { "label": "See sleep bags", "href": "/categorie/gigoteuses" }
+    ]
+  },
   "nav": {
     "collection": "Our collection",
     "about": "About us",
@@ -194,6 +230,7 @@
     "guide_col_chest": "Chest",
     "guide_col_length": "Length",
     "guide_note": "If in doubt, choose the larger size.",
+    "size_guide_full_link": "See the full size guide →",
     "qty_label": "Quantity",
     "select_size_alert": "Please select a size before adding to the cart.",
     "added": "✓ Added to cart!",
@@ -379,6 +416,7 @@
   },
   "catalog": {
     "eyebrow": "M!LK Collection",
+    "size_guide_link": "Baby size guide →",
     "collection_title": "Our collection",
     "collection_subtitle": "OEKO-TEX certified bamboo newborn clothing",
     "filter_all": "All",

@@ -90,13 +90,27 @@ function getPhilosophy(t: TFn, category: string, slug: string): string {
   return "";
 }
 
+// Question "coton" (fr/en — seules locales actives) pour positionner la FAQ composition.
+const COTON_QUESTIONS = ["Pourquoi le bambou plutôt que le coton ?", "Why bamboo rather than cotton?"];
+// Insère la FAQ composition (SOURCE UNIQUE : clé i18n faq_composition) juste après la
+// question coton si présente, sinon en dernier. Idempotent. Utilisée par les DEUX chemins
+// (i18n getProductFAQ + DB fiche_faqs) → /fr et /en identiques, bonnet/bandeau couverts.
+function withComposition(t: TFn, arr: { q: string; r: string }[]): { q: string; r: string }[] {
+  const compo = t.raw("faq_composition") as { q: string; r: string } | undefined;
+  if (!compo?.q || arr.some(f => f.q === compo.q)) return arr;
+  const idx = arr.findIndex(f => COTON_QUESTIONS.includes(f.q));
+  return idx === -1 ? [...arr, compo] : [...arr.slice(0, idx + 1), compo, ...arr.slice(idx + 1)];
+}
+
 function getProductFAQ(t: TFn, category: string, slug: string): { q: string; r: string }[] {
-  if (slug.includes("bonnet")) return [];
-  if (category === "pyjamas"    || slug.includes("pyjama"))    return t.raw("faq_pyjamas");
-  if (category === "bodies"     || slug.includes("body"))      return t.raw("faq_bodies");
-  if (category === "gigoteuses" || slug.includes("gigoteuse")) return t.raw("faq_gigoteuses");
-  if (slug.includes("lange"))                                  return t.raw("faq_lange");
-  return [];
+  const base: { q: string; r: string }[] =
+    slug.includes("bonnet")                                   ? [] :
+    (category === "pyjamas"    || slug.includes("pyjama"))    ? t.raw("faq_pyjamas") :
+    (category === "bodies"     || slug.includes("body"))      ? t.raw("faq_bodies") :
+    (category === "gigoteuses" || slug.includes("gigoteuse")) ? t.raw("faq_gigoteuses") :
+    slug.includes("lange")                                    ? t.raw("faq_lange") :
+    [];
+  return withComposition(t, base);
 }
 
 function getProductEntretien(t: TFn, slug: string) {
@@ -110,10 +124,11 @@ function getProductEntretien(t: TFn, slug: string) {
   }
   const txt = t.raw("care_default") as string[];
   return [
-    { Icon: IconThermometer, text: txt[0] },
-    { Icon: IconBan,         text: txt[1] },
-    { Icon: IconFlat,        text: txt[2] },
-    { Icon: IconHeat,        text: txt[3] },
+    { Icon: IconLeaf,        text: txt[0] }, // composition (prépendée dans care_default) — icône feuille existante
+    { Icon: IconThermometer, text: txt[1] },
+    { Icon: IconBan,         text: txt[2] },
+    { Icon: IconFlat,        text: txt[3] },
+    { Icon: IconHeat,        text: txt[4] },
   ];
 }
 
@@ -203,7 +218,7 @@ function IconBandeau() {
   // Filtre CSS pour convertir le noir (#000) des SVG en marron foncé (#2d1a0e)
   const svgFilter = "brightness(0) saturate(100%) invert(10%) sepia(40%) saturate(700%) hue-rotate(340deg) brightness(55%)";
   const items = [
-    { src: "/icons/01_bambou.svg",          label: "Bambou\nBio"            },
+    { src: "/icons/01_bambou.svg",          label: "95%\nBambou"            },
     { src: "/icons/02_anti_bacterien.svg",  label: "Anti-\nbactérien"       },
     { src: "/icons/04_thermoregulation.svg",label: "Thermo-\nrégulateur"    },
     { src: "/icons/05_goutte_validation.svg",label: "Hypo-\nallergénique"   },
@@ -563,8 +578,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const features      = useCustom ? (() => { try { return JSON.parse(customCards.find((c: any) => c.type === "features")?.content ?? "[]"); } catch { return []; } })() : (() => { const auto = getProductFeatures(t, productCat, productSlug); if (auto.length) return auto; const net = frNet("features"); if (net) { try { return JSON.parse(net); } catch { return []; } } return []; })();
   const whyResult     = useCustom ? (() => { try { const wr = JSON.parse(customCards.find((c: any) => c.type === "whyresult")?.content ?? "null"); return wr?.why ? wr : null; } catch { return null; } })() : (getWhyResult(t, productCat, productSlug) ?? (() => { const net = frNet("whyresult"); if (!net) return null; try { const wr = JSON.parse(net); return wr?.why ? wr : null; } catch { return null; } })());
   const philosophy    = useCustom ? (customCards.find((c: any) => c.type === "philosophy")?.content ?? "") : (getPhilosophy(t, productCat, productSlug) || frNet("philosophy"));
-  const entretien     = useCustom ? (() => { try { const arr = JSON.parse(customCards.find((c: any) => c.type === "entretien")?.content ?? "null"); return Array.isArray(arr) ? arr.map((text: string, i: number) => ({ Icon: [IconThermometer,IconBan,IconFlat,IconHeat][i%4], text })) : getProductEntretien(t, productSlug); } catch { return getProductEntretien(t, productSlug); } })() : getProductEntretien(t, productSlug);
-  const FAQ           = useCustomFaq ? customFaqs.map((f: any) => ({ q: f.question, r: f.reponse })) : getProductFAQ(t, productCat, productSlug);
+  const entretien     = useCustom ? (() => { try { const arr = JSON.parse(customCards.find((c: any) => c.type === "entretien")?.content ?? "null"); if (!Array.isArray(arr)) return getProductEntretien(t, productSlug); const compo = (t.raw("care_default") as string[])?.[0]; const list: string[] = (typeof compo === "string" && compo.trim().startsWith("Composition") && !arr.some((x: any) => typeof x === "string" && x.trim().startsWith("Composition"))) ? [compo, ...arr] : arr; const hasCompo = list.length > 0 && String(list[0]).trim().startsWith("Composition"); const careIcons = [IconThermometer, IconBan, IconFlat, IconHeat]; return list.map((text: string, i: number) => (hasCompo && i === 0) ? { Icon: IconLeaf, text } : { Icon: careIcons[(hasCompo ? i - 1 : i) % 4], text }); } catch { return getProductEntretien(t, productSlug); } })() : getProductEntretien(t, productSlug);
+  const FAQ           = useCustomFaq ? withComposition(t, customFaqs.map((f: any) => ({ q: f.question, r: f.reponse }))) : getProductFAQ(t, productCat, productSlug);
 
   const photoRows: string[][] = [];
   if (allImages.length === 0) { photoRows.push(["placeholder"]); }

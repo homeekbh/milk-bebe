@@ -49,7 +49,7 @@
     "hero_hint": "Découvrir",
     "band_free": "Dès {amount}€",
     "band_free_label": "livraison offerte",
-    "band_oeko": "Bambou OEKO-TEX",
+    "band_oeko": "Certifié OEKO-TEX",
     "band_returns": "retours",
     "band_nocive": "substance nocive",
     "band_soft": "plus doux que le coton",
@@ -206,7 +206,7 @@
     "view_cart": "Voir le panier ({count})",
     "delivered": "Livré {date}",
     "delivery_note": "Commandez avant 16h · expédition sous 24h ouvrées",
-    "reass_oeko": "100% Bambou OEKO-TEX",
+    "reass_oeko": "Bambou OEKO-TEX",
     "reass_shipping": "Livraison offerte dès {amount}€",
     "reass_returns": "Retour sous 14 jours",
     "reass_payment": "Paiement sécurisé Stripe",
@@ -319,11 +319,13 @@
       "Éviter le sèche-linge pour préserver la matière"
     ],
     "care_default": [
+      "Composition : 95% viscose de bambou, 5% élasthanne",
       "Lavage 40°C, cycle délicat",
       "Sans adoucissant ni javel",
       "Séchage à l'air libre recommandé",
       "Sèche-linge basse température"
     ],
+    "faq_composition": { "q": "De quoi est fait le tissu ?", "r": "95 % viscose de bambou pour la douceur, la respirabilité et la thermorégulation. 5 % élasthanne pour l'extensibilité 4 sens : le vêtement suit les mouvements de bébé sans comprimer, et retrouve sa forme lavage après lavage." },
     "faq_pyjamas": [
       { "q": "C'est quoi le double zip inversé ?", "r": "Un système d'ouverture à double sens : par le bas pour changer la couche sans déshabiller bébé, par le haut pour l'habiller rapidement.\nMoins de manipulation, moins de stress, surtout la nuit." },
       { "q": "Les moufles pliables, ça sert à quoi ?", "r": "À éviter les griffures sans gérer des moufles séparées que tu perds en permanence.\nElles sont intégrées : tu replies, tu déplies, elles sont toujours là.\n\nTu peux les laisser ouvertes quand il fait chaud. Le tissu en bambou régule naturellement la température." },
@@ -412,8 +414,8 @@
       { "titre": "Un seul vêtement, toute l'année", "desc": "Le bambou thermorégule. Frais en été, chaud en hiver. Pas besoin d'en faire des tonnes." },
       { "titre": "Essentiels durables", "desc": "Moins acheter. Mieux choisir. Chaque pièce compte." }
     ],
-    "reass_bamboo_l": "100% Bambou",
-    "reass_bamboo_d": "Certifié OEKO-TEX",
+    "reass_bamboo_l": "Bambou OEKO-TEX",
+    "reass_bamboo_d": "95% viscose de bambou · 5% élasthanne",
     "reass_shipping_l": "Livraison offerte",
     "reass_shipping_d": "Dès {amount}€ d'achat",
     "reass_returns_l": "Retours",
@@ -438,7 +440,7 @@
     "checkout": "Passer au paiement →",
     "clear": "Vider le panier",
     "secure": "🔒 Paiement sécurisé Stripe",
-    "oeko": "🌿 100% Bambou OEKO-TEX",
+    "oeko": "🌿 Bambou OEKO-TEX",
     "returns": "↩️ Retour sous 14 jours",
     "confirm_pay": "Confirmer et payer →",
     "redirecting": "Redirection...",
@@ -499,7 +501,7 @@
     "need_email": "Saisis ton email ci-dessus pour continuer.",
     "need_phone": "Saisis un numéro de téléphone valide pour continuer.",
     "trust_payment": "Paiement sécurisé Stripe",
-    "trust_bamboo": "100% Bambou OEKO-TEX",
+    "trust_bamboo": "Bambou OEKO-TEX",
     "trust_returns": "Retours sous 14 jours",
     "postal_code_ph": "Code postal",
     "search_action": "🔍 Rechercher",
@@ -805,6 +807,7 @@
         "section": "La matière bambou",
         "questions": [
           { "q": "Pourquoi le bambou plutôt que le coton ?", "r": "Le bambou est naturellement thermorégulateur, antibactérien et 3× plus doux. Il absorbe l'humidité plus vite que le coton, régule la température corporelle et contient moins d'allergènes. Idéal pour la peau d'un nourrisson, 5× plus fine que la nôtre." },
+          { "q": "De quoi est fait le tissu ?", "r": "95 % viscose de bambou pour la douceur, la respirabilité et la thermorégulation. 5 % élasthanne pour l'extensibilité 4 sens : le vêtement suit les mouvements de bébé sans comprimer, et retrouve sa forme lavage après lavage." },
           { "q": "Le bambou M!LK est-il certifié ?", "r": "Oui. Chaque lot M!LK est certifié OEKO-TEX Standard 100 — la certification textile la plus exigeante, qui teste plus de 100 substances nocives. Zéro compromis." },
           { "q": "Le bambou rétrécit-il au lavage ?", "r": "Nos produits sont pré-lavés. Lavage à 30°C, cycle délicat, séchage à plat. La douceur et la forme sont préservées indéfiniment." },
           { "q": "Le bambou convient-il aux bébés avec de l'eczéma ?", "r": "Oui. Les microfibres de bambou sont rondes, sans aspérités. Naturellement hypoallergénique et antibactérien — recommandé pour les peaux sensibles et atopiques." },

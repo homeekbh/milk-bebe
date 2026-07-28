@@ -49,7 +49,7 @@
     "hero_hint": "Discover",
     "band_free": "From €{amount}",
     "band_free_label": "free delivery",
-    "band_oeko": "Bamboo OEKO-TEX",
+    "band_oeko": "OEKO-TEX certified",
     "band_returns": "returns",
     "band_nocive": "harmful substance",
     "band_soft": "softer than cotton",
@@ -206,7 +206,7 @@
     "view_cart": "View cart ({count})",
     "delivered": "Delivered {date}",
     "delivery_note": "Order before 4pm · ships within 24 working hours",
-    "reass_oeko": "100% Bamboo OEKO-TEX",
+    "reass_oeko": "Bamboo OEKO-TEX",
     "reass_shipping": "Free delivery over €{amount}",
     "reass_returns": "Returns within 14 days",
     "reass_payment": "Secure Stripe payment",
@@ -319,11 +319,13 @@
       "Avoid the tumble dryer to preserve the fabric"
     ],
     "care_default": [
+      "Composition: 95% bamboo viscose, 5% elastane",
       "Wash at 40°C, delicate cycle",
       "No fabric softener or bleach",
       "Air drying recommended",
       "Tumble dry on low heat"
     ],
+    "faq_composition": { "q": "What is the fabric made of?", "r": "95% bamboo viscose for softness, breathability and temperature regulation. 5% elastane for 4-way stretch: the garment follows baby's movements without constricting, and keeps its shape wash after wash." },
     "faq_pyjamas": [
       { "q": "What is the double reverse zip?", "r": "A two-way opening system: from the bottom to change the nappy without undressing baby, from the top to dress them quickly.\nLess handling, less stress, especially at night." },
       { "q": "What are the fold-over mittens for?", "r": "To prevent scratches without juggling separate mittens you're forever losing.\nThey're built in: fold up, fold down, they're always there.\n\nYou can leave them open when it's warm. The bamboo fabric naturally regulates temperature." },
@@ -412,8 +414,8 @@
       { "titre": "One garment, all year round", "desc": "Bamboo thermoregulates. Cool in summer, warm in winter. No need to overthink it." },
       { "titre": "Essentials that last", "desc": "Buy less. Choose better. Every piece counts." }
     ],
-    "reass_bamboo_l": "100% Bamboo",
-    "reass_bamboo_d": "OEKO-TEX certified",
+    "reass_bamboo_l": "Bamboo OEKO-TEX",
+    "reass_bamboo_d": "95% bamboo viscose · 5% elastane",
     "reass_shipping_l": "Free delivery",
     "reass_shipping_d": "On orders over €{amount}",
     "reass_returns_l": "Returns",
@@ -438,7 +440,7 @@
     "checkout": "Proceed to checkout →",
     "clear": "Clear cart",
     "secure": "🔒 Secure payment via Stripe",
-    "oeko": "🌿 100% Bamboo OEKO-TEX",
+    "oeko": "🌿 Bamboo OEKO-TEX",
     "returns": "↩️ Returns within 14 days",
     "confirm_pay": "Confirm and pay →",
     "redirecting": "Redirecting...",
@@ -499,7 +501,7 @@
     "need_email": "Enter your email above to continue.",
     "need_phone": "Enter a valid phone number to continue.",
     "trust_payment": "Secure payment via Stripe",
-    "trust_bamboo": "100% OEKO-TEX bamboo",
+    "trust_bamboo": "OEKO-TEX bamboo",
     "trust_returns": "Returns within 14 days",
     "postal_code_ph": "Postal code",
     "search_action": "🔍 Search",
@@ -805,6 +807,7 @@
         "section": "The bamboo fabric",
         "questions": [
           { "q": "Why bamboo rather than cotton?", "r": "Bamboo is naturally thermo-regulating, antibacterial and 3× softer. It absorbs moisture faster than cotton, regulates body temperature and contains fewer allergens. Ideal for a newborn's skin, which is 5× thinner than ours." },
+          { "q": "What is the fabric made of?", "r": "95% bamboo viscose for softness, breathability and temperature regulation. 5% elastane for 4-way stretch: the garment follows baby's movements without constricting, and keeps its shape wash after wash." },
           { "q": "Is M!LK bamboo certified?", "r": "Yes. Every M!LK batch is OEKO-TEX Standard 100 certified — the most demanding textile certification, testing over 100 harmful substances. Zero compromise." },
           { "q": "Does bamboo shrink in the wash?", "r": "Our products are pre-washed. Wash at 30°C, gentle cycle, dry flat. Softness and shape are preserved indefinitely." },
           { "q": "Is bamboo suitable for babies with eczema?", "r": "Yes. Bamboo microfibres are round and smooth. Naturally hypoallergenic and antibacterial — recommended for sensitive and atopic skin." },

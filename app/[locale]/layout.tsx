@@ -94,7 +94,7 @@ export async function generateMetadata({
     "body bambou bébé", "pyjama bambou bébé", "gigoteuse bambou bébé",
     "vêtement bambou bébé", "bambou OEKO-TEX bébé",
     "vêtement bébé naturel", "vêtement bébé écologique",
-    "vêtement bébé bio", "body bébé doux", "pyjama bébé ultra doux",
+    "body bébé doux", "pyjama bébé ultra doux",
     "vêtement bébé qualité", "vêtement bébé premium", "vêtement bébé luxe",
     // FONCTIONNALITÉS
     "body bébé sans étiquette", "grenouillère double zip bébé",

@@ -599,7 +599,10 @@ export async function POST(req: NextRequest) {
       const declaredStr = declaredValue.toFixed(2);
 
       // UNE ligne agrégée pour le colis unique.
-      announceBody.parcels[0].items = [{
+      // F5 — clé "parcel_items" (PAS "items") : confirmé par le support Sendcloud pour l'API v3.
+      // Avec "items", l'announce renvoyait 201 mais IGNORAIT les articles (panneau « Aucun article »,
+      // « Déclaration échouée »). La structure de chaque article, elle, est confirmée inchangée.
+      announceBody.parcels[0].parcel_items = [{
         description:    "Vetements bebe bambou",             // sans accents (champs douaniers les gèrent mal)
         quantity:       1,
         weight:         { value: weightKgStr, unit: "kg" },  // poids TOTAL du colis
@@ -616,7 +619,7 @@ export async function POST(req: NextRequest) {
       announceBody.parcels[0].total_order_value = declaredStr;
       announceBody.parcels[0].currency          = "EUR";
 
-      const customsLog = JSON.stringify({ intl: true, value: declaredStr, item: announceBody.parcels[0].items[0] });
+      const customsLog = JSON.stringify({ intl: true, value: declaredStr, item: announceBody.parcels[0].parcel_items[0] });
       console.log("[sendcloud:customs]",  customsLog);
       console.error("[sendcloud:customs]", customsLog);
     }

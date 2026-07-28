@@ -60,8 +60,8 @@ export default function PromoSticker() {
   const keyframes = (
     <style>{`
       @keyframes milk-promo-pulse {
-        0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(220,38,38,0.45); }
-        50% { transform: scale(1.03); box-shadow: 0 12px 40px rgba(220,38,38,0.65); }
+        0%, 100% { transform: scale(1); box-shadow: 0 8px 32px rgba(245,184,65,0.40); }
+        50% { transform: scale(1.03); box-shadow: 0 12px 40px rgba(245,184,65,0.55); }
       }
       @keyframes milk-blink {
         0%, 100% { opacity: 1; }
@@ -76,9 +76,9 @@ export default function PromoSticker() {
       onClick={e => { e.stopPropagation(); setVisible(false) }}
       style={{
         pointerEvents: 'all',
-        background: 'rgba(26,20,16,0.6)',
+        background: 'rgba(245,184,65,0.15)',
         border: 'none',
-        color: '#f2ede6',
+        color: '#CFC4B8',
         width: '22px',
         height: '22px',
         borderRadius: '99px',
@@ -128,8 +128,8 @@ export default function PromoSticker() {
           justifyContent: 'space-between',
           gap: '10px',
           zIndex: 10001,
-          background: '#dc2626',
-          color: '#fff',
+          background: '#1A1410',
+          color: '#CFC4B8',
           cursor: 'pointer',
           boxSizing: 'border-box',
           fontSize: '11px',
@@ -137,7 +137,7 @@ export default function PromoSticker() {
           animation: 'milk-promo-pulse 1.8s ease-in-out infinite',
         }}
       >
-        <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', fontWeight: 800, letterSpacing: '1px', textTransform: 'uppercase', color: '#F5B841', display: 'inline-flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap', flexShrink: 0 }}>
           <span style={{ animation: 'milk-blink 1s step-start infinite' }}>●</span>
           PROMO
         </span>
@@ -146,10 +146,10 @@ export default function PromoSticker() {
             {promo.label}
           </span>
         )}
-        <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.5px', whiteSpace: 'nowrap', background: 'rgba(255,255,255,0.2)', borderRadius: '6px', padding: '2px 7px', flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', fontWeight: 900, fontFamily: 'monospace', letterSpacing: '0.5px', whiteSpace: 'nowrap', background: '#F5B841', color: '#412402', borderRadius: '6px', padding: '2px 7px', flexShrink: 0 }}>
           {copied ? '✓ Copié !' : `CODE : ${promo.code}`}
         </span>
-        <span style={{ fontSize: '11px', fontWeight: 950, whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <span style={{ fontSize: '11px', fontWeight: 950, color: '#F5B841', whiteSpace: 'nowrap', flexShrink: 0 }}>
           {discount}
         </span>
         {closeBtn}
@@ -178,20 +178,20 @@ export default function PromoSticker() {
         onClick={copy}
         style={{
           pointerEvents: 'all',
-          background: '#dc2626',
-          color: '#fff',
+          background: '#1A1410',
+          color: '#CFC4B8',
           border: 'none',
           borderRadius: '16px',
           padding: '14px 20px',
           cursor: 'pointer',
           textAlign: 'left',
-          boxShadow: '0 8px 32px rgba(220,38,38,0.45)',
+          boxShadow: '0 8px 32px rgba(245,184,65,0.40)',
           animation: 'milk-promo-pulse 1.8s ease-in-out infinite',
           maxWidth: '240px',
           minWidth: '180px',
         }}
       >
-        <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', opacity: 0.85, marginBottom: '4px' }}>
+        <div style={{ fontSize: '10px', fontWeight: 800, letterSpacing: '2px', textTransform: 'uppercase', color: '#F5B841', opacity: 0.85, marginBottom: '4px' }}>
           <span style={{ animation: 'milk-blink 1s step-start infinite', display: 'inline-block', marginRight: '4px' }}>●</span>
           PROMO EN COURS
         </div>
@@ -200,12 +200,13 @@ export default function PromoSticker() {
             {promo.label}
           </div>
         )}
-        <div style={{ fontSize: '22px', fontWeight: 950, letterSpacing: '-0.5px', lineHeight: 1 }}>
+        <div style={{ fontSize: '22px', fontWeight: 950, letterSpacing: '-0.5px', lineHeight: 1, color: '#F5B841' }}>
           {discount}
         </div>
         <div style={{
           marginTop: '8px',
-          background: 'rgba(255,255,255,0.2)',
+          background: '#F5B841',
+          color: '#412402',
           borderRadius: '8px',
           padding: '5px 10px',
           fontSize: '13px',

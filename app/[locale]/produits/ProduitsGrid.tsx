@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, type CSSProperties } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
@@ -37,26 +37,25 @@ type Product = {
   // client (new Date()) qui divergeait du HTML SSR/ISR. `isPromoActive` reste un fallback.
   __promo?: boolean;
 };
-function DiagonalBadge({ label, outOfStock, isPromo }: { label?: string; outOfStock: boolean; isPromo?: boolean }) {
+// Pastille produit (Lot B) — remplace l'ancienne bande diagonale. Coin HAUT-GAUCHE.
+// pointerEvents:none → le clic traverse vers le <Link> de la carte. La rupture de
+// stock reste gérée par l'overlay sombre (inchangé) → pas de pastille dans ce cas.
+// 2 traitements : promo (chocolat/ambre, cohérent avec le bandeau) et labels
+// standards (ambre/brun). Libellés = clés i18n badge_* (aucun texte inventé).
+function ProductPill({ label, isPromo }: { label?: string; isPromo?: boolean }) {
   const t = useTranslations("catalog");
-  if (outOfStock) return (
-    <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 20, right: -30, background: "#6b7280", color: "#fff", fontSize: 10, fontWeight: 900, letterSpacing: 1, padding: "7px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{t("badge_sold_out")}</div>
-    </div>
-  );
-  if (isPromo) return (
-    <div style={{ position: "absolute", top: 0, right: 0, width: 120, height: 120, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 24, right: -34, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, letterSpacing: 1.5, padding: "9px 50px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 2px 8px rgba(220,38,38,0.5)", textShadow: "0 1px 2px rgba(0,0,0,0.2)" }}>{t("badge_promo")}</div>
-    </div>
-  );
-  const cfg: Record<string,string> = { nouveau:t("badge_nouveau"), bestseller:t("badge_bestseller"), exclusif:t("badge_exclusif"), last:t("badge_last"), bientot:t("badge_bientot"), coup_de_coeur:t("badge_coup") };
+  const base: CSSProperties = {
+    position: "absolute", top: 8, left: 8, zIndex: 20,
+    borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 800,
+    letterSpacing: 0.5, whiteSpace: "nowrap", pointerEvents: "none",
+  };
+  if (isPromo) {
+    return <div className="pcard-badge" style={{ ...base, background: "#1A1410", color: "#F5B841" }}>{t("badge_promo")}</div>;
+  }
+  const cfg: Record<string, string> = { nouveau: t("badge_nouveau"), bestseller: t("badge_bestseller"), exclusif: t("badge_exclusif"), last: t("badge_last"), bientot: t("badge_bientot"), coup_de_coeur: t("badge_coup") };
   const text = label ? cfg[label] : null;
   if (!text) return null;
-  return (
-    <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 20, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 22, right: -32, background: C.amber, color: C.dark, fontSize: 10, fontWeight: 900, padding: "8px 46px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{text}</div>
-    </div>
-  );
+  return <div className="pcard-badge" style={{ ...base, background: "#F5B841", color: "#412402" }}>{text}</div>;
 }
 
 function ProductCard({ p }: { p: Product }) {
@@ -70,7 +69,6 @@ function ProductCard({ p }: { p: Product }) {
   const price      = promo ? p.promo_price! : p.price_ttc;
   const outOfStock = (p.stock ?? 0) <= 0;
   const lowStock   = !outOfStock && (p.stock ?? 0) <= 5;
-  const badgeLabel = outOfStock ? undefined : (p.label || (promo ? "promo" : undefined));
   const { toggle, isInList } = useWishlist();
   const inWish = isInList(p.id);
 
@@ -82,7 +80,7 @@ function ProductCard({ p }: { p: Product }) {
           transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer",
           boxShadow: promo ? "0 4px 20px rgba(220,38,38,0.15)" : "0 4px 16px rgba(0,0,0,0.1)",
           transform: "translateY(-2px)" }}>
-        <DiagonalBadge label={promo ? undefined : badgeLabel} outOfStock={outOfStock} isPromo={promo} />
+        {!outOfStock && <ProductPill label={p.label} isPromo={promo} />}
         <div style={{ position: "relative", aspectRatio: "3/4", background: C.light, overflow: "hidden" }}>
           {p.image_url ? (
             <Image src={p.image_url} alt={p.name} fill sizes="(max-width:640px) 50vw, 25vw"
@@ -258,6 +256,13 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         ${PROMO_STYLES}
         .pcard-grid:hover { transform:translateY(-5px)!important; box-shadow:0 20px 40px rgba(0,0,0,0.18)!important; border-color:${C.amber}!important; }
         .pcard-grid:hover .pcard-grid-img { transform:scale(1.05)!important; }
+
+        /* Pastille produit (Lot B) — « respiration » douce ; N'ANIME QUE transform (perf webview IG/FB). */
+        @keyframes milk-badge-breathe { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }
+        .pcard-badge { animation: milk-badge-breathe 2.8s ease-in-out infinite; will-change: transform; }
+        .pcard-promo .pcard-badge { animation: none !important; } /* carte promo déjà animée (shake) → pas de double */
+        @media (prefers-reduced-motion: reduce) { .pcard-badge { animation: none !important; } }
+
         .pgrid    { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
         .ess-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
         @media(max-width:1200px){ .pgrid{grid-template-columns:repeat(3,1fr)!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }

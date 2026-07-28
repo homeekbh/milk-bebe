@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { getZoneForCountry, routingCountry } from "@/lib/delivery-config";
+import { routingCountry } from "@/lib/delivery-config";
 import type { NextRequest } from "next/server";
 
 // API v3 Sendcloud — host panel.sendcloud.sc (les endpoints v3 y sont exposés
@@ -25,6 +25,20 @@ function sanitizeName(s: string): string {
     .replace(/[!@#$%^&*<>{}[\]\\|`~]/g, "")
     .trim()
     .slice(0, 75);
+}
+
+/**
+ * true si la chaîne ressemble à un NUMÉRO DE TÉLÉPHONE (aucune lettre, ≥ 7 chiffres,
+ * éventuel "+" et séparateurs . - / ( ) espaces). Sert à empêcher qu'un téléphone saisi
+ * par erreur dans le champ « complément d'adresse » au checkout (shipping_address.line2)
+ * ne parte comme address_line_2 chez le transporteur. Un vrai complément d'adresse
+ * ("Appartement 3B", "Bât. C", "c/o…") contient des lettres → renvoie false (conservé).
+ */
+function looksLikePhone(s: string): boolean {
+  const t = String(s ?? "").trim();
+  if (!t || /[a-zA-Z]/.test(t)) return false;
+  const digits = t.replace(/\D/g, "");
+  return digits.length >= 7 && /^\+?[\d\s().\-/]+$/.test(t);
 }
 
 /**
@@ -352,7 +366,13 @@ export async function POST(req: NextRequest) {
     // le webhook dans shipping_address, mais uniquement pertinent en mode HOME (le point
     // relais n'a pas de complément). Envoyé à l'announce si non vide (FR ET international),
     // OMIS sinon. Sans lui, une adresse à complément risque une livraison échouée.
-    const recipientAddressLine2 = isRelayMode ? "" : String(addr.line2 ?? "").trim();
+    // F1 — JAMAIS le téléphone : un client a saisi son n° dans le champ complément au
+    // checkout (shipping_address.line2 = "+36207452372"). On l'ÉCARTE (looksLikePhone) pour
+    // qu'il ne parte pas comme address_line_2 (« Complément d'adresse » chez FedEx). Le vrai
+    // téléphone part via phone_number (to_address). PARTAGÉ FR : un complément FR légitime
+    // contient des lettres → conservé ; une valeur purement téléphonique → écartée.
+    const rawLine2 = isRelayMode ? "" : String(addr.line2 ?? "").trim();
+    const recipientAddressLine2 = looksLikePhone(rawLine2) ? "" : rawLine2;
     const recipientCity = isRelayMode
       ? String(order.relay_city ?? "")
       : String(addr.city ?? "");
@@ -550,56 +570,53 @@ export async function POST(req: NextRequest) {
       console.log(`[sendcloud] to_service_point.id="${numericRelayId}" attaché (code=${shippingOptionCode})`);
     }
 
-    // ── DOUANE (FedEx) — HORS UE UNIQUEMENT : Suisse (EUROPE_NON_EU) + UK ────────
-    // ⚠️ INERTE en prod : CH/UK sont BLOQUÉS au tunnel (retirés de COUNTRY_TO_ZONE dans
-    //    lib/delivery-config) tant que la douane n'est pas validée en RÉEL (incoterm + facture
-    //    + products.hs_code/origin_country). Ce bloc est CONSERVÉ — NE PAS SUPPRIMER : il
-    //    redevient actif automatiquement dès que CH/UK reviennent dans COUNTRY_TO_ZONE.
-    // FedEx exige une déclaration douanière (parcel_items) hors UE, sinon l'announce
-    // échoue. UE (BE/DE…) et FRANCE : AUCUN parcel_items ajouté → announce INCHANGÉ.
-    // Incoterm DAP (le client paie la douane, message déjà affiché au tunnel).
-    // hs_code / origin_country lus par produit (colonnes optionnelles products) avec
-    // FALLBACK GLOBAL. Si les colonnes n'existent pas encore, la requête échoue
-    // silencieusement → défauts appliqués (jamais de blocage).
-    const customsZone = shippingZoneCol || getZoneForCountry(recipientCountry);
-    if (customsZone === "EUROPE_NON_EU" || customsZone === "UK") {
-      const HS_DEFAULT      = "611190";              // vêtements bébé bonneterie, autres textiles (bambou/viscose) — à confirmer comptable
-      const ORIGIN_DEFAULT  = "CN";                  // fabrication Chine (facture fournisseur)
-      const DESC_DEFAULT    = "Baby clothing (bamboo)";
+    // ── DÉCLARATION DE MARCHANDISES (FedEx) — TOUT L'INTERNATIONAL, UE COMPRISE ──────
+    // FedEx International Connect exige une déclaration de contenu MÊME en intra-UE (FR→HU…) :
+    // sans elle, Sendcloud affiche « Déclaration échouée » et FedEx refuse l'envoi. On ne sait
+    // pas pourquoi l'UE l'exige (pas de douane intra-UE) — c'est une contrainte du service ICP /
+    // Sendcloud. On envoie donc la déclaration complète (trop d'infos ne bloque jamais, trop peu si).
+    // FRANCE : isInternational=false → ce bloc ne s'exécute JAMAIS → announce FR INCHANGÉ.
+    //
+    // ⚠️ UN SEUL COLIS : parcels reste un tableau à 1 élément. Les items décrivent le CONTENU
+    //    d'un colis unique, ils ne créent AUCUN colis supplémentaire.
+    // ⚠️ UNE SEULE LIGNE AGRÉGÉE : Sendcloud a renvoyé « le nombre de marchandises dépasse la
+    //    limite autorisée » avec une ligne par article → on agrège en 1 ligne (contenu fidèle
+    //    d'un colis unique). quantity=1, poids = poids TOTAL du colis (pas unitaire).
+    // ⚠️ VALEUR = valeur commerciale RÉELLE = Σ(prix catalogue × quantité), AVANT remise/promo.
+    //    La douane veut la valeur des marchandises, pas le montant payé (une commande à 92,70 €
+    //    soldée à 12 € par code promo déclare bien 92,70 €).
+    if (isInternational) {
+      // En dur, confirmé par Bou. hs_code = maille bambou/viscose vêtements bébé. À rendre
+      // configurable plus tard (products.hs_code/origin_country) — PAS de colonne créée ici.
+      const HS_CODE_BAMBOU = "6114300090";
+      const ORIGIN_DEFAULT = "CN";           // fabrication Chine (facture fournisseur)
       const orderItems: any[] = Array.isArray(order.items) ? order.items : [];
 
-      // hs_code / origin_country par produit (fallback global si vide / colonne absente).
-      const productIds = [...new Set(
-        orderItems.map(it => it?.id).filter((id: any) => id && !String(id).startsWith("pack:"))
-      )];
-      const prodMap: Record<string, { hs_code?: string; origin_country?: string }> = {};
-      if (productIds.length) {
-        const { data: prods } = await supabaseServer
-          .from("products").select("id, hs_code, origin_country").in("id", productIds);
-        (prods ?? []).forEach((p: any) => { prodMap[p.id] = { hs_code: p.hs_code ?? undefined, origin_country: p.origin_country ?? undefined }; });
-      }
+      const declaredValue = orderItems.reduce(
+        (s, it) => s + (Number(it?.price) || 0) * Math.max(1, Number(it?.quantity) || 1),
+        0,
+      );
+      const declaredStr = declaredValue.toFixed(2);
 
-      // Poids réparti par unité pour que Σ(poids items) ≈ poids colis.
-      const totalUnits = Math.max(1, orderItems.reduce((s, it) => s + (Number(it?.quantity) || 1), 0));
-      const perUnitKg  = weightKg / totalUnits;
-
-      const parcelItems = orderItems.map(it => {
-        const qty  = Math.max(1, Number(it?.quantity) || 1);
-        const prod = prodMap[String(it?.id)] ?? {};
-        return {
-          description:    DESC_DEFAULT,
-          quantity:       qty,
-          price:          { value: (Number(it?.price) || 0).toFixed(2), currency: "EUR" },
-          weight:         { value: Math.max(0.001, perUnitKg * qty).toFixed(3), unit: "kg" },
-          hs_code:        prod.hs_code || HS_DEFAULT,
-          origin_country: prod.origin_country || ORIGIN_DEFAULT,
-        };
-      });
-
-      announceBody.parcels[0].items        = parcelItems;
+      // UNE ligne agrégée pour le colis unique.
+      announceBody.parcels[0].items = [{
+        description:    "Vetements bebe bambou",             // sans accents (champs douaniers les gèrent mal)
+        quantity:       1,
+        weight:         { value: weightKgStr, unit: "kg" },  // poids TOTAL du colis
+        price:          { value: declaredStr, currency: "EUR" },
+        hs_code:        HS_CODE_BAMBOU,
+        origin_country: ORIGIN_DEFAULT,
+      }];
       announceBody.parcels[0].content_type = "merchandise";
 
-      const customsLog = JSON.stringify({ zone: customsZone, lines: parcelItems.length, first: parcelItems[0] ?? null });
+      // F3 — devise + valeur totale de la commande, au niveau colis.
+      // ⚠️ Noms de champs NON confirmés par la spec v3 dans le repo (best-effort ; une clé
+      //    inconnue est ignorée, elle ne bloque pas). Si le panneau reste vide côté Sendcloud,
+      //    essayer "total_order_value_currency" au lieu de "currency".
+      announceBody.parcels[0].total_order_value = declaredStr;
+      announceBody.parcels[0].currency          = "EUR";
+
+      const customsLog = JSON.stringify({ intl: true, value: declaredStr, item: announceBody.parcels[0].items[0] });
       console.log("[sendcloud:customs]",  customsLog);
       console.error("[sendcloud:customs]", customsLog);
     }

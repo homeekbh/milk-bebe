@@ -49,7 +49,7 @@ export default function ProductBadge({
   // PROMO prioritaire (cohérent avec l'ancien ProductPill du catalogue).
   if (isPromo) {
     return (
-      <span className="milk-badge" style={{ ...base, background: "#1A1410", color: "#F5B841" }}>
+      <span translate="no" className="milk-badge" style={{ ...base, background: "#1A1410", color: "#F5B841" }}>
         {t("badge_promo")}
       </span>
     );
@@ -67,7 +67,7 @@ export default function ProductBadge({
   if (!text) return null;
 
   return (
-    <span className="milk-badge" style={{ ...base, background: "#F5B841", color: "#412402" }}>
+    <span translate="no" className="milk-badge" style={{ ...base, background: "#F5B841", color: "#412402" }}>
       {text}
     </span>
   );

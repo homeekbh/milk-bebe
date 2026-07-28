@@ -121,7 +121,7 @@ export default async function AvisClientsPage({
                 {r.reply && (
                   <div style={{ marginTop: 14, padding: "12px 16px", borderRadius: 10, background: "rgba(196,154,74,0.09)", borderLeft: `3px solid ${C.amber}` }}>
                     <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>
-                      Réponse M!LK
+                      Réponse <span translate="no">M!LK</span>
                     </div>
                     <div style={{ fontSize: 14, color: "rgba(26,20,16,0.75)", lineHeight: 1.6 }}>{r.reply}</div>
                   </div>

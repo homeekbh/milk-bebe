@@ -543,7 +543,7 @@ export default function ProfilPage() {
                             </div>
                             <div style={{ padding: "12px 14px 8px" }}>
                               <div style={{ fontSize: 10, fontWeight: 800, color: AMBER, letterSpacing: 1, textTransform: "uppercase", marginBottom: 4 }}>{p.category_slug}</div>
-                              <div style={{ fontSize: 14, fontWeight: 800, color: DARK, lineHeight: 1.3, marginBottom: 8 }}>{p.name}</div>
+                              <div translate="no" style={{ fontSize: 14, fontWeight: 800, color: DARK, lineHeight: 1.3, marginBottom: 8 }}>{p.name}</div>
                               <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
                                 <span style={{ fontSize: 16, fontWeight: 950, color: DARK }}>{Number(price).toFixed(2)} €</span>
                                 {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(26,20,16,0.35)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}

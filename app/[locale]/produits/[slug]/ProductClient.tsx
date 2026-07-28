@@ -626,7 +626,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
             ...(product.subcategory_slug ? [{
               label: subcategoryLabel || capitalizeSlug(product.subcategory_slug),
             }] : []),
-            { label: product.name },
+            { label: product.name, noTranslate: true },
           ]}
         />
       </div>
@@ -716,20 +716,20 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
           {coloris && (
             <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: DARK, lineHeight: 1.5 }}>
-              <span style={{ color: AMBER, fontWeight: 900 }}>{t("coloris_label")}</span> — {coloris}
+              <span style={{ color: AMBER, fontWeight: 900 }}>{t("coloris_label")}</span> — <span translate="no">{coloris}</span>
             </div>
           )}
 
           {!coloris && motif && (
             <div style={{ fontSize: "clamp(14px,1.2vw,16px)", fontWeight: 700, color: DARK, lineHeight: 1.5 }}>
-              <span style={{ color: AMBER, fontWeight: 900 }}>{t("motif_prefix")} {motif.motif}</span> — {motif.desc}.
+              <span style={{ color: AMBER, fontWeight: 900 }}>{t("motif_prefix")} <span translate="no">{motif.motif}</span></span> — {motif.desc}.
             </div>
           )}
 
           {(couleursDispos.length > 0 || related.length > 0) && (
             <div style={{ display: "grid", gap: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)" }}>
-                {t("color_label")} {couleur && <span style={{ color: DARK }}>— {couleur}</span>}
+                {t("color_label")} {couleur && <span translate="no" style={{ color: DARK }}>— {couleur}</span>}
               </span>
               <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center" }}>
 

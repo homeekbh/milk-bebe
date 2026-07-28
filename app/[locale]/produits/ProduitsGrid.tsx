@@ -84,7 +84,7 @@ function ProductCard({ p }: { p: Product }) {
           {/* Pastille SOUS la photo, sur sa propre ligne, au-dessus du titre (Lot D). Jamais sur l'image.
               Rupture de stock → pas de pastille (overlay sombre inchangé). */}
           {!outOfStock && <ProductBadge label={p.label} isPromo={promo} size="card" />}
-          <div style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,15px)", color: C.dark, marginBottom: 2, lineHeight: 1.3 }}>{p.name}</div>
+          <div translate="no" style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,15px)", color: C.dark, marginBottom: 2, lineHeight: 1.3 }}>{p.name}</div>
           {cardDesc && (
             <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginBottom: 4, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cardDesc}</div>
           )}

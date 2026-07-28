@@ -42,7 +42,7 @@ export default function Footer() {
 
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: "60px 5vw 40px", display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr", gap: "40px 48px" }}>
         <div style={{ display: "grid", gap: 18, alignContent: "start" }}>
-          <div style={{ fontSize: 26, fontWeight: 950, letterSpacing: -1.5, color: "#f2ede6" }}>
+          <div translate="no" style={{ fontSize: 26, fontWeight: 950, letterSpacing: -1.5, color: "#f2ede6" }}>
             M<span style={{ color: "#c49a4a" }}>!</span>LK
           </div>
           <p style={{ margin: 0, fontSize: 16, fontWeight: 800, color: "#c49a4a", letterSpacing: -0.3 }}>
@@ -140,7 +140,7 @@ export default function Footer() {
       {/* Bas */}
       <div style={{ maxWidth: 1600, margin: "0 auto", padding: "20px 5vw", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
         <div style={{ fontSize: 12, color: "rgba(242,237,230,0.28)", fontWeight: 500 }}>
-          © {year} M!LK — {t("copyright_tag")}
+          © {year} <span translate="no">M!LK</span> — {t("copyright_tag")}
         </div>
         <div style={{ display: "flex", gap: 18 }}>
           {[

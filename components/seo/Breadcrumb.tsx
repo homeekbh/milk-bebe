@@ -3,6 +3,7 @@ import { Link } from "@/i18n/navigation";
 export type Crumb = {
   label: string;
   href?: string; // dernier item : pas de href (page courante)
+  noTranslate?: boolean; // E — protège le libellé de la traduction auto (ex. nom de produit)
 };
 
 const C = {
@@ -82,6 +83,7 @@ export function Breadcrumb({
               ) : (
                 <span
                   aria-current="page"
+                  translate={c.noTranslate ? "no" : undefined}
                   style={{
                     color:      lastCol,
                     fontWeight: 600,

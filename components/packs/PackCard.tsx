@@ -72,13 +72,13 @@ export default function PackCard({ pack, locale }: { pack: Pack; locale?: string
         <ImagesHeader pack={pack} />
         <div style={{ padding: "20px 22px 22px", display: "flex", flexDirection: "column", gap: 12, flex: 1 }}>
           <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.amber }}>🎁 Coffret</div>
-          <div style={{ fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -0.6, color: C.dark, lineHeight: 1.1 }}>{pack.title}</div>
+          <div translate="no" style={{ fontSize: "clamp(18px,2vw,24px)", fontWeight: 950, letterSpacing: -0.6, color: C.dark, lineHeight: 1.1 }}>{pack.title}</div>
 
           <div style={{ display: "grid", gap: 5 }}>
             {prods.map(p => (
               <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "rgba(26,20,16,0.7)" }}>
                 <span style={{ color: C.amber, fontWeight: 900 }}>✓</span>
-                <span>{p.name}</span>
+                <span translate="no">{p.name}</span>
               </div>
             ))}
           </div>

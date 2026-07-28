@@ -160,7 +160,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
           <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.amber, marginBottom: 8 }}>🎁 Coffret</div>
-              <h1 style={{ margin: 0, fontSize: "clamp(26px,3.5vw,42px)", fontWeight: 950, letterSpacing: -1.5, color: C.dark, lineHeight: 1.05 }}>{pack.title}</h1>
+              <h1 translate="no" style={{ margin: 0, fontSize: "clamp(26px,3.5vw,42px)", fontWeight: 950, letterSpacing: -1.5, color: C.dark, lineHeight: 1.05 }}>{pack.title}</h1>
               {pack.description && <p style={{ margin: "12px 0 0", fontSize: 15, color: C.muted, lineHeight: 1.7 }}>{pack.description}</p>}
             </div>
 
@@ -175,7 +175,7 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
                         ? <Image src={p.image_url} alt={p.name} fill sizes="48px" style={{ objectFit: "cover" }} />
                         : <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", fontSize: 9, fontWeight: 900, color: "rgba(26,20,16,0.2)" }}>M!LK</div>}
                     </div>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: C.dark }}>{p.name}</div>
+                    <div translate="no" style={{ fontWeight: 800, fontSize: 14, color: C.dark }}>{p.name}</div>
                   </div>
                 ))}
               </div>

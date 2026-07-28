@@ -149,6 +149,7 @@ export default function ProductCardPremium({
               overflow: "hidden",
               minHeight: 36,
             }}
+            translate="no"
           >
             {product.name}
           </div>

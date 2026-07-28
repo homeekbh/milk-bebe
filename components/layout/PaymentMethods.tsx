@@ -10,6 +10,7 @@ function Badge({ label, children }: { label: string; children: React.ReactNode }
   return (
     <span
       role="img"
+      translate="no"
       aria-label={label}
       title={label}
       style={{
@@ -158,7 +159,7 @@ export default function PaymentMethods() {
           }}
         >
           <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <LockIcon /> Paiement chiffré SSL via Stripe
+            <LockIcon /> Paiement chiffré SSL via <span translate="no">Stripe</span>
           </span>
           <span style={{ opacity: 0.4 }}>•</span>
           <span>Données bancaires jamais stockées sur nos serveurs</span>

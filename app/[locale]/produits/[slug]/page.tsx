@@ -91,7 +91,7 @@ export default async function ProductPage(
         {productCat ? (categoryLabel || catLabel(productCat)) : "M!LK"} · {t("eyebrow_oeko")}
       </div>
 
-      <h1 style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>
+      <h1 translate="no" style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>
         {product.name}
       </h1>
 

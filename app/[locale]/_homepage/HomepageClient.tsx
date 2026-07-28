@@ -963,7 +963,7 @@ function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: 
         <div style={{ padding: "10px 18px 14px", flex: 1, display: "flex", flexDirection: "column" }}>
           {/* Pastille SOUS la photo, au-dessus du titre (Lot D) — composant partagé, 6 types + promo, i18n. */}
           <ProductBadge label={p.label} isPromo={promo} size="card" />
-          <div style={{ fontWeight: 900, fontSize: 15, color: P.dark, marginBottom: 3, lineHeight: 1.3, minHeight: 38 }}>{p.name}</div>
+          <div translate="no" style={{ fontWeight: 900, fontSize: 15, color: P.dark, marginBottom: 3, lineHeight: 1.3, minHeight: 38 }}>{p.name}</div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: "auto" }}>
             <span style={{ fontWeight: 950, fontSize: 18, color: promo ? "#dc2626" : P.dark }}>{Number(price).toFixed(2)} €</span>
             {promo && (

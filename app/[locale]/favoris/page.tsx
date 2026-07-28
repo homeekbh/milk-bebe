@@ -109,7 +109,7 @@ export default function FavorisPage() {
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)", textTransform: "capitalize", marginBottom: 4 }}>{p.category_slug}</div>
                       <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none" }}>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: DARK, lineHeight: 1.3 }}>{p.name}</div>
+                        <div translate="no" style={{ fontWeight: 800, fontSize: 15, color: DARK, lineHeight: 1.3 }}>{p.name}</div>
                       </Link>
                     </div>
 

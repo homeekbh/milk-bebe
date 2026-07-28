@@ -65,7 +65,7 @@ function ProductCard({ p, query }: { p: any; query: string }) {
           )}
         </div>
         <div style={{ padding: "16px 18px 20px" }}>
-          <div style={{ fontWeight: 900, fontSize: 16, color: "#f2ede6", marginBottom: 8 }}>
+          <div translate="no" style={{ fontWeight: 900, fontSize: 16, color: "#f2ede6", marginBottom: 8 }}>
             {highlightMatch(p.name, query)}
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>

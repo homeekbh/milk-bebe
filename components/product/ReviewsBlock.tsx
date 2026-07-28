@@ -169,7 +169,7 @@ export default function ReviewsBlock() {
                     borderLeft:   `3px solid ${C.amber}`,
                   }}>
                     <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: C.amber, marginBottom: 4 }}>
-                      Réponse M!LK
+                      Réponse <span translate="no">M!LK</span>
                     </div>
                     <p style={{ margin: 0, fontSize: 13, color: "rgba(26,20,16,0.7)", lineHeight: 1.55 }}>
                       {r.reply}

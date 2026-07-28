@@ -108,14 +108,14 @@ function ProductCard({ p }: { p: Product }) {
           )}
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
-              <span style={{ fontWeight: 950, fontSize: "clamp(15px,1.6vw,18px)", color: promo ? C.amber : C.dark }}>{Number(price).toFixed(2)} €</span>
-              {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(26,20,16,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
+              <span style={{ fontWeight: 950, fontSize: "clamp(15px,1.6vw,18px)", color: promo ? C.amber : C.dark, whiteSpace: "nowrap" }}>{Number(price).toFixed(2)} €</span>
+              {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(26,20,16,0.3)", whiteSpace: "nowrap" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
               {!outOfStock && (
                 <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
                   <div style={{ width: 6, height: 6, borderRadius: "50%", background: p.stock <= 5 ? "#f59e0b" : "#22c55e" }} />
-                  <span style={{ fontSize: 10, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>{p.stock <= 5 ? t("stock_left", { n: p.stock }) : t("in_stock")}</span>
+                  <span style={{ fontSize: 10, color: "rgba(26,20,16,0.4)", fontWeight: 600, whiteSpace: "nowrap" }}>{p.stock <= 5 ? t("stock_left", { n: p.stock }) : t("in_stock")}</span>
                 </div>
               )}
               <button
@@ -188,6 +188,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   const [showPacks,   setShowPacks]   = useState(false);
   const [packs,       setPacks]       = useState<Pack[]>([]);
   const [packsLoaded, setPacksLoaded] = useState(false);
+  const [showTools,   setShowTools]   = useState(false); // mobile : recherche + tri repliés derrière la loupe
 
   useEffect(() => {
     fetch("/api/settings/public").then(r=>r.json()).then((s:any)=>{
@@ -261,22 +262,42 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         .ess-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
         @media(max-width:1200px){ .pgrid{grid-template-columns:repeat(3,1fr)!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
         @media(max-width:900px) { .pgrid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
+
+        /* ── Lot A1 : compression verticale MOBILE (≤768px) — DESKTOP strictement inchangé ── */
+        .pg-tools-toggle { display:none; }
+        @media(max-width:768px){
+          .pg-content { padding-top:24px !important; }
+          .pg-head { margin-bottom:16px !important; }
+          .pg-head h1 { font-size:clamp(28px,7vw,36px) !important; line-height:1.05 !important; margin-bottom:6px !important; }
+          .pg-eyebrow { font-size:10px !important; letter-spacing:2px !important; margin-bottom:6px !important; }
+          .pg-head p { font-size:13px !important; line-height:1.45 !important; }
+          .pg-filters { gap:8px !important; margin-bottom:12px !important; flex-wrap:wrap !important; align-items:center !important; }
+          .pg-cats { flex:1 1 auto; min-width:0; flex-wrap:nowrap !important; overflow-x:auto; gap:8px !important; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
+          .pg-cats::-webkit-scrollbar { display:none; }
+          .pg-cats > * { flex:0 0 auto; }
+          .pg-cats button { min-height:44px !important; padding:0 14px !important; display:inline-flex !important; align-items:center !important; }
+          .pg-tools-toggle { display:flex !important; align-items:center; justify-content:center; }
+          .pg-tools { display:none !important; flex-basis:100% !important; width:100%; }
+          .pg-tools.pg-tools-open { display:flex !important; gap:8px !important; }
+          .pg-tools input, .pg-tools select { flex:1 1 auto; width:auto !important; font-size:16px !important; }
+          .pg-count { margin-bottom:8px !important; }
+        }
       `}</style>
 
       {/* Zone contenu avec padding */}
-      <div style={{ paddingTop: 100, paddingBottom: 0, padding: "100px 4vw 0" }}>
+      <div className="pg-content" style={{ paddingTop: 100, paddingBottom: 0, padding: "100px 4vw 0" }}>
 
         <Reveal>
-          <div style={{ marginBottom: 32 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>{t("eyebrow")}</div>
+          <div className="pg-head" style={{ marginBottom: 32 }}>
+            <div className="pg-eyebrow" style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>{t("eyebrow")}</div>
             <h1 style={{ margin: "0 0 10px", fontSize: "clamp(28px,5vw,52px)", fontWeight: 950, letterSpacing: -2, color: C.dark, lineHeight: 1 }}>{title}</h1>
             {subtitle && <p style={{ margin: 0, fontSize: "clamp(14px,1.5vw,16px)", color: "rgba(26,20,16,0.55)", lineHeight: 1.6 }}>{subtitle}</p>}
           </div>
         </Reveal>
 
-        {/* Filtres */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {/* Filtres : catégories (scroll horizontal mobile) + outils recherche/tri (repliés mobile derrière la loupe) */}
+        <div className="pg-filters" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
+          <div className="pg-cats" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {buildCategoriesFromProducts(products).map(cat => {
               const active = !showPacks && activeCategory === cat.slug;
               return (
@@ -291,7 +312,13 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
               🎁 {t("filter_packs")}
             </button>
           </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+          {/* Bouton loupe — MOBILE uniquement (déplie .pg-tools) ; masqué en desktop via .pg-tools-toggle{display:none} */}
+          <button className="pg-tools-toggle" onClick={() => setShowTools(v => !v)}
+            aria-label={t("tools_toggle")} aria-expanded={showTools}
+            style={{ width: 44, height: 44, borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", background: "rgba(26,20,16,0.06)", color: C.dark, cursor: "pointer", fontSize: 18, flexShrink: 0 }}>
+            🔍
+          </button>
+          <div className={`pg-tools${showTools ? " pg-tools-open" : ""}`} style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input type="search" value={search} onChange={e => changeSearch(e.target.value)} placeholder={t("search_placeholder")}
               style={{ padding: "9px 14px", borderRadius: 10, border: `1px solid rgba(26,20,16,0.15)`, background: "rgba(26,20,16,0.06)", color: C.dark, fontSize: 13, outline: "none", width: 160 }} />
             <select value={sortValue} onChange={e => changeSort(e.target.value)}
@@ -314,7 +341,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           )
         ) : (
         <>
-        <div style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600, marginBottom: 20 }}>
+        <div className="pg-count" style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", fontWeight: 600, marginBottom: 20 }}>
           <span style={{ color: C.amber, fontWeight: 900 }}>{filtered.length}</span>{" "}{t("products_count", { count: filtered.length })}
         </div>
 

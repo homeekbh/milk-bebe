@@ -62,7 +62,7 @@ function extractError(json: any, fallback: string): string {
  * Sendcloud renomme/désactive un code sur le contrat.
  */
 const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
-  // FRANCE UNIQUEMENT (domestique). L'international passe par FedEx (FEDEX_INTL_TIERS).
+  // FRANCE UNIQUEMENT (domestique). L'international passe par FedEx (FEDEX_INTL_CODE).
   colissimo: {
     point_relais: "colissimo:post-office",
     home:         "colissimo:home/fr",
@@ -74,33 +74,18 @@ const SENDCLOUD_OPTION_CODES: Record<string, Record<string, string>> = {
   },
 };
 
-// INTERNATIONAL (hors FR) = FedEx International Connect, livraison à DOMICILE, code
-// choisi selon le POIDS RÉEL de la commande. Tranches confirmées par export Sendcloud
-// (0 → 10,5 kg par pas de 0,5). ORDRE CROISSANT OBLIGATOIRE : find() prend la 1ʳᵉ
-// tranche dont maxKg ≥ poids. Au-delà de 10,5 kg : aucune tranche → 400 explicite.
-const FEDEX_INTL_TIERS: { maxKg: number; code: string }[] = [
-  { maxKg: 0.5,  code: "fedex:internationalconnect/kg=0-0.5"  },
-  { maxKg: 1.0,  code: "fedex:internationalconnect/kg=0.5-1"  },
-  { maxKg: 1.5,  code: "fedex:internationalconnect/kg=1-1.5"  },
-  { maxKg: 2.0,  code: "fedex:internationalconnect/kg=1.5-2"  },
-  { maxKg: 2.5,  code: "fedex:internationalconnect/kg=2-2.5"  },
-  { maxKg: 3.0,  code: "fedex:internationalconnect/kg=2.5-3"  },
-  { maxKg: 3.5,  code: "fedex:internationalconnect/kg=3-3.5"  },
-  { maxKg: 4.0,  code: "fedex:internationalconnect/kg=3.5-4"  },
-  { maxKg: 4.5,  code: "fedex:internationalconnect/kg=4-4.5"  },
-  { maxKg: 5.0,  code: "fedex:internationalconnect/kg=4.5-5"  },
-  { maxKg: 5.5,  code: "fedex:internationalconnect/kg=5-5.5"  },
-  { maxKg: 6.0,  code: "fedex:internationalconnect/kg=5.5-6"  },
-  { maxKg: 6.5,  code: "fedex:internationalconnect/kg=6-6.5"  },
-  { maxKg: 7.0,  code: "fedex:internationalconnect/kg=6.5-7"  },
-  { maxKg: 7.5,  code: "fedex:internationalconnect/kg=7-7.5"  },
-  { maxKg: 8.0,  code: "fedex:internationalconnect/kg=7.5-8"  },
-  { maxKg: 8.5,  code: "fedex:internationalconnect/kg=8-8.5"  },
-  { maxKg: 9.0,  code: "fedex:internationalconnect/kg=8.5-9"  },
-  { maxKg: 9.5,  code: "fedex:internationalconnect/kg=9-9.5"  },
-  { maxKg: 10.0, code: "fedex:internationalconnect/kg=9.5-10" },
-  { maxKg: 10.5, code: "fedex:internationalconnect/kg=10-10.5" },
-];
+// INTERNATIONAL (hors FR) = FedEx International Connect, livraison à DOMICILE.
+// v3 : le shipping_option_code est NU — le suffixe "/kg=X-Y" du format v2 a DISPARU.
+// fetch-shipping-options renvoie désormais "fedex:internationalconnect" quelle que soit
+// la tranche ; c'est Sendcloud qui applique la tarification par poids AUTOMATIQUEMENT,
+// d'après parcels[].weight envoyé à l'announce (aucune tranche à encoder dans le code).
+// ⚠️ ÉGALITÉ STRICTE obligatoire à la sélection : "fedex:internationalconnect/age_check=18"
+//    (signature adulte, PLUS CHÈRE) existe aussi sur le compte — un match par PRÉFIXE la
+//    choisirait. On ne matche QUE le code nu, à l'identique.
+// Poids : au-delà de FEDEX_INTL_MAX_KG, aucune tranche couverte sur ce compte → refus
+// explicite AVANT l'announce (message dédié). FedEx reste le SEUL transporteur international.
+const FEDEX_INTL_CODE   = "fedex:internationalconnect";
+const FEDEX_INTL_MAX_KG = 1.0;
 
 // Codes qui n'acceptent PAS to_service_point dans le body announce.
 // Vide pour l'instant : "colissimo:post-office" exige bien
@@ -119,13 +104,13 @@ function pickShippingOption(
   const carrierKey = carrier.toLowerCase().includes("mondial") ? "mondial_relay" : "colissimo";
 
   // INTERNATIONAL : FedEx International Connect à domicile (pas de relais hors FR),
-  // indépendamment du delivery_type (null pour ces commandes). Le code dépend de la
-  // TRANCHE DE POIDS de la commande (cf. FEDEX_INTL_TIERS). Au-delà de la dernière
-  // tranche → pas de code (400 explicite en amont).
+  // indépendamment du delivery_type (null pour ces commandes). Le code v3 est UNIQUE
+  // (FEDEX_INTL_CODE) ; le poids ne sert plus qu'à REJETER les colis trop lourds (au-delà
+  // de FEDEX_INTL_MAX_KG → pas de code → 400 explicite en amont, message dédié).
   if (isInternational) {
-    const tier = FEDEX_INTL_TIERS.find(t => weightKg <= t.maxKg);
-    const expectedCode = tier?.code ?? null;
-    if (!expectedCode) return { selected: null, expectedCode: null };
+    if (weightKg > FEDEX_INTL_MAX_KG) return { selected: null, expectedCode: null };
+    const expectedCode = FEDEX_INTL_CODE;
+    // ÉGALITÉ STRICTE (===) : exclut "fedex:internationalconnect/age_check=18" (plus chère).
     const found = Array.isArray(options)
       ? options.find(o => (o?.code ?? o?.shipping_option_code) === expectedCode)
       : null;
@@ -297,8 +282,8 @@ export async function POST(req: NextRequest) {
     //     (colissimo:post-office en tranche 0-0.25 kg sur ce compte).
     // Point 3 — total_weight_g n'a PLUS de DEFAULT 500 en base (cf. migration 022) → une absence
     // d'écriture se voit (NULL) au lieu d'être masquée par 500 g (poids sous-déclaré à FedEx en
-    // silence). À l'INTERNATIONAL, le poids détermine la tranche FedEx (FEDEX_INTL_TIERS) → un poids
-    // inconnu = tranche/prix faux → on REFUSE plutôt que d'utiliser un défaut silencieux. FR : défaut
+    // silence). À l'INTERNATIONAL, le poids détermine le prix FedEx (et la limite FEDEX_INTL_MAX_KG) →
+    // un poids inconnu = prix faux / dépassement non vu → on REFUSE plutôt qu'un défaut silencieux. FR : défaut
     // 0.250 toléré (fetch = 0.250 hardcodé, tranches domestiques larges).
     if (isInternational && (order.total_weight_g == null || Number(order.total_weight_g) <= 0)) {
       return Response.json({
@@ -485,7 +470,7 @@ export async function POST(req: NextRequest) {
     if (!selected || !expectedCode) {
       return Response.json({
         error: isInternational
-          ? `Poids ${weightKg.toFixed(3)} kg — supérieur à la tranche FedEx max (${FEDEX_INTL_TIERS[FEDEX_INTL_TIERS.length - 1].maxKg} kg). Tranche FedEx à activer dans Sendcloud, puis ajouter son code dans FEDEX_INTL_TIERS. Étiquette impossible pour l'instant.`
+          ? `Poids ${weightKg.toFixed(3)} kg — supérieur au maximum FedEx International Connect (${FEDEX_INTL_MAX_KG} kg) couvert sur ce compte. Étiquette impossible pour l'instant.`
           : `Aucun shipping_option_code configuré pour ${effectiveCarrier}/${deliveryType}. Ajoute SENDCLOUD_OPTION_CODE_${effectiveCarrier.toUpperCase()}_${String(deliveryType).toUpperCase()} dans les env vars Vercel, ou complète SENDCLOUD_OPTION_CODES dans le code.`,
         available_codes: allCodes,
       }, { status: 400 });

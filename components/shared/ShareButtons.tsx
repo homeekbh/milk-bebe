@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 /* Boutons "Copier le lien" + "Partager" avec toast interne. Réutilisable
-   (fiche produit, pack). Copie l'URL courante. */
+   (fiche produit, pack). Copie l'URL courante. Libellés i18n (namespace "share"). */
 export default function ShareButtons({ title = "M!LK" }: { title?: string }) {
+  const t = useTranslations("share");
   const [copied, setCopied] = useState(false);
 
   function copy() {
@@ -29,8 +31,8 @@ export default function ShareButtons({ title = "M!LK" }: { title?: string }) {
 
   return (
     <div style={{ display: "flex", gap: 8 }}>
-      <button onClick={copy} style={btn}>{copied ? "✓ Lien copié !" : "📋 Copier le lien"}</button>
-      <button onClick={share} style={btn}>Partager</button>
+      <button onClick={copy} style={btn}>{copied ? `✓ ${t("copied")}` : `📋 ${t("copy_link")}`}</button>
+      <button onClick={share} style={btn}>{t("share")}</button>
     </div>
   );
 }

@@ -1,4 +1,9 @@
 {
+  "share": {
+    "copy_link": "Copy link",
+    "copied": "Link copied!",
+    "share": "Share"
+  },
   "nav": {
     "collection": "Our collection",
     "about": "About us",
@@ -219,6 +224,13 @@
     "care_item2": "No fabric softener",
     "care_item3": "Air drying recommended",
     "care_item4": "Keeps its shape and gets softer wash after wash",
+    "picto_bambou": "95%\nBamboo",
+    "picto_antibacterien": "Anti-\nbacterial",
+    "picto_thermo": "Thermo-\nregulating",
+    "picto_hypoallergenique": "Hypo-\nallergenic",
+    "picto_respirant": "Ultra\nBreathable",
+    "picto_doux": "Ultra\nSoft",
+    "picto_extensible": "Super\nStretchy",
     "philo_eyebrow": "M!LK philosophy",
     "philo_sub": "How it lightens your mental load",
     "faq_title": "Frequently asked questions",

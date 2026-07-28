@@ -1,4 +1,9 @@
 {
+  "share": {
+    "copy_link": "Copier le lien",
+    "copied": "Lien copié !",
+    "share": "Partager"
+  },
   "nav": {
     "collection": "Notre collection",
     "about": "Qui sommes-nous",
@@ -219,6 +224,13 @@
     "care_item2": "Sans adoucissant",
     "care_item3": "Séchage à l'air libre recommandé",
     "care_item4": "Conserve sa forme et devient plus doux lavage après lavage",
+    "picto_bambou": "95%\nBambou",
+    "picto_antibacterien": "Anti-\nbactérien",
+    "picto_thermo": "Thermo-\nrégulateur",
+    "picto_hypoallergenique": "Hypo-\nallergénique",
+    "picto_respirant": "Ultra\nRespirant",
+    "picto_doux": "Ultra\nDoux",
+    "picto_extensible": "Super\nExtensible",
     "philo_eyebrow": "Philosophie M!LK",
     "philo_sub": "Comment ça réduit ta charge mentale",
     "faq_title": "Questions fréquentes",

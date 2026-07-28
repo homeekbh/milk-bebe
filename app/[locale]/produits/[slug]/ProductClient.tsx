@@ -215,16 +215,19 @@ const IconSize        = () => <svg width="13" height="13" viewBox="0 0 24 24" fi
 
 // ── 7 icônes exactes de la capture — une seule ligne, toutes visibles ──
 function IconBandeau() {
+  const t = useTranslations("product");
   // Filtre CSS pour convertir le noir (#000) des SVG en marron foncé (#2d1a0e)
   const svgFilter = "brightness(0) saturate(100%) invert(10%) sepia(40%) saturate(700%) hue-rotate(340deg) brightness(55%)";
+  // Libellés i18n (clés picto_*). Le \n est significatif : whiteSpace:pre-line → 2 lignes.
+  // Les .svg NE changent PAS ; seul le texte est traduit. alt suit via .replace("\n"," ").
   const items = [
-    { src: "/icons/01_bambou.svg",          label: "95%\nBambou"            },
-    { src: "/icons/02_anti_bacterien.svg",  label: "Anti-\nbactérien"       },
-    { src: "/icons/04_thermoregulation.svg",label: "Thermo-\nrégulateur"    },
-    { src: "/icons/05_goutte_validation.svg",label: "Hypo-\nallergénique"   },
-    { src: "/icons/06_respiration_air.svg", label: "Ultra\nRespirant"        },
-    { src: "/icons/07_plume_douceur.svg",   label: "Ultra\nDoux"            },
-    { src: "/icons/super_extensible.svg",   label: "Super\nExtensible"      },
+    { src: "/icons/01_bambou.svg",          label: t("picto_bambou")          },
+    { src: "/icons/02_anti_bacterien.svg",  label: t("picto_antibacterien")   },
+    { src: "/icons/04_thermoregulation.svg",label: t("picto_thermo")          },
+    { src: "/icons/05_goutte_validation.svg",label: t("picto_hypoallergenique") },
+    { src: "/icons/06_respiration_air.svg", label: t("picto_respirant")       },
+    { src: "/icons/07_plume_douceur.svg",   label: t("picto_doux")            },
+    { src: "/icons/super_extensible.svg",   label: t("picto_extensible")      },
   ];
   return (
     <div style={{ marginTop: 14, background: TAUPE, borderRadius: 14, padding: "16px 12px" }}>
@@ -1022,6 +1025,21 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
           <div style={{ padding: "18px 20px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)` }}>
             <h3 style={{ margin: "0 0 14px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: DARK }}>{t("care_title")}</h3>
+            {/* Composition (95% viscose de bambou · 5% élasthanne) — 1ʳᵉ ligne, pleine largeur,
+                icône feuille. Texte = care_default[0] (source unique i18n, fr+en). Les 4 conseils
+                ci-dessous gardent leurs icônes. Ce bloc est le rendu RÉEL (la variable `entretien`
+                et getProductEntretien ne sont pas consommées ici). */}
+            {(() => {
+              const compo = (t.raw("care_default") as string[])?.[0];
+              return compo ? (
+                <div style={{ display: "flex", gap: 8, alignItems: "flex-start", marginBottom: 10 }}>
+                  <div style={{ flexShrink: 0, marginTop: 2 }}>
+                    <svg viewBox="0 0 24 24" fill="none" width={28} height={28}><path d="M12 22C12 22 4 16 4 9a8 8 0 0 1 16 0c0 7-8 13-8 13z" stroke={AMBER} strokeWidth="1.6"/><path d="M12 22V9" stroke={AMBER} strokeWidth="1.6"/></svg>
+                  </div>
+                  <span style={{ fontSize: "clamp(11px,1vw,12px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.4, fontWeight: 600 }}>{compo}</span>
+                </div>
+              ) : null;
+            })()}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
               {[
                 { svg: <svg viewBox="0 0 32 32" fill="none" width={28} height={28}><circle cx="16" cy="16" r="12" stroke={AMBER} strokeWidth="1.6"/><text x="16" y="20" textAnchor="middle" fontSize="9" fontWeight="700" fill={AMBER}>30°</text></svg>, text: t("care_item1") },

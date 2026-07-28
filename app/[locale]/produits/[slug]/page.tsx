@@ -8,6 +8,8 @@ import { supabaseServer } from "@/lib/server/supabase";
 import ProductClient from "./ProductClient";
 import { computeDeliveryEstimate } from "@/lib/delivery-estimate";
 import { getCategoryLabel, getSubcategoryLabel } from "@/lib/category-labels-server";
+import ProductBadge from "@/components/product/ProductBadge";
+import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
 
 export const revalidate = 900;
 
@@ -79,6 +81,12 @@ export default async function ProductPage(
   // Header SSR — reproduit À L'IDENTIQUE l'ancien bloc eyebrow + <h1> + prix.
   const header = (
     <>
+      {/* Pastille produit (Lot D, option D2) — SSR, sur sa propre ligne JUSTE avant l'eyebrow.
+          Label = product.label, ou "promo" si la promo est active (ProductBadge priorise promo).
+          Composant partagé (catalogue/homepage/fiche). <style> = animation (display:none, hors flux). */}
+      <style>{BADGE_KEYFRAMES}</style>
+      <ProductBadge label={product.label} isPromo={promo} size="detail" />
+
       <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2.5, textTransform: "uppercase", color: AMBER }}>
         {productCat ? (categoryLabel || catLabel(productCat)) : "M!LK"} · {t("eyebrow_oeko")}
       </div>

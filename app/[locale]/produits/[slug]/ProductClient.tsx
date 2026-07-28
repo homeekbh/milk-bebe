@@ -113,25 +113,6 @@ function getProductFAQ(t: TFn, category: string, slug: string): { q: string; r: 
   return withComposition(t, base);
 }
 
-function getProductEntretien(t: TFn, slug: string) {
-  if (slug.includes("bonnet")) {
-    const txt = t.raw("care_bonnet") as string[];
-    return [
-      { Icon: IconBan,  text: txt[0] },
-      { Icon: IconFlat, text: txt[1] },
-      { Icon: IconHeat, text: txt[2] },
-    ];
-  }
-  const txt = t.raw("care_default") as string[];
-  return [
-    { Icon: IconLeaf,        text: txt[0] }, // composition (prépendée dans care_default) — icône feuille existante
-    { Icon: IconThermometer, text: txt[1] },
-    { Icon: IconBan,         text: txt[2] },
-    { Icon: IconFlat,        text: txt[3] },
-    { Icon: IconHeat,        text: txt[4] },
-  ];
-}
-
 function PhilosophyCard({ text }: { text: string }) {
   const t = useTranslations("product");
   // Normalise les sauts de ligne : \\n\\n (depuis admin) → \n\n réel
@@ -252,23 +233,6 @@ function IconBandeau() {
     </div>
   );
 }
-function DiagonalBadge({ label, out }: { label?: string; out: boolean }) {
-  const t = useTranslations("product");
-  if (out) return (
-    <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 30, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 26, right: -30, background: "#6b7280", color: "#fff", fontSize: 11, fontWeight: 900, padding: "8px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{t("badge_sold_out")}</div>
-    </div>
-  );
-  const cfg: Record<string,string> = { nouveau:t("badge_nouveau"), bestseller:t("badge_bestseller"), exclusif:t("badge_exclusif"), last:t("badge_last"), promo:t("badge_promo"), coup_de_coeur:t("badge_coup") };
-  const text = label ? cfg[label] : null;
-  if (!text) return null;
-  return (
-    <div style={{ position: "absolute", top: 0, right: 0, width: 120, height: 120, overflow: "hidden", zIndex: 30, pointerEvents: "none" }}>
-      <div style={{ position: "absolute", top: 28, right: -34, background: AMBER, color: DARK, fontSize: 11, fontWeight: 900, padding: "9px 48px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>{text}</div>
-    </div>
-  );
-}
-
 function Lightbox({ images, startIndex, onClose }: { images: string[]; startIndex: number; onClose: () => void }) {
   const t = useTranslations("product");
   const containerRef = useRef<HTMLDivElement>(null);
@@ -528,7 +492,6 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const displayStock   = selectedMotif ? motifTotal(selectedMotif) : Number(product.stock ?? 0);
   const out            = displayStock <= 0;
   const lowStock       = !out && displayStock <= 5;
-  const badgeLabel     = out ? undefined : (product.label || (promo ? "promo" : undefined));
   // Rupture de la combinaison motif × taille EXACTE choisie (miroir de la validation R-MOTIF).
   const outTaille      = effectiveTaille ? stockForSize(effectiveTaille) <= 0 : out;
   // Motif choisi entièrement épuisé (toutes tailles à 0) → message dédié « toutes les tailles ».
@@ -581,7 +544,6 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   const features      = useCustom ? (() => { try { return JSON.parse(customCards.find((c: any) => c.type === "features")?.content ?? "[]"); } catch { return []; } })() : (() => { const auto = getProductFeatures(t, productCat, productSlug); if (auto.length) return auto; const net = frNet("features"); if (net) { try { return JSON.parse(net); } catch { return []; } } return []; })();
   const whyResult     = useCustom ? (() => { try { const wr = JSON.parse(customCards.find((c: any) => c.type === "whyresult")?.content ?? "null"); return wr?.why ? wr : null; } catch { return null; } })() : (getWhyResult(t, productCat, productSlug) ?? (() => { const net = frNet("whyresult"); if (!net) return null; try { const wr = JSON.parse(net); return wr?.why ? wr : null; } catch { return null; } })());
   const philosophy    = useCustom ? (customCards.find((c: any) => c.type === "philosophy")?.content ?? "") : (getPhilosophy(t, productCat, productSlug) || frNet("philosophy"));
-  const entretien     = useCustom ? (() => { try { const arr = JSON.parse(customCards.find((c: any) => c.type === "entretien")?.content ?? "null"); if (!Array.isArray(arr)) return getProductEntretien(t, productSlug); const compo = (t.raw("care_default") as string[])?.[0]; const list: string[] = (typeof compo === "string" && compo.trim().startsWith("Composition") && !arr.some((x: any) => typeof x === "string" && x.trim().startsWith("Composition"))) ? [compo, ...arr] : arr; const hasCompo = list.length > 0 && String(list[0]).trim().startsWith("Composition"); const careIcons = [IconThermometer, IconBan, IconFlat, IconHeat]; return list.map((text: string, i: number) => (hasCompo && i === 0) ? { Icon: IconLeaf, text } : { Icon: careIcons[(hasCompo ? i - 1 : i) % 4], text }); } catch { return getProductEntretien(t, productSlug); } })() : getProductEntretien(t, productSlug);
   const FAQ           = useCustomFaq ? withComposition(t, customFaqs.map((f: any) => ({ q: f.question, r: f.reponse }))) : getProductFAQ(t, productCat, productSlug);
 
   const photoRows: string[][] = [];
@@ -674,7 +636,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
         {/* ─── GAUCHE : photos ─── */}
         <div className="pl-left" ref={leftColRef}>
           <div style={{ position: "relative" }}>
-            <DiagonalBadge label={badgeLabel} out={out} />
+            {/* Badge diagonal SUPPRIMÉ (Lot D) — la pastille est désormais rendue en SSR dans
+                page.tsx, au-dessus de l'eyebrow (option D2). Plus rien posé sur la photo. */}
             {photoRows.map((row, ri) => (
               <div key={ri} className="photo-row">
                 {row.map((img, ci) => {
@@ -847,7 +810,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                       {GUIDE_TAILLES.map((row, i) => (
                         <tr key={row.taille} style={{ borderTop: "1px solid rgba(26,20,16,0.06)", background: i % 2 === 0 ? "transparent" : "rgba(26,20,16,0.03)" }}>
                           <td style={{ padding: "9px 10px", fontWeight: 900, color: AMBER, fontSize: 13, textAlign: "left" }}>{getSizeLabel(row.taille, locale)}</td>
-                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 12, textAlign: "center" }}>{row.poids}</td>
+                          {/* D7 — virgule décimale FR → point sur /en (cosmétique). "2,5 – 4 kg" → "2.5 – 4 kg". */}
+                          <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 12, textAlign: "center" }}>{locale === "en" ? row.poids.replace(",", ".") : row.poids}</td>
                           <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.poitrine}</td>
                           <td style={{ padding: "9px 10px", color: "rgba(26,20,16,0.55)", fontSize: 13, fontWeight: 700, textAlign: "center" }}>{row.longueur}</td>
                         </tr>
@@ -1025,10 +989,8 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
 
           <div style={{ padding: "18px 20px", borderRadius: 16, background: "rgba(26,20,16,0.06)", border: `1px solid rgba(26,20,16,0.1)` }}>
             <h3 style={{ margin: "0 0 14px", fontSize: "clamp(13px,1.2vw,15px)", fontWeight: 950, color: DARK }}>{t("care_title")}</h3>
-            {/* Composition (95% viscose de bambou · 5% élasthanne) — 1ʳᵉ ligne, pleine largeur,
-                icône feuille. Texte = care_default[0] (source unique i18n, fr+en). Les 4 conseils
-                ci-dessous gardent leurs icônes. Ce bloc est le rendu RÉEL (la variable `entretien`
-                et getProductEntretien ne sont pas consommées ici). */}
+            {/* Composition (95% viscose de bambou · 5% élasthanne) — 1ʳᵉ ligne, icône feuille.
+                Texte = care_default[0] (source unique i18n, fr+en). Les 4 conseils gardent leurs icônes. */}
             {(() => {
               const compo = (t.raw("care_default") as string[])?.[0];
               return compo ? (

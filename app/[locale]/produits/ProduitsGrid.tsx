@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useState, useMemo, useEffect, type CSSProperties } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
@@ -10,6 +10,8 @@ import { useWishlist } from "@/context/WishlistContext";
 import ReviewsBlock from "@/components/product/ReviewsBlock";
 import PackCard, { type Pack } from "@/components/packs/PackCard";
 import { isPromoActive } from "@/lib/promo";
+import ProductBadge from "@/components/product/ProductBadge";
+import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
 
 const PROMO_STYLES = `
   @keyframes milk-promo-shake {
@@ -37,27 +39,6 @@ type Product = {
   // client (new Date()) qui divergeait du HTML SSR/ISR. `isPromoActive` reste un fallback.
   __promo?: boolean;
 };
-// Pastille produit (Lot B) — remplace l'ancienne bande diagonale. Coin HAUT-GAUCHE.
-// pointerEvents:none → le clic traverse vers le <Link> de la carte. La rupture de
-// stock reste gérée par l'overlay sombre (inchangé) → pas de pastille dans ce cas.
-// 2 traitements : promo (chocolat/ambre, cohérent avec le bandeau) et labels
-// standards (ambre/brun). Libellés = clés i18n badge_* (aucun texte inventé).
-function ProductPill({ label, isPromo }: { label?: string; isPromo?: boolean }) {
-  const t = useTranslations("catalog");
-  const base: CSSProperties = {
-    position: "absolute", top: 8, left: 8, zIndex: 20,
-    borderRadius: 999, padding: "4px 10px", fontSize: 11, fontWeight: 800,
-    letterSpacing: 0.5, whiteSpace: "nowrap", pointerEvents: "none",
-  };
-  if (isPromo) {
-    return <div className="pcard-badge" style={{ ...base, background: "#1A1410", color: "#F5B841" }}>{t("badge_promo")}</div>;
-  }
-  const cfg: Record<string, string> = { nouveau: t("badge_nouveau"), bestseller: t("badge_bestseller"), exclusif: t("badge_exclusif"), last: t("badge_last"), bientot: t("badge_bientot"), coup_de_coeur: t("badge_coup") };
-  const text = label ? cfg[label] : null;
-  if (!text) return null;
-  return <div className="pcard-badge" style={{ ...base, background: "#F5B841", color: "#412402" }}>{text}</div>;
-}
-
 function ProductCard({ p }: { p: Product }) {
   const t          = useTranslations("catalog");
   const locale     = useLocale();
@@ -73,14 +54,14 @@ function ProductCard({ p }: { p: Product }) {
   const inWish = isInList(p.id);
 
   return (
-    <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
+    <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none", color: "inherit", display: "block", height: "100%" }}>
       <div className={`pcard-grid${promo ? " pcard-promo" : ""}`}
         style={{ position: "relative", borderRadius: 18, overflow: "hidden", background: C.taupe,
-          border: promo ? "2px solid rgba(220,38,38,0.35)" : `1.5px solid rgba(26,20,16,0.1)`,
+          display: "flex", flexDirection: "column", height: "100%",
+          border: promo ? "2px solid rgba(245,184,65,0.45)" : `1.5px solid rgba(26,20,16,0.1)`,
           transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer",
-          boxShadow: promo ? "0 4px 20px rgba(220,38,38,0.15)" : "0 4px 16px rgba(0,0,0,0.1)",
+          boxShadow: promo ? "0 4px 20px rgba(245,184,65,0.20)" : "0 4px 16px rgba(0,0,0,0.1)",
           transform: "translateY(-2px)" }}>
-        {!outOfStock && <ProductPill label={p.label} isPromo={promo} />}
         <div style={{ position: "relative", aspectRatio: "3/4", background: C.light, overflow: "hidden" }}>
           {p.image_url ? (
             <Image src={p.image_url} alt={p.name} fill sizes="(max-width:640px) 50vw, 25vw"
@@ -99,12 +80,15 @@ function ProductCard({ p }: { p: Product }) {
             </div>
           )}
         </div>
-        <div style={{ padding: "12px 14px 16px" }}>
-          <div style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,15px)", color: C.dark, marginBottom: 4, lineHeight: 1.3 }}>{p.name}</div>
+        <div style={{ padding: "8px 14px 12px", flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* Pastille SOUS la photo, sur sa propre ligne, au-dessus du titre (Lot D). Jamais sur l'image.
+              Rupture de stock → pas de pastille (overlay sombre inchangé). */}
+          {!outOfStock && <ProductBadge label={p.label} isPromo={promo} size="card" />}
+          <div style={{ fontWeight: 900, fontSize: "clamp(13px,1.3vw,15px)", color: C.dark, marginBottom: 2, lineHeight: 1.3 }}>{p.name}</div>
           {cardDesc && (
-            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginBottom: 6, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cardDesc}</div>
+            <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginBottom: 4, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 1, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cardDesc}</div>
           )}
-          <div className="pcard-meta" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="pcard-meta" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span style={{ fontWeight: 950, fontSize: "clamp(15px,1.6vw,18px)", color: promo ? C.amber : C.dark, whiteSpace: "nowrap" }}>{Number(price).toFixed(2)} €</span>
               {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(26,20,16,0.3)", whiteSpace: "nowrap" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
@@ -257,11 +241,11 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         .pcard-grid:hover { transform:translateY(-5px)!important; box-shadow:0 20px 40px rgba(0,0,0,0.18)!important; border-color:${C.amber}!important; }
         .pcard-grid:hover .pcard-grid-img { transform:scale(1.05)!important; }
 
-        /* Pastille produit (Lot B) — « respiration » douce ; N'ANIME QUE transform (perf webview IG/FB). */
-        @keyframes milk-badge-breathe { 0%,100% { transform:scale(1); } 50% { transform:scale(1.05); } }
-        .pcard-badge { animation: milk-badge-breathe 2.8s ease-in-out infinite; will-change: transform; }
-        .pcard-promo .pcard-badge { animation: none !important; } /* carte promo déjà animée (shake) → pas de double */
-        @media (prefers-reduced-motion: reduce) { .pcard-badge { animation: none !important; } }
+        /* Pastille produit (Lot D) — composant partagé ProductBadge, classe .milk-badge.
+           Animation « respiration » définie une seule fois via BADGE_KEYFRAMES (source unique). */
+        ${BADGE_KEYFRAMES}
+        /* Carte promo déjà animée (shake) → on coupe la respiration de sa pastille (pas de double mouvement). */
+        .pcard-promo .milk-badge { animation: none !important; }
 
         .pgrid    { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
         .ess-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }

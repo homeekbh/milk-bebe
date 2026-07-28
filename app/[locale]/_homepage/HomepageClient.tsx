@@ -11,6 +11,8 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
+import ProductBadge from "@/components/product/ProductBadge";
+import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
 
 /* ──────────────────────────────────────────────────────────────────────────
    Palette beige texturée (plus de fond marron foncé en bloc).
@@ -868,7 +870,6 @@ function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: 
   const cardRef = useRef<HTMLDivElement>(null);
   const promo = isPromo(p);
   const price = promo ? p.promo_price : p.price_ttc;
-  const badge = p.label === "bestseller" ? "Best seller" : p.label === "nouveau" ? "Nouveau" : null;
 
   // Tilt désactivé en tactile (CSS @media hover:none ne suffit pas pour listener)
   useEffect(() => {
@@ -913,6 +914,7 @@ function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: 
       style={{
         textDecoration: "none",
         display:        "block",
+        height:         "100%",
         perspective:    "1200px",
         opacity:        visible ? 1 : 0,
         transform:      `translateX(${dx}) rotateY(${ry}) scale(${visible ? 1 : 0.96})`,
@@ -931,25 +933,13 @@ function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: 
           boxShadow:       "0 6px 22px rgba(26,20,16,0.08)",
           transformStyle:  "preserve-3d",
           transition:      "transform 0.25s cubic-bezier(0.22,1,0.36,1), box-shadow 0.3s, border-color 0.3s",
+          height:          "100%",
+          display:         "flex",
+          flexDirection:   "column",
         }}
       >
-        {/* Coin badge */}
-        {badge && (
-          <div style={{ position: "absolute", top: 0, right: 0, width: 100, height: 100, overflow: "hidden", zIndex: 4, pointerEvents: "none" }}>
-            <div style={{ position: "absolute", top: 20, right: -30, background: P.amber, color: P.dark, fontSize: 10, fontWeight: 900, padding: "6px 38px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap" }}>
-              {badge}
-            </div>
-          </div>
-        )}
-
-        {/* Coin PROMO rouge */}
-        {promo && (
-          <div style={{ position: "absolute", top: 0, right: 0, width: 110, height: 110, overflow: "hidden", zIndex: 4, pointerEvents: "none" }}>
-            <div style={{ position: "absolute", top: 22, right: -32, background: "#dc2626", color: "#fff", fontSize: 10, fontWeight: 900, padding: "7px 44px", transform: "rotate(45deg)", textTransform: "uppercase", whiteSpace: "nowrap", boxShadow: "0 2px 6px rgba(220,38,38,0.45)" }}>
-              PROMO
-            </div>
-          </div>
-        )}
+        {/* Badges diagonaux SUPPRIMÉS (Lot D) — la pastille passe sous la photo (voir plus bas),
+            via le composant partagé ProductBadge. Plus rien posé sur l'image. */}
 
         {/* Image */}
         <div className="milk-pcard-img-wrap" style={{ position: "relative", aspectRatio: "1/1", overflow: "hidden", background: P.warm }}>
@@ -970,9 +960,11 @@ function ProductCard3D({ p, index, visible }: { p: any; index: number; visible: 
         </div>
 
         {/* Texte */}
-        <div style={{ padding: "16px 18px 20px" }}>
-          <div style={{ fontWeight: 900, fontSize: 15, color: P.dark, marginBottom: 6, lineHeight: 1.3, minHeight: 38 }}>{p.name}</div>
-          <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
+        <div style={{ padding: "10px 18px 14px", flex: 1, display: "flex", flexDirection: "column" }}>
+          {/* Pastille SOUS la photo, au-dessus du titre (Lot D) — composant partagé, 6 types + promo, i18n. */}
+          <ProductBadge label={p.label} isPromo={promo} size="card" />
+          <div style={{ fontWeight: 900, fontSize: 15, color: P.dark, marginBottom: 3, lineHeight: 1.3, minHeight: 38 }}>{p.name}</div>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: "auto" }}>
             <span style={{ fontWeight: 950, fontSize: 18, color: promo ? "#dc2626" : P.dark }}>{Number(price).toFixed(2)} €</span>
             {promo && (
               <span style={{ fontSize: 12, textDecoration: "line-through", color: P.mutedFaint }}>
@@ -1037,6 +1029,8 @@ function ProductsSection({ products, lbl }: { products: any[]; lbl: string }) {
           </Link>
         </div>
 
+        {/* Animation « respiration » de la pastille — injectée une fois pour la grille (source unique). */}
+        <style>{BADGE_KEYFRAMES}</style>
         <div
           className="milk-pgrid"
           style={{
@@ -1061,6 +1055,7 @@ function ProductsSection({ products, lbl }: { products: any[]; lbl: string }) {
               <div
                 key={prod.id}
                 style={{
+                  height:       "100%",
                   transform:    `perspective(1800px) translate3d(${tx}px, ${ty}px, 0) rotate(${rot}deg) scale(${scl})`,
                   opacity:      visible ? 1 : 0,
                   transition:   visible ? undefined : "opacity 0.5s ease",

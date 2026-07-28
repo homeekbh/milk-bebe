@@ -106,7 +106,7 @@ function ProductCard({ p }: { p: Product }) {
           {cardDesc && (
             <div style={{ fontSize: 11, color: "rgba(26,20,16,0.5)", marginBottom: 6, lineHeight: 1.4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{cardDesc}</div>
           )}
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div className="pcard-meta" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span style={{ fontWeight: 950, fontSize: "clamp(15px,1.6vw,18px)", color: promo ? C.amber : C.dark, whiteSpace: "nowrap" }}>{Number(price).toFixed(2)} €</span>
               {promo && <span style={{ fontSize: 12, textDecoration: "line-through", color: "rgba(26,20,16,0.3)", whiteSpace: "nowrap" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
@@ -263,24 +263,30 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         @media(max-width:1200px){ .pgrid{grid-template-columns:repeat(3,1fr)!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
         @media(max-width:900px) { .pgrid{grid-template-columns:repeat(2,1fr)!important;gap:10px!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
 
-        /* ── Lot A1 : compression verticale MOBILE (≤768px) — DESKTOP strictement inchangé ── */
+        /* ── Lot A1-bis : compression verticale MOBILE (≤768px) — DESKTOP strictement inchangé ── */
         .pg-tools-toggle { display:none; }
         @media(max-width:768px){
-          .pg-content { padding-top:24px !important; }
+          /* C1 — dégagement du header fixe (68px + bordure 1px), robuste aux 2 états promo (voir rapport). */
+          .pg-content { padding-top:84px !important; }
           .pg-head { margin-bottom:16px !important; }
           .pg-head h1 { font-size:clamp(28px,7vw,36px) !important; line-height:1.05 !important; margin-bottom:6px !important; }
           .pg-eyebrow { font-size:10px !important; letter-spacing:2px !important; margin-bottom:6px !important; }
           .pg-head p { font-size:13px !important; line-height:1.45 !important; }
+          /* C2 — filtres compacts sur 2 lignes (wrap) ; la loupe s'intègre au wrap. */
           .pg-filters { gap:8px !important; margin-bottom:12px !important; flex-wrap:wrap !important; align-items:center !important; }
-          .pg-cats { flex:1 1 auto; min-width:0; flex-wrap:nowrap !important; overflow-x:auto; gap:8px !important; padding-bottom:4px; -webkit-overflow-scrolling:touch; scrollbar-width:none; }
-          .pg-cats::-webkit-scrollbar { display:none; }
-          .pg-cats > * { flex:0 0 auto; }
-          .pg-cats button { min-height:44px !important; padding:0 14px !important; display:inline-flex !important; align-items:center !important; }
-          .pg-tools-toggle { display:flex !important; align-items:center; justify-content:center; }
+          .pg-cats { flex:1 1 100% !important; flex-wrap:wrap !important; overflow-x:visible; gap:6px !important; }
+          .pg-cats button { min-height:40px !important; padding:0 12px !important; font-size:13px !important; display:inline-flex !important; align-items:center !important; }
+          .pg-tools-toggle { display:inline-flex !important; align-items:center; justify-content:center; min-height:40px; }
           .pg-tools { display:none !important; flex-basis:100% !important; width:100%; }
           .pg-tools.pg-tools-open { display:flex !important; gap:8px !important; }
           .pg-tools input, .pg-tools select { flex:1 1 auto; width:auto !important; font-size:16px !important; }
           .pg-count { margin-bottom:8px !important; }
+          /* C3 — cause racine du débordement : « 1fr » = minmax(auto,1fr) laissait les
+             pistes grossir jusqu'au min-content d'une carte (prix + « En stock » en nowrap
+             depuis A3), dépassant le conteneur → grille clippée à droite (marges asymétriques).
+             minmax(0,1fr) borne les pistes ; .pcard-meta wrap évite tout rognage interne. */
+          .pgrid { grid-template-columns:repeat(2,minmax(0,1fr)) !important; }
+          .pcard-meta { flex-wrap:wrap !important; row-gap:8px !important; }
         }
       `}</style>
 
@@ -295,7 +301,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
           </div>
         </Reveal>
 
-        {/* Filtres : catégories (scroll horizontal mobile) + outils recherche/tri (repliés mobile derrière la loupe) */}
+        {/* Filtres : catégories + loupe (wrap 2 lignes en mobile) ; outils recherche/tri repliés derrière la loupe */}
         <div className="pg-filters" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
           <div className="pg-cats" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
             {buildCategoriesFromProducts(products).map(cat => {
@@ -311,13 +317,13 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
               style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: showPacks ? C.amber : "rgba(196,154,74,0.18)", color: showPacks ? C.dark : "#9a7327", fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", transition: "all 0.15s", whiteSpace: "nowrap" }}>
               🎁 {t("filter_packs")}
             </button>
+            {/* Loupe — MOBILE uniquement (DERNIER enfant de .pg-cats → s'intègre au wrap) ; masquée en desktop via .pg-tools-toggle{display:none} */}
+            <button className="pg-tools-toggle" onClick={() => setShowTools(v => !v)}
+              aria-label={t("tools_toggle")} aria-expanded={showTools}
+              style={{ width: 44, borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", background: "rgba(26,20,16,0.06)", color: C.dark, cursor: "pointer", fontSize: 18, flexShrink: 0 }}>
+              🔍
+            </button>
           </div>
-          {/* Bouton loupe — MOBILE uniquement (déplie .pg-tools) ; masqué en desktop via .pg-tools-toggle{display:none} */}
-          <button className="pg-tools-toggle" onClick={() => setShowTools(v => !v)}
-            aria-label={t("tools_toggle")} aria-expanded={showTools}
-            style={{ width: 44, height: 44, borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", background: "rgba(26,20,16,0.06)", color: C.dark, cursor: "pointer", fontSize: 18, flexShrink: 0 }}>
-            🔍
-          </button>
           <div className={`pg-tools${showTools ? " pg-tools-open" : ""}`} style={{ display: "flex", gap: 10, alignItems: "center" }}>
             <input type="search" value={search} onChange={e => changeSearch(e.target.value)} placeholder={t("search_placeholder")}
               style={{ padding: "9px 14px", borderRadius: 10, border: `1px solid rgba(26,20,16,0.15)`, background: "rgba(26,20,16,0.06)", color: C.dark, fontSize: 13, outline: "none", width: 160 }} />

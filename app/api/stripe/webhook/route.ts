@@ -250,6 +250,13 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
       status:            "payee",
       shipping_status:   "en_preparation",
       shipping_address:  shippingAddress,
+      // Lot M — PARITÉ handleUnifiedOrder. Coffret = livraison à DOMICILE uniquement (pas de relais
+      // dans ce flux) → delivery_type "home" (valeur EXACTE de create-session/handleUnifiedOrder:517),
+      // sinon create-label rejette un pack FR (« Routage impossible : ni delivery_type FR ni pays/zone »).
+      delivery_type:     "home",
+      // Téléphone collecté par Stripe (phone_number_collection, cf. create-pack-session) → lu par
+      // create-label (FedEx EXIGE l'E.164 à l'international). Sans lui, un pack BE/LU était bloqué.
+      customer_phone:    session.customer_details?.phone ?? null,
       pack_id:           packId,
     }], { onConflict: "stripe_session_id", ignoreDuplicates: false })
     .select().single();

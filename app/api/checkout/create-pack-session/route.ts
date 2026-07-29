@@ -90,6 +90,11 @@ export async function POST(req: Request) {
       // Monaco relève du tarif MÉTROPOLE (98000 non bloqué par isDomTomPostalCode). Les Monégasques
       // commandent avec une adresse FR + CP 98000, comme pour les produits normaux. NE PAS remettre MC.
       shipping_address_collection: { allowed_countries: ["FR", "BE", "LU"] },
+      // Lot M — téléphone destinataire OBLIGATOIRE (FedEx l'exige à l'international BE/LU ;
+      // lu par create-label). create-session ne l'active qu'à l'international (le tunnel FR
+      // le saisit lui-même) ; ici le pays n'est connu qu'APRÈS collecte Stripe → on l'active
+      // toujours (surensemble : requis BE/LU, inoffensif FR — Colissimo tolère un tél présent).
+      phone_number_collection: { enabled: true },
       ...(guest_email ? { customer_email: guest_email } : {}),
       line_items: [{
         price_data: {

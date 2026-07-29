@@ -37,7 +37,7 @@ function readPacksLS(): PackCartItem[] {
   try { const r = JSON.parse(localStorage.getItem("milk_pack_cart") ?? "[]"); return Array.isArray(r) ? r : []; }
   catch { return []; }
 }
-// Écrit les packs + prévient le reste de l'app (Header badge, PackCartSection) via
+// Écrit les packs + prévient le reste de l'app (Header badge) via
 // l'event partagé — même mécanisme que l'ajout de pack (milk-pack-cart-changed).
 function writePacksLS(next: PackCartItem[]) {
   try { localStorage.setItem("milk_pack_cart", JSON.stringify(next)); } catch {}
@@ -120,7 +120,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
       const mergedProducts = mergeProducts(readProductsLS(), server?.cart ?? []);
       const mergedPacks    = mergePacks(readPacksLS(), server?.packs ?? []);
       setItems(mergedProducts);      // → persist localStorage (effet dédié) + UI
-      writePacksLS(mergedPacks);     // → localStorage packs + event (Header/PackCartSection)
+      writePacksLS(mergedPacks);     // → localStorage packs + event (Header)
       readyUidRef.current = uid;     // fusion faite → PUSH désormais autorisé
       void pushServerCart(uid, mergedProducts, mergedPacks); // convergence des deux côtés
     })();

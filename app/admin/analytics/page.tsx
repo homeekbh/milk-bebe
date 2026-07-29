@@ -255,6 +255,34 @@ const dateInputStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: 8, padding: "8px 10px", fontSize: 13, fontWeight: 700,
   minHeight: 44, colorScheme: "dark", cursor: "pointer",
 });
+const selectStyle = dateInputStyle; // même look pour les <select> (jour de semaine / profondeur)
+
+// ─── Comparaisons calendaires (Lot G-3) ─────────────────────────────────────
+const WEEKDAY_LONG = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]; // 0 = lundi (comme WEEKDAYS)
+function fmtYmdLocalDate(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+function shiftYmd(s: string, days: number): string { const d = ymdToLocal(s); d.setDate(d.getDate() + days); return fmtYmdLocalDate(d); }
+// "mardi 28 juillet" (sans année — libellés de comparaison lisibles)
+function fmtDayShort(s: string): string { return ymdToLocal(s).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); }
+// Les `depth` dernières occurrences calendaires (Paris/local) d'un jour de semaine
+// (0=lundi … 6=dimanche), bornées à DATA_MIN_DATE, en ordre chronologique.
+function weekdayOccurrences(weekday: number, depth: number): string[] {
+  const min = ymdToLocal(DATA_MIN_DATE).getTime();
+  const t = new Date(); t.setHours(0, 0, 0, 0);
+  while (((t.getDay() + 6) % 7) !== weekday) t.setDate(t.getDate() - 1);
+  const out: string[] = [];
+  for (let i = 0; i < depth; i++) { if (t.getTime() < min) break; out.push(fmtYmdLocalDate(t)); t.setDate(t.getDate() - 7); }
+  return out.reverse();
+}
+// Écart % (null si base nulle → non calculable).
+function pctDelta(cur: number, ref: number): number | null { if (!ref) return null; return ((cur - ref) / ref) * 100; }
+// Badge d'écart signé, coloré selon le SENS FAVORABLE de la métrique (pas selon le
+// signe brut) : une baisse du taux de rebond est une bonne nouvelle → verte.
+function DeltaBadge({ d, better, lowVol }: { d: number | null; better: "up" | "down"; lowVol?: boolean }) {
+  if (d == null) return <span style={{ color: "rgba(242,237,230,0.45)", fontSize: 12 }}>n/a</span>;
+  const favorable = better === "up" ? d >= 0 : d <= 0;
+  const col = lowVol ? "rgba(242,237,230,0.45)" : (favorable ? "#22c55e" : "#ef4444");
+  return <span style={{ color: col, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{d >= 0 ? "▲ +" : "▼ "}{d.toFixed(1)}%</span>;
+}
 const fmtDur = (sec: number | null | undefined): string => {
   if (sec == null) return "—";
   const s = Math.round(Number(sec)); const m = Math.floor(s / 60);
@@ -625,13 +653,20 @@ export default function AdminStats() {
   const [period, setPeriod] = useState<PeriodKey>("30");
   const [excludeBots, setExcludeBots] = useState(false); // toggle « exclure les bots » (page-views + conversion : seuls endpoints comptant de vraies sessions)
 
-  // ── Sélecteur calendaire (Lot G-2) — 3 modes EXCLUSIFS pilotant TOUTE la page :
-  //    "period" = boutons glissants (défaut, inchangé) · "day" = ?date= · "range" = ?from=&to=
-  const [mode,        setMode]        = useState<"period" | "day" | "range">("period");
+  // ── Sélecteur calendaire (Lots G-2/G-3) — 4 modes EXCLUSIFS pilotant TOUTE la page :
+  //    "period" = boutons glissants · "day" = ?date= · "range" = ?from=&to=
+  //    "weekday" = agrégat « tous les <jour> » (plage englobante ?from=&to= + filtre client)
+  const [mode,        setMode]        = useState<"period" | "day" | "range" | "weekday">("period");
   const [dayStr,      setDayStr]      = useState("");
   const [rangeFrom,   setRangeFrom]   = useState("");
   const [rangeTo,     setRangeTo]     = useState("");
   const [serverError, setServerError] = useState<string | null>(null); // message 400 de l'API (bornes invalides)
+
+  // ── Comparaisons (Lot G-3) ──────────────────────────────────────────────────
+  const [compareDate, setCompareDate] = useState("");        // G-3a : 2e jour de référence (mode "day")
+  const [cmp,         setCmp]         = useState<any>(null);  // données du jour de référence { pv, kpis, conversion }
+  const [weekday,     setWeekday]     = useState(0);          // G-3b : 0=lundi … 6=dimanche
+  const [wdDepth,     setWdDepth]     = useState(8);          // G-3b : nb d'occurrences (4/8/12)
 
   // Données server-side (chacune null tant que non chargée)
   const [kpis,         setKpis]         = useState<any>(null);
@@ -692,7 +727,7 @@ export default function AdminStats() {
       return j.data ?? null;
     };
 
-    // Query calendaire (Lot G-2) : date/plage priment sur period ; sinon inchangé.
+    // Query calendaire (Lots G-2/G-3) : date/plage/weekday priment sur period.
     let q = `?period=${period}`;
     if (mode === "day" && dayStr) {
       q = `?date=${dayStr}`;
@@ -700,6 +735,11 @@ export default function AdminStats() {
       const a = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
       const b = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
       q = `?from=${a}&to=${b}`;
+    } else if (mode === "weekday") {
+      // Plage CONTIGUË englobante (1er → dernier <jour>) ; le filtre par occurrence
+      // se fait côté client sur by_day (Lot G-3b, voie A).
+      const occ = weekdayOccurrences(weekday, wdDepth);
+      if (occ.length) q = `?from=${occ[0]}&to=${occ[occ.length - 1]}`;
     }
     try {
       const [
@@ -748,7 +788,7 @@ export default function AdminStats() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period, excludeBots, mode, dayStr, rangeFrom, rangeTo]);
+  }, [period, excludeBots, mode, dayStr, rangeFrom, rangeTo, weekday, wdDepth]);
 
   // Chargement initial + à chaque changement de période + auto-refresh 5 min.
   useEffect(() => {
@@ -756,6 +796,31 @@ export default function AdminStats() {
     const t = setInterval(load, 5 * 60 * 1000);
     return () => clearInterval(t);
   }, [load]);
+
+  // G-3a — charge le jour de RÉFÉRENCE (headline uniquement) quand une comparaison
+  // est active. Même toggle bots que le terme principal (comparaison à réglages
+  // identiques). Cleared dès qu'on quitte le mode jour ou qu'on efface la 2e date.
+  useEffect(() => {
+    if (mode !== "day" || !dayStr || !compareDate) { setCmp(null); return; }
+    let cancelled = false;
+    const bots = excludeBots ? "exclude" : "all";
+    const g = async (u: string): Promise<any> => {
+      try { const r = await adminFetch(u); if (!r.ok) return null; const j = await r.json(); return j.error ? null : (j.data ?? null); }
+      catch { return null; }
+    };
+    (async () => {
+      const [pvC, kpiC, convC] = await Promise.all([
+        g(`/api/admin/page-views?date=${compareDate}&bots=${bots}`),
+        g(`/api/admin/analytics/kpis?date=${compareDate}`),
+        g(`/api/admin/analytics/conversion?date=${compareDate}&bots=${bots}`),
+      ]);
+      if (!cancelled) setCmp({ pv: pvC, kpis: kpiC, conversion: convC });
+    })();
+    return () => { cancelled = true; };
+  }, [mode, dayStr, compareDate, excludeBots]);
+
+  // G-3b — occurrences du jour de semaine sélectionné (ordre chronologique).
+  const wdOccs = useMemo(() => (mode === "weekday" ? weekdayOccurrences(weekday, wdDepth) : []), [mode, weekday, wdDepth]);
 
   const todayStr = useMemo(() => todayYmd(), []);
 
@@ -765,14 +830,16 @@ export default function AdminStats() {
     let a = nf, b = nt;
     if (a && b && a > b) { const t = a; a = b; b = t; }
     setRangeFrom(a); setRangeTo(b);
-    if (a && b) { setDayStr(""); setMode("range"); } // plage complète → mode range (exclusif)
-    else setMode("period");                          // incomplète/vidée → retour période
+    if (a && b) { setDayStr(""); setCompareDate(""); setMode("range"); } // plage complète → mode range (exclusif)
+    else setMode("period");                                             // incomplète/vidée → retour période
   }
 
   // Libellé d'en-tête selon le mode actif (français lisible).
   const periodLabel =
-    mode === "day"   && dayStr                ? `le ${fmtLongDay(dayStr)}` :
+    mode === "day" && dayStr && compareDate  ? `${fmtDayShort(dayStr)} vs ${fmtDayShort(compareDate)}${compareDate === shiftYmd(dayStr, -7) ? " (S-1)" : ""}` :
+    mode === "day"   && dayStr               ? `le ${fmtLongDay(dayStr)}` :
     mode === "range" && rangeFrom && rangeTo  ? fmtRangeLabel(rangeFrom, rangeTo) :
+    mode === "weekday"                        ? `tous les ${WEEKDAY_LONG[weekday]}s · ${wdDepth} dernières occurrences` :
     period === "all" ? "depuis le début" : `sur les ${period} derniers jours`;
   // Deltas : période glissante (sauf « all ») OU fenêtre calendaire (fromPrev calculé par l'API G-1).
   const showDelta   = mode === "period" ? period !== "all" : true;
@@ -786,6 +853,10 @@ export default function AdminStats() {
     } else if (mode === "range" && rangeFrom && rangeTo) {
       const a = rangeFrom <= rangeTo ? rangeFrom : rangeTo, b = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
       fromMs = ymdToLocal(a).getTime(); toMs = ymdToLocal(b).getTime() + 864e5;
+    } else if (mode === "weekday") {
+      const occ = weekdayOccurrences(weekday, wdDepth);
+      fromMs = occ.length ? ymdToLocal(occ[0]).getTime() : periodFromMs(period);
+      toMs   = occ.length ? ymdToLocal(occ[occ.length - 1]).getTime() + 864e5 : Date.now();
     } else {
       fromMs = periodFromMs(period); toMs = Date.now();
     }
@@ -810,7 +881,7 @@ export default function AdminStats() {
       .map(([k, v]) => ({ label: MAP[k]?.label ?? k, value: v, color: MAP[k]?.color ?? C.purple }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [slimOrders, period, mode, dayStr, rangeFrom, rangeTo]);
+  }, [slimOrders, period, mode, dayStr, rangeFrom, rangeTo, weekday, wdDepth]);
 
   // ── Newsletter par mois (client-side) ───────────────────────────────────────
   const newsletterByMonth = useMemo(() => {
@@ -922,7 +993,7 @@ export default function AdminStats() {
             const on = mode === "period" && period === p.key;
             return (
               <button key={p.key}
-                onClick={() => { setPeriod(p.key); setMode("period"); setDayStr(""); setRangeFrom(""); setRangeTo(""); }}
+                onClick={() => { setPeriod(p.key); setMode("period"); setDayStr(""); setRangeFrom(""); setRangeTo(""); setCompareDate(""); }}
                 style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", minHeight: 44, background: on ? C.warm : "transparent", color: on ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
                 {p.label}
               </button>
@@ -951,6 +1022,38 @@ export default function AdminStats() {
               onChange={e => applyRange(rangeFrom, e.target.value)} style={dateInputStyle(mode === "range")} />
           </label>
         </div>
+
+        {/* G-3a — comparaison de 2 jours (visible en mode jour). Bordure ambre = comparaison active. */}
+        {mode === "day" && (
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: C.card, borderRadius: 12, padding: "4px 10px", border: `1px solid ${compareDate ? C.amber : C.faint}` }}>
+            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: compareDate ? C.amber : C.muted, fontWeight: 800 }}>
+              comparer à
+              <input type="date" value={compareDate} min={DATA_MIN_DATE} max={todayStr}
+                onChange={e => setCompareDate(e.target.value)} style={dateInputStyle(!!compareDate)} />
+            </label>
+            <button onClick={() => dayStr && setCompareDate(shiftYmd(dayStr, -1))} title="Comparer au jour précédent (J-1)"
+              style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.faint}`, background: "transparent", color: C.muted, fontWeight: 800, fontSize: 12, cursor: "pointer", minHeight: 44 }}>jour préc.</button>
+            <button onClick={() => dayStr && setCompareDate(shiftYmd(dayStr, -7))} title="Comparer au même jour de la semaine précédente (J-7)"
+              style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.faint}`, background: "transparent", color: C.muted, fontWeight: 800, fontSize: 12, cursor: "pointer", minHeight: 44 }}>même jour, S-1</button>
+            {compareDate && (
+              <button onClick={() => setCompareDate("")} title="Retirer la comparaison"
+                style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontWeight: 800, fontSize: 14, cursor: "pointer", minHeight: 44 }}>✕</button>
+            )}
+          </div>
+        )}
+
+        {/* G-3b — agrégat « tous les <jour> ». Sélection = 4e mode calendaire. */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: C.card, borderRadius: 12, padding: "4px 10px", border: `1px solid ${mode === "weekday" ? C.amber : C.faint}` }}>
+          <span style={{ fontSize: 12, color: mode === "weekday" ? C.amber : C.muted, fontWeight: 800 }}>tous les</span>
+          <select value={weekday} onChange={e => { setWeekday(Number(e.target.value)); setMode("weekday"); setDayStr(""); setRangeFrom(""); setRangeTo(""); setCompareDate(""); }}
+            style={selectStyle(mode === "weekday")}>
+            {WEEKDAY_LONG.map((w, i) => <option key={i} value={i}>{w}s</option>)}
+          </select>
+          <select value={wdDepth} onChange={e => { setWdDepth(Number(e.target.value)); setMode("weekday"); setDayStr(""); setRangeFrom(""); setRangeTo(""); setCompareDate(""); }}
+            style={selectStyle(mode === "weekday")}>
+            {[4, 8, 12].map(n => <option key={n} value={n}>{n} occ.</option>)}
+          </select>
+        </div>
       </div>
 
       {/* Erreur API explicite (ex. 400 bornes invalides, Lot G-1) — jamais muette (leçon Lot N). */}
@@ -972,6 +1075,90 @@ export default function AdminStats() {
         <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 12, background: "rgba(196,154,74,0.10)", border: `1px solid rgba(196,154,74,0.3)`, color: C.amber, fontSize: 14, fontWeight: 700 }}>
           Aucune donnée de trafic {periodLabel}. Essaie une autre date ou une période plus large.
         </div>
+      )}
+
+      {/* ══════════════ G-3a · COMPARAISON JOUR vs JOUR ══════════════ */}
+      {mode === "day" && compareDate && (
+        <div style={{ marginBottom: 24, background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}` }}>
+          <div style={{ fontSize: 14, fontWeight: 900, color: C.warm, marginBottom: 4 }}>
+            ⚖️ {fmtDayShort(dayStr)} vs {fmtDayShort(compareDate)}{compareDate === shiftYmd(dayStr, -7) ? " (même jour, S-1)" : ""}
+          </div>
+          <div style={{ fontSize: 12, color: C.muted, marginBottom: 16 }}>
+            Réglage « {excludeBots ? "bots exclus" : "tous visiteurs"} » appliqué aux deux jours.
+            {((cmp?.pv?.unique_sessions ?? 0) < 20 || (pv?.unique_sessions ?? 0) < 20) && <span style={{ color: C.amber }}> · ⚠️ faible volume : écarts % à interpréter avec prudence.</span>}
+          </div>
+          {!cmp ? <Skeleton h={120} /> : (
+            <div style={{ display: "grid", gap: 8 }}>
+              {!narrow && (
+                <div style={{ display: "grid", gridTemplateColumns: "1.4fr 1fr 1fr 1fr", gap: 10, fontSize: 11, color: C.muted, fontWeight: 800, textTransform: "uppercase" as const }}>
+                  <span>Métrique</span><span>{fmtDayShort(dayStr)}</span><span>{fmtDayShort(compareDate)}</span><span>Écart</span>
+                </div>
+              )}
+              {[
+                { label: "Sessions",           better: "up" as const,   sel: pv?.unique_sessions ?? 0,        ref: cmp?.pv?.unique_sessions ?? 0,        fmt: (v: number) => String(v) },
+                { label: "Vues",               better: "up" as const,   sel: pv?.total_views ?? 0,            ref: cmp?.pv?.total_views ?? 0,            fmt: (v: number) => String(v) },
+                { label: "Chiffre d'affaires", better: "up" as const,   sel: kpis?.revenue ?? 0,              ref: cmp?.kpis?.revenue ?? 0,              fmt: (v: number) => eur(v) },
+                { label: "Commandes",          better: "up" as const,   sel: kpis?.orders_count ?? 0,         ref: cmp?.kpis?.orders_count ?? 0,         fmt: (v: number) => String(v) },
+                { label: "Taux de conversion", better: "up" as const,   sel: conversion?.conversion_rate ?? 0, ref: cmp?.conversion?.conversion_rate ?? 0, fmt: (v: number) => v.toFixed(2) + "%" },
+                { label: "Taux de rebond",     better: "down" as const, sel: pv?.bounce_rate ?? 0,            ref: cmp?.pv?.bounce_rate ?? 0,            fmt: (v: number) => `${v}%` },
+              ].map(m => {
+                const lowVol = (cmp?.pv?.unique_sessions ?? 0) < 20 || (pv?.unique_sessions ?? 0) < 20;
+                return (
+                  <div key={m.label} style={{ display: "grid", gridTemplateColumns: narrow ? "1fr 1fr" : "1.4fr 1fr 1fr 1fr", gap: 10, alignItems: "center", borderTop: `1px solid ${C.faint}`, paddingTop: 8, fontSize: 13 }}>
+                    <span style={{ color: C.warm, fontWeight: 700 }}>{m.label}</span>
+                    <span style={{ color: C.warm }}>{narrow && <span style={{ color: C.muted, fontSize: 11 }}>{fmtDayShort(dayStr)} · </span>}{m.fmt(m.sel)}</span>
+                    <span style={{ color: C.muted }}>{narrow && <span style={{ color: C.muted, fontSize: 11 }}>{fmtDayShort(compareDate)} · </span>}{m.fmt(m.ref)}</span>
+                    <span style={{ gridColumn: narrow ? "1 / -1" : "auto" }}><DeltaBadge d={pctDelta(m.sel, m.ref)} better={m.better} lowVol={lowVol} /></span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ══════════════ G-3b · AGRÉGAT « TOUS LES <JOUR> » ══════════════ */}
+      {mode === "weekday" && (
+        <>
+          <div style={{ marginBottom: 16, padding: "12px 18px", borderRadius: 12, background: "rgba(196,154,74,0.10)", border: `1px solid rgba(196,154,74,0.3)`, color: C.amber, fontSize: 13, fontWeight: 700, lineHeight: 1.5 }}>
+            📆 « Tous les {WEEKDAY_LONG[weekday]}s » : le détail par occurrence ci-dessous porte sur le <b>trafic</b> (sessions/vues) — seule métrique ventilée par jour. Les autres blocs du tableau de bord couvrent la <b>plage entière</b>{wdOccs.length ? ` du ${fmtDayShort(wdOccs[0])} au ${fmtDayShort(wdOccs[wdOccs.length - 1])}` : ""} (contiguë), pas uniquement les {WEEKDAY_LONG[weekday]}s.
+          </div>
+          <div style={{ marginBottom: 24 }}>
+            <Card title={`📆 Tous les ${WEEKDAY_LONG[weekday]}s — ${wdDepth} dernières occurrences`}>
+              {(() => {
+                const occSet = new Set(wdOccs);
+                const occRows = (pv?.by_day ?? []).filter((d: any) => occSet.has(d.date));
+                if (occRows.length === 0) return <div style={{ color: C.muted, fontSize: 13 }}>Aucune donnée de trafic sur ces journées (période antérieure au tracking ?).</div>;
+                const totSess  = occRows.reduce((s: number, d: any) => s + (d.sessions || 0), 0);
+                const totViews = occRows.reduce((s: number, d: any) => s + (d.views || 0), 0);
+                return (
+                  <>
+                    <div style={{ display: "flex", gap: 28, flexWrap: "wrap", marginBottom: 14 }}>
+                      <div><div style={{ fontSize: 22, fontWeight: 950, color: C.purple }}>{totSess}</div><div style={{ fontSize: 11, color: C.muted }}>sessions cumulées</div></div>
+                      <div><div style={{ fontSize: 22, fontWeight: 950, color: C.blue }}>{totViews}</div><div style={{ fontSize: 11, color: C.muted }}>vues cumulées</div></div>
+                      <div><div style={{ fontSize: 22, fontWeight: 950, color: C.warm }}>{Math.round(totSess / occRows.length)}</div><div style={{ fontSize: 11, color: C.muted }}>sessions / {WEEKDAY_LONG[weekday]} (moy.)</div></div>
+                    </div>
+                    <LineChart data={occRows.map((d: any) => ({ label: `${String(d.date).slice(8)}/${String(d.date).slice(5, 7)}`, value: d.sessions }))} color={C.purple} height={160} />
+                    <div style={{ overflowX: "auto", marginTop: 12 }}>
+                      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+                        <thead><tr style={{ color: C.muted }}><th style={th}>Date</th><th style={th}>Sessions</th><th style={th}>Vues</th></tr></thead>
+                        <tbody>
+                          {occRows.map((d: any) => (
+                            <tr key={d.date} style={{ borderTop: `1px solid ${C.faint}` }}>
+                              <td style={{ ...td, color: C.warm }}>{fmtDayShort(d.date)}</td>
+                              <td style={{ ...td, color: C.amber, fontWeight: 700 }}>{d.sessions}</td>
+                              <td style={{ ...td, color: C.muted }}>{d.views}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </>
+                );
+              })()}
+            </Card>
+          </div>
+        </>
       )}
 
       {/* ══════════════ 1 · ACQUISITION ══════════════ */}

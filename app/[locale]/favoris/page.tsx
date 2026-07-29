@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useWishlist } from "@/context/WishlistContext";
 import { useCart }     from "@/context/CartContext";
 import { supabase }    from "@/lib/supabase-client";
@@ -23,18 +23,29 @@ export default function FavorisPage() {
   const { addToCart }            = useCart();
   const [products, setProducts]  = useState<any[]>([]);
   const [loading,  setLoading]   = useState(true);
+  const [loadError, setLoadError] = useState(false);
 
-  useEffect(() => {
-    // Attendre que localStorage soit lu avant de fetch
-    if (!mounted) return;
-    if (ids.length === 0) { setProducts([]); setLoading(false); return; }
-    setLoading(true);
-    supabase
+  // Lot N — chargement extrait (permet « Réessayer ») + gestion d'ERREUR et du cas 0 résultat.
+  // Avant : un panier d'ids NON vide mais 0 produit rendu (fetch échoué en webview IG/FB, ou
+  // favoris dépubliés) ne déclenchait AUCUN état → page BLANCHE. Les gardes mounted/ids vides
+  // existaient déjà (hypothèse « fetch sur ids vide » infirmée) ; le vrai trou était ici.
+  const loadFavorites = useCallback(async () => {
+    if (ids.length === 0) { setProducts([]); setLoadError(false); setLoading(false); return; }
+    setLoading(true); setLoadError(false);
+    const { data, error } = await supabase
       .from("products")
       .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, image_url, category_slug, stock, label")
-      .in("id", ids)
-      .then(({ data }) => { setProducts(data ?? []); setLoading(false); });
-  }, [ids, mounted]);
+      .in("id", ids);
+    if (error) { setLoadError(true); setProducts([]); setLoading(false); return; }
+    setProducts(data ?? []);
+    setLoading(false);
+  }, [ids]);
+
+  useEffect(() => {
+    // Attendre que localStorage soit lu (mounted) avant de fetch (pas de fetch sur ids vide).
+    if (!mounted) return;
+    loadFavorites();
+  }, [mounted, loadFavorites]);
 
   return (
     <div style={{ background: BG, minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
@@ -135,6 +146,27 @@ export default function FavorisPage() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* Lot N — filet anti-PAGE BLANCHE : ids présents mais 0 produit rendu (erreur réseau
+            fréquente dans les webviews Instagram/Facebook, OU favoris retirés du catalogue).
+            Sans ce bloc, la page restait totalement vide sur mobile. */}
+        {mounted && !loading && ids.length > 0 && products.length === 0 && (
+          <div style={{ background: "#fff", borderRadius: 24, padding: "48px 32px", textAlign: "center", border: "1px solid rgba(26,20,16,0.07)" }}>
+            <div style={{ fontSize: 40, marginBottom: 14 }}>😕</div>
+            <div style={{ fontSize: 18, fontWeight: 900, color: DARK, marginBottom: 8 }}>
+              {loadError ? "Chargement impossible" : "Favoris indisponibles"}
+            </div>
+            <p style={{ color: "rgba(26,20,16,0.5)", fontSize: 15, maxWidth: 420, margin: "0 auto 24px", lineHeight: 1.5 }}>
+              {loadError
+                ? "La connexion a échoué (fréquent dans les navigateurs Instagram / Facebook). Réessaie."
+                : "Tes articles favoris ne sont plus disponibles à la vente."}
+            </p>
+            <button onClick={loadFavorites}
+              style={{ padding: "13px 28px", borderRadius: 12, background: DARK, color: AMB, fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer", minHeight: 44 }}>
+              Réessayer
+            </button>
           </div>
         )}
       </div>

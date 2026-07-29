@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
       const [rows, ords] = await Promise.all([
         fetchAllPaged<any>((rf, rt) => {
           let q = supabaseServer.from("page_views")
-            .select("session_id, time_on_page, scroll_depth, is_bounce, user_agent")
+            .select("session_id, time_on_page, scroll_depth, is_bounce, user_agent, country, region, city")
             .gte("viewed_at", a);
           q = lt ? q.lt("viewed_at", b) : q.lte("viewed_at", b);
           return q.order("viewed_at", { ascending: true }).range(rf, rt);

@@ -394,7 +394,7 @@ export async function GET(req: NextRequest) {
     let deltas: { views: number; sessions: number; visitors: number; avg_time: number } | null = null;
     if (period !== "all") {
       let prevRows = await fetchAllPaged<any>((rf, rt) => supabaseServer
-        .from("page_views").select("session_id, visitor_id, time_on_page, scroll_depth, is_bounce, user_agent")
+        .from("page_views").select("session_id, visitor_id, time_on_page, scroll_depth, is_bounce, user_agent, country, region, city")
         .gte("viewed_at", fromPrev).lt("viewed_at", from)
         .order("viewed_at", { ascending: true }).range(rf, rt));
       if (excludeBots) { const pb = botSessionIds(prevRows); prevRows = prevRows.filter(r => !r.session_id || !pb.has(r.session_id)); }

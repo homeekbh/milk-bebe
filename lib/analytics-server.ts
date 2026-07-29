@@ -184,8 +184,25 @@ export function pct(cur: number, prev: number): number {
 // ── Heuristique bots (partagée par /api/admin/page-views et /conversion) ─────
 // page_views n'a pas toujours de user_agent → on tolère son absence en retombant
 // sur l'engagement. Bot si : user-agent crawler connu, OU session 100% sans
-// engagement (rebond + scroll 0 + temps ~0 sur TOUTES ses vues).
+// engagement (rebond + scroll 0 + temps ~0 sur TOUTES ses vues), OU préchargement
+// datacenter Meta (Lot G-4c, cf. plus bas).
 export const CRAWLER_RE = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i;
+
+// Vue sans interaction : ni temps passé, ni scroll. Prédicat UNIQUE réutilisé par
+// l'heuristique historique (+ is_bounce) ET par le filtre datacenter (sans is_bounce).
+function noInteraction(r: any): boolean {
+  return (r.time_on_page == null || Number(r.time_on_page) <= 0)
+      && (r.scroll_depth == null || Number(r.scroll_depth) === 0);
+}
+
+// Signature géo « préchargement datacenter » : pays US, région ET ville non résolues.
+// ⚠️ country=US sans région/ville est AUSSI la signature du Relais privé iCloud
+// d'Apple (de vrais iPhone) → n'exclure QUE combiné à l'absence d'interaction.
+function isUsDatacenterGeo(r: any): boolean {
+  return String(r.country ?? "") === "US"
+      && (r.region == null || r.region === "")
+      && (r.city   == null || r.city   === "");
+}
 
 export function botSessionIds(rows: any[]): Set<string> {
   const bySess = new Map<string, any[]>();
@@ -193,12 +210,13 @@ export function botSessionIds(rows: any[]): Set<string> {
   const bots = new Set<string>();
   for (const [sid, rs] of bySess) {
     const uaBot = rs.some(r => r.user_agent && CRAWLER_RE.test(String(r.user_agent)));
-    const noEngagement = rs.every(r =>
-      (r.time_on_page == null || Number(r.time_on_page) <= 0) &&
-      (r.scroll_depth == null || Number(r.scroll_depth) === 0) &&
-      !!r.is_bounce
-    );
-    if (uaBot || noEngagement) bots.add(sid);
+    // Historique : crawler connu OU session 100% sans engagement (rebond inclus).
+    const noEngagement = rs.every(r => noInteraction(r) && !!r.is_bounce);
+    // Lot G-4c : préchargement datacenter Meta — TOUTES les vues US/∅/∅ ET sans
+    // interaction. Le beacon de départ ne se déclenchant pas sur un préchargement,
+    // is_bounce y reste NULL → on ne l'exige PAS ici (sinon 0 exclusion, cf. mesures).
+    const dcPreload = rs.every(isUsDatacenterGeo) && rs.every(noInteraction);
+    if (uaBot || noEngagement || dcPreload) bots.add(sid);
   }
   return bots;
 }

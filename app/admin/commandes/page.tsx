@@ -313,6 +313,10 @@ export default function AdminCommandes() {
   // parcel_id retourné dans la réponse d'erreur (cas 409 "colis déjà créé")
   // — déclenche le bouton "Vérifier l'étiquette" en mode récupération.
   const [errorParcelId,  setErrorParcelId]  = useState<string | null>(null);
+  // Lot H — régénération après échec : avertissement si l'ancien colis n'a pas pu être annulé,
+  // + id de la commande en cours de régénération (pour l'état "busy" du bouton).
+  const [regenWarning,   setRegenWarning]   = useState<string | null>(null);
+  const [regenerating,   setRegenerating]   = useState<string | null>(null);
 
   // Liste fixe (plus de fetch dynamique — 3 options M!LK)
   const colissimoProducts = COLISSIMO_OPTIONS;
@@ -393,7 +397,7 @@ export default function AdminCommandes() {
   }
 
   // Générer l'étiquette Sendcloud automatiquement
-  async function generateLabel(order: Order) {
+  async function generateLabel(order: Order, force = false) {
     if (!transporteur) { setLabelError("Choisis un transporteur d'abord"); return; }
     const t = (() => { try { return JSON.parse(transporteur); } catch { return null; } })();
     if (!t) { setLabelError("Transporteur invalide"); return; }
@@ -404,6 +408,9 @@ export default function AdminCommandes() {
     try {
       const res = await adminFetch("/api/admin/sendcloud/create-label", {
         method: "POST",
+        // Lot H — régénération après échec : contourne le garde-fou anti-double-création (409)
+        // quand un sendcloud_parcel_id subsiste (annulation impossible). Flux normal : pas d'en-tête.
+        headers: force ? { "x-force-recreate": "true" } : undefined,
         body: JSON.stringify({
           order_id:     order.id,
           transporteur: t.carrier_name ?? "colissimo",
@@ -457,6 +464,45 @@ export default function AdminCommandes() {
     } finally {
       setGeneratingLabel(false);
     }
+  }
+
+  // Lot H — Régénérer l'étiquette après un échec (colis Sendcloud créé SANS étiquette).
+  // 1) confirmation (la régénération crée un nouveau colis facturé) ;
+  // 2) annulation best-effort de l'ancien colis via /sendcloud/cancel (qui remet aussi
+  //    sendcloud_parcel_id à null en base) → évite la double facturation ;
+  // 3) si l'annulation échoue, on NE bloque PAS : avertissement + régénération forcée
+  //    (x-force-recreate contourne le garde-fou 409 tant que l'ancien parcel_id subsiste).
+  async function regenerateLabel(order: Order) {
+    const oldParcel = (order as any).sendcloud_parcel_id as string | null;
+    if (!window.confirm(
+      "⚠️ Régénérer va créer un NOUVEAU colis chez Sendcloud (facturé par le transporteur).\n\n" +
+      "L'ancien colis" + (oldParcel ? ` #${oldParcel}` : "") + " sera annulé automatiquement si possible.\n\n" +
+      "Confirmer la régénération ?"
+    )) return;
+
+    setRegenerating(order.id);
+    setRegenWarning(null);
+
+    // 1. Annuler l'ancien colis (best-effort). Succès → parcel_id remis à null en base.
+    let cancelOk = false;
+    try {
+      const cRes = await adminFetch("/api/admin/sendcloud/cancel", {
+        method: "POST",
+        body: JSON.stringify({ order_id: order.id }),
+      });
+      cancelOk = cRes.ok;
+    } catch { cancelOk = false; }
+
+    if (!cancelOk) {
+      setRegenWarning(
+        `⚠️ L'ancien colis${oldParcel ? ` #${oldParcel}` : ""} n'a PAS pu être annulé automatiquement. ` +
+        "Supprime-le MANUELLEMENT dans Sendcloud pour éviter une double facturation transporteur."
+      );
+    }
+
+    // 2. Régénérer (force = true → en-tête x-force-recreate).
+    await generateLabel(order, true);
+    setRegenerating(null);
   }
 
   // Construit le payload des infos livraison à passer aux emails.
@@ -1331,69 +1377,69 @@ export default function AdminCommandes() {
                         {/* ✅ Bouton Sendcloud — génération étiquette automatique */}
                         {order.shipping_status !== "expediee" && (
                           <div style={{ display: "grid", gap: 8 }}>
-                            {/* Le bouton de génération disparaît une fois le colis
-                                Sendcloud créé : on ne régénère pas (garde-fou 409
-                                serveur). On affiche à la place un rappel de l'étape
-                                suivante = déposer le colis puis "Marquer comme
-                                expédié" (BUG 1 : la génération ne marque PAS expédié). */}
-                            {!(order as any).sendcloud_parcel_id ? (
-                              <button
-                                onClick={() => generateLabel(order)}
-                                disabled={!transporteur || generatingLabel}
-                                style={{
-                                  padding: "12px 16px",
-                                  borderRadius: 12,
-                                  border: "none",
-                                  fontWeight: 900,
-                                  fontSize: 14,
-                                  cursor: (!transporteur || generatingLabel) ? "not-allowed" : "pointer",
-                                  background: (!transporteur || generatingLabel) ? "#e5e7eb" : "#1d4ed8",
-                                  color: (!transporteur || generatingLabel) ? "#9ca3af" : "#fff",
-                                  transition: "all 0.2s",
-                                }}
-                              >
-                                {generatingLabel ? "⏳ Génération..." : "📦 Générer l'étiquette Sendcloud"}
-                              </button>
-                            ) : (
-                              <div style={{ padding: "12px 14px", borderRadius: 12, background: "#ffedd5", border: "1px solid #fdba74", fontSize: 13, fontWeight: 800, color: "#9a3412", lineHeight: 1.5 }}>
-                                ✅ Étiquette créée. Imprime-la, dépose le colis chez {carrierLabel(order.carrier)}, puis clique « 🚚 Marquer comme expédié » ci-dessous pour prévenir la cliente.
-                              </div>
-                            )}
-                            {labelError && (
-                              <div style={{ padding: "8px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
-                                ✕ {labelError}
-                              </div>
-                            )}
-                            {/* Bouton de récupération quand l'erreur expose un
-                                parcel_id existant (cas 409 "colis déjà créé").
-                                On peut directement aller chercher l'étiquette
-                                via label-pdf au lieu d'en recréer un nouveau. */}
-                            {errorParcelId && (
-                              <button
-                                onClick={() => openLabelPdf(order.id)}
-                                style={{ padding: "10px 16px", borderRadius: 10, background: "#1d4ed8", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
-                                🔄 Vérifier l'étiquette du colis #{errorParcelId}
-                              </button>
-                            )}
-                            {labelUrl && (
-                              <button
-                                onClick={() => openLabelPdf(order.id)}
-                                style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
-                                🖨️ Imprimer l'étiquette PDF →
-                              </button>
-                            )}
-                            {/* Bouton "Vérifier l'étiquette" : parcel créé côté Sendcloud
-                                mais PDF pas encore généré (génération async). */}
-                            {!labelUrl && (order as any).sendcloud_parcel_id && (
-                              <div style={{ display: "grid", gap: 8 }}>
-                                <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", textAlign: "center" }}>
-                                  ⏳ Colis créé (Sendcloud #{(order as any).sendcloud_parcel_id}) — étiquette en cours de génération
-                                </div>
-                                <button
-                                  onClick={() => openLabelPdf(order.id)}
-                                  style={{ padding: "10px 16px", borderRadius: 10, background: "#1d4ed8", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
-                                  🔄 Vérifier l'étiquette
-                                </button>
+                            {/* Lot H — états MUTUELLEMENT EXCLUSIFS : un seul message à la fois,
+                                correspondant à l'état réel du colis (étiquette prête / colis sans
+                                étiquette / rien). Fini l'empilement "créée" + "erreur" + "en cours". */}
+                            {(() => {
+                              const hasParcel = !!(order as any).sendcloud_parcel_id;
+                              const hasLabel  = !!(order as any).label_url;
+                              const busy      = generatingLabel || regenerating === order.id;
+
+                              // État 1 — étiquette PRÊTE (succès).
+                              if (hasLabel) {
+                                return (
+                                  <>
+                                    <div style={{ padding: "12px 14px", borderRadius: 12, background: "#ffedd5", border: "1px solid #fdba74", fontSize: 13, fontWeight: 800, color: "#9a3412", lineHeight: 1.5 }}>
+                                      ✅ Étiquette créée. Imprime-la, dépose le colis chez {carrierLabel(order.carrier)}, puis clique « 🚚 Marquer comme expédié » ci-dessous pour prévenir la cliente.
+                                    </div>
+                                    <button onClick={() => openLabelPdf(order.id)}
+                                      style={{ padding: "10px 16px", borderRadius: 10, background: "#dcfce7", color: "#166534", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
+                                      🖨️ Imprimer l'étiquette PDF →
+                                    </button>
+                                  </>
+                                );
+                              }
+
+                              // État 2 — colis créé SANS étiquette (échec Sendcloud ou génération async).
+                              // Vérifier (poll) OU régénérer après échec (annule l'ancien + recrée).
+                              if (hasParcel) {
+                                return (
+                                  <>
+                                    <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fef3c7", border: "1px solid #fde68a", fontSize: 12, fontWeight: 700, color: "#92400e", textAlign: "center", lineHeight: 1.5 }}>
+                                      ⏳ Colis créé (Sendcloud #{(order as any).sendcloud_parcel_id}) — étiquette pas encore disponible. Vérifie, ou régénère si la génération a échoué.
+                                    </div>
+                                    <button onClick={() => openLabelPdf(order.id)}
+                                      style={{ padding: "10px 16px", borderRadius: 10, background: "#1d4ed8", color: "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: "pointer", textAlign: "center", display: "block", width: "100%" }}>
+                                      🔄 Vérifier l'étiquette
+                                    </button>
+                                    <button onClick={() => regenerateLabel(order)} disabled={busy}
+                                      style={{ padding: "10px 16px", borderRadius: 10, background: busy ? "#e5e7eb" : "#b45309", color: busy ? "#9ca3af" : "#fff", fontWeight: 800, fontSize: 13, border: "none", cursor: busy ? "not-allowed" : "pointer", textAlign: "center", display: "block", width: "100%" }}>
+                                      {regenerating === order.id ? "♻️ Régénération…" : "♻️ Régénérer l'étiquette (après échec)"}
+                                    </button>
+                                  </>
+                                );
+                              }
+
+                              // État 3 — aucun colis : bouton Générer + erreur éventuelle de la dernière tentative.
+                              return (
+                                <>
+                                  <button onClick={() => generateLabel(order)} disabled={!transporteur || busy}
+                                    style={{ padding: "12px 16px", borderRadius: 12, border: "none", fontWeight: 900, fontSize: 14, cursor: (!transporteur || busy) ? "not-allowed" : "pointer", background: (!transporteur || busy) ? "#e5e7eb" : "#1d4ed8", color: (!transporteur || busy) ? "#9ca3af" : "#fff", transition: "all 0.2s" }}>
+                                    {generatingLabel ? "⏳ Génération..." : "📦 Générer l'étiquette Sendcloud"}
+                                  </button>
+                                  {labelError && (
+                                    <div style={{ padding: "8px 12px", borderRadius: 8, background: "#fee2e2", color: "#b91c1c", fontSize: 12, fontWeight: 700 }}>
+                                      ✕ {labelError}
+                                    </div>
+                                  )}
+                                </>
+                              );
+                            })()}
+                            {/* Avertissement double-facturation : ancien colis non annulé lors d'une régénération. */}
+                            {regenWarning && (
+                              <div style={{ padding: "10px 14px", borderRadius: 10, background: "#fee2e2", border: "1px solid #fca5a5", fontSize: 12, fontWeight: 700, color: "#b91c1c", lineHeight: 1.5, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "flex-start" }}>
+                                <span>{regenWarning}</span>
+                                <button onClick={() => setRegenWarning(null)} style={{ background: "none", border: "none", color: "#b91c1c", fontWeight: 900, cursor: "pointer", fontSize: 14, flexShrink: 0 }}>✕</button>
                               </div>
                             )}
                           </div>

@@ -104,7 +104,7 @@ const STATIC_KNOWLEDGE = [
 // ─── Fetch produits en temps réel depuis l'API publique ───────────────────────
 async function fetchProducts(): Promise<any[]> {
   try {
-    const res = await fetch("/api/products?published=true");
+    const res = await fetch("/api/produits");
     if (!res.ok) return [];
     const data = await res.json();
     return Array.isArray(data) ? data : (data.products ?? []);

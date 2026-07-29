@@ -142,7 +142,7 @@ export default function RechercheClient() {
 
   // ── Fetch produits publics (pas admin) au chargement ──────────────────────
   useEffect(() => {
-    fetch("/api/products")
+    fetch("/api/produits")
       .then(r => r.json())
       .then(d => {
         const list = Array.isArray(d) ? d : (d.products ?? []);

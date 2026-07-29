@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, isValidOrder, VALID_STATUSES, netRatio, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, isValidOrder, VALID_STATUSES, netRatio, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -14,8 +14,9 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
   try {
-    const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
-    const { from, to } = periodRange(period);
+    const rr = resolveAnalyticsRange(new URL(req.url).searchParams);
+    if (!rr.ok) return fail(rr.error, 400);
+    const { from, to } = rr.range;
 
     const { data, error } = await supabaseServer
       .from("orders")

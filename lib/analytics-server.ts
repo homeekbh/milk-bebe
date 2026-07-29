@@ -1,7 +1,9 @@
 /**
  * lib/analytics-server.ts — Helpers partagés par les routes /api/admin/analytics/*.
  *
- * - Fenêtre temporelle dérivée de ?period=7|30|90|all (tolère aussi 7j/30j/90j/tout).
+ * - Fenêtre temporelle dérivée de ?period=1|3|7|30|90|all (tolère aussi 24/7j/30j/tout)
+ *   OU de bornes calendaires absolues ?date=YYYY-MM-DD / ?from=…&to=… (Lot G-1b).
+ * - Fuseau UNIQUE pour tout découpage calendaire : Europe/Paris (Lot G-1a).
  * - Réutilise la SOURCE UNIQUE de vérité du CA (lib/orders.ts) : isValidOrder + getNetAmount.
  */
 import { VALID_STATUSES, isValidOrder, getNetAmount } from "@/lib/orders";
@@ -21,17 +23,19 @@ export function normalizePeriod(raw: string | null | undefined): PeriodKey {
 }
 
 export type PeriodRange = {
-  period:   PeriodKey;
-  days:     number | null;  // null pour "all"
-  from:     string;         // ISO — début de la période courante
-  fromPrev: string;         // ISO — début de la période précédente (= from pour "all")
-  to:       string;         // ISO — maintenant
+  period:   PeriodKey | "custom"; // "custom" = bornes calendaires absolues (from/to/date)
+  days:     number | null;        // null pour "all" et "custom"
+  from:     string;               // ISO UTC — début de la période courante
+  fromPrev: string;               // ISO UTC — début de la période précédente (= from pour "all")
+  to:       string;               // ISO UTC — fin de la période
 };
 
 /** Calcule la fenêtre courante + précédente (même durée) pour les deltas. */
 export function periodRange(period: PeriodKey): PeriodRange {
   const now = new Date();
   if (period === "all") {
+    // Borne basse codée en dur (2024-01-01). Antérieur à toute donnée réelle du
+    // projet → équivaut à « depuis toujours ». Laissé tel quel (cf. Lot G).
     const from = new Date("2024-01-01T00:00:00.000Z").toISOString();
     return { period, days: null, from, fromPrev: from, to: now.toISOString() };
   }
@@ -40,6 +44,135 @@ export function periodRange(period: PeriodKey): PeriodRange {
   const from     = new Date(now.getTime() - days * MS).toISOString();
   const fromPrev = new Date(now.getTime() - 2 * days * MS).toISOString();
   return { period, days, from, fromPrev, to: now.toISOString() };
+}
+
+// ─── Fuseau calendaire UNIQUE : Europe/Paris ────────────────────────────────
+// Tout découpage par jour/heure/semaine passe par ces helpers → une seule
+// méthode de conversion (toLocaleString + timeZone), qui gère automatiquement
+// l'heure d'été/hiver. AUCUN décalage codé en dur (Lot G-1a).
+export const ANALYTICS_TZ = "Europe/Paris";
+
+/**
+ * Renvoie un Date dont les composantes LOCALES (getFullYear/getMonth/getDate/
+ * getHours/getDay) reflètent l'heure de Paris de l'instant `d`. Même mécanisme
+ * que le bucketing horaire historique (by_hour). ⚠️ L'instant absolu (getTime)
+ * du Date renvoyé est volontairement décalé : n'utiliser QUE ses composantes.
+ */
+export function toParis(d: Date | string): Date {
+  return new Date(new Date(d).toLocaleString("en-US", { timeZone: ANALYTICS_TZ }));
+}
+
+/** Clé de jour calendaire en heure de Paris : "YYYY-MM-DD". */
+export function parisDayKey(d: Date | string): string {
+  const p = toParis(d);
+  return `${p.getFullYear()}-${String(p.getMonth() + 1).padStart(2, "0")}-${String(p.getDate()).padStart(2, "0")}`;
+}
+
+/**
+ * Liste continue des jours calendaires Paris de `fromISO` à `toISO` inclus
+ * ("YYYY-MM-DD"). Incrémentation par arithmétique de composantes (Date.UTC) →
+ * insensible au changement d'heure (pas de décalage en dur).
+ */
+export function enumerateParisDays(fromISO: string, toISO: string): string[] {
+  const start = parisDayKey(fromISO);
+  const end   = parisDayKey(toISO);
+  const keys: string[] = [];
+  let [y, m, d] = start.split("-").map(Number);
+  for (let guard = 0; guard < 4000; guard++) {
+    const key = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    keys.push(key);
+    if (key === end) break;
+    const nx = new Date(Date.UTC(y, m - 1, d + 1)); // arithmétique calendaire pure
+    y = nx.getUTCFullYear(); m = nx.getUTCMonth() + 1; d = nx.getUTCDate();
+  }
+  return keys;
+}
+
+// ─── Bornes calendaires absolues (Lot G-1b) ─────────────────────────────────
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Décalage (ms) d'un fuseau par rapport à UTC, à un instant donné (gère DST). */
+function tzOffsetMs(instant: Date, tz: string): number {
+  const asTz  = new Date(instant.toLocaleString("en-US", { timeZone: tz }));
+  const asUtc = new Date(instant.toLocaleString("en-US", { timeZone: "UTC" }));
+  return asTz.getTime() - asUtc.getTime();
+}
+
+/** Vraie date calendaire ? (rejette 2026-02-31, 2026-13-01…). */
+function isRealCalendarDate(s: string): boolean {
+  const [y, mo, d] = s.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d));
+  return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d;
+}
+
+/**
+ * Convertit une heure-mur de Paris (composantes) en instant UTC ISO. Méthode
+ * « guess + correction d'offset » : robuste au DST (le passage d'heure a lieu à
+ * 02h/03h, jamais à 00h ni 23h59 → aucune ambiguïté pour des bornes de journée).
+ */
+function parisWallToUtcISO(y: number, mo: number, d: number, h: number, mi: number, s: number, ms: number): string {
+  const guess = Date.UTC(y, mo - 1, d, h, mi, s, ms);
+  const off = tzOffsetMs(new Date(guess), ANALYTICS_TZ);
+  return new Date(guess - off).toISOString();
+}
+
+export type RangeResolution =
+  | { ok: true; range: PeriodRange }
+  | { ok: false; error: string };
+
+/**
+ * Résout la fenêtre effective à partir des query params, dans l'ordre de priorité :
+ *   1. ?date=YYYY-MM-DD           → une seule journée (00h00 → 23h59:59.999 Paris)
+ *   2. ?from=YYYY-MM-DD&to=…      → plage calendaire inclusive (Paris)
+ *   3. ?period=…                  → fenêtre glissante historique (comportement inchangé)
+ *
+ * Les bornes absolues sont interprétées en heure de PARIS puis converties en UTC.
+ * Format invalide / to < from / date future → { ok:false } (le routeur renvoie 400).
+ */
+export function resolveAnalyticsRange(sp: URLSearchParams): RangeResolution {
+  const dateP = sp.get("date");
+  const fromP = sp.get("from");
+  const toP   = sp.get("to");
+
+  if (dateP != null || fromP != null || toP != null) {
+    let fromDay: string, toDay: string;
+
+    if (dateP != null) {
+      if (!DATE_RE.test(dateP) || !isRealCalendarDate(dateP))
+        return { ok: false, error: `Paramètre 'date' invalide (attendu YYYY-MM-DD réel) : « ${dateP} ».` };
+      fromDay = toDay = dateP;
+    } else {
+      if (fromP == null || toP == null)
+        return { ok: false, error: "Les paramètres 'from' et 'to' doivent être fournis ensemble (YYYY-MM-DD)." };
+      if (!DATE_RE.test(fromP) || !isRealCalendarDate(fromP))
+        return { ok: false, error: `Paramètre 'from' invalide (attendu YYYY-MM-DD réel) : « ${fromP} ».` };
+      if (!DATE_RE.test(toP) || !isRealCalendarDate(toP))
+        return { ok: false, error: `Paramètre 'to' invalide (attendu YYYY-MM-DD réel) : « ${toP} ».` };
+      fromDay = fromP; toDay = toP;
+    }
+
+    if (toDay < fromDay)
+      return { ok: false, error: `Plage invalide : 'to' (${toDay}) est antérieur à 'from' (${fromDay}).` };
+
+    const todayParis = parisDayKey(new Date());
+    if (fromDay > todayParis)
+      return { ok: false, error: `Date future non autorisée : ${fromDay} (aujourd'hui = ${todayParis}, heure de Paris).` };
+    if (toDay > todayParis)
+      return { ok: false, error: `Date future non autorisée : ${toDay} (aujourd'hui = ${todayParis}, heure de Paris).` };
+
+    const [fy, fm, fd] = fromDay.split("-").map(Number);
+    const [ty, tm, td] = toDay.split("-").map(Number);
+    const from = parisWallToUtcISO(fy, fm, fd, 0, 0, 0, 0);
+    const to   = parisWallToUtcISO(ty, tm, td, 23, 59, 59, 999);
+    // Période précédente = même durée immédiatement avant `from` (pour les deltas).
+    const spanMs   = new Date(to).getTime() - new Date(from).getTime();
+    const fromPrev = new Date(new Date(from).getTime() - spanMs).toISOString();
+
+    return { ok: true, range: { period: "custom", days: null, from, fromPrev, to } };
+  }
+
+  // Aucun paramètre absolu → comportement historique STRICTEMENT inchangé.
+  return { ok: true, range: periodRange(normalizePeriod(sp.get("period"))) };
 }
 
 /** Variation en % (0 si pas de base de comparaison). */
@@ -104,7 +237,8 @@ export function ok(data: any) {
   return Response.json({ data, error: null });
 }
 
-/** Réponse standardisée erreur (200 côté transport pour ne pas casser Promise.all client). */
-export function fail(message: string) {
-  return Response.json({ data: null, error: message }, { status: 200 });
+/** Réponse standardisée erreur. status 200 par défaut (ne casse pas le Promise.all
+ *  client) ; 400 pour une requête invalide (bornes de dates, cf. resolveAnalyticsRange). */
+export function fail(message: string, status = 200) {
+  return Response.json({ data: null, error: message }, { status });
 }

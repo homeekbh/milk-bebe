@@ -1,12 +1,16 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, isValidOrder, getNetAmount, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, isValidOrder, getNetAmount, VALID_STATUSES, toParis, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
 type Gran = "day" | "week" | "month";
 
+// ⚠️ Toutes les fonctions ci-dessous reçoivent un Date « Paris-local » (issu de
+// toParis) : ses composantes locales (getFullYear/getMonth/getDate/getDay) sont
+// l'heure de Paris. Le découpage jour/semaine/mois est donc en Europe/Paris,
+// cohérent avec by_day / by_hour de page-views (Lot G-1a).
 function startOfWeek(d: Date): Date {
   const x = new Date(d);
   const day = (x.getDay() + 6) % 7; // lundi = 0
@@ -22,11 +26,14 @@ function bucketKey(d: Date, gran: Gran): string {
 }
 
 function bucketLabel(d: Date, gran: Gran): string {
+  // toLocaleDateString SANS timeZone lit les composantes locales du Date (déjà
+  // Paris via toParis) → libellé en heure de Paris.
   if (gran === "month") return d.toLocaleDateString("fr-FR", { month: "short", year: "2-digit" });
   return d.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
 }
 
 // Génère tous les buckets vides de `from` à `to` (continuité du graphe).
+// `from`/`to` sont des Date Paris-local (mêmes composantes que les points).
 function emptyBuckets(from: Date, to: Date, gran: Gran): Map<string, { label: string; revenue: number; orders: number }> {
   const map = new Map<string, { label: string; revenue: number; orders: number }>();
   const cur = gran === "week" ? startOfWeek(from) : new Date(from);
@@ -46,8 +53,10 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
   try {
-    const period = normalizePeriod(new URL(req.url).searchParams.get("period"));
-    const { from, to } = periodRange(period);
+    const rr = resolveAnalyticsRange(new URL(req.url).searchParams);
+    if (!rr.ok) return fail(rr.error, 400);
+    const { period, from, to } = rr.range;
+    // "custom" (bornes absolues) → granularité jour, comme les fenêtres courtes.
     const gran: Gran = period === "all" ? "month" : period === "90" ? "week" : "day";
 
     const { data, error } = await supabaseServer
@@ -58,9 +67,9 @@ export async function GET(req: NextRequest) {
       .limit(100000);
     if (error) return fail(error.message);
 
-    const buckets = emptyBuckets(new Date(from), new Date(to), gran);
+    const buckets = emptyBuckets(toParis(from), toParis(to), gran);
     (data ?? []).filter(isValidOrder).forEach(o => {
-      const d   = new Date(o.created_at);
+      const d   = toParis(o.created_at); // instant → composantes Paris
       const key = bucketKey(d, gran);
       const b   = buckets.get(key);
       if (b) { b.revenue += getNetAmount(o); b.orders += 1; }

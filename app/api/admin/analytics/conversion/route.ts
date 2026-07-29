@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, isValidOrder, VALID_STATUSES, fetchAllPaged, pct, ok, fail, botSessionIds } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, isValidOrder, VALID_STATUSES, fetchAllPaged, pct, ok, fail, botSessionIds } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -15,9 +15,10 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
   try {
     const sp = new URL(req.url).searchParams;
-    const period = normalizePeriod(sp.get("period"));
+    const rr = resolveAnalyticsRange(sp);
+    if (!rr.ok) return fail(rr.error, 400);
+    const { period, from, fromPrev, to } = rr.range;
     const excludeBots = sp.get("bots") === "exclude";
-    const { from, fromPrev, to } = periodRange(period);
 
     // Taux de conversion d'une fenêtre = commandes valides / sessions distinctes.
     // page_views paginé (cap PostgREST 1000/req → sinon sessions sous-comptées).

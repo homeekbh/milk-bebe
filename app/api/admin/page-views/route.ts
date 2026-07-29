@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { normalizePeriod, periodRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct, botSessionIds } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
 import { geocodeCity } from "@/lib/geo/geocode-fr";
 import type { NextRequest } from "next/server";
 
@@ -42,9 +42,10 @@ export async function GET(req: NextRequest) {
 
   try {
     const sp = new URL(req.url).searchParams;
-    const period = normalizePeriod(sp.get("period"));
+    const rr = resolveAnalyticsRange(sp);
+    if (!rr.ok) return Response.json({ data: null, error: rr.error }, { status: 400 });
+    const { period, from, fromPrev, to } = rr.range;
     const excludeBots = sp.get("bots") === "exclude";
-    const { from, fromPrev, to } = periodRange(period);
 
     // ⚠️ Pagination obligatoire : PostgREST plafonne à 1000 lignes/requête, donc
     // .limit(200000) était ignoré → seules les 1000 plus ANCIENNES lignes
@@ -126,13 +127,10 @@ export async function GET(req: NextRequest) {
 
     // ── Trafic par jour (continuité from→to) ────────────────────────────────
     const dayMap = new Map<string, { views: number; sessions: Set<string> }>();
-    const dStart = new Date(from); dStart.setUTCHours(0, 0, 0, 0);
-    const dEnd   = new Date(to);
-    for (let d = new Date(dStart), guard = 0; d <= dEnd && guard < 4000; d.setUTCDate(d.getUTCDate() + 1), guard++) {
-      dayMap.set(d.toISOString().slice(0, 10), { views: 0, sessions: new Set() });
-    }
+    // Jours calendaires en heure de Paris (Lot G-1a) — continuité from→to.
+    for (const key of enumerateParisDays(from, to)) dayMap.set(key, { views: 0, sessions: new Set() });
     rows.forEach(r => {
-      const key = new Date(r.viewed_at).toISOString().slice(0, 10);
+      const key = parisDayKey(r.viewed_at);
       const e = dayMap.get(key);
       if (e) { e.views++; if (r.session_id) e.sessions.add(r.session_id); }
     });
@@ -145,7 +143,7 @@ export async function GET(req: NextRequest) {
     for (const [date] of dayMap) nvrDayMap.set(date, { newV: new Set(), allV: new Set() });
     rows.forEach(r => {
       if (!r.visitor_id) return;
-      const e = nvrDayMap.get(new Date(r.viewed_at).toISOString().slice(0, 10));
+      const e = nvrDayMap.get(parisDayKey(r.viewed_at));
       if (!e) return;
       e.allV.add(r.visitor_id);
       if (r.is_new_visitor === true) e.newV.add(r.visitor_id);
@@ -158,7 +156,7 @@ export async function GET(req: NextRequest) {
     const hourArr = Array.from({ length: 24 }, () => 0);
     const wdArr   = Array.from({ length: 7 }, () => 0);
     rows.forEach(r => {
-      const p = new Date(new Date(r.viewed_at).toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+      const p = toParis(r.viewed_at);
       hourArr[p.getHours()]++;
       wdArr[(p.getDay() + 6) % 7]++;
     });
@@ -199,7 +197,7 @@ export async function GET(req: NextRequest) {
       Array.from({ length: 24 }, () => new Map<string, Set<string>>()));
     rows.forEach(r => {
       if (!r.session_id) return;
-      const p = new Date(new Date(r.viewed_at).toLocaleString("en-US", { timeZone: "Europe/Paris" }));
+      const p = toParis(r.viewed_at);
       const day = (p.getDay() + 6) % 7;
       const cell = heatCells[day][p.getHours()];
       const ch = channelOf(r);

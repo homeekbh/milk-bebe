@@ -19,17 +19,33 @@ function mean(nums: number[]): number {
   return nums.reduce((s, n) => s + n, 0) / nums.length;
 }
 
+// Attribution du canal à partir de (utm_source, utm_medium, referrer). SOURCE
+// UNIQUE de ce mapping (le front n'a que les libellés FR). Logique (Lot G-4a) :
+// identifier d'abord la PLATEFORME via utm_source, PUIS le type payant/organique
+// via utm_medium. Sinon un utm_medium=cpc de Meta (source=meta) était pris pour
+// de la « recherche payante » alors que c'est du social payant.
+const SOCIAL_SOURCES = ["meta", "facebook", "fb", "instagram", "ig", "igshopping", "tiktok", "pinterest", "threads", "snapchat", "linkedin"];
+const SEARCH_SOURCES = ["google", "bing", "google_ads", "adwords", "duckduckgo", "yahoo", "ecosia", "qwant"];
+const PAID_MEDIUMS   = ["cpc", "ppc", "paid", "paidsocial", "paid-social", "paid_social", "paid_search", "display"];
+
 function channelOf(r: any): string {
-  const src = String(r.utm_source ?? "").toLowerCase();
-  const med = String(r.utm_medium ?? "").toLowerCase();
+  const src = String(r.utm_source ?? "").toLowerCase().trim();
+  const med = String(r.utm_medium ?? "").toLowerCase().trim();
   const dom = String(r.referrer_domain ?? "").toLowerCase();
   const hasUtm = !!src || !!med;
-  if (med === "cpc" || src === "google" || src === "bing")       return "Paid Search";
-  if (med === "social" || med === "paid-social")                 return "Paid Social";
-  if (!hasUtm && SOCIAL.includes(dom))                           return "Organic Social";
-  if (med === "email")                                           return "Email";
-  if (!hasUtm && dom === "google.com")                           return "Organic Search";
-  if (!r.referrer)                                               return "Direct";
+  const paid   = PAID_MEDIUMS.includes(med);
+
+  if (src === "direct" || src === "(direct)")            return "Direct";
+  // 1. Plateforme via la SOURCE, puis payant/organique via le medium.
+  if (SOCIAL_SOURCES.includes(src))                      return paid ? "Paid Social"  : "Organic Social";
+  if (SEARCH_SOURCES.includes(src))                      return paid ? "Paid Search"  : "Organic Search";
+  // 2. Pas de source connue → repli sur medium / referrer.
+  if (med === "email")                                   return "Email";
+  if (paid)                                              return "Paid Search";   // cpc sans source identifiée → recherche payante (défaut prudent)
+  if (med === "social" || med === "paid-social")         return "Paid Social";
+  if (!hasUtm && SOCIAL.includes(dom))                   return "Organic Social";
+  if (!hasUtm && dom === "google.com")                   return "Organic Search";
+  if (!r.referrer)                                       return "Direct";
   return "Referral";
 }
 
@@ -163,30 +179,40 @@ export async function GET(req: NextRequest) {
     const by_hour    = hourArr.map((views, hour) => ({ hour, views }));
     const by_weekday = wdArr.map((views, day) => ({ day, views }));
 
-    // ── Sources (utm_source||referrer_domain||direct + medium) ──────────────
-    const srcMap = new Map<string, { source: string; medium: string; sessions: Set<string>; views: number }>();
+    // ── Attribution PAR SESSION (Lot G-4b) ───────────────────────────────────
+    // Une seule source/canal par session = PREMIER contact NON « Direct » de la
+    // session (sinon « Direct »). `rows` est trié par viewed_at ASC. Capte la vraie
+    // source d'acquisition sans qu'un 1er hit « Direct » masque la campagne qui a
+    // réellement amené le visiteur, et garantit Σ(canaux) == sessions uniques
+    // (avant : attribution PAR LIGNE → une session multi-source comptée plusieurs
+    // fois → somme des canaux > sessions).
+    const sessionAttr = new Map<string, any>();
     rows.forEach(r => {
+      if (!r.session_id) return;
+      const cur = sessionAttr.get(r.session_id);
+      if (!cur) { sessionAttr.set(r.session_id, r); return; }
+      if (channelOf(cur) === "Direct" && channelOf(r) !== "Direct") sessionAttr.set(r.session_id, r);
+    });
+    const attributed = [...sessionAttr.values()]; // 1 ligne représentative par session
+
+    // ── Sources (utm_source||referrer_domain||direct + medium) — 1 par session ──
+    const srcMap = new Map<string, { source: string; medium: string; sessions: number }>();
+    attributed.forEach(r => {
       const source = (r.utm_source && String(r.utm_source).trim()) || r.referrer_domain || "direct";
       const medium = (r.utm_medium && String(r.utm_medium).trim()) || "";
       const key = `${source}|${medium}`;
-      if (!srcMap.has(key)) srcMap.set(key, { source, medium, sessions: new Set(), views: 0 });
-      const e = srcMap.get(key)!;
-      e.views++; if (r.session_id) e.sessions.add(r.session_id);
+      if (!srcMap.has(key)) srcMap.set(key, { source, medium, sessions: 0 });
+      srcMap.get(key)!.sessions++;
     });
     const by_source = [...srcMap.values()]
-      .map(s => ({ source: s.source, medium: s.medium, sessions: s.sessions.size, views: s.views }))
       .sort((a, b) => b.sessions - a.sessions).slice(0, 20);
 
-    // ── Canaux agrégés ──────────────────────────────────────────────────────
-    const chanMap = new Map<string, Set<string>>();
-    rows.forEach(r => {
-      const ch = channelOf(r);
-      if (!chanMap.has(ch)) chanMap.set(ch, new Set());
-      if (r.session_id) chanMap.get(ch)!.add(r.session_id);
-    });
-    const chanTotal = [...chanMap.values()].reduce((s, set) => s + set.size, 0) || 1;
+    // ── Canaux agrégés — 1 canal par session → Σ(sessions) == sessions uniques ──
+    const chanMap = new Map<string, number>();
+    attributed.forEach(r => { const ch = channelOf(r); chanMap.set(ch, (chanMap.get(ch) ?? 0) + 1); });
+    const chanTotal = [...chanMap.values()].reduce((s, n) => s + n, 0) || 1;
     const by_channel = [...chanMap.entries()]
-      .map(([channel, set]) => ({ channel, sessions: set.size, pct: Math.round((set.size / chanTotal) * 100) }))
+      .map(([channel, sessions]) => ({ channel, sessions, pct: Math.round((sessions / chanTotal) * 100) }))
       .sort((a, b) => b.sessions - a.sessions);
 
     // ── Heatmap jour × heure × canal (heure Paris) ───────────────────────────

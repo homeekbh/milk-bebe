@@ -119,13 +119,13 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
       seoTitle: "Gigoteuse bébé bambou — Turbulette nourrisson 0-3 mois à nouer",
       seoDesc:  "Gigoteuse bébé en bambou certifié OEKO-TEX. Turbulette nourrisson respirante, à nouer. Zéro bouton, change facile la nuit. Livraison offerte dès 60€ en France métropolitaine.",
       keywords: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "turbulette 0-3 mois", "gigoteuse bébé respirante", "gigoteuse sans bouton"],
-      h1: "Gigoteuses bébé bambou",
+      h1: "Gigoteuses à nouer bébé bambou",
     },
     en: {
       seoTitle: "Baby Sleep Bags OEKO-TEX Bamboo — Newborn Sleep Sack 0-3 months",
       seoDesc:  "OEKO-TEX certified bamboo baby sleep bags. Breathable newborn sleep sack, tie fastening. Zero snaps, easy night changes. Free delivery from €60.",
       keywords: ["baby sleep bag", "newborn sleep sack", "bamboo sleep bag", "baby sleeping bag 0-3 months"],
-      h1: "Baby Sleep Bags",
+      h1: "Tie-Up Baby Sleep Bags",
     },
   },
   langes: {

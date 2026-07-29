@@ -1,3 +1,5 @@
+import { Link } from "@/i18n/navigation";
+
 /**
  * FAQ gigoteuses — affichée SOUS le contenu SEO de /categorie/gigoteuses.
  *
@@ -94,6 +96,10 @@ export function GigoteusesFaq() {
             </details>
           ))}
         </div>
+        {/* Lot I-2 — lien discret vers l'article de blog dédié (maillage interne). */}
+        <Link href="/blog/gigoteuse-0-3-mois-comment-bien-choisir" style={{ display: "inline-block", marginTop: 28, fontSize: 14, fontWeight: 800, color: C.amber, textDecoration: "none" }}>
+          Lire l'article : Gigoteuse 0-3 mois, comment bien choisir →
+        </Link>
       </div>
     </section>
   );

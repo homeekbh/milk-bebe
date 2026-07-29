@@ -20,7 +20,19 @@ export default function PromoSticker() {
   useEffect(() => {
     fetch('/api/promo/featured')
       .then(r => r.json())
-      .then(({ promo }) => setPromo(promo))
+      .then(({ promo }) => {
+        setPromo(promo)
+        // Fermeture mémorisée pour la SESSION (sessionStorage), clé = code promo :
+        // un NOUVEAU code réapparaît même si l'ancien avait été fermé, et une
+        // nouvelle visite (nouvelle session) revoit la promo. Lu ici, côté client
+        // uniquement → aucun mismatch d'hydratation (le composant ne rend rien tant
+        // que `promo` est null, au SSR comme au 1er render client).
+        if (promo?.code) {
+          try {
+            if (sessionStorage.getItem('milk_promo_closed') === promo.code) setVisible(false)
+          } catch {}
+        }
+      })
       .catch(() => {})
   }, [])
 
@@ -57,6 +69,12 @@ export default function PromoSticker() {
     setTimeout(() => setCopied(false), 2000)
   }
 
+  // Fermeture : masque + mémorise le code fermé pour la session (cf. useEffect).
+  const dismiss = () => {
+    setVisible(false)
+    try { sessionStorage.setItem('milk_promo_closed', promo.code) } catch {}
+  }
+
   const keyframes = (
     <style>{`
       @keyframes milk-promo-pulse {
@@ -73,7 +91,7 @@ export default function PromoSticker() {
   const closeBtn = (
     <button
       className="milk-promo-close"
-      onClick={e => { e.stopPropagation(); setVisible(false) }}
+      onClick={e => { e.stopPropagation(); dismiss() }}
       style={{
         pointerEvents: 'all',
         background: 'rgba(245,184,65,0.15)',
@@ -159,7 +177,16 @@ export default function PromoSticker() {
     )
   }
 
-  // ── DESKTOP (> 768px) : widget flottant coin bas-droit (inchangé) ──
+  // ── DESKTOP (> 768px) : widget flottant coin bas-droit ──
+  // Q1b : sur la FICHE PRODUIT et la FICHE PACK, ce widget (fixed bottom-right)
+  // recouvrait ET bloquait au clic (bouton en pointerEvents:'all') le bloc
+  // réassurances (livraison offerte / retours 14j / paiement sécurisé) placé juste
+  // sous « Ajouter au panier » — l'info qui rassure au moment de l'achat. Ces deux
+  // fiches ont le même bloc + le même bouton d'achat. On masque donc le widget
+  // desktop sur /produits/<slug> ET /packs/<slug>. La promo reste visible : prix à
+  // jour, barre mobile (haut), et widget desktop sur les autres pages. Mobile inchangé.
+  if (/^\/(?:fr|en)\/(?:produits|packs)\/[^/]+/.test(pathname)) return null
+
   return (
     <div style={{
       position: 'fixed',

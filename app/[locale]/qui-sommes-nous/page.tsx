@@ -217,9 +217,9 @@ function IntroErika() {
               willChange: "transform, opacity",
             }}
           >
-            <h2 style={{ margin: 0, fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.08, color: P.dark, fontSize: "clamp(30px, 4.5vw, 56px)" }}>
+            <h1 style={{ margin: 0, fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.08, color: P.dark, fontSize: "clamp(30px, 4.5vw, 56px)" }}>
               {t("title")}
-            </h2>
+            </h1>
             <p style={{ margin: 0, fontSize: "clamp(20px, 2.2vw, 26px)", fontWeight: 900, color: P.dark, lineHeight: 1.35 }}>
               {t("mom")}
             </p>

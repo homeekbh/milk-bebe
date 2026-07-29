@@ -1102,8 +1102,9 @@ export default function AdminCommandes() {
                                   ))}
                                 </div>
                                 <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 3 }}>
+                                  {/* La taille est déjà affichée en chip via item.name.split(" — ")
+                                      ci-dessus. On ne la ré-affiche pas ici (doublon). */}
                                   × {item.quantity}
-                                  {item.taille && <span style={{ marginLeft: 8, fontWeight: 700, color: "#1a1410" }}>Taille : {item.taille}</span>}
                                 </div>
                               </div>
                               <div style={{ fontWeight: 900, color: "#c49a4a" }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)} €</div>

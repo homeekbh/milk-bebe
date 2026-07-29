@@ -325,7 +325,10 @@ export default function CheckoutPaiementPage() {
           {items.map(it => (
             <div key={`${it.id}-${it.taille ?? ""}-${it.couleur ?? ""}`} style={rowBetween}>
               <span style={{ fontSize: 14, color: "rgba(26,20,16,0.8)" }}>
-                {it.name}{it.taille ? ` · ${it.taille}` : ""}{it.couleur ? ` · ${it.couleur}` : ""}
+                {/* it.name contient déjà taille + couleur (bakées à l'ajout, join " — ")
+                    comme sur /panier, /success et l'email. On n'ajoute donc PAS de
+                    suffixe taille/couleur ici, sinon la taille s'affiche deux fois. */}
+                {it.name}
                 <span style={{ color: "rgba(26,20,16,0.45)" }}> × {it.quantity}</span>
               </span>
               <span style={{ fontSize: 14, fontWeight: 700, whiteSpace: "nowrap" }}>{fmt((Number(it.price) || 0) * (Number(it.quantity) || 0))}</span>

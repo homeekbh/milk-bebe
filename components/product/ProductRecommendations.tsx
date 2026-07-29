@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import ProductCardPremium from "./ProductCardPremium";
+import { BADGE_KEYFRAMES } from "./badgeStyles";
 
 type Product = {
   id:           string;
@@ -14,6 +15,7 @@ type Product = {
   stock?:       number;
   image_url?:   string | null;
   category_slug?: string;
+  label?:       string | null;
 };
 
 const C = {
@@ -164,12 +166,13 @@ export default function ProductRecommendations({
                     promo_price: p.promo_price ?? undefined,
                     stock:       p.stock,
                     image_url:   p.image_url ?? null,
+                    label:       p.label ?? null,
                   }}
                 />
               ))
           }
         </div>
-        <style>{`@keyframes milk-rec-pulse {0%,100%{opacity:0.4}50%{opacity:0.8}}`}</style>
+        <style>{`@keyframes milk-rec-pulse {0%,100%{opacity:0.4}50%{opacity:0.8}} ${BADGE_KEYFRAMES}`}</style>
       </div>
     </section>
   );

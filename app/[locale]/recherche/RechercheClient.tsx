@@ -6,6 +6,8 @@ import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { trackSearch } from "@/lib/analytics";
 import { useTranslations } from "next-intl";
+import ProductBadge from "@/components/product/ProductBadge";
+import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
 
 function slugify(input: any) {
   return String(input ?? "").trim().toLowerCase()
@@ -44,16 +46,17 @@ function ProductCard({ p, query }: { p: any; query: string }) {
   const price = promo ? p.promo_price : p.price_ttc;
   const slug  = p.slug || slugify(p.name);
   return (
-    <Link href={`/produits/${slug}`} style={{ textDecoration: "none", color: "inherit", display: "block" }}>
-      <div className="search-card" style={{ borderRadius: 20, overflow: "hidden", background: "#221c16", border: "1px solid rgba(242,237,230,0.08)", transition: "all 0.25s cubic-bezier(.22,.61,.36,1)", cursor: "pointer" }}>
-        <div style={{ position: "relative", aspectRatio: "3/4", background: "#2d2419", overflow: "hidden" }}>
+    <Link href={`/produits/${slug}`} style={{ textDecoration: "none", color: "inherit", display: "block", height: "100%" }}>
+      <div className="search-card" style={{ borderRadius: 20, overflow: "hidden", background: "#221c16", border: "1px solid rgba(242,237,230,0.08)", height: "100%", display: "flex", flexDirection: "column", transition: "all 0.25s cubic-bezier(.22,.61,.36,1)", cursor: "pointer" }}>
+        <div style={{ position: "relative", aspectRatio: "3/4", background: "#2d2419", overflow: "hidden", flexShrink: 0 }}>
           {p.image_url ? (
             <Image src={p.image_url} alt={p.name} fill sizes="280px" style={{ objectFit: "cover", transition: "transform 0.5s ease" }} className="search-card-img" />
           ) : (
             <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontWeight: 950, fontSize: 28, color: "rgba(242,237,230,0.1)" }}>M!LK</div>
           )}
+          {/* Lot D-bis : la pastille promo/label passe SOUS la photo (voir contenu). Reste sur l'image :
+              l'indicateur "épuisé" (état stock, analogue à l'overlay rupture du catalogue). */}
           <div style={{ position: "absolute", top: 12, left: 12, display: "flex", gap: 6 }}>
-            {promo && <span style={{ padding: "4px 10px", borderRadius: 99, background: "#c49a4a", color: "#fff", fontSize: 10, fontWeight: 800 }}>{t("promo")}</span>}
             {p.stock <= 0 && <span style={{ padding: "4px 10px", borderRadius: 99, background: "rgba(0,0,0,0.7)", color: "#fff", fontSize: 10, fontWeight: 800 }}>{t("sold_out")}</span>}
           </div>
           {p.category_slug && (
@@ -64,11 +67,12 @@ function ProductCard({ p, query }: { p: any; query: string }) {
             </div>
           )}
         </div>
-        <div style={{ padding: "16px 18px 20px" }}>
+        <div style={{ padding: "16px 18px 20px", flex: 1, display: "flex", flexDirection: "column" }}>
+          <ProductBadge label={p.label} isPromo={promo} size="card" />
           <div translate="no" style={{ fontWeight: 900, fontSize: 16, color: "#f2ede6", marginBottom: 8 }}>
             {highlightMatch(p.name, query)}
           </div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: "auto" }}>
             <div style={{ display: "flex", alignItems: "baseline", gap: 8 }}>
               <span style={{ fontWeight: 950, fontSize: 18, color: "#f2ede6" }}>{Number(price).toFixed(2)} €</span>
               {promo && <span style={{ fontSize: 13, textDecoration: "line-through", color: "rgba(242,237,230,0.3)" }}>{Number(p.price_ttc).toFixed(2)} €</span>}
@@ -290,6 +294,7 @@ export default function RechercheClient() {
           </div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 18 }}>
+            <style>{BADGE_KEYFRAMES}</style>
             {results.map(p => <ProductCard key={p.id} p={p} query={query} />)}
           </div>
         )}

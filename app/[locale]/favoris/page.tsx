@@ -5,6 +5,8 @@ import { useCart }     from "@/context/CartContext";
 import { supabase }    from "@/lib/supabase-client";
 import { Link } from "@/i18n/navigation";
 import Image           from "next/image";
+import ProductBadge from "@/components/product/ProductBadge";
+import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
 
 const BG   = "#ede8df";
 const DARK = "#1a1410";
@@ -29,7 +31,7 @@ export default function FavorisPage() {
     setLoading(true);
     supabase
       .from("products")
-      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, image_url, category_slug, stock")
+      .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, image_url, category_slug, stock, label")
       .in("id", ids)
       .then(({ data }) => { setProducts(data ?? []); setLoading(false); });
   }, [ids, mounted]);
@@ -82,6 +84,7 @@ export default function FavorisPage() {
         {/* Grille produits */}
         {mounted && !loading && products.length > 0 && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(260px, 1fr))", gap: 20 }}>
+            <style>{BADGE_KEYFRAMES}</style>
             {products.map(p => {
               const promo    = isPromoActive(p);
               const price    = promo ? p.promo_price : p.price_ttc;
@@ -89,23 +92,20 @@ export default function FavorisPage() {
               const inStock  = (p.stock ?? 0) > 0;
               return (
                 <div key={p.id}
-                  style={{ background: "#fff", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(26,20,16,0.07)", display: "flex", flexDirection: "column" }}>
+                  style={{ background: "#fff", borderRadius: 20, overflow: "hidden", border: "1px solid rgba(26,20,16,0.07)", height: "100%", display: "flex", flexDirection: "column" }}>
 
-                  {/* Image */}
+                  {/* Image — plus aucun badge posé dessus (Lot D-bis). */}
                   <Link href={`/produits/${p.slug}`} style={{ display: "block", position: "relative", aspectRatio: "3/4", background: "#ede8df", flexShrink: 0 }}>
                     {p.image_url
                       ? <Image src={p.image_url} alt={p.name} fill style={{ objectFit: "cover" }} sizes="(max-width:640px)100vw,300px" />
                       : <div style={{ position: "absolute", inset: 0, display: "grid", placeItems: "center", fontSize: 11, fontWeight: 900, color: "rgba(26,20,16,0.2)" }}>M!LK</div>
                     }
-                    {promo && (
-                      <div style={{ position: "absolute", top: 12, left: 12, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, padding: "3px 8px", borderRadius: 6 }}>
-                        -{Math.round((1 - p.promo_price / p.price_ttc) * 100)}%
-                      </div>
-                    )}
                   </Link>
 
-                  {/* Contenu */}
+                  {/* Contenu — pastille partagée SOUS la photo, au-dessus du titre (le -30% disparaît
+                      au profit de la pastille PROMO ; l'info reste via le prix barré — décision assumée). */}
                   <div style={{ padding: "16px 18px 20px", flex: 1, display: "flex", flexDirection: "column", gap: 10 }}>
+                    <ProductBadge label={p.label} isPromo={promo} size="card" />
                     <div>
                       <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)", textTransform: "capitalize", marginBottom: 4 }}>{p.category_slug}</div>
                       <Link href={`/produits/${p.slug}`} style={{ textDecoration: "none" }}>

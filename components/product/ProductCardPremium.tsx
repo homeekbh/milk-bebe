@@ -3,6 +3,7 @@
 import { Link } from "@/i18n/navigation";
 import Image from "next/image";
 import { useState } from "react";
+import ProductBadge from "./ProductBadge";
 
 type Product = {
   id: string | number;
@@ -12,6 +13,7 @@ type Product = {
   promo_price?: number;
   stock?: number;
   image_url?: string | null;
+  label?: string | null;
 };
 
 function slugify(input: any) {
@@ -32,7 +34,10 @@ function slugify(input: any) {
  *   - Pas de prix (l'objectif est la découverte, pas la conversion directe)
  *   - Nom 14px, max 2 lignes
  *   - Bouton "Voir le produit" compact 13px
- *   - Card padding 12px
+ *
+ * Lot D-bis : pastille partagée <ProductBadge> SOUS la photo, au-dessus du nom
+ * (plus de badge PROMO posé sur l'image). Carte en flex-column height:100% +
+ * bouton en margin-top:auto → boutons alignés entre cartes avec/sans pastille.
  */
 export default function ProductCardPremium({
   product,
@@ -52,13 +57,13 @@ export default function ProductCardPremium({
     String(product.id);
 
   const out = Number(product.stock ?? 0) <= 0;
-  const promo = product.promo_price && product.promo_price < product.price_ttc;
+  const promo = !!(product.promo_price && product.promo_price < product.price_ttc);
   const img = product.image_url || null;
 
   return (
     <Link
       href={`/produits/${slug}`}
-      style={{ textDecoration: "none" }}
+      style={{ textDecoration: "none", display: "block", height: "100%" }}
     >
       <div
         onMouseEnter={() => setHover(true)}
@@ -67,6 +72,9 @@ export default function ProductCardPremium({
           borderRadius: 14,
           overflow: "hidden",
           background: "#f5f1ea",
+          height: "100%",
+          display: "flex",
+          flexDirection: "column",
           transition: "all 0.3s cubic-bezier(.22,.61,.36,1)",
           boxShadow: hover
             ? "0 16px 32px rgba(0,0,0,0.25)"
@@ -74,7 +82,7 @@ export default function ProductCardPremium({
           transform: hover ? "translateY(-3px)" : "translateY(0px)",
         }}
       >
-        {/* IMAGE : hauteur max 160px, fallback placeholder M!LK si null */}
+        {/* IMAGE : hauteur max 160px, fallback placeholder M!LK si null. Plus aucun badge posé dessus. */}
         <div
           style={{
             position: "relative",
@@ -113,28 +121,13 @@ export default function ProductCardPremium({
               M!LK
             </div>
           )}
-          {promo && (
-            <div style={{
-              position: "absolute",
-              top: 8,
-              left: 8,
-              padding: "3px 8px",
-              borderRadius: 99,
-              background: "#dc2626",
-              color: "#fff",
-              fontSize: 9,
-              fontWeight: 900,
-              letterSpacing: 1,
-              zIndex: 2,
-            }}>
-              PROMO
-            </div>
-          )}
         </div>
 
-        {/* CONTENU : padding 12px, pas de prix, nom + bouton uniquement */}
-        <div style={{ padding: 12 }}>
+        {/* CONTENU : pastille (sous la photo) + nom, bouton poussé en bas. */}
+        <div style={{ padding: 12, flex: 1, display: "flex", flexDirection: "column" }}>
+          {!out && <ProductBadge label={product.label ?? undefined} isPromo={promo} size="card" />}
           <div
+            translate="no"
             style={{
               fontWeight: 800,
               fontSize: 14,
@@ -149,7 +142,6 @@ export default function ProductCardPremium({
               overflow: "hidden",
               minHeight: 36,
             }}
-            translate="no"
           >
             {product.name}
           </div>
@@ -158,6 +150,7 @@ export default function ProductCardPremium({
             disabled={out}
             style={{
               width: "100%",
+              marginTop: "auto",
               padding: "8px 12px",
               borderRadius: 10,
               border: "none",

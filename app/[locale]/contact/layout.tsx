@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { getAlternates } from "@/i18n/seo";
 
 export async function generateMetadata({
@@ -7,12 +8,13 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "contact" });
   return {
-    title:       "Contact",
-    description: "Contactez l'équipe M!LK pour toute question sur nos produits, commandes ou livraisons. Réponse sous 24h.",
+    title:       t("meta_title"),
+    description: t("meta_description"),
     openGraph: {
-      title:       "Contact — M!LK",
-      description: "Contactez l'équipe M!LK pour toute question sur nos produits, commandes ou livraisons. Réponse sous 24h.",
+      title:       t("og_title"),
+      description: t("og_description"),
     },
     alternates: getAlternates(locale, "/contact"),
   };

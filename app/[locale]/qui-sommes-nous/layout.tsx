@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+const ERIKA_IMG = "https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg";
 
 export async function generateMetadata({
   params,
@@ -10,37 +12,30 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const t = await getTranslations({ locale, namespace: "about" });
   return {
-  title:       "Qui sommes-nous — La fondatrice",
-  description: "M!LK est une marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100, fondée par Erika, maman de deux garçons. Découvrez l'histoire et la vision.",
-  keywords: [
-    "M!LK fondatrice",
-    "Erika M!LK",
-    "marque française bébé bambou",
-    "qui est M!LK",
-    "histoire M!LK",
-    "vêtement bébé made in France bambou",
-    "fondatrice marque bébé bambou",
-  ],
-  alternates: getAlternates(locale, "/qui-sommes-nous"),
-  openGraph: {
-    title:       "Qui sommes-nous — M!LK",
-    description: "Marque française d'essentiels bébé en bambou certifié OEKO-TEX Standard 100, fondée par Erika.",
-    siteName:    "M!LK",
-    locale:      locale === "en" ? "en_GB" : "fr_FR",
-    type:        "website",
-    images: [{
-      url:    `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
-      width:  1200,
-      height: 630,
-      alt:    "Erika et ses garçons — fondatrice de M!LK",
-    }],
-  },
-  twitter: {
-    card:        "summary_large_image",
-    title:       "Qui sommes-nous — M!LK",
-    description: "Erika, fondatrice de M!LK — essentiels bébé bambou OEKO-TEX.",
-  },
+    title:       t("meta_title"),
+    description: t("meta_description"),
+    keywords: t.raw("meta_keywords") as string[],
+    alternates: getAlternates(locale, "/qui-sommes-nous"),
+    openGraph: {
+      title:       t("og_title"),
+      description: t("og_description"),
+      siteName:    "M!LK",
+      locale:      locale === "en" ? "en_GB" : "fr_FR",
+      type:        "website",
+      images: [{
+        url:    ERIKA_IMG,
+        width:  1200,
+        height: 630,
+        alt:    t("og_image_alt"),
+      }],
+    },
+    twitter: {
+      card:        "summary_large_image",
+      title:       t("tw_title"),
+      description: t("tw_description"),
+    },
   };
 }
 
@@ -53,6 +48,7 @@ export default async function QuiSommesNousLayout({
 }) {
   const { locale } = await params;
   const loc = locale === "en" ? "en" : "fr";
+  const t = await getTranslations({ locale, namespace: "about" });
 
   // URLs structurées en /{loc} DIRECT (zéro 307). L'Organization est référencée
   // par son @id (identifiant du nœud défini dans le layout racine) — un @id n'est
@@ -61,16 +57,16 @@ export default async function QuiSommesNousLayout({
     "@context":   "https://schema.org",
     "@type":      "Person",
     name:         "Erika",
-    jobTitle:     "Fondatrice",
+    jobTitle:     t("person_jobtitle"),
     worksFor:     { "@id": `${BASE}/#organization` },
-    description:  "Maman de deux garçons, fondatrice de M!LK — marque française d'essentiels bébé en bambou certifié OEKO-TEX.",
-    image:        `https://ntkqmnenczltlwplswka.supabase.co/storage/v1/object/public/product-images/erika-et-ses-enfants.jpg`,
+    description:  t("person_desc"),
+    image:        ERIKA_IMG,
   };
 
   const aboutPageLd = {
     "@context":   "https://schema.org",
     "@type":      "AboutPage",
-    name:         "Qui sommes-nous — M!LK",
+    name:         t("aboutpage_name"),
     url:          `${BASE}/${loc}/qui-sommes-nous`,
     mainEntity:   { "@id": `${BASE}/#organization` },
     about:        { "@id": `${BASE}/#organization` },
@@ -80,8 +76,8 @@ export default async function QuiSommesNousLayout({
     "@context": "https://schema.org",
     "@type":    "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Accueil",          item: `${BASE}/${loc}` },
-      { "@type": "ListItem", position: 2, name: "Qui sommes-nous",  item: `${BASE}/${loc}/qui-sommes-nous` },
+      { "@type": "ListItem", position: 1, name: t("breadcrumb_home"), item: `${BASE}/${loc}` },
+      { "@type": "ListItem", position: 2, name: t("breadcrumb_self"), item: `${BASE}/${loc}/qui-sommes-nous` },
     ],
   };
 

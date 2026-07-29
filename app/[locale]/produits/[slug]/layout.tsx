@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { supabaseServer } from "@/lib/server/supabase";
 import { JsonLd } from "@/components/seo/JsonLd";
+import { getTranslations } from "next-intl/server";
 import { getAlternates } from "@/i18n/seo";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -9,30 +10,9 @@ const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 // Utilisés UNIQUEMENT quand seo_title / seo_description sont NULL en DB.
 // Objectif : capter les requêtes génériques (« pyjama bébé », « gigoteuse
 // nourrisson », « turbulette »…) en plus des requêtes bambou.
-const CATEGORY_TITLE_MAP: Record<string, (name: string) => string> = {
-  pyjamas:     (n) => `${n} — Pyjama bébé bambou OEKO-TEX, grenouillère nourrisson 0-6 mois`,
-  bodies:      (n) => `${n} — Body bébé bambou OEKO-TEX, body nourrisson doux 0-6 mois`,
-  gigoteuses:  (n) => `${n} — Gigoteuse bébé bambou, turbulette nourrisson 0-3 mois`,
-  langes:      (n) => `${n} — Lange bébé bambou OEKO-TEX, emmaillotage nourrisson`,
-  bonnet:      (n) => `${n} — Bonnet bébé bambou OEKO-TEX, bonnet nourrisson doux`,
-  accessoires: (n) => `${n} — Accessoire bébé bambou OEKO-TEX`,
-};
-const CATEGORY_DESC_MAP: Record<string, (name: string) => string> = {
-  pyjamas:    (n) => `${n} en bambou certifié OEKO-TEX. Pyjama bébé ultra-doux, grenouillère nourrisson thermorégulante. Double zip + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.`,
-  bodies:     (n) => `${n} en bambou certifié OEKO-TEX. Body bébé ultra-doux, body nourrisson hypoallergénique. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.`,
-  gigoteuses: (n) => `${n} en bambou certifié OEKO-TEX. Gigoteuse bébé respirante, turbulette nourrisson 0-3 mois. À nouer, zéro bouton. Livraison offerte dès 60€ en France métropolitaine.`,
-  langes:     (n) => `${n} en bambou certifié OEKO-TEX. Lange bébé 120×120 cm, emmaillotage nourrisson. Multi-usage. Livraison offerte dès 60€ en France métropolitaine.`,
-  bonnet:     (n) => `${n} en bambou certifié OEKO-TEX. Bonnet bébé ultra-doux, bonnet nourrisson anatomique. Livraison offerte dès 60€ en France métropolitaine.`,
-  accessoires:(n) => `${n} en bambou certifié OEKO-TEX. Accessoire bébé doux et hypoallergénique. Livraison offerte dès 60€ en France métropolitaine.`,
-};
-const CATEGORY_KEYWORDS: Record<string, string[]> = {
-  pyjamas:    ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "pyjama bébé 0-6 mois"],
-  bodies:     ["body bébé", "body nourrisson", "body bambou bébé", "body bébé doux", "body bébé peau sensible", "body bébé OEKO-TEX", "body bébé 0-3 mois"],
-  gigoteuses: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "gigoteuse bébé respirante"],
-  langes:     ["lange bébé", "lange emmaillotage", "lange bambou", "emmaillotage nourrisson", "lange bébé 120x120"],
-  bonnet:     ["bonnet bébé", "bonnet nourrisson", "bonnet bébé bambou", "bonnet naissance"],
-  accessoires:["accessoire bébé", "bandeau bébé", "accessoire nourrisson"],
-};
+// Lot J1 : ces libellés vivent désormais dans le namespace i18n `productMeta`
+// (cat_title / cat_desc / cat_keywords, + fallback_*) → fallbacks traduits fr/en.
+// product.name reste du contenu DB (non traduit, protégé) injecté via {name}.
 
 // ── SSG + ISR ──────────────────────────────────────────────────────────────
 // Pré-génère au build le shell + les métadonnées/JSON-LD SSR de CHAQUE produit
@@ -53,6 +33,7 @@ export async function generateMetadata(
   { params }: { params: Promise<{ locale: string; slug: string }> }
 ): Promise<Metadata> {
   const { locale, slug } = await params;
+  const t = await getTranslations({ locale, namespace: "productMeta" });
 
   const { data: product } = await supabaseServer
     .from("products")
@@ -62,29 +43,28 @@ export async function generateMetadata(
 
   if (!product) {
     return {
-      title:       "Produit",
-      description: "Essentiels bébé bambou OEKO-TEX certifiés pour nourrissons 0-6 mois.",
+      title:       t("not_found_title"),
+      description: t("not_found_desc"),
     };
   }
 
   // Fallback enrichi par catégorie (uniquement pour les produits SANS seo_title
   // custom en DB) : injecte les termes génériques recherchés par les parents
   // (« pyjama bébé », « grenouillère », « turbulette »…) en plus du bambou.
+  // product.name = contenu DB (protégé) injecté via le paramètre ICU {name}.
   const catSlug = product.category_slug ?? "";
   const title = product.seo_title
-    ?? CATEGORY_TITLE_MAP[catSlug]?.(product.name)
-    ?? `${product.name} — bambou OEKO-TEX 0-6 mois`;
+    ?? (t.has(`cat_title.${catSlug}`) ? t(`cat_title.${catSlug}`, { name: product.name }) : t("fallback_title", { name: product.name }));
 
   const description = product.seo_description
-    ?? CATEGORY_DESC_MAP[catSlug]?.(product.name)
-    ?? `${product.name} en bambou certifié OEKO-TEX. Livraison offerte dès 60€ en France métropolitaine.`;
+    ?? (t.has(`cat_desc.${catSlug}`) ? t(`cat_desc.${catSlug}`, { name: product.name }) : t("fallback_desc", { name: product.name }));
 
   const url = `${BASE}/${locale}/produits/${product.slug}`;
 
   // Mots-clés : génériques de la catégorie + signaux marque/matière.
   const keywords = [
-    ...(CATEGORY_KEYWORDS[catSlug] ?? []),
-    "bambou OEKO-TEX", "M!LK", "bébé 0-6 mois",
+    ...(t.has(`cat_keywords.${catSlug}`) ? (t.raw(`cat_keywords.${catSlug}`) as string[]) : []),
+    ...(t.raw("base_keywords") as string[]),
   ];
 
   // NB : le BreadcrumbList JSON-LD est désormais émis comme VRAI <script> via
@@ -113,6 +93,7 @@ export async function generateMetadata(
 
 // ── JSON-LD Product schema ─────────────────────────────────────────────────
 async function getProductJsonLd(slug: string, locale: string) {
+  const t = await getTranslations({ locale, namespace: "productMeta" });
   const { data: product } = await supabaseServer
     .from("products")
     .select("id, name, slug, description, price_ttc, promo_price, promo_start, promo_end, stock, sizes_stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8")
@@ -171,10 +152,10 @@ async function getProductJsonLd(slug: string, locale: string) {
     "@context":    "https://schema.org",
     "@type":       "Product",
     name:          product.name,
-    description:   product.description ?? `${product.name} en bambou certifié OEKO-TEX. Cadeau naissance idéal, livraison France.`,
+    description:   product.description ?? t("jsonld_desc_fallback", { name: product.name }),
     image:         imageList,
     brand:         { "@type": "Brand", name: "M!LK" },
-    material:      "Bambou certifié OEKO-TEX",
+    material:      t("jsonld_material"),
     sku:           product.slug,
     category:      product.category_slug ?? undefined,
     ...(aggregateRating ? { aggregateRating } : {}),
@@ -217,15 +198,17 @@ export default async function ProductSlugLayout({
   params:   Promise<{ slug: string; locale: string }>;
 }) {
   const { slug, locale } = await params;
+  const t = await getTranslations({ locale, namespace: "productMeta" });
   const productLd = await getProductJsonLd(slug, locale);
 
   // BreadcrumbList en VRAI JSON-LD (URLs locale-préfixées, cohérentes).
+  // position 3 = nom produit (contenu DB, non traduit).
   const breadcrumbLd = productLd ? {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Accueil",  item: `${BASE}/${locale}` },
-      { "@type": "ListItem", position: 2, name: "Produits", item: `${BASE}/${locale}/produits` },
+      { "@type": "ListItem", position: 1, name: t("crumb_home"),     item: `${BASE}/${locale}` },
+      { "@type": "ListItem", position: 2, name: t("crumb_products"), item: `${BASE}/${locale}/produits` },
       { "@type": "ListItem", position: 3, name: (productLd as { name: string }).name, item: `${BASE}/${locale}/produits/${slug}` },
     ],
   } : null;

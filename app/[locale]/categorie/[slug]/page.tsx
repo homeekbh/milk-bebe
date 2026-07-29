@@ -372,8 +372,8 @@ export default async function CategoriePage({ params }: Props) {
         subtitle={catSub}
         defaultCategory={slug}
       />
-      <CategorySeoContent slug={slug} />
-      {slug === "gigoteuses" && <GigoteusesFaq />}
+      <CategorySeoContent slug={slug} locale={locale} />
+      {slug === "gigoteuses" && <GigoteusesFaq locale={locale} />}
     </>
   );
 }

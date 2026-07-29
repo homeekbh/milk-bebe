@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { supabaseServer } from "@/lib/server/supabase";
 import type { Pack } from "@/components/packs/PackCard";
 import PackDetailClient from "./PackDetailClient";
+import { getTranslations } from "next-intl/server";
 import { getAlternates } from "@/i18n/seo";
 
 export const revalidate = 60;
@@ -19,18 +20,21 @@ async function getPack(slug: string): Promise<Pack | null> {
 
 export async function generateMetadata({ params }: { params: Promise<{ locale: string; slug: string }> }): Promise<Metadata> {
   const { locale, slug } = await params;
+  const t = await getTranslations({ locale, namespace: "packsMeta" });
   const pack = await getPack(slug);
-  if (!pack) return { title: "Pack introuvable | M!LK" };
+  if (!pack) return { title: t("not_found_title") };
+  // pack.title / pack.description = contenu DB (non traduit ici, comme les noms produits).
+  const descFallback = pack.description ?? t("desc_fallback", { title: pack.title });
   return {
-    title: `${pack.title} | Packs`,
-    description: pack.description ?? `Le coffret ${pack.title} — essentiels bébé bambou OEKO-TEX M!LK.`,
+    title: `${pack.title} | ${t("title_suffix")}`,
+    description: descFallback,
     alternates: getAlternates(locale, `/packs/${pack.slug}`),
     openGraph: {
       type:        "website",
       url:         `${BASE_URL}/${locale}/packs/${pack.slug}`,
       siteName:    "M!LK",
-      title:       `${pack.title} | Packs M!LK`,
-      description: pack.description ?? `Le coffret ${pack.title} — essentiels bébé bambou OEKO-TEX M!LK.`,
+      title:       `${pack.title} | ${t("og_title_suffix")}`,
+      description: descFallback,
       images:      [{ url: `${BASE_URL}/images/og/milk-og-homepage.jpg`, width: 1200, height: 630 }],
     },
   };

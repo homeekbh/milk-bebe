@@ -35,36 +35,52 @@ function useScrollProgress<T extends HTMLElement = HTMLDivElement>(): {
   progress: number;
 } {
   const ref = useRef<T>(null);
-  const [progress, setProgress] = useState(0);
-  const ticking = useRef(false);
+  // Défaut = 1 (état POSÉ) : SSR / sans JS / avant 1er calcul → transforms à 0
+  // (contenu en place). Garantit « visible sans JS » (Lot S).
+  const [progress, setProgress] = useState(1);
+  const rafRef     = useRef<number | null>(null);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setProgress(1);
-      return;
-    }
-    const update = () => {
-      const el = ref.current;
-      if (!el) { ticking.current = false; return; }
-      const rect = el.getBoundingClientRect();
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setProgress(1); return; }
+
+    const compute = () => {
+      const rect  = el.getBoundingClientRect();
       const viewH = window.innerHeight;
-      const total = rect.height + viewH;
+      const total  = rect.height + viewH;
       const passed = viewH - rect.top;
-      setProgress(Math.max(0, Math.min(1, passed / total)));
-      ticking.current = false;
+      return Math.max(0, Math.min(1, passed / total));
     };
-    const onScroll = () => {
-      if (ticking.current) return;
-      ticking.current = true;
-      requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    const apply = () => { const p = compute(); setProgress(prev => (Math.abs(prev - p) < 0.0005 ? prev : p)); };
+
+    // rAF tant que l'élément est en vue → progress jamais figé si la webview
+    // retarde les événements scroll (cause du blanc, Lot S). Effet préservé.
+    const loop = () => { apply(); rafRef.current = runningRef.current ? requestAnimationFrame(loop) : null; };
+    const start = () => { if (!runningRef.current) { runningRef.current = true; if (rafRef.current == null) rafRef.current = requestAnimationFrame(loop); } };
+    const stop  = () => { runningRef.current = false; if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; } apply(); };
+
+    apply();
+
+    let io: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver !== "undefined") {
+      try {
+        io = new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else stop(); }, { rootMargin: "200px 0px 200px 0px" });
+        io.observe(el);
+      } catch { io = null; }
+    }
+    const onScroll = () => { if (!runningRef.current) apply(); };
+    if (!io) window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", apply);
+
     return () => {
+      io?.disconnect();
+      runningRef.current = false;
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", apply);
     };
   }, []);
 
@@ -79,26 +95,29 @@ function useReveal<T extends HTMLElement = HTMLDivElement>(threshold = 0.15): {
   visible: boolean;
 } {
   const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
+  // Visible par défaut (progressive enhancement, Lot S). Caché uniquement si, après
+  // hydratation, l'élément est hors écran ET observable. Sens unique, jamais re-caché.
+  const [visible, setVisible] = useState(true);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setVisible(true);
-      return;
-    }
     const el = ref.current;
     if (!el) return;
-    const r = el.getBoundingClientRect();
-    if (r.top < window.innerHeight && r.bottom > 0) {
-      setVisible(true);
-      return;
-    }
-    const obs = new IntersectionObserver(([e]) => {
-      if (e.isIntersecting) { setVisible(true); obs.disconnect(); }
-    }, { threshold, rootMargin: "0px 0px -10% 0px" });
-    obs.observe(el);
-    const safety = window.setTimeout(() => setVisible(true), 1200);
-    return () => { obs.disconnect(); window.clearTimeout(safety); };
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return; // reste visible
+    if (typeof IntersectionObserver === "undefined") return;                     // reste visible
+    if (el.getBoundingClientRect().top < window.innerHeight) return;             // au-dessus/déjà visible → jamais caché
+
+    setVisible(false);
+    let obs: IntersectionObserver | null = null;
+    let timer = 0;
+    const reveal = () => { setVisible(true); obs?.disconnect(); window.clearTimeout(timer); };
+    try {
+      obs = new IntersectionObserver(([e]) => {
+        if (e.isIntersecting || e.boundingClientRect.top < 0) reveal();
+      }, { threshold, rootMargin: "0px 0px 10% 0px" });
+      obs.observe(el);
+    } catch { reveal(); return; }
+    timer = window.setTimeout(reveal, 2500); // dernier recours ancré à l'élément
+    return () => { obs?.disconnect(); window.clearTimeout(timer); };
   }, [threshold]);
   return { ref, visible };
 }

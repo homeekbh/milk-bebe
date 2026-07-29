@@ -54,41 +54,57 @@ function useScrollProgress<T extends HTMLElement = HTMLDivElement>(): {
   progress: number;
 } {
   const ref = useRef<T>(null);
-  const [progress, setProgress] = useState(0);
-  const ticking = useRef(false);
+  // Défaut = 1 (état POSÉ) : au SSR / sans JS / avant le 1er calcul, les transforms
+  // dérivées valent (1 - 1) * déplacement = 0 → contenu en place, jamais translaté
+  // hors de sa colonne (Lot S : garantit « visible sans JS »).
+  const [progress, setProgress] = useState(1);
+  const rafRef     = useRef<number | null>(null);
+  const runningRef = useRef(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setProgress(1);
-      return;
-    }
+    const el = ref.current;
+    if (!el) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) { setProgress(1); return; }
 
-    const update = () => {
-      const el = ref.current;
-      if (!el) { ticking.current = false; return; }
-      const rect = el.getBoundingClientRect();
+    const compute = () => {
+      const rect  = el.getBoundingClientRect();
       const viewH = window.innerHeight;
-      // 0 quand le top entre dans le viewport (rect.top = viewH)
-      // 1 quand le bottom sort (rect.bottom = 0)
-      const total = rect.height + viewH;
+      // 0 quand le top entre dans le viewport (rect.top = viewH) ; 1 quand le bottom sort.
+      const total  = rect.height + viewH;
       const passed = viewH - rect.top;
-      const p = Math.max(0, Math.min(1, passed / total));
-      setProgress(p);
-      ticking.current = false;
+      return Math.max(0, Math.min(1, passed / total));
     };
+    // Bail-out React si valeur ~inchangée → pas de re-render inutile (idle en vue).
+    const apply = () => { const p = compute(); setProgress(prev => (Math.abs(prev - p) < 0.0005 ? prev : p)); };
 
-    const onScroll = () => {
-      if (ticking.current) return;
-      ticking.current = true;
-      requestAnimationFrame(update);
-    };
-    update();
-    window.addEventListener("scroll", onScroll, { passive: true });
-    window.addEventListener("resize", onScroll);
+    // rAF tant que l'élément est proche/dans le viewport → `progress` TOUJOURS à jour,
+    // même si la webview coalesce/retarde les événements scroll (cause du blanc : Lot S).
+    // Le glissement reste piloté par la position réelle → effet préservé en scroll normal.
+    const loop = () => { apply(); rafRef.current = runningRef.current ? requestAnimationFrame(loop) : null; };
+    const start = () => { if (!runningRef.current) { runningRef.current = true; if (rafRef.current == null) rafRef.current = requestAnimationFrame(loop); } };
+    const stop  = () => { runningRef.current = false; if (rafRef.current != null) { cancelAnimationFrame(rafRef.current); rafRef.current = null; } apply(); };
+
+    apply(); // valeur initiale correcte au mount
+
+    let io: IntersectionObserver | null = null;
+    if (typeof IntersectionObserver !== "undefined") {
+      try {
+        io = new IntersectionObserver(([e]) => { if (e.isIntersecting) start(); else stop(); }, { rootMargin: "200px 0px 200px 0px" });
+        io.observe(el);
+      } catch { io = null; }
+    }
+    // Repli si IO indisponible : écouteur scroll classique (comportement historique).
+    const onScroll = () => { if (!runningRef.current) apply(); };
+    if (!io) window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", apply);
+
     return () => {
+      io?.disconnect();
+      runningRef.current = false;
+      if (rafRef.current != null) cancelAnimationFrame(rafRef.current);
       window.removeEventListener("scroll", onScroll);
-      window.removeEventListener("resize", onScroll);
+      window.removeEventListener("resize", apply);
     };
   }, []);
 
@@ -103,39 +119,36 @@ function useReveal<T extends HTMLElement = HTMLDivElement>(
   threshold = 0.15,
 ): { ref: RefObject<T | null>; visible: boolean } {
   const ref = useRef<T>(null);
-  const [visible, setVisible] = useState(false);
+  // VISIBLE PAR DÉFAUT (progressive enhancement, Lot S) : SSR + 1er render client
+  // rendent le contenu visible. On ne le cache QUE si, après hydratation, il est
+  // hors écran (sous la ligne de flottaison) ET observable. SENS UNIQUE.
+  const [visible, setVisible] = useState(true);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setVisible(true);
-      return;
-    }
     const el = ref.current;
     if (!el) return;
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return; // reste visible
+    if (typeof IntersectionObserver === "undefined") return;                     // reste visible
+    // Déjà visible / au-dessus de la ligne de flottaison → jamais caché (aucun flash).
+    if (el.getBoundingClientRect().top < window.innerHeight) return;
 
-    // Check immédiat : si l'élément est déjà dans le viewport au mount, on révèle direct.
-    const r = el.getBoundingClientRect();
-    if (r.top < window.innerHeight && r.bottom > 0) {
-      setVisible(true);
-      return;
-    }
-
-    const obs = new IntersectionObserver(
-      ([e]) => {
-        if (e.isIntersecting) {
-          setVisible(true);
-          obs.disconnect();
-        }
-      },
-      { threshold, rootMargin: "0px 0px -10% 0px" },
-    );
-    obs.observe(el);
-
-    // Safety-net : si l'IO ne tire jamais (cas exotique), on force après 1.2s.
-    const safety = window.setTimeout(() => setVisible(true), 1200);
-
-    return () => { obs.disconnect(); window.clearTimeout(safety); };
+    // Hors écran (sous la ligne de flottaison) : on cache puis on anime à l'entrée.
+    setVisible(false);
+    let obs: IntersectionObserver | null = null;
+    let timer = 0;
+    const reveal = () => { setVisible(true); obs?.disconnect(); window.clearTimeout(timer); };
+    try {
+      obs = new IntersectionObserver(
+        // Révèle à l'entrée OU si on a flingué AU-DELÀ (top repassé au-dessus).
+        ([e]) => { if (e.isIntersecting || e.boundingClientRect.top < 0) reveal(); },
+        { threshold, rootMargin: "0px 0px 10% 0px" },
+      );
+      obs.observe(el);
+    } catch { reveal(); return; }
+    // Dernier recours anti-blanc ancré à l'ÉLÉMENT (pas au montage).
+    timer = window.setTimeout(reveal, 2500);
+    return () => { obs?.disconnect(); window.clearTimeout(timer); };
   }, [threshold]);
 
   return { ref, visible };

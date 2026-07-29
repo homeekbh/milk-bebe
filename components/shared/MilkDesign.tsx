@@ -18,28 +18,56 @@ export function Divider({ from, to }: { from: string; to: string }) {
   return <div style={{ height: 16, background: `linear-gradient(to bottom, ${from}, ${to})`, flexShrink: 0 }} />;
 }
 
+// Reveal — VISIBLE PAR DÉFAUT (progressive enhancement, Lot S). Le contenu n'est
+// jamais caché au SSR ni au 1er render client → aucun blanc si pas de JS, IO
+// indisponible, reduced-motion ou fling rapide. `enhance` ne passe à true QUE
+// lorsqu'on a délibérément caché un élément SOUS la ligne de flottaison (hors
+// écran) pour l'animer à l'entrée. SENS UNIQUE : une fois révélé, jamais re-caché.
 export function useBiReveal(threshold = 0.15) {
-  const ref   = useRef<HTMLDivElement>(null);
-  const prevY = useRef(0);
-  const [state, setState] = useState<{ visible: boolean; dir: "up"|"down" }>({ visible: false, dir: "down" });
+  const ref = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(true);
+  const [enhance, setEnhance] = useState(false);
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const el = ref.current; if (!el) return;
-    const obs = new IntersectionObserver(([e]) => {
-      const curY = e.boundingClientRect.top;
-      const dir  = curY < prevY.current ? "up" : "down";
-      prevY.current = curY;
-      setState(e.isIntersecting ? { visible: true, dir } : { visible: false, dir });
-    }, { threshold });
-    obs.observe(el); return () => obs.disconnect();
+    // reduced-motion OU IO indisponible → on ne cache jamais (reste visible).
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    if (typeof IntersectionObserver === "undefined") return;
+    // Déjà dans le viewport / au-dessus de la ligne de flottaison → jamais caché (aucun flash).
+    if (el.getBoundingClientRect().top < window.innerHeight) return;
+
+    // Sous la ligne de flottaison (hors écran) : on cache puis on anime à l'entrée.
+    setEnhance(true);
+    setVisible(false);
+    let obs: IntersectionObserver | null = null;
+    let timer = 0;
+    const reveal = () => { setVisible(true); obs?.disconnect(); window.clearTimeout(timer); };
+    try {
+      obs = new IntersectionObserver(([e]) => {
+        // Révèle à l'entrée OU si on a flingué AU-DELÀ (top repassé au-dessus).
+        if (e.isIntersecting || e.boundingClientRect.top < 0) reveal();
+      }, { threshold, rootMargin: "0px 0px 10% 0px" });
+      obs.observe(el);
+    } catch { reveal(); return; }
+    // Dernier recours anti-blanc ancré à l'ÉLÉMENT (pas au montage) : si l'IO ne
+    // délivre jamais (webview extrême), on révèle après 2,5 s. Ne fait que rendre visible.
+    timer = window.setTimeout(reveal, 2500);
+    return () => { obs?.disconnect(); window.clearTimeout(timer); };
   }, [threshold]);
-  return { ref, ...state };
+  return { ref, visible, enhance };
 }
 
 export function Reveal({ children, delay = 0 }: { children: React.ReactNode; delay?: number }) {
-  const { ref, visible, dir } = useBiReveal();
-  const offY = dir === "up" ? "-28px" : "28px";
+  const { ref, visible, enhance } = useBiReveal();
   return (
-    <div ref={ref} style={{ opacity: visible ? 1 : 0, transform: visible ? "none" : `translateY(${offY})`, transition: `opacity 0.65s ease ${delay}s, transform 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}s` }}>
+    <div
+      ref={ref}
+      style={enhance ? {
+        opacity:    visible ? 1 : 0,
+        transform:  visible ? "none" : "translateY(28px)",
+        transition: `opacity 0.65s ease ${delay}s, transform 0.65s cubic-bezier(0.22,1,0.36,1) ${delay}s`,
+      } : undefined}
+    >
       {children}
     </div>
   );

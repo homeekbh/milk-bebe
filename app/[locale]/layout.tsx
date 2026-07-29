@@ -70,7 +70,7 @@ export async function generateMetadata({
     "cadeau naissance pas cher", "cadeau naissance tendance",
     "cadeau naissance utile", "cadeau naissance pratique",
     "cadeau naissance luxe", "cadeau naissance premium",
-    "cadeau naissance personnalisé", "cadeau naissance made in France",
+    "cadeau naissance personnalisé",
     "liste de naissance", "liste de naissance bébé", "liste naissance originale",
     "que mettre sur liste de naissance", "idée liste de naissance",
     "liste naissance complète", "liste naissance utile",

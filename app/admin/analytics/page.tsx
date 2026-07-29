@@ -230,6 +230,31 @@ function periodFromMs(p: PeriodKey): number {
   const days = p === "1" ? 1 : p === "3" ? 3 : p === "7" ? 7 : p === "30" ? 30 : 90;
   return Date.now() - days * 24 * 60 * 60 * 1000;
 }
+
+// ─── Sélecteur calendaire (Lot G-2) ─────────────────────────────────────────
+// Première ligne de page_views en base (borne min des champs date).
+const DATA_MIN_DATE = "2026-05-13";
+// "YYYY-MM-DD" → Date à minuit LOCAL (navigateur = Paris pour Bou) : pas de
+// décalage d'un jour comme le ferait new Date("YYYY-MM-DD") (parsé en UTC).
+function ymdToLocal(s: string): Date { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
+function todayYmd(): string { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
+// "mardi 28 juillet 2026"
+function fmtLongDay(s: string): string { return ymdToLocal(s).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
+// "du 20 au 27 juillet 2026" (compacté si même mois/année)
+function fmtRangeLabel(a: string, b: string): string {
+  const da = ymdToLocal(a), db = ymdToLocal(b);
+  if (da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth())
+    return `du ${da.getDate()} au ${db.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
+  if (da.getFullYear() === db.getFullYear())
+    return `du ${da.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} au ${db.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
+  return `du ${da.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} au ${db.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
+}
+const dateInputStyle = (active: boolean): React.CSSProperties => ({
+  background: "#0d0b09", color: active ? "#f2ede6" : "rgba(242,237,230,0.7)",
+  border: `1px solid ${active ? "#c49a4a" : "rgba(242,237,230,0.15)"}`,
+  borderRadius: 8, padding: "8px 10px", fontSize: 13, fontWeight: 700,
+  minHeight: 44, colorScheme: "dark", cursor: "pointer",
+});
 const fmtDur = (sec: number | null | undefined): string => {
   if (sec == null) return "—";
   const s = Math.round(Number(sec)); const m = Math.floor(s / 60);
@@ -600,6 +625,14 @@ export default function AdminStats() {
   const [period, setPeriod] = useState<PeriodKey>("30");
   const [excludeBots, setExcludeBots] = useState(false); // toggle « exclure les bots » (page-views + conversion : seuls endpoints comptant de vraies sessions)
 
+  // ── Sélecteur calendaire (Lot G-2) — 3 modes EXCLUSIFS pilotant TOUTE la page :
+  //    "period" = boutons glissants (défaut, inchangé) · "day" = ?date= · "range" = ?from=&to=
+  const [mode,        setMode]        = useState<"period" | "day" | "range">("period");
+  const [dayStr,      setDayStr]      = useState("");
+  const [rangeFrom,   setRangeFrom]   = useState("");
+  const [rangeTo,     setRangeTo]     = useState("");
+  const [serverError, setServerError] = useState<string | null>(null); // message 400 de l'API (bornes invalides)
+
   // Données server-side (chacune null tant que non chargée)
   const [kpis,         setKpis]         = useState<any>(null);
   const [revenueChart, setRevenueChart] = useState<any>(null);
@@ -633,15 +666,21 @@ export default function AdminStats() {
 
   const load = useCallback(async () => {
     setRefreshing(true);
-    // Collecte des endpoints en échec (nom = dernier segment de l'URL).
+    // Collecte des endpoints en échec (nom = dernier segment de l'URL) + messages
+    // d'erreur explicites (ex. 400 « date future » du Lot G-1 → affiché, jamais muet).
     const failed = new Set<string>();
+    const errorMsgs = new Set<string>();
     const nameOf = (url: string) => url.split("?")[0].split("/").pop() || url;
 
     // safe() : renvoie le JSON parsé ou null, et enregistre l'endpoint en échec.
     const safe = async (url: string): Promise<any> => {
       try {
         const r = await adminFetch(url);
-        if (!r.ok) { failed.add(nameOf(url)); return null; }
+        if (!r.ok) {
+          failed.add(nameOf(url));
+          try { const j = await r.json(); if (j?.error) errorMsgs.add(String(j.error)); } catch {}
+          return null;
+        }
         return await r.json();
       } catch { failed.add(nameOf(url)); return null; }
     };
@@ -649,11 +688,19 @@ export default function AdminStats() {
     const safeData = async (url: string): Promise<any> => {
       const j = await safe(url);
       if (!j) return null;                              // échec réseau déjà compté par safe()
-      if (j.error) { failed.add(nameOf(url)); return null; }
+      if (j.error) { failed.add(nameOf(url)); errorMsgs.add(String(j.error)); return null; }
       return j.data ?? null;
     };
 
-    const q = `?period=${period}`;
+    // Query calendaire (Lot G-2) : date/plage priment sur period ; sinon inchangé.
+    let q = `?period=${period}`;
+    if (mode === "day" && dayStr) {
+      q = `?date=${dayStr}`;
+    } else if (mode === "range" && rangeFrom && rangeTo) {
+      const a = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
+      const b = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+      q = `?from=${a}&to=${b}`;
+    }
     try {
       const [
         kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD, accD, wishD,
@@ -695,12 +742,13 @@ export default function AdminStats() {
       else if (alerts != null) failed.add("stock-alerts");
 
       setFailedEndpoints([...failed]);
+      setServerError(errorMsgs.size ? [...errorMsgs][0] : null); // 1 message suffit (bornes identiques → même 400 partout)
       setLastUpdated(new Date());
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [period, excludeBots]);
+  }, [period, excludeBots, mode, dayStr, rangeFrom, rangeTo]);
 
   // Chargement initial + à chaque changement de période + auto-refresh 5 min.
   useEffect(() => {
@@ -709,16 +757,42 @@ export default function AdminStats() {
     return () => clearInterval(t);
   }, [load]);
 
-  const periodLabel = period === "all" ? "depuis le début" : `sur les ${period} derniers jours`;
-  const showDelta   = period !== "all";
+  const todayStr = useMemo(() => todayYmd(), []);
+
+  // Applique une plage en corrigeant « au » < « du » : on ÉCHANGE les deux dates
+  // (préserve les deux choix de l'utilisateur, jamais de requête vouée au 400).
+  function applyRange(nf: string, nt: string) {
+    let a = nf, b = nt;
+    if (a && b && a > b) { const t = a; a = b; b = t; }
+    setRangeFrom(a); setRangeTo(b);
+    if (a && b) { setDayStr(""); setMode("range"); } // plage complète → mode range (exclusif)
+    else setMode("period");                          // incomplète/vidée → retour période
+  }
+
+  // Libellé d'en-tête selon le mode actif (français lisible).
+  const periodLabel =
+    mode === "day"   && dayStr                ? `le ${fmtLongDay(dayStr)}` :
+    mode === "range" && rangeFrom && rangeTo  ? fmtRangeLabel(rangeFrom, rangeTo) :
+    period === "all" ? "depuis le début" : `sur les ${period} derniers jours`;
+  // Deltas : période glissante (sauf « all ») OU fenêtre calendaire (fromPrev calculé par l'API G-1).
+  const showDelta   = mode === "period" ? period !== "all" : true;
 
   // ── Statuts livraison (client-side, depuis slim orders filtrés période) ──────
   const shippingDonut = useMemo(() => {
-    const fromMs = periodFromMs(period);
+    // Fenêtre alignée sur le sélecteur unique (jour / plage / période glissante).
+    let fromMs: number, toMs: number;
+    if (mode === "day" && dayStr) {
+      const s = ymdToLocal(dayStr).getTime(); fromMs = s; toMs = s + 864e5;
+    } else if (mode === "range" && rangeFrom && rangeTo) {
+      const a = rangeFrom <= rangeTo ? rangeFrom : rangeTo, b = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
+      fromMs = ymdToLocal(a).getTime(); toMs = ymdToLocal(b).getTime() + 864e5;
+    } else {
+      fromMs = periodFromMs(period); toMs = Date.now();
+    }
     const PAY_EXCL = ["annulee", "remboursee", "echec_paiement"];
     const counts: Record<string, number> = {};
     slimOrders
-      .filter(o => new Date(o.created_at).getTime() >= fromMs)
+      .filter(o => { const t = new Date(o.created_at).getTime(); return t >= fromMs && t < toMs; })
       .forEach(o => {
         const s = String(o.status ?? "").toLowerCase();
         if (PAY_EXCL.includes(s)) return;
@@ -736,7 +810,7 @@ export default function AdminStats() {
       .map(([k, v]) => ({ label: MAP[k]?.label ?? k, value: v, color: MAP[k]?.color ?? C.purple }))
       .filter(d => d.value > 0)
       .sort((a, b) => b.value - a.value);
-  }, [slimOrders, period]);
+  }, [slimOrders, period, mode, dayStr, rangeFrom, rangeTo]);
 
   // ── Newsletter par mois (client-side) ───────────────────────────────────────
   const newsletterByMonth = useMemo(() => {
@@ -843,19 +917,60 @@ export default function AdminStats() {
           style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.faint}`, background: C.card, color: C.warm, fontWeight: 800, fontSize: 13, cursor: refreshing ? "wait" : "pointer", opacity: refreshing ? 0.6 : 1, whiteSpace: "nowrap" }}>
           {refreshing ? "⟳ …" : "⟳ Rafraîchir"}
         </button>
-        <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${C.faint}` }}>
-          {PERIODS.map(p => (
-            <button key={p.key} onClick={() => setPeriod(p.key)}
-              style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", background: period === p.key ? C.warm : "transparent", color: period === p.key ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
-              {p.label}
-            </button>
-          ))}
+        <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${mode === "period" ? C.faint : C.faint}`, opacity: mode === "period" ? 1 : 0.85 }}>
+          {PERIODS.map(p => {
+            const on = mode === "period" && period === p.key;
+            return (
+              <button key={p.key}
+                onClick={() => { setPeriod(p.key); setMode("period"); setDayStr(""); setRangeFrom(""); setRangeTo(""); }}
+                style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", minHeight: 44, background: on ? C.warm : "transparent", color: on ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
+                {p.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Sélecteur calendaire (Lot G-2) — jour précis OU plage. Champs natifs
+            <input type=date>. Bordure ambre = mode actif. flexWrap → empile en 390px. */}
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: C.card, borderRadius: 12, padding: "4px 10px", border: `1px solid ${mode !== "period" ? C.amber : C.faint}` }}>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: mode === "day" ? C.amber : C.muted, fontWeight: 800 }}>
+            Jour
+            <input type="date" value={mode === "day" ? dayStr : ""} min={DATA_MIN_DATE} max={todayStr}
+              onChange={e => { const v = e.target.value; if (!v) { setDayStr(""); setMode("period"); return; } setDayStr(v); setRangeFrom(""); setRangeTo(""); setMode("day"); }}
+              style={dateInputStyle(mode === "day")} />
+          </label>
+          <span style={{ fontSize: 11, color: C.muted }}>ou</span>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: mode === "range" ? C.amber : C.muted, fontWeight: 800 }}>
+            Du
+            <input type="date" value={rangeFrom} min={DATA_MIN_DATE} max={todayStr}
+              onChange={e => applyRange(e.target.value, rangeTo)} style={dateInputStyle(mode === "range")} />
+          </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: mode === "range" ? C.amber : C.muted, fontWeight: 800 }}>
+            au
+            <input type="date" value={rangeTo} min={rangeFrom || DATA_MIN_DATE} max={todayStr}
+              onChange={e => applyRange(rangeFrom, e.target.value)} style={dateInputStyle(mode === "range")} />
+          </label>
         </div>
       </div>
 
-      {failedEndpoints.length > 0 && (
+      {/* Erreur API explicite (ex. 400 bornes invalides, Lot G-1) — jamais muette (leçon Lot N). */}
+      {serverError && (
+        <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 12, background: "rgba(239,68,68,0.12)", border: `1px solid rgba(239,68,68,0.45)`, color: C.red, fontSize: 14, fontWeight: 800 }}>
+          ⛔ {serverError}
+        </div>
+      )}
+
+      {/* Échecs réseau/serveur (masqué si un message d'erreur explicite est déjà affiché). */}
+      {failedEndpoints.length > 0 && !serverError && (
         <div style={{ marginBottom: 28, padding: "14px 20px", borderRadius: 12, background: "rgba(217,93,77,0.10)", border: `1px solid rgba(217,93,77,0.28)`, color: C.red, fontSize: 13, fontWeight: 700 }}>
           ⚠️ Données incomplètes sur : [{failedEndpoints.join(", ")}]
+        </div>
+      )}
+
+      {/* Fenêtre valide mais aucun trafic — message explicite plutôt que des graphes vides muets. */}
+      {!loading && !serverError && pv && (pv.total_views ?? 0) === 0 && (
+        <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 12, background: "rgba(196,154,74,0.10)", border: `1px solid rgba(196,154,74,0.3)`, color: C.amber, fontSize: 14, fontWeight: 700 }}>
+          Aucune donnée de trafic {periodLabel}. Essaie une autre date ou une période plus large.
         </div>
       )}
 
@@ -1385,6 +1500,11 @@ export default function AdminStats() {
       {/* Stock dormant + Réassort demandé */}
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
         <Card title="📦 Stock dormant (aucune vente depuis 30j)" lexique="Stock dormant">
+          {mode !== "period" && (
+            <div style={{ marginBottom: 10, fontSize: 11, color: C.amber, fontWeight: 700, lineHeight: 1.5 }}>
+              ⏳ Toujours calculé sur les 30 derniers jours (glissant) — indépendant de la période calendaire sélectionnée ci-dessus.
+            </div>
+          )}
           {!stockDormant ? <Skeleton h={120} /> : (stockDormant.products ?? []).length === 0 ? (
             <div style={{ color: C.muted, fontSize: 13 }}>Aucun produit dormant 🎉</div>
           ) : (

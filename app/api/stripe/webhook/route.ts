@@ -6,7 +6,7 @@ import { escapeHtml } from "@/lib/escape-html";
 import { logActivity } from "@/lib/server/audit";
 import { decideRewardOnRefund } from "@/lib/parrainage-refund";
 import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
-import { getZoneForCountry, routingCountry } from "@/lib/delivery-config";
+import { getZoneForCountry, routingCountry, isDomTomPostalCode } from "@/lib/delivery-config";
 import { resolveItemWeightG, PACKAGING_WEIGHT_G } from "@/lib/weight";
 import { ventilateTTC } from "@/lib/tva";
 import { revalidateProduct } from "@/lib/revalidate-product";
@@ -205,6 +205,10 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     line1:       addr.line1 ?? "", line2: addr.line2 ?? "",
     city:        addr.city ?? "", postal_code: addr.postal_code ?? "", country: addr.country ?? "FR",
   } : null;
+  // Lot M2 — DOM-TOM (CP 971-988) sur l'adresse Stripe collectée. isDomTomPostalCode ne matche PAS
+  // Monaco 98000 (préfixe « 980 » absent de la liste) — vérifié. Pas de blocage (déjà payé) : la
+  // commande est créée, puis note interne + alerte admin ci-dessous (les packs sont à port GRATUIT).
+  const packDomTomCP = isDomTomPostalCode(shippingAddress?.postal_code ?? "");
 
   const { data: prods } = await supabaseServer
     .from("products").select("id, name, slug, weight_g, colors")
@@ -348,6 +352,32 @@ async function handlePackOrder(session: Stripe.Checkout.Session) {
     const packUsedBilling = !packShip.address && !!session.customer_details?.address;
     if (packUsedBilling || !isShippingAddressComplete(shippingAddress)) {
       await alertIncompleteShipping(session, shippingAddress, "coffret/pack (expédition FR/BE/CH/LU/MC)");
+    }
+    // Lot M2 — DOM-TOM détecté (pack à PORT GRATUIT : le tarif outre-mer réel n'a PAS été facturé).
+    // Commande CONSERVÉE (payée) — AUCUN remboursement auto (Erika décide). On réutilise le MÊME
+    // mécanisme que les alertes stock ci-dessous (resend → ADMIN_EMAILS + logActivity), pas un helper
+    // dédié : alertIncompleteShipping/alertMissingIntlZone ne conviennent pas (adresse ici COMPLÈTE).
+    if (packDomTomCP && orderData) {
+      const domCp = shippingAddress?.postal_code ?? "?";
+      try {
+        await supabaseServer.from("orders").update({
+          notes: `⚠️ DOM-TOM détecté (CP ${domCp}) — vérifier les frais de port réels AVANT expédition. Pack à port gratuit : le tarif outre-mer n'a PAS été facturé au client.`,
+        }).eq("id", orderData.id);
+      } catch {}
+      if (ADMIN_EMAILS.length > 0) {
+        try {
+          await resend.emails.send({
+            from:    "M!LK <contact@milkbebe.fr>",
+            to:      ADMIN_EMAILS,
+            subject: `⚠️ Pack DOM-TOM — vérifier frais de port — #${orderData.id.slice(0, 8).toUpperCase()}`,
+            html:    `<div style="font-family:sans-serif;padding:24px;max-width:560px"><h2 style="color:#b45309;margin:0 0 12px">Pack expédié en outre-mer (DOM-TOM)</h2><p>Commande <strong>#${orderData.id.slice(0, 8).toUpperCase()}</strong> de <strong>${escapeHtml(name || email)}</strong> — code postal <strong>${escapeHtml(domCp)}</strong>.</p><p>⚠️ Les packs sont à <strong>port gratuit</strong> : le tarif d'expédition outre-mer réel n'a PAS été facturé. Vérifier le coût avant d'expédier ; contacter le client si un complément est nécessaire.</p><p>Aucun remboursement automatique n'a été effectué — la commande reste active.</p><a href="${BASE}/admin/commandes" style="display:inline-block;margin-top:12px;padding:12px 22px;background:#1a1410;color:#c49a4a;font-weight:900;border-radius:10px;text-decoration:none">Voir la commande →</a></div>`,
+          });
+        } catch {}
+      }
+      try {
+        await logActivity("dom_tom_pack", `Pack DOM-TOM #${orderData.id.slice(0, 8).toUpperCase()} — CP ${domCp} — port gratuit non facturé`,
+          { entity_id: orderData.id, meta: { postal_code: domCp, country: shippingAddress?.country ?? null, customer_email: email } });
+      } catch {}
     }
     // Décrément stock atomique par produit (avec fallback non-atomique). Survente : on
     // collecte les ruptures (RPC error → fallback + détection ; RPC ok=false → stock insuffisant)

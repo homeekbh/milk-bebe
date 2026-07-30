@@ -20,7 +20,10 @@ const TABS: { href: string; label: string }[] = [
 ];
 
 export default function AnalyticsTabs() {
-  const narrow = useIsNarrow();
+  // Seuil relevé à 1100px (A9) : la sidebar admin (~220–300px) + les 6 libellés
+  // longs (« CLIENTS & FIDÉLITÉ »…) débordent bien avant 640px. En dessous de
+  // 1100px → menu déroulant ; au-delà → onglets en ligne sans débordement.
+  const narrow = useIsNarrow(1100);
   const pathname = usePathname();
   const sp = useSearchParams();
   const qs = sp.toString();

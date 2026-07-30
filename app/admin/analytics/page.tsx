@@ -25,6 +25,9 @@ import WorldVisitorsMap from "@/components/admin/WorldVisitorsMap";
 import { C, CHANNEL_COLORS, CHANNEL_LABELS_FR, WEEKDAYS } from "@/components/admin/analytics/tokens";
 import { KpiCard, SectionTitle, Card, LEXIQUE } from "@/components/admin/analytics/ui";
 import { BarChart, MiniBar, DonutChart, HBars, SessionsLineChart, NewVsReturningChart, FunnelChart, LineChart, TrafficHeatmap } from "@/components/admin/analytics/charts";
+import { useSearchParams } from "next/navigation";
+import { eur, pctDelta, fmtDur, DEVICE_ICON, WEEKDAY_LONG, weekdayOccurrences, periodFromMs, ymdToLocal, fmtDayShort, shiftYmd, parseQuery, toApiQuery, periodLabelOf } from "@/components/admin/analytics/period";
+import { useAnalyticsRefresh } from "@/components/admin/analytics/refresh-context";
 
 type PeriodKey = "1" | "3" | "7" | "30" | "90" | "all";
 
@@ -35,61 +38,6 @@ function Skeleton({ h = 80 }: { h?: number }) {
   return <div style={{ height: h, borderRadius: 12, background: "rgba(242,237,230,0.04)", border: `1px solid ${C.faint}`, display: "grid", placeItems: "center", color: C.muted, fontSize: 12 }}>Chargement…</div>;
 }
 
-// ─── Helpers format ───────────────────────────────────────────────────────────
-const eur  = (n: any, dec = 0) => `${(Number(n) || 0).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec })} €`;
-const PERIODS: { key: PeriodKey; label: string }[] = [
-  { key: "1", label: "24h" }, { key: "3", label: "3j" }, { key: "7", label: "7j" }, { key: "30", label: "30j" }, { key: "90", label: "90j" }, { key: "all", label: "Tout" },
-];
-function periodFromMs(p: PeriodKey): number {
-  if (p === "all") return new Date("2024-01-01").getTime();
-  const days = p === "1" ? 1 : p === "3" ? 3 : p === "7" ? 7 : p === "30" ? 30 : 90;
-  return Date.now() - days * 24 * 60 * 60 * 1000;
-}
-
-// ─── Sélecteur calendaire (Lot G-2) ─────────────────────────────────────────
-// Première ligne de page_views en base (borne min des champs date).
-const DATA_MIN_DATE = "2026-05-13";
-// "YYYY-MM-DD" → Date à minuit LOCAL (navigateur = Paris pour Bou) : pas de
-// décalage d'un jour comme le ferait new Date("YYYY-MM-DD") (parsé en UTC).
-function ymdToLocal(s: string): Date { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); }
-function todayYmd(): string { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-// "mardi 28 juillet 2026"
-function fmtLongDay(s: string): string { return ymdToLocal(s).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" }); }
-// "du 20 au 27 juillet 2026" (compacté si même mois/année)
-function fmtRangeLabel(a: string, b: string): string {
-  const da = ymdToLocal(a), db = ymdToLocal(b);
-  if (da.getFullYear() === db.getFullYear() && da.getMonth() === db.getMonth())
-    return `du ${da.getDate()} au ${db.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
-  if (da.getFullYear() === db.getFullYear())
-    return `du ${da.toLocaleDateString("fr-FR", { day: "numeric", month: "long" })} au ${db.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
-  return `du ${da.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })} au ${db.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })}`;
-}
-const dateInputStyle = (active: boolean): React.CSSProperties => ({
-  background: "#0d0b09", color: active ? "#f2ede6" : "rgba(242,237,230,0.7)",
-  border: `1px solid ${active ? "#c49a4a" : "rgba(242,237,230,0.15)"}`,
-  borderRadius: 8, padding: "8px 10px", fontSize: 13, fontWeight: 700,
-  minHeight: 44, colorScheme: "dark", cursor: "pointer",
-});
-const selectStyle = dateInputStyle; // même look pour les <select> (jour de semaine / profondeur)
-
-// ─── Comparaisons calendaires (Lot G-3) ─────────────────────────────────────
-const WEEKDAY_LONG = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]; // 0 = lundi (comme WEEKDAYS)
-function fmtYmdLocalDate(d: Date): string { return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; }
-function shiftYmd(s: string, days: number): string { const d = ymdToLocal(s); d.setDate(d.getDate() + days); return fmtYmdLocalDate(d); }
-// "mardi 28 juillet" (sans année — libellés de comparaison lisibles)
-function fmtDayShort(s: string): string { return ymdToLocal(s).toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" }); }
-// Les `depth` dernières occurrences calendaires (Paris/local) d'un jour de semaine
-// (0=lundi … 6=dimanche), bornées à DATA_MIN_DATE, en ordre chronologique.
-function weekdayOccurrences(weekday: number, depth: number): string[] {
-  const min = ymdToLocal(DATA_MIN_DATE).getTime();
-  const t = new Date(); t.setHours(0, 0, 0, 0);
-  while (((t.getDay() + 6) % 7) !== weekday) t.setDate(t.getDate() - 1);
-  const out: string[] = [];
-  for (let i = 0; i < depth; i++) { if (t.getTime() < min) break; out.push(fmtYmdLocalDate(t)); t.setDate(t.getDate() - 7); }
-  return out.reverse();
-}
-// Écart % (null si base nulle → non calculable).
-function pctDelta(cur: number, ref: number): number | null { if (!ref) return null; return ((cur - ref) / ref) * 100; }
 // Badge d'écart signé, coloré selon le SENS FAVORABLE de la métrique (pas selon le
 // signe brut) : une baisse du taux de rebond est une bonne nouvelle → verte.
 function DeltaBadge({ d, better, lowVol }: { d: number | null; better: "up" | "down"; lowVol?: boolean }) {
@@ -98,13 +46,6 @@ function DeltaBadge({ d, better, lowVol }: { d: number | null; better: "up" | "d
   const col = lowVol ? "rgba(242,237,230,0.45)" : (favorable ? "#22c55e" : "#ef4444");
   return <span style={{ color: col, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{d >= 0 ? "▲ +" : "▼ "}{d.toFixed(1)}%</span>;
 }
-const fmtDur = (sec: number | null | undefined): string => {
-  if (sec == null) return "—";
-  const s = Math.round(Number(sec)); const m = Math.floor(s / 60);
-  return m > 0 ? `${m}m ${s % 60}s` : `${s}s`;
-};
-const DEVICE_ICON: Record<string, string> = { mobile: "📱", tablet: "💻", desktop: "🖥" };
-
 // Placeholder quand aucune donnée de comportement (PATCH) n'est encore arrivée.
 function BehaviorPlaceholder() {
   return (
@@ -124,23 +65,17 @@ function BehaviorPlaceholder() {
 export default function AdminStats() {
   const narrow = useIsNarrow();
 
-  const [period, setPeriod] = useState<PeriodKey>("30");
-  const [excludeBots, setExcludeBots] = useState(false); // toggle « exclure les bots » (page-views + conversion : seuls endpoints comptant de vraies sessions)
+  // ── État de période dans l'URL (Lot A3) — source de vérité partagée avec le
+  //    layout et PeriodBar. On dérive des alias aux MÊMES noms qu'avant pour ne
+  //    rien changer au reste du composant. serverError/cmp restent locaux.
+  const sp = useSearchParams();
+  const q = parseQuery(new URLSearchParams(sp.toString()));
+  const { mode, period, weekday, wdDepth } = q;
+  const dayStr = q.date, rangeFrom = q.from, rangeTo = q.to, compareDate = q.compare, excludeBots = q.bots;
+  const { refreshNonce, report } = useAnalyticsRefresh();
 
-  // ── Sélecteur calendaire (Lots G-2/G-3) — 4 modes EXCLUSIFS pilotant TOUTE la page :
-  //    "period" = boutons glissants · "day" = ?date= · "range" = ?from=&to=
-  //    "weekday" = agrégat « tous les <jour> » (plage englobante ?from=&to= + filtre client)
-  const [mode,        setMode]        = useState<"period" | "day" | "range" | "weekday">("period");
-  const [dayStr,      setDayStr]      = useState("");
-  const [rangeFrom,   setRangeFrom]   = useState("");
-  const [rangeTo,     setRangeTo]     = useState("");
   const [serverError, setServerError] = useState<string | null>(null); // message 400 de l'API (bornes invalides)
-
-  // ── Comparaisons (Lot G-3) ──────────────────────────────────────────────────
-  const [compareDate, setCompareDate] = useState("");        // G-3a : 2e jour de référence (mode "day")
   const [cmp,         setCmp]         = useState<any>(null);  // données du jour de référence { pv, kpis, conversion }
-  const [weekday,     setWeekday]     = useState(0);          // G-3b : 0=lundi … 6=dimanche
-  const [wdDepth,     setWdDepth]     = useState(8);          // G-3b : nb d'occurrences (4/8/12)
 
   // Données server-side (chacune null tant que non chargée)
   const [kpis,         setKpis]         = useState<any>(null);
@@ -169,12 +104,10 @@ export default function AdminStats() {
   const [stockAlerts,    setStockAlerts]    = useState<any[]>([]);
 
   const [loading,     setLoading]     = useState(true);
-  const [refreshing,  setRefreshing]  = useState(false);
   const [failedEndpoints, setFailedEndpoints] = useState<string[]>([]);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const load = useCallback(async () => {
-    setRefreshing(true);
+    report({ refreshing: true });
     // Collecte des endpoints en échec (nom = dernier segment de l'URL) + messages
     // d'erreur explicites (ex. 400 « date future » du Lot G-1 → affiché, jamais muet).
     const failed = new Set<string>();
@@ -201,37 +134,26 @@ export default function AdminStats() {
       return j.data ?? null;
     };
 
-    // Query calendaire (Lots G-2/G-3) : date/plage/weekday priment sur period.
-    let q = `?period=${period}`;
-    if (mode === "day" && dayStr) {
-      q = `?date=${dayStr}`;
-    } else if (mode === "range" && rangeFrom && rangeTo) {
-      const a = rangeFrom <= rangeTo ? rangeFrom : rangeTo;
-      const b = rangeFrom <= rangeTo ? rangeTo : rangeFrom;
-      q = `?from=${a}&to=${b}`;
-    } else if (mode === "weekday") {
-      // Plage CONTIGUË englobante (1er → dernier <jour>) ; le filtre par occurrence
-      // se fait côté client sur by_day (Lot G-3b, voie A).
-      const occ = weekdayOccurrences(weekday, wdDepth);
-      if (occ.length) q = `?from=${occ[0]}&to=${occ[occ.length - 1]}`;
-    }
+    // Query calendaire (Lots G-2/G-3), désormais dérivée de l'URL (Lot A3) :
+    // toApiQuery reproduit À L'IDENTIQUE la chaîne construite ici auparavant.
+    const query = toApiQuery(q);
     try {
       const [
         kpisD, revD, topPD, topCD, convD, promoD, retD, geoD, dormantD, pvD, accD, wishD,
         slim, carts, news, revs, alerts,
       ] = await Promise.all([
-        safeData(`/api/admin/analytics/kpis${q}`),
-        safeData(`/api/admin/analytics/revenue-chart${q}`),
-        safeData(`/api/admin/analytics/top-products${q}`),
-        safeData(`/api/admin/analytics/top-customers${q}`),
-        safeData(`/api/admin/analytics/conversion${q}&bots=${excludeBots ? "exclude" : "all"}`),
-        safeData(`/api/admin/analytics/promos${q}`),
-        safeData(`/api/admin/analytics/retention${q}`),
-        safeData(`/api/admin/analytics/geo${q}`),
+        safeData(`/api/admin/analytics/kpis${query}`),
+        safeData(`/api/admin/analytics/revenue-chart${query}`),
+        safeData(`/api/admin/analytics/top-products${query}`),
+        safeData(`/api/admin/analytics/top-customers${query}`),
+        safeData(`/api/admin/analytics/conversion${query}&bots=${excludeBots ? "exclude" : "all"}`),
+        safeData(`/api/admin/analytics/promos${query}`),
+        safeData(`/api/admin/analytics/retention${query}`),
+        safeData(`/api/admin/analytics/geo${query}`),
         safeData(`/api/admin/analytics/stock-dormant`),
-        safeData(`/api/admin/page-views${q}&bots=${excludeBots ? "exclude" : "all"}`),
-        safeData(`/api/admin/analytics/accounts-count${q}`),
-        safeData(`/api/admin/analytics/wishlist${q}`),
+        safeData(`/api/admin/page-views${query}&bots=${excludeBots ? "exclude" : "all"}`),
+        safeData(`/api/admin/analytics/accounts-count${query}`),
+        safeData(`/api/admin/analytics/wishlist${query}`),
         safe(`/api/admin/commandes-data?fields=slim`),
         safe(`/api/admin/abandoned-carts`),
         safe(`/api/admin/newsletter`),
@@ -257,19 +179,19 @@ export default function AdminStats() {
 
       setFailedEndpoints([...failed]);
       setServerError(errorMsgs.size ? [...errorMsgs][0] : null); // 1 message suffit (bornes identiques → même 400 partout)
-      setLastUpdated(new Date());
+      report({ lastUpdated: new Date() });
     } finally {
       setLoading(false);
-      setRefreshing(false);
+      report({ refreshing: false });
     }
-  }, [period, excludeBots, mode, dayStr, rangeFrom, rangeTo, weekday, wdDepth]);
+  }, [period, excludeBots, mode, dayStr, rangeFrom, rangeTo, weekday, wdDepth, report]);
 
   // Chargement initial + à chaque changement de période + auto-refresh 5 min.
   useEffect(() => {
     load();
     const t = setInterval(load, 5 * 60 * 1000);
     return () => clearInterval(t);
-  }, [load]);
+  }, [load, refreshNonce]);
 
   // G-3a — charge le jour de RÉFÉRENCE (headline uniquement) quand une comparaison
   // est active. Même toggle bots que le terme principal (comparaison à réglages
@@ -296,25 +218,10 @@ export default function AdminStats() {
   // G-3b — occurrences du jour de semaine sélectionné (ordre chronologique).
   const wdOccs = useMemo(() => (mode === "weekday" ? weekdayOccurrences(weekday, wdDepth) : []), [mode, weekday, wdDepth]);
 
-  const todayStr = useMemo(() => todayYmd(), []);
 
-  // Applique une plage en corrigeant « au » < « du » : on ÉCHANGE les deux dates
-  // (préserve les deux choix de l'utilisateur, jamais de requête vouée au 400).
-  function applyRange(nf: string, nt: string) {
-    let a = nf, b = nt;
-    if (a && b && a > b) { const t = a; a = b; b = t; }
-    setRangeFrom(a); setRangeTo(b);
-    if (a && b) { setDayStr(""); setCompareDate(""); setMode("range"); } // plage complète → mode range (exclusif)
-    else setMode("period");                                             // incomplète/vidée → retour période
-  }
-
-  // Libellé d'en-tête selon le mode actif (français lisible).
-  const periodLabel =
-    mode === "day" && dayStr && compareDate  ? `${fmtDayShort(dayStr)} vs ${fmtDayShort(compareDate)}${compareDate === shiftYmd(dayStr, -7) ? " (S-1)" : ""}` :
-    mode === "day"   && dayStr               ? `le ${fmtLongDay(dayStr)}` :
-    mode === "range" && rangeFrom && rangeTo  ? fmtRangeLabel(rangeFrom, rangeTo) :
-    mode === "weekday"                        ? `tous les ${WEEKDAY_LONG[weekday]}s · ${wdDepth} dernières occurrences` :
-    period === "all" ? "depuis le début" : `sur les ${period} derniers jours`;
+  // Libellé d'en-tête (corps de page : bannière « aucune donnée » + titres de cartes).
+  // Même source que le titre du layout (periodLabelOf).
+  const periodLabel = periodLabelOf(q);
   // Deltas : période glissante (sauf « all ») OU fenêtre calendaire (fromPrev calculé par l'API G-1).
   const showDelta   = mode === "period" ? period !== "all" : true;
 
@@ -400,11 +307,11 @@ export default function AdminStats() {
   }, [abandonedCarts]);
 
   if (loading && !kpis) {
+    // Le conteneur paddé + titre + barre sont fournis par le layout (Lot A3) ;
+    // on ne rend ici que la grille de squelettes.
     return (
-      <div style={{ padding: narrow ? "20px 12px" : "36px 40px", background: C.bg, minHeight: "100vh" }}>
-        <div style={{ display: "grid", gap: 16, gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px,1fr))" }}>
-          {[0, 1, 2, 3].map(i => <Skeleton key={i} h={110} />)}
-        </div>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px,1fr))" }}>
+        {[0, 1, 2, 3].map(i => <Skeleton key={i} h={110} />)}
       </div>
     );
   }
@@ -425,110 +332,7 @@ export default function AdminStats() {
   const pagesShown = showAllPages ? allPages : allPages.slice(0, 10);
 
   return (
-    <div style={{ padding: narrow ? "20px 12px" : "36px 40px", background: C.bg, minHeight: "100vh" }}>
-
-      {/* ── EN-TÊTE (titre — défile normalement) ── */}
-      <div style={{ marginBottom: 16 }}>
-        <h1 style={{ margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: -1, color: C.warm }}>Statistiques</h1>
-        <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
-          Tableau de bord complet M!LK · données {periodLabel}
-        </div>
-      </div>
-
-      {/* ── BARRE STICKY : contrôles + sélecteur de période (une seule période/page) ──
-          top = --admin-header-h (hauteur réelle du header admin, mesurée par
-          AdminShell) → calage pile dessous sans trou ni chevauchement, même quand
-          le header wrappe sur mobile. Fond opaque #0d0b09 + marges négatives pour
-          couvrir toute la largeur (rien ne défile visible dessous). flexWrap → mobile OK.
-          Le sticky ne marche que parce que globals.css utilise overflow-x:clip (pas hidden). */}
-      <div style={{
-        position: "sticky", top: "var(--admin-header-h, 78px)", zIndex: 30,
-        // Marges négatives (bord-à-bord) SEULEMENT en desktop. En mobile on les
-        // retire : le padding conteneur change et un -40px déborderait à droite.
-        background: C.bg, margin: narrow ? "0 0 18px" : "0 -40px 24px", padding: narrow ? "10px 0" : "12px 40px",
-        borderBottom: `1px solid ${C.faint}`, boxShadow: "0 6px 16px rgba(0,0,0,0.35)",
-        display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 12, flexWrap: "wrap",
-      }}>
-        {lastUpdated && (
-          <span style={{ fontSize: 12, color: C.muted, whiteSpace: "nowrap", marginRight: "auto" }}>
-            Maj {lastUpdated.toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}
-          </span>
-        )}
-        <button onClick={() => setExcludeBots(v => !v)} title="Exclure les sessions détectées comme bots (heuristique : rebond instantané + scroll 0 + crawlers connus). S'applique au trafic (page_views)."
-          style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${excludeBots ? C.amber : C.faint}`, background: excludeBots ? "rgba(196,154,74,0.15)" : C.card, color: excludeBots ? C.amber : C.muted, fontWeight: 800, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}>
-          {excludeBots ? "🤖 Bots exclus" : "🤖 Exclure bots"}
-        </button>
-        <button onClick={load} disabled={refreshing} title="Rafraîchir maintenant"
-          style={{ padding: "8px 14px", borderRadius: 10, border: `1px solid ${C.faint}`, background: C.card, color: C.warm, fontWeight: 800, fontSize: 13, cursor: refreshing ? "wait" : "pointer", opacity: refreshing ? 0.6 : 1, whiteSpace: "nowrap" }}>
-          {refreshing ? "⟳ …" : "⟳ Rafraîchir"}
-        </button>
-        <div style={{ display: "flex", gap: 6, background: C.card, borderRadius: 12, padding: 4, border: `1px solid ${mode === "period" ? C.faint : C.faint}`, opacity: mode === "period" ? 1 : 0.85 }}>
-          {PERIODS.map(p => {
-            const on = mode === "period" && period === p.key;
-            return (
-              <button key={p.key}
-                onClick={() => { setPeriod(p.key); setMode("period"); setDayStr(""); setRangeFrom(""); setRangeTo(""); setCompareDate(""); }}
-                style={{ padding: "8px 16px", borderRadius: 9, border: "none", cursor: "pointer", minHeight: 44, background: on ? C.warm : "transparent", color: on ? "#000" : C.muted, fontWeight: 800, fontSize: 13, transition: "all 0.15s" }}>
-                {p.label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Sélecteur calendaire (Lot G-2) — jour précis OU plage. Champs natifs
-            <input type=date>. Bordure ambre = mode actif. flexWrap → empile en 390px. */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: C.card, borderRadius: 12, padding: "4px 10px", border: `1px solid ${mode !== "period" ? C.amber : C.faint}` }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: mode === "day" ? C.amber : C.muted, fontWeight: 800 }}>
-            Jour
-            <input type="date" value={mode === "day" ? dayStr : ""} min={DATA_MIN_DATE} max={todayStr}
-              onChange={e => { const v = e.target.value; if (!v) { setDayStr(""); setMode("period"); return; } setDayStr(v); setRangeFrom(""); setRangeTo(""); setMode("day"); }}
-              style={dateInputStyle(mode === "day")} />
-          </label>
-          <span style={{ fontSize: 11, color: C.muted }}>ou</span>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: mode === "range" ? C.amber : C.muted, fontWeight: 800 }}>
-            Du
-            <input type="date" value={rangeFrom} min={DATA_MIN_DATE} max={todayStr}
-              onChange={e => applyRange(e.target.value, rangeTo)} style={dateInputStyle(mode === "range")} />
-          </label>
-          <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: mode === "range" ? C.amber : C.muted, fontWeight: 800 }}>
-            au
-            <input type="date" value={rangeTo} min={rangeFrom || DATA_MIN_DATE} max={todayStr}
-              onChange={e => applyRange(rangeFrom, e.target.value)} style={dateInputStyle(mode === "range")} />
-          </label>
-        </div>
-
-        {/* G-3a — comparaison de 2 jours (visible en mode jour). Bordure ambre = comparaison active. */}
-        {mode === "day" && (
-          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: C.card, borderRadius: 12, padding: "4px 10px", border: `1px solid ${compareDate ? C.amber : C.faint}` }}>
-            <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: compareDate ? C.amber : C.muted, fontWeight: 800 }}>
-              comparer à
-              <input type="date" value={compareDate} min={DATA_MIN_DATE} max={todayStr}
-                onChange={e => setCompareDate(e.target.value)} style={dateInputStyle(!!compareDate)} />
-            </label>
-            <button onClick={() => dayStr && setCompareDate(shiftYmd(dayStr, -1))} title="Comparer au jour précédent (J-1)"
-              style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.faint}`, background: "transparent", color: C.muted, fontWeight: 800, fontSize: 12, cursor: "pointer", minHeight: 44 }}>jour préc.</button>
-            <button onClick={() => dayStr && setCompareDate(shiftYmd(dayStr, -7))} title="Comparer au même jour de la semaine précédente (J-7)"
-              style={{ padding: "8px 12px", borderRadius: 8, border: `1px solid ${C.faint}`, background: "transparent", color: C.muted, fontWeight: 800, fontSize: 12, cursor: "pointer", minHeight: 44 }}>même jour, S-1</button>
-            {compareDate && (
-              <button onClick={() => setCompareDate("")} title="Retirer la comparaison"
-                style={{ padding: "8px 10px", borderRadius: 8, border: "none", background: "transparent", color: C.muted, fontWeight: 800, fontSize: 14, cursor: "pointer", minHeight: 44 }}>✕</button>
-            )}
-          </div>
-        )}
-
-        {/* G-3b — agrégat « tous les <jour> ». Sélection = 4e mode calendaire. */}
-        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", background: C.card, borderRadius: 12, padding: "4px 10px", border: `1px solid ${mode === "weekday" ? C.amber : C.faint}` }}>
-          <span style={{ fontSize: 12, color: mode === "weekday" ? C.amber : C.muted, fontWeight: 800 }}>tous les</span>
-          <select value={weekday} onChange={e => { setWeekday(Number(e.target.value)); setMode("weekday"); setDayStr(""); setRangeFrom(""); setRangeTo(""); setCompareDate(""); }}
-            style={selectStyle(mode === "weekday")}>
-            {WEEKDAY_LONG.map((w, i) => <option key={i} value={i}>{w}s</option>)}
-          </select>
-          <select value={wdDepth} onChange={e => { setWdDepth(Number(e.target.value)); setMode("weekday"); setDayStr(""); setRangeFrom(""); setRangeTo(""); setCompareDate(""); }}
-            style={selectStyle(mode === "weekday")}>
-            {[4, 8, 12].map(n => <option key={n} value={n}>{n} occ.</option>)}
-          </select>
-        </div>
-      </div>
+    <>
 
       {/* Erreur API explicite (ex. 400 bornes invalides, Lot G-1) — jamais muette (leçon Lot N). */}
       {serverError && (
@@ -1227,6 +1031,6 @@ export default function AdminStats() {
           </div>
         ))}
       </div>
-    </div>
+    </>
   );
 }

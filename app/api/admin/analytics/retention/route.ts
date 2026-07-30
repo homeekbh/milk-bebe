@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { resolveAnalyticsRange, isValidOrder, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
@@ -56,6 +57,7 @@ export async function GET(req: NextRequest) {
 
     return ok({ new_customers, returning_customers, loyalty_rate });
   } catch (e: any) {
+    Sentry.captureException(e, { tags: { area: "analytics" } });
     return fail(e?.message ?? "Erreur interne");
   }
 }

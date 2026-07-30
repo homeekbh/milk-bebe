@@ -1,6 +1,8 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { UAParser }       from "ua-parser-js";
 import { cookieIsInternal } from "@/lib/internal-traffic";
+import { isCrawlerUA } from "@/lib/bot-detection";
+import * as Sentry from "@sentry/nextjs";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -39,7 +41,9 @@ export async function POST(req: NextRequest) {
     // tant que le SQL 011 n'est pas passé, l'insert retombe proprement sans ces
     // champs (aucune perte des autres colonnes).
     const user_agent = uaString ? uaString.slice(0, 500) : null;
-    const is_bot = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i.test(uaString);
+    // Détection crawler via la source UNIQUE (lib/bot-detection.ts) — même regex
+    // que les agrégats dashboard (botSessionIds réutilise ce is_bot).
+    const is_bot = isCrawlerUA(uaString);
 
     // ── Géolocalisation Vercel (sans IP tracking explicite) ─────────────────
     const h = req.headers;
@@ -121,7 +125,8 @@ export async function POST(req: NextRequest) {
     }
 
     return Response.json({ ok: true });
-  } catch {
+  } catch (e) {
+    Sentry.captureException(e, { tags: { area: "analytics" } });
     return Response.json({ ok: false });
   }
 }
@@ -151,7 +156,8 @@ export async function PATCH(req: NextRequest) {
     }
 
     return Response.json({ ok: true });
-  } catch {
+  } catch (e) {
+    Sentry.captureException(e, { tags: { area: "analytics" } });
     return Response.json({ ok: true });
   }
 }

@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { cookieIsInternal } from "@/lib/internal-traffic";
 import { getClientIp } from "@/lib/server/client-ip";
+import * as Sentry from "@sentry/nextjs";
 
 export const dynamic = "force-dynamic";
 
@@ -87,7 +88,8 @@ export async function POST(req: Request) {
       });
 
     return Response.json({ ok: true });
-  } catch {
+  } catch (e) {
+    Sentry.captureException(e, { tags: { area: "analytics" } });
     // Ne jamais renvoyer d'erreur au client analytics.
     return Response.json({ ok: true });
   }

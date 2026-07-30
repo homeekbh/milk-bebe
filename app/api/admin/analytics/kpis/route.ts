@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { resolveAnalyticsRange, isValidOrder, getNetAmount, VALID_STATUSES, pct, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
@@ -48,6 +49,7 @@ export async function GET(req: NextRequest) {
       basket_delta_pct:  pct(c.avg,     p.avg),
     });
   } catch (e: any) {
+    Sentry.captureException(e, { tags: { area: "analytics" } });
     return fail(e?.message ?? "Erreur interne");
   }
 }

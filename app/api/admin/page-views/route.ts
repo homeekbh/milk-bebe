@@ -1,4 +1,5 @@
 import { supabaseServer } from "@/lib/server/supabase";
+import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { resolveAnalyticsRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
 import { geocodeCity } from "@/lib/geo/geocode-fr";
@@ -445,6 +446,7 @@ export async function GET(req: NextRequest) {
       error: null,
     });
   } catch (e: any) {
+    Sentry.captureException(e, { tags: { area: "analytics" } });
     return Response.json({ data: null, error: e?.message ?? "Erreur interne" });
   }
 }

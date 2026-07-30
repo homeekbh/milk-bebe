@@ -7,6 +7,7 @@
  * - Réutilise la SOURCE UNIQUE de vérité du CA (lib/orders.ts) : isValidOrder + getNetAmount.
  */
 import { VALID_STATUSES, isValidOrder, getNetAmount } from "@/lib/orders";
+import { isCrawlerUA } from "@/lib/bot-detection";
 
 export { VALID_STATUSES, isValidOrder, getNetAmount };
 
@@ -186,7 +187,8 @@ export function pct(cur: number, prev: number): number {
 // sur l'engagement. Bot si : user-agent crawler connu, OU session 100% sans
 // engagement (rebond + scroll 0 + temps ~0 sur TOUTES ses vues), OU préchargement
 // datacenter Meta (Lot G-4c, cf. plus bas).
-export const CRAWLER_RE = /bot|crawl|spider|slurp|googlebot|bingpreview|yandex|baidu|duckduckbot|facebookexternalhit|headless|python-requests|curl|wget|scrapy|ahrefs|semrush|petalbot|gptbot|claudebot|bytespider/i;
+// La regex crawler vit désormais dans lib/bot-detection.ts (source unique, aussi
+// utilisée à l'ingestion pour page_views.is_bot) — importée via isCrawlerUA.
 
 // Vue sans interaction : ni temps passé, ni scroll. Prédicat UNIQUE réutilisé par
 // l'heuristique historique (+ is_bounce) ET par le filtre datacenter (sans is_bounce).
@@ -209,7 +211,15 @@ export function botSessionIds(rows: any[]): Set<string> {
   for (const r of rows) { const s = r.session_id; if (!s) continue; if (!bySess.has(s)) bySess.set(s, []); bySess.get(s)!.push(r); }
   const bots = new Set<string>();
   for (const [sid, rs] of bySess) {
-    const uaBot = rs.some(r => r.user_agent && CRAWLER_RE.test(String(r.user_agent)));
+    // is_bot est écrit à l'ingestion (MÊME regex, cf. lib/bot-detection.ts). On le
+    // RÉUTILISE quand la colonne est renseignée (true/false) ; on ne recalcule via
+    // isCrawlerUA que pour les lignes ANCIENNES où is_bot est NULL. Classification
+    // identique (même source : le user-agent de la vue).
+    const uaBot = rs.some(r =>
+      r.is_bot === true  ? true  :
+      r.is_bot === false ? false :
+      isCrawlerUA(r.user_agent)
+    );
     // Historique : crawler connu OU session 100% sans engagement (rebond inclus).
     const noEngagement = rs.every(r => noInteraction(r) && !!r.is_bounce);
     // Lot G-4c : préchargement datacenter Meta — TOUTES les vues US/∅/∅ ET sans

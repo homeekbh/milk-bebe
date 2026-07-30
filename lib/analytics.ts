@@ -34,6 +34,7 @@ export type Product = {
 };
 
 import { isInternalTraffic } from "@/lib/internal-traffic";
+import * as Sentry from "@sentry/nextjs";
 
 // ── Helpers internes ─────────────────────────────────────────────────────────
 const CURRENCY = "EUR";
@@ -105,7 +106,14 @@ function getSessionId(): string | undefined {
 
 /**
  * Log interne fire-and-forget vers /api/analytics/event (source de vérité DB).
- * Jamais bloquant : catch silencieux, keepalive pour survivre à la navigation.
+ * Jamais bloquant : catch silencieux côté appelant.
+ *
+ * Transport : navigator.sendBeacon en PRIORITÉ (survit de façon fiable à la
+ * navigation — l'événement est souvent émis juste avant un changement de page,
+ * cas où fetch keepalive perd ~15% des envois). Repli sur fetch keepalive si
+ * sendBeacon est absent OU renvoie false (file d'envoi du navigateur pleine).
+ * sendBeacon exige un Blob typé "application/json" pour que la route (req.json())
+ * parse correctement le corps.
  */
 function logInternalEvent(payload: {
   event_type: string;
@@ -116,20 +124,30 @@ function logInternalEvent(payload: {
 }): void {
   if (typeof window === "undefined") return;
   if (isInternalTraffic()) return; // trafic interne (tests) → aucune écriture DB
+  const url  = "/api/analytics/event";
+  const body = JSON.stringify({
+    ...payload,
+    session_id: getSessionId(),
+    currency:   CURRENCY,
+    page_path:  window.location.pathname,
+    referrer:   document.referrer || undefined,
+  });
   try {
-    fetch("/api/analytics/event", {
+    if (typeof navigator !== "undefined" && typeof navigator.sendBeacon === "function") {
+      const blob = new Blob([body], { type: "application/json" });
+      if (navigator.sendBeacon(url, blob)) return; // envoyé
+      // false → file pleine : on retombe sur fetch keepalive ci-dessous.
+    }
+    fetch(url, {
       method:  "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        ...payload,
-        session_id: getSessionId(),
-        currency:   CURRENCY,
-        page_path:  window.location.pathname,
-        referrer:   document.referrer || undefined,
-      }),
+      body,
       keepalive: true,
-    }).catch(() => { /* silencieux */ });
-  } catch { /* silencieux */ }
+    }).catch(() => { /* silencieux : échec réseau non bloquant */ });
+  } catch (e) {
+    // Silencieux pour l'appelant, mais tracé pour l'observabilité.
+    Sentry.captureException(e, { tags: { area: "analytics" } });
+  }
 }
 
 // ── GA4 Enhanced Ecommerce ───────────────────────────────────────────────────
@@ -303,33 +321,4 @@ export function metaPurchase(orderId: string, value: number): void {
     content_type: "product",
     order_id:   String(orderId),
   });
-}
-
-/**
- * Initialise le Meta Pixel (idempotent). Le pixel est déjà initialisé dans
- * app/layout.tsx — cette fonction sert de filet de sécurité si on veut le
- * (ré)initialiser côté client (ex: SPA, consentement différé).
- */
-export function initMetaPixel(pixelId: string): void {
-  if (typeof window === "undefined" || !pixelId) return;
-  const w = window as any;
-  if (typeof w.fbq === "function") {
-    try { w.fbq("init", pixelId); } catch { /* déjà init */ }
-    return;
-  }
-  /* eslint-disable */
-  (function (f: any, b: any, e: string, v: string) {
-    if (f.fbq) return;
-    const n: any = (f.fbq = function () {
-      n.callMethod ? n.callMethod.apply(n, arguments) : n.queue.push(arguments);
-    });
-    if (!f._fbq) f._fbq = n;
-    n.push = n; n.loaded = true; n.version = "2.0"; n.queue = [];
-    const t = b.createElement(e); t.async = true; t.src = v;
-    const s = b.getElementsByTagName(e)[0];
-    s.parentNode.insertBefore(t, s);
-  })(w, document, "script", "https://connect.facebook.net/en_US/fbevents.js");
-  /* eslint-enable */
-  w.fbq("init", pixelId);
-  w.fbq("track", "PageView");
 }

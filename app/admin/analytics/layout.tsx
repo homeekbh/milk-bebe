@@ -12,6 +12,7 @@ import { C } from "@/components/admin/analytics/tokens";
 import { parseQuery, periodLabelOf } from "@/components/admin/analytics/period";
 import { AnalyticsRefreshProvider } from "@/components/admin/analytics/refresh-context";
 import PeriodBar from "@/components/admin/analytics/PeriodBar";
+import AnalyticsTabs from "@/components/admin/analytics/AnalyticsTabs";
 
 // Titre + sous-titre — repris À L'IDENTIQUE de page.tsx. periodLabel dérivé de
 // l'URL (même source que la page). Lit useSearchParams → sous <Suspense>.
@@ -37,6 +38,7 @@ export default function AnalyticsLayout({ children }: { children: React.ReactNod
             build : une SEULE ici couvre les trois. */}
         <Suspense fallback={null}>
           <AnalyticsHeader />
+          <AnalyticsTabs />
           <PeriodBar />
           {children}
         </Suspense>

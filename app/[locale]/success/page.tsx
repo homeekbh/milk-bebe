@@ -139,7 +139,9 @@ export default function SuccessPage() {
 
           if (purchaseItems.length > 0 || value > 0) {
             trackPurchase({ id: txId, value, tax: 0, shipping: 0, coupon, items: purchaseItems });
-            metaPurchase(txId, value);
+            // eventId = session_id de l'URL (Lot M4) → chaîne IDENTIQUE à l'event_id CAPI
+            // du webhook (session.id Stripe) → déduplication pixel ↔ serveur.
+            metaPurchase(txId, value, sessionId || undefined);
           }
 
           // Google Customer Reviews : email de la commande sinon guest/sb.

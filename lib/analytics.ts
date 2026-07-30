@@ -79,13 +79,18 @@ function pushEvent(event: string, params: Record<string, any> = {}): void {
   w.dataLayer.push({ event, ...params });
 }
 
-/** Appelle fbq('track', …) si le pixel Meta est chargé. */
-function fbqTrack(event: string, params: Record<string, any> = {}): void {
+/** Appelle fbq('track', …) si le pixel Meta est chargé. `eventId` (Lot M4) → passé
+ *  comme { eventID } pour la déduplication avec la CAPI serveur ; absent → appel
+ *  strictement identique à avant. Le garde isInternalTraffic() reste inchangé. */
+function fbqTrack(event: string, params: Record<string, any> = {}, eventId?: string): void {
   if (typeof window === "undefined") return;
   if (isInternalTraffic()) return; // trafic interne (tests) → pas de pollution Meta
   const w = window as any;
   if (typeof w.fbq === "function") {
-    try { w.fbq("track", event, params); } catch { /* non bloquant */ }
+    try {
+      if (eventId) w.fbq("track", event, params, { eventID: eventId });
+      else         w.fbq("track", event, params);
+    } catch { /* non bloquant */ }
   }
 }
 
@@ -314,11 +319,11 @@ export function metaInitiateCheckout(value: number, numItems: number): void {
   });
 }
 
-export function metaPurchase(orderId: string, value: number): void {
+export function metaPurchase(orderId: string, value: number, eventId?: string): void {
   fbqTrack("Purchase", {
     value:      Number(value ?? 0),
     currency:   CURRENCY,
     content_type: "product",
     order_id:   String(orderId),
-  });
+  }, eventId); // eventId = session.id Stripe (Lot M4) → dédup avec la CAPI
 }

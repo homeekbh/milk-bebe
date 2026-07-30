@@ -9,6 +9,7 @@ import { getParrainageSettings, releaseRewards } from "@/lib/parrainage-server";
 import { routingCountry } from "@/lib/delivery-config";
 import { ventilateTTC } from "@/lib/tva";
 import { revalidateProduct } from "@/lib/revalidate-product";
+import { sendPurchaseToCapi } from "@/lib/meta-capi";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -568,6 +569,25 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
       });
     } catch {}
   }
+
+  // ── Meta CAPI (Lot M4) — Purchase serveur, exactement 1× (post-claim, après les
+  //    emails). Son PROPRE try/catch ; sendPurchaseToCapi ne throw jamais → n'affecte
+  //    ni la commande ni le retry Stripe. tracking lu depuis le draft DÉJÀ en mémoire
+  //    (aucune requête supplémentaire). No-op si consent≠accepted / interne / token absent.
+  try {
+    await sendPurchaseToCapi({
+      eventId:        session.id,
+      value:          amount,
+      tracking:       (draft as any).tracking,
+      isInternalTest: !!(orderData as any)?.is_internal_test,
+      email,
+      name,
+      phone:          String(delivery.customer_phone ?? session.customer_details?.phone ?? ""),
+      city:           (finalShippingAddress as any)?.city ?? null,
+      postal:         (finalShippingAddress as any)?.postal_code ?? null,
+      country:        (finalShippingAddress as any)?.country ?? delivery.country ?? null,
+    });
+  } catch { /* jamais bloquant */ }
 }
 
 // ── checkout.session.expired — filet de sécurité paniers abandonnés ──────────

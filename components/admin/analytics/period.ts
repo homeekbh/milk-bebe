@@ -8,8 +8,17 @@ export type PeriodKey = "1" | "3" | "7" | "30" | "90" | "all";
 
 // ─── Helpers format ───────────────────────────────────────────────────────────
 export const eur  = (n: any, dec = 0) => `${(Number(n) || 0).toLocaleString("fr-FR", { minimumFractionDigits: dec, maximumFractionDigits: dec })} €`;
-export const PERIODS: { key: PeriodKey; label: string }[] = [
-  { key: "1", label: "24h" }, { key: "3", label: "3j" }, { key: "7", label: "7j" }, { key: "30", label: "30j" }, { key: "90", label: "90j" }, { key: "all", label: "Tout" },
+// ─── Présets calendaires (Lot A5) — remplacent les fenêtres glissantes ───────
+export type PresetKey = "today" | "yesterday" | "this_week" | "this_month" | "last_month" | "this_quarter" | "this_year" | "custom";
+export const PRESETS: { key: PresetKey; label: string }[] = [
+  { key: "today",        label: "Aujourd'hui" },
+  { key: "yesterday",    label: "Hier" },
+  { key: "this_week",    label: "Cette semaine" },
+  { key: "this_month",   label: "Ce mois-ci" },
+  { key: "last_month",   label: "Mois dernier" },
+  { key: "this_quarter", label: "Ce trimestre" },
+  { key: "this_year",    label: "Cette année" },
+  { key: "custom",       label: "Personnalisé" },
 ];
 // p = q.period (string venant de l'URL, Lot A3). Logique inchangée : toute valeur
 // non reconnue retombe sur 90 jours, comme avant.
@@ -70,91 +79,165 @@ export const fmtDur = (sec: number | null | undefined): string => {
 };
 export const DEVICE_ICON: Record<string, string> = { mobile: "📱", tablet: "💻", desktop: "🖥" };
 
-// ─── Contrat d'URL (Lot A3) ──────────────────────────────────────────────────
-// L'état de période vit désormais dans l'URL (partageable, persistant au F5,
-// conservé au changement de sous-route). parseQuery/toSearchParams round-trippent
-// avec DEFAULT_QUERY ; toApiQuery reproduit À L'IDENTIQUE la chaîne que load()
-// construisait auparavant (?period= / ?date= / ?from=&to= / weekday → from&to).
+// ─── Résolution des présets (Lot A5) ─────────────────────────────────────────
+// Calcul CLIENT en heure LOCALE (= Paris pour l'admin, cf. helpers Lot G-2) ; le
+// serveur (/series, resolveAnalyticsRange) refait tout le bucketing en Paris.
+// Semaine lundi → dimanche.
+function startOfWeekMonday(d: Date): Date {
+  const x = new Date(d); x.setHours(0, 0, 0, 0);
+  x.setDate(x.getDate() - ((x.getDay() + 6) % 7)); // 0 = lundi
+  return x;
+}
+// preset → { from, to } (YYYY-MM-DD). `custom` reprend les from/to fournis.
+export function resolvePreset(preset: PresetKey, from = "", to = ""): { from: string; to: string } {
+  const now = new Date(); now.setHours(0, 0, 0, 0);
+  const y = now.getFullYear(), m = now.getMonth();
+  const iso = fmtYmdLocalDate;
+  switch (preset) {
+    case "today":        return { from: iso(now), to: iso(now) };
+    case "yesterday":    { const d = new Date(now); d.setDate(d.getDate() - 1); return { from: iso(d), to: iso(d) }; }
+    case "this_week":    return { from: iso(startOfWeekMonday(now)), to: iso(now) };
+    case "this_month":   return { from: iso(new Date(y, m, 1)), to: iso(now) };
+    case "last_month":   return { from: iso(new Date(y, m - 1, 1)), to: iso(new Date(y, m, 0)) };
+    case "this_quarter": return { from: iso(new Date(y, Math.floor(m / 3) * 3, 1)), to: iso(now) };
+    case "this_year":    return { from: iso(new Date(y, 0, 1)), to: iso(now) };
+    case "custom":       return { from: from || iso(now), to: to || iso(now) };
+  }
+}
+
+// Granularité dérivée de l'écart (aucun réglage manuel).
+export function granularityOf(from: string, to: string): "hour" | "day" | "month" {
+  const days = Math.round((ymdToLocal(to).getTime() - ymdToLocal(from).getTime()) / 86400000);
+  if (days <= 2) return "hour";
+  if (days <= 93) return "day";
+  return "month";
+}
+
+// Comparaison par défaut + libellé. `alt` (today/yesterday) = même jour S-1 (J-7).
+// La plage de comparaison couvre la période ENTIÈRE (pour la courbe) ; la troncature
+// des TOTAUX (période en cours) est faite côté serveur (compare_truncated).
+export function compareRangeOf(preset: PresetKey, from: string, to: string, alt = false): { cfrom: string; cto: string; label: string } {
+  const iso = fmtYmdLocalDate;
+  switch (preset) {
+    case "today":
+    case "yesterday": {
+      if (alt) return { cfrom: shiftYmd(from, -7), cto: shiftYmd(to, -7), label: "vs même jour, S-1" };
+      return { cfrom: shiftYmd(from, -1), cto: shiftYmd(to, -1), label: preset === "today" ? "vs hier" : "vs avant-hier" };
+    }
+    case "this_week": {
+      const cfrom = shiftYmd(from, -7);
+      return { cfrom, cto: shiftYmd(cfrom, 6), label: "vs semaine dernière" }; // semaine complète lundi→dimanche
+    }
+    case "this_month": {
+      const f = ymdToLocal(from);
+      return { cfrom: iso(new Date(f.getFullYear(), f.getMonth() - 1, 1)), cto: iso(new Date(f.getFullYear(), f.getMonth(), 0)), label: "vs mois dernier" };
+    }
+    case "last_month": {
+      const f = ymdToLocal(from);
+      return { cfrom: iso(new Date(f.getFullYear(), f.getMonth() - 1, 1)), cto: iso(new Date(f.getFullYear(), f.getMonth(), 0)), label: "vs mois précédent" };
+    }
+    case "this_quarter": {
+      const f = ymdToLocal(from);
+      return { cfrom: iso(new Date(f.getFullYear(), f.getMonth() - 3, 1)), cto: iso(new Date(f.getFullYear(), f.getMonth(), 0)), label: "vs trimestre précédent" };
+    }
+    case "this_year": {
+      const f = ymdToLocal(from);
+      return { cfrom: iso(new Date(f.getFullYear() - 1, 0, 1)), cto: iso(new Date(f.getFullYear() - 1, 11, 31)), label: "vs année précédente" };
+    }
+    case "custom":
+    default: {
+      const durDays = Math.round((ymdToLocal(to).getTime() - ymdToLocal(from).getTime()) / 86400000) + 1;
+      const cto = shiftYmd(from, -1);
+      return { cfrom: shiftYmd(cto, -(durDays - 1)), cto, label: "vs période précédente" };
+    }
+  }
+}
+
+// Suffixe de troncature (période en cours) selon la granularité.
+export function truncationSuffix(g: "hour" | "day" | "month"): string {
+  return g === "hour" ? ", même heure" : g === "day" ? ", même jour" : ", même mois";
+}
+
+// ─── Contrat d'URL (Lot A5 — présets ; A3 pour bots/weekday) ─────────────────
+// L'URL porte ?preset=this_week (ou ?preset=custom&from=&to=), + bots/compare, +
+// mode=weekday (CONSERVÉ) et ses paramètres. period/date/mode(glissant) supprimés
+// du contrat. Les champs mode/period/date restent VESTIGIAUX dans le type pour ne
+// pas toucher aux 5 autres onglets : parseQuery pose mode="range" (préset) ou
+// "weekday", + from/to résolus → toApiQuery / shippingDonut / showDelta continuent
+// de fonctionner sans changement de code.
 export type AnalyticsMode = "period" | "day" | "range" | "weekday";
 
 export type AnalyticsQuery = {
-  mode: AnalyticsMode;
-  period: string;      // "1"|"3"|"7"|"30"|"90"|"all"
-  date: string;        // YYYY-MM-DD
-  from: string;
+  preset: PresetKey;
+  mode: AnalyticsMode;   // résolu : "range" (préset/custom) ou "weekday"
+  period: string;        // vestigial (compat 5 onglets)
+  date: string;          // vestigial (compat 5 onglets)
+  from: string;          // bornes résolues (préset/custom) ou enveloppe weekday
   to: string;
-  weekday: number;     // 0-6
+  weekday: number;       // 0-6
   wdDepth: number;
-  compare: string;     // YYYY-MM-DD, "" si aucune comparaison
-  bots: boolean;       // true = exclure les bots
+  compare: string;       // "" = comparaison par défaut ; "wd" = même jour S-1 (today/yesterday)
+  bots: boolean;         // true = exclure les bots
 };
 
-// Valeurs par défaut = valeurs initiales des useState d'origine (vérifiées une à une) :
-// period "30", mode "period", date/from/to/compare "", weekday 0, wdDepth 8, bots false.
 export const DEFAULT_QUERY: AnalyticsQuery = {
-  mode: "period", period: "30", date: "", from: "", to: "", weekday: 0, wdDepth: 8, compare: "", bots: false,
+  preset: "this_month", mode: "range", period: "", date: "", from: "", to: "", weekday: 0, wdDepth: 8, compare: "", bots: false,
 };
 
-const MODES: AnalyticsMode[] = ["period", "day", "range", "weekday"];
+const PRESET_KEYS: PresetKey[] = ["today", "yesterday", "this_week", "this_month", "last_month", "this_quarter", "this_year", "custom"];
 
 export function parseQuery(sp: URLSearchParams): AnalyticsQuery {
-  const rawMode = sp.get("mode");
-  const mode: AnalyticsMode = rawMode && (MODES as string[]).includes(rawMode) ? (rawMode as AnalyticsMode) : DEFAULT_QUERY.mode;
+  const bots = sp.get("bots") === "1";
+  const compare = sp.get("compare") === "wd" ? "wd" : "";
   const wdRaw = Number(sp.get("weekday"));
   const weekday = Number.isInteger(wdRaw) && wdRaw >= 0 && wdRaw <= 6 ? wdRaw : DEFAULT_QUERY.weekday;
   const depthRaw = Number(sp.get("wdDepth"));
   const wdDepth = Number.isFinite(depthRaw) && depthRaw > 0 ? depthRaw : DEFAULT_QUERY.wdDepth;
-  return {
-    mode,
-    period: sp.get("period") || DEFAULT_QUERY.period,
-    date:   sp.get("date")   || "",
-    from:   sp.get("from")   || "",
-    to:     sp.get("to")     || "",
-    weekday,
-    wdDepth,
-    compare: sp.get("compare") || "",
-    bots:   sp.get("bots") === "1",
-  };
+
+  // Mode weekday CONSERVÉ (accessible depuis le calendrier — on ne le détruit pas).
+  if (sp.get("mode") === "weekday") {
+    const occ = weekdayOccurrences(weekday, wdDepth);
+    return { preset: "custom", mode: "weekday", period: "", date: "", from: occ[0] ?? "", to: occ[occ.length - 1] ?? "", weekday, wdDepth, compare, bots };
+  }
+
+  // Préset (défaut + repli des anciennes URL ?period=/?date= → préset par défaut).
+  const raw = sp.get("preset");
+  const preset: PresetKey = raw && (PRESET_KEYS as string[]).includes(raw) ? (raw as PresetKey) : DEFAULT_QUERY.preset;
+  const { from, to } = resolvePreset(preset, sp.get("from") ?? "", sp.get("to") ?? "");
+  return { preset, mode: "range", period: "", date: "", from, to, weekday, wdDepth, compare, bots };
 }
 
-// N'écrit QUE les valeurs non-défaut → URL propre et partageable (round-trip exact).
+// N'écrit QUE le nécessaire → URL propre (?preset=this_week). Custom porte from/to.
 export function toSearchParams(q: AnalyticsQuery): URLSearchParams {
   const sp = new URLSearchParams();
-  if (q.mode !== DEFAULT_QUERY.mode)       sp.set("mode", q.mode);
-  if (q.period !== DEFAULT_QUERY.period)   sp.set("period", q.period);
-  if (q.date)                              sp.set("date", q.date);
-  if (q.from)                              sp.set("from", q.from);
-  if (q.to)                                sp.set("to", q.to);
-  if (q.weekday !== DEFAULT_QUERY.weekday) sp.set("weekday", String(q.weekday));
-  if (q.wdDepth !== DEFAULT_QUERY.wdDepth) sp.set("wdDepth", String(q.wdDepth));
-  if (q.compare)                           sp.set("compare", q.compare);
-  if (q.bots)                              sp.set("bots", "1");
+  if (q.mode === "weekday") {
+    sp.set("mode", "weekday");
+    if (q.weekday !== DEFAULT_QUERY.weekday) sp.set("weekday", String(q.weekday));
+    if (q.wdDepth !== DEFAULT_QUERY.wdDepth) sp.set("wdDepth", String(q.wdDepth));
+  } else {
+    if (q.preset !== DEFAULT_QUERY.preset) sp.set("preset", q.preset);
+    if (q.preset === "custom") { if (q.from) sp.set("from", q.from); if (q.to) sp.set("to", q.to); }
+  }
+  if (q.compare) sp.set("compare", q.compare);
+  if (q.bots)    sp.set("bots", "1");
   return sp;
 }
 
-// ⚠️ Reproduit À L'IDENTIQUE la chaîne construite par l'ancien load() (page.tsx).
+// Chaîne API pour les routes existantes (kpis, page-views, …). Préset → ?from=&to=
+// (bornes calendaires) ; weekday → enveloppe contiguë (inchangé, Lot G-3b).
 export function toApiQuery(q: AnalyticsQuery): string {
-  let query = `?period=${q.period}`;
-  if (q.mode === "day" && q.date) {
-    query = `?date=${q.date}`;
-  } else if (q.mode === "range" && q.from && q.to) {
-    const a = q.from <= q.to ? q.from : q.to;
-    const b = q.from <= q.to ? q.to : q.from;
-    query = `?from=${a}&to=${b}`;
-  } else if (q.mode === "weekday") {
+  if (q.mode === "weekday") {
     const occ = weekdayOccurrences(q.weekday, q.wdDepth);
-    if (occ.length) query = `?from=${occ[0]}&to=${occ[occ.length - 1]}`;
+    return occ.length ? `?from=${occ[0]}&to=${occ[occ.length - 1]}` : `?from=${q.from}&to=${q.to}`;
   }
-  return query;
+  return `?from=${q.from}&to=${q.to}`;
 }
 
-// Libellé d'en-tête selon le mode actif — reproduit À L'IDENTIQUE l'ancien
-// `periodLabel` de page.tsx (utilisé par le titre du layout ET le corps de page).
+// Libellé d'en-tête : préset (« cette semaine »), plage custom (« du X au Y ») ou
+// weekday (« tous les mardis · … »).
 export function periodLabelOf(q: AnalyticsQuery): string {
-  const { mode, period, date: dayStr, from: rangeFrom, to: rangeTo, weekday, wdDepth, compare: compareDate } = q;
-  return mode === "day" && dayStr && compareDate  ? `${fmtDayShort(dayStr)} vs ${fmtDayShort(compareDate)}${compareDate === shiftYmd(dayStr, -7) ? " (S-1)" : ""}` :
-         mode === "day"   && dayStr               ? `le ${fmtLongDay(dayStr)}` :
-         mode === "range" && rangeFrom && rangeTo  ? fmtRangeLabel(rangeFrom, rangeTo) :
-         mode === "weekday"                        ? `tous les ${WEEKDAY_LONG[weekday]}s · ${wdDepth} dernières occurrences` :
-         period === "all" ? "depuis le début" : `sur les ${period} derniers jours`;
+  if (q.mode === "weekday") return `tous les ${WEEKDAY_LONG[q.weekday]}s · ${q.wdDepth} dernières occurrences`;
+  if (q.preset === "custom") return q.from && q.to ? fmtRangeLabel(q.from, q.to) : "—";
+  const l = PRESETS.find(x => x.key === q.preset)?.label ?? "";
+  return l ? l.charAt(0).toLowerCase() + l.slice(1) : "—";
 }

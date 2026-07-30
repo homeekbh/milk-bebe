@@ -11,6 +11,12 @@
  *   (recommandation CNIL) → au-delà, on redemande. Rétro-compatible avec l'ancien format
  *   (string brute "accepted"/"refused").
  * - PageTracker (mesure d'audience 1st-party, base propre) reste hors de ce périmètre.
+ *
+ * Lot M1 — Le Meta Pixel n'est PAS chargé pour le TRAFIC INTERNE (sessions de test
+ * Bou/Claude Code, cookie milk_internal_traffic). On réutilise le MÊME helper que
+ * fbqTrack (lib/analytics.ts) : isInternalTraffic() — pas de seconde détection. Ce
+ * filtre s'AJOUTE au consentement (il ne le remplace pas) : un visiteur non-interne
+ * qui refuse est traité exactement comme avant. GTM/GA4 sont hors périmètre.
  */
 
 import { useEffect, useState } from "react";
@@ -23,6 +29,7 @@ import GTMScript from "@/components/analytics/GTMScript";
 // que les autres chargements tiers réagissent au choix. Le gating ci-dessous des 3
 // traceurs (GTM/GA4/Pixel) est INCHANGÉ (toujours `status === "accepted"`).
 import { readConsent, writeConsent, onOpenConsent, type ConsentStatus } from "@/components/analytics/consent-store";
+import { isInternalTraffic } from "@/lib/internal-traffic";
 
 const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID;
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
@@ -35,11 +42,15 @@ export default function ConsentManager() {
   const [show,    setShow]    = useState(false);
   const [custom,  setCustom]  = useState(false);
   const [analytics, setAnalytics] = useState(false); // toggle « personnaliser », décoché par défaut
+  const [internal, setInternal]   = useState(false); // trafic interne (Lot M1) — lu au montage, côté client
   const t = useTranslations("consent");
 
   useEffect(() => {
     const c = readConsent();
     setStatus(c);
+    // Même détection que fbqTrack : cookie milk_internal_traffic OU ?internal=milk2026.
+    // Lue APRÈS le montage (client) → document.cookie / location.search disponibles.
+    setInternal(isInternalTraffic());
     setReady(true);
     if (!c) setTimeout(() => setShow(true), 1200);
   }, []);
@@ -83,7 +94,9 @@ export default function ConsentManager() {
               ` }} />
             </>
           )}
-          {META_PIXEL && (
+          {/* Meta Pixel : chargé SAUF pour le trafic interne (Lot M1). Interne → ni script,
+              ni fbq('init'), ni fbq('track','PageView'). Trafic normal → inchangé. */}
+          {META_PIXEL && !internal && (
             <Script id="meta-pixel" strategy="afterInteractive" dangerouslySetInnerHTML={{ __html: `
               !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?
               n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;

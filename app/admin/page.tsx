@@ -1,202 +1,211 @@
-﻿import { supabaseServer } from "@/lib/server/supabase";
+// app/admin/page.tsx (Lot A6) — PAGE D'ACCUEIL admin (thème sombre, tokens A2).
+// Accueil + 4 horloges (composant existant réutilisé) + tâches « à traiter » +
+// état du site + chiffres du jour. Server component : agrégats via supabaseServer
+// (service-role), comme l'ancien dashboard. Aucune donnée inventée : une carte ne
+// s'affiche qu'avec une donnée réelle et un compte > 0.
+import { supabaseServer } from "@/lib/server/supabase";
 import { isValidOrder, getNetAmount } from "@/lib/orders";
+import { resolveAnalyticsRange, parisDayKey, fetchAllPaged } from "@/lib/analytics-server";
 import Link from "next/link";
+import * as Sentry from "@sentry/nextjs";
+import { C } from "@/components/admin/analytics/tokens";
+import ClocksBar from "@/components/admin/AdminClocks";
 
-export const dynamic  = "force-dynamic";
+export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-async function getStats() {
+const eur = (n: number) => `${(Number(n) || 0).toLocaleString("fr-FR", { maximumFractionDigits: 0 })} €`;
 
-  const [{ data: products }, { data: orders }, { data: allOrders }, { count: subsCountExact }] = await Promise.all([
-    supabaseServer.from("products").select("*").order("stock", { ascending: true }),
-    supabaseServer.from("orders").select("*").order("created_at", { ascending: false }).limit(10),
-    // select("*") et NON une liste explicite : la colonne refund_amount n'existe
-    // pas tant que la migration 008 n'est pas lancée, et un select explicite d'une
-    // colonne absente FAIT ÉCHOUER toute la requête (→ CA = 0). select("*") ignore
-    // simplement la colonne manquante et la récupère dès qu'elle existe.
-    supabaseServer.from("orders").select("*").order("created_at", { ascending: false }),
-    supabaseServer.from("newsletter_subscribers").select("id", { count: "exact", head: true }),
-  ]);
-
-  const prods       = products ?? [];
-  const ords        = orders   ?? [];
-  const allOrds     = allOrders ?? [];
-  const validOrds   = allOrds.filter(isValidOrder);
-  const cancelledOrds = allOrds.filter(o => !isValidOrder(o));
-  const totalProducts = prods.length;
-  const stockValue    = prods.reduce((s, p) => s + (p.stock ?? 0) * (p.price_ttc ?? 0), 0);
-  const lowStock      = prods.filter(p => (p.stock ?? 0) > 0 && (p.stock ?? 0) <= 5).length;
-  const outOfStock    = prods.filter(p => (p.stock ?? 0) <= 0).length;
-  const alerts        = prods.filter(p => (p.stock ?? 0) <= 5).slice(0, 6);
-
-  const today     = new Date(); today.setHours(0,0,0,0);
-  const todayOrds = validOrds.filter(o => new Date(o.created_at) >= today);
-  // CA = montant NET (amount_total - refund_amount pour partiels)
-  const caToday   = todayOrds.reduce((s, o) => s + getNetAmount(o), 0);
-  const caTotal   = validOrds.reduce((s, o) => s + getNetAmount(o), 0);
-  const ordsCount = validOrds.length;
-  const cancelledCount = cancelledOrds.length;
-  const subsCount = subsCountExact ?? 0;
-
-  return { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, cancelledCount, subsCount, todayOrds };
+// Stock effectif d'un produit : scalaire `stock` s'il est > 0, sinon somme des
+// tailles (sizes_stock) — même notion d'« en stock » que le Product JSON-LD.
+function stockLevel(p: any): number {
+  const s = Number(p.stock ?? 0);
+  if (s > 0) return s;
+  const ss = p.sizes_stock && typeof p.sizes_stock === "object"
+    ? Object.values(p.sizes_stock as Record<string, unknown>).reduce((a: number, v) => a + (Number(v) || 0), 0)
+    : 0;
+  return ss;
 }
 
-// Badge statut commande dynamique selon shipping_status + status
-function OrderStatusBadge({ shipping_status, status }: { shipping_status?: string | null; status?: string | null }) {
-  const s  = String(status ?? "").toLowerCase();
-  const sh = String(shipping_status ?? "en_preparation").toLowerCase();
+async function getHomeData() {
+  try {
+    // Bornes du JOUR en heure de Paris (réutilise l'infra analytics).
+    const todayKey = parisDayKey(new Date());
+    const rr = resolveAnalyticsRange(new URLSearchParams({ date: todayKey }));
+    const dayFrom = rr.ok ? rr.range.from : new Date(new Date().setHours(0, 0, 0, 0)).toISOString();
+    const dayTo   = rr.ok ? rr.range.to   : new Date().toISOString();
 
-  if (s === "remboursee")  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Remboursée</span>;
-  if (s === "annulee" || sh === "annulee") return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#7f1d1d", fontSize: 13, fontWeight: 800 }}>Annulée</span>;
-  if (sh === "retour")     return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fee2e2", color: "#b91c1c", fontSize: 13, fontWeight: 800 }}>Retour</span>;
-  if (sh === "livree")     return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#c49a4a", color: "#1a1410", fontSize: 13, fontWeight: 800 }}>Livrée</span>;
-  if (sh === "expediee")   return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#dbeafe", color: "#1e40af", fontSize: 13, fontWeight: 800 }}>Expédiée</span>;
-  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 800 }}>En préparation</span>;
+    const [ordersRes, productsRes, reviewsRes, promosRes, popupsRes] = await Promise.all([
+      supabaseServer.from("orders").select("*"),
+      supabaseServer.from("products").select("id, stock, sizes_stock, published"),
+      supabaseServer.from("reviews").select("id, approved, reply"),
+      supabaseServer.from("promo_codes").select("id, active, expires_at, starts_at, max_uses, uses_count"),
+      supabaseServer.from("popups").select("id, title, active, starts_at, ends_at").order("created_at", { ascending: false }),
+    ]);
+    const orders   = ordersRes.data   ?? [];
+    const products = productsRes.data ?? [];
+    const reviews  = reviewsRes.data  ?? [];
+    const promos   = promosRes.data   ?? [];
+    const popups   = popupsRes.data   ?? [];
+
+    // Sessions du jour (page_views, Paris) — distinct session_id.
+    let sessionsToday = 0;
+    try {
+      const pv = await fetchAllPaged<any>((a, b) => supabaseServer
+        .from("page_views").select("session_id").gte("viewed_at", dayFrom).lte("viewed_at", dayTo).range(a, b));
+      sessionsToday = new Set(pv.map(r => r.session_id).filter(Boolean)).size;
+    } catch (e) { Sentry.captureException(e, { tags: { area: "admin-home" } }); }
+
+    const now = new Date();
+    const in7 = new Date(now.getTime() + 7 * 86400000);
+
+    // ── Tâches ────────────────────────────────────────────────────────────────
+    // Commandes payées non expédiées (= badge NAV « Commandes »).
+    const toShip = orders.filter(o =>
+      String(o.status ?? "").toLowerCase() === "payee" &&
+      ["en_preparation", "processing", ""].includes(String(o.shipping_status ?? "en_preparation").toLowerCase())
+    ).length;
+
+    const reviewsToModerate = reviews.filter(r => !r.approved).length;                                   // approved=false = en attente
+    const reviewsNoReply    = reviews.filter(r => r.approved && !(r.reply && String(r.reply).trim())).length; // publié, sans réponse M!LK
+
+    const published = products.filter(p => p.published !== false);
+    const outOfStock = published.filter(p => stockLevel(p) <= 0).length;
+    const lowStock   = published.filter(p => { const l = stockLevel(p); return l > 0 && l <= 5; }).length;
+
+    const promoExpiring = promos.filter(c => c.active && c.expires_at && new Date(c.expires_at) <= in7).length;
+
+    // ── État du site ──────────────────────────────────────────────────────────
+    const promoActive = promos.filter(c => {
+      if (!c.active) return false;
+      const expired = c.expires_at ? new Date(c.expires_at) < now : false;
+      const notYet  = c.starts_at  ? new Date(c.starts_at)  > now : false;
+      const maxed   = c.max_uses   ? c.uses_count >= c.max_uses : false;
+      return !expired && !notYet && !maxed;
+    }).length;
+    const livePopup = popups.find(p => {
+      const s = p.starts_at ? new Date(p.starts_at) : null;
+      const e = p.ends_at   ? new Date(p.ends_at)   : null;
+      return p.active && (!s || s <= now) && (!e || e >= now);
+    }) ?? null;
+
+    // ── Chiffres du jour ────────────────────────────────────────────────────────
+    const fromMs = new Date(dayFrom).getTime(), toMs = new Date(dayTo).getTime();
+    const validToday = orders.filter(isValidOrder).filter(o => {
+      const t = new Date(o.created_at).getTime(); return t >= fromMs && t <= toMs;
+    });
+    const ordersToday = validToday.length;
+    const caToday = validToday.reduce((s, o) => s + getNetAmount(o), 0);
+
+    return {
+      toShip, reviewsToModerate, reviewsNoReply, outOfStock, lowStock, promoExpiring,
+      promoActive, livePopupTitle: livePopup?.title ?? null,
+      ordersToday, caToday, sessionsToday,
+    };
+  } catch (e) {
+    Sentry.captureException(e, { tags: { area: "admin-home" } });
+    return null;
+  }
 }
 
-export default async function AdminDashboard() {
-  const { prods, ords, totalProducts, stockValue, lowStock, outOfStock, alerts, caToday, caTotal, ordsCount, cancelledCount, subsCount, todayOrds } = await getStats();
+export default async function AdminHome() {
+  const d = await getHomeData();
 
-  const dateStr = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  // Accueil (heure de Paris) — sobre, sans emoji ni exclamation.
+  const parisHour = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Paris", hour: "2-digit", hour12: false }).format(new Date()).slice(0, 2)) % 24;
+  const greeting = parisHour >= 5 && parisHour < 13 ? "Bonjour" : parisHour >= 13 && parisHour < 18 ? "Bon après-midi" : "Bonsoir";
+  const rawDate  = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Paris" });
+  const dateStr  = rawDate.charAt(0).toUpperCase() + rawDate.slice(1);
 
-  const KPI = ({ label, value, sub, color = "#1a1410", bg = "#fff" }: any) => (
-    <div style={{ background: bg, borderRadius: 16, padding: "20px 24px", border: "1px solid rgba(26,20,16,0.1)" }}>
-      <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "#c49a4a", marginBottom: 8 }}>{label}</div>
-      <div style={{ fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color, lineHeight: 1 }}>{value}</div>
-      {sub && <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginTop: 6, fontWeight: 600 }}>{sub}</div>}
+  const tasks = d ? [
+    { count: d.toShip,             label: "Commandes à expédier", href: "/admin/commandes" },
+    { count: d.reviewsToModerate,  label: "Avis à modérer",       href: "/admin/avis" },
+    { count: d.reviewsNoReply,     label: "Avis sans réponse",    href: "/admin/avis" },
+    { count: d.outOfStock,         label: "Produits en rupture",  href: "/admin/produits" },
+    { count: d.lowStock,           label: "Produits en stock bas", href: "/admin/produits" },
+    { count: d.promoExpiring,      label: "Promos qui expirent",  href: "/admin/codes-promos" },
+  ].filter(t => t.count > 0) : [];
+
+  const sectionTitle = (txt: string) => (
+    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase" as const, color: C.amber, margin: "0 0 16px", display: "flex", alignItems: "center", gap: 10 }}>
+      <div style={{ flex: 1, height: 1, background: "rgba(196,154,74,0.15)" }} />
+      {txt}
+      <div style={{ flex: 1, height: 1, background: "rgba(196,154,74,0.15)" }} />
     </div>
   );
 
-  const StatusBadge = ({ stock }: { stock: number }) => {
-    if (stock <= 0)  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#f3f4f6", color: "#6b7280", fontSize: 13, fontWeight: 800 }}>Épuisé</span>;
-    if (stock <= 3)  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#c49a4a", color: "#1a1410", fontSize: 13, fontWeight: 800 }}>Critique · {stock}</span>;
-    if (stock <= 5)  return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#fef3c7", color: "#92400e", fontSize: 13, fontWeight: 800 }}>Faible · {stock}</span>;
-    return <span style={{ padding: "5px 12px", borderRadius: 99, background: "#dcfce7", color: "#166534", fontSize: 13, fontWeight: 800 }}>OK · {stock}</span>;
-  };
-
   return (
-    <div style={{ padding: "36px 40px", maxWidth: 1100 }}>
+    <div style={{ padding: "36px 40px", background: C.bg, minHeight: "100vh", color: C.warm }}>
+      <div style={{ maxWidth: 1100, margin: "0 auto" }}>
 
-      {/* En-tête */}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 36, flexWrap: "wrap", gap: 16 }}>
-        <div>
-          <h1 style={{ margin: 0, fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>Dashboard</h1>
-          <div style={{ fontSize: 16, color: "rgba(26,20,16,0.5)", marginTop: 6, textTransform: "capitalize", fontWeight: 600 }}>{dateStr}</div>
-        </div>
-        <div style={{ display: "flex", gap: 10 }}>
-          <Link href="/admin/commandes" style={{ padding: "13px 22px", borderRadius: 12, background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 15, textDecoration: "none", border: "1px solid rgba(26,20,16,0.15)" }}>
-            Voir commandes
-          </Link>
-          <Link href="/admin/produits/new" style={{ padding: "13px 22px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 15, textDecoration: "none" }}>
-            + Nouveau produit
-          </Link>
-        </div>
-      </div>
-
-      {/* KPIs */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 36 }}>
-        <KPI label="CA aujourd'hui"   value={`${caToday.toFixed(2)} €`}  sub={`${todayOrds.length} commande(s)`} color="#1a1410" />
-        <KPI label="CA total"         value={`${caTotal.toFixed(0)} €`}   sub={`${ordsCount} valides, exclut annulées`} color="#1a1410" />
-        <KPI label="Annulées"         value={String(cancelledCount)}      sub="Hors CA"                           color={cancelledCount > 0 ? "#7f1d1d" : "#166534"} />
-        <KPI label="Produits"         value={String(totalProducts)}        sub="Dans le catalogue"                 color="#1a1410" />
-        <KPI label="Valeur du stock"  value={`${stockValue.toFixed(0)} €`} sub="TTC × unités"                   color="#1a1410" />
-        <KPI label="Ruptures"         value={String(outOfStock)}           sub="Stock = 0"                         color={outOfStock > 0 ? "#b91c1c" : "#166534"} />
-        <KPI label="Stock faible"     value={String(lowStock)}             sub="≤ 5 unités"                        color={lowStock > 0 ? "#c49a4a" : "#166534"}   />
-        <KPI label="Abonnés newsletter" value={String(subsCount)}          sub="Total inscrits"                    color="#1a1410" />
-      </div>
-
-      {/* Alertes stock */}
-      {alerts.length > 0 && (
+        {/* ── BLOC 1 · Accueil ── */}
         <div style={{ marginBottom: 36 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-            <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: "#1a1410" }}>Alertes stock</h2>
-            <Link href="/admin/alerts" style={{ fontSize: 15, fontWeight: 700, color: "#c49a4a", textDecoration: "none" }}>Voir tout →</Link>
-          </div>
-          <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden" }}>
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid rgba(26,20,16,0.08)", background: "#fafaf9" }}>
-                  {["Produit", "Catégorie", "Prix", "Stock", ""].map(h => (
-                    <th key={h} style={{ padding: "14px 20px", textAlign: h === "" ? "right" : "left", fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {alerts.map((p: any, i: number) => (
-                  <tr key={p.id} style={{ borderBottom: i < alerts.length - 1 ? "1px solid rgba(26,20,16,0.06)" : "none" }}>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410" }}>{p.name}</div>
-                      <div style={{ fontSize: 13, color: "rgba(26,20,16,0.4)", marginTop: 2, fontFamily: "monospace" }}>/{p.slug}</div>
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, padding: "5px 12px", borderRadius: 99, background: "rgba(196,154,74,0.15)", color: "#1a1410" }}>{p.category_slug ?? "—"}</span>
-                    </td>
-                    <td style={{ padding: "16px 20px", fontWeight: 900, fontSize: 17, color: "#1a1410" }}>{p.price_ttc?.toFixed(2)} €</td>
-                    <td style={{ padding: "16px 20px" }}><StatusBadge stock={p.stock ?? 0} /></td>
-                    <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                      <Link href={`/admin/produits/${p.id}`} style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", textDecoration: "none", padding: "8px 16px", borderRadius: 10, border: "2px solid rgba(26,20,16,0.2)", display: "inline-block" }}>
-                        Modifier
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <h1 style={{ margin: 0, fontSize: "clamp(30px,4vw,44px)", fontWeight: 950, letterSpacing: -1.5, color: C.warm }}>{greeting}</h1>
+          <div style={{ fontSize: 16, color: C.muted, marginTop: 8, fontWeight: 600 }}>{dateStr}</div>
         </div>
-      )}
 
-      {/* Dernières commandes */}
-      <div>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-          <h2 style={{ margin: 0, fontSize: 24, fontWeight: 900, letterSpacing: -0.5, color: "#1a1410" }}>
-            Dernières commandes
-          </h2>
-          <Link href="/admin/commandes" style={{ fontSize: 15, fontWeight: 700, color: "#c49a4a", textDecoration: "none" }}>Tout voir →</Link>
+        {/* ── BLOC 2 · Les 4 horloges (composant existant, agrandi) ──
+            Le composant reste clair (thème du header) → posé sur une carte claire
+            pour rester lisible sans le réécrire (heure digitale/libellés sombres). */}
+        <div style={{ marginBottom: 36, background: "#f5f0e8", borderRadius: 20, padding: 24, display: "flex", justifyContent: "center" }}>
+          <ClocksBar size={110} />
         </div>
-        <div style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden" }}>
-          {ords.length === 0 ? (
-            <div style={{ padding: 48, textAlign: "center", color: "rgba(26,20,16,0.4)", fontSize: 16 }}>
-              Aucune commande — les achats Stripe apparaîtront ici
-            </div>
+
+        {/* ── BLOC 3 · À traiter ── */}
+        <div style={{ marginBottom: 36 }}>
+          {sectionTitle("À traiter")}
+          {tasks.length === 0 ? (
+            <div style={{ color: C.muted, fontSize: 15, padding: "8px 2px" }}>Rien en attente aujourd'hui.</div>
           ) : (
-            <table style={{ width: "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr style={{ borderBottom: "2px solid rgba(26,20,16,0.08)", background: "#fafaf9" }}>
-                  {["Date", "Client", "Montant", "Statut livraison", ""].map(h => (
-                    <th key={h} style={{ padding: "14px 20px", textAlign: h === "" ? "right" : "left", fontSize: 13, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)" }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {ords.slice(0, 5).map((o: any, i: number) => (
-                  <tr key={o.id} style={{ borderBottom: i < 4 ? "1px solid rgba(26,20,16,0.06)" : "none" }}>
-                    <td style={{ padding: "16px 20px", fontSize: 15, color: "#1a1410", fontWeight: 600 }}>
-                      {new Date(o.created_at).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <div style={{ fontWeight: 800, fontSize: 16, color: "#1a1410" }}>{o.customer_name ?? "—"}</div>
-                      <div style={{ fontSize: 13, color: "rgba(26,20,16,0.4)" }}>{o.customer_email}</div>
-                    </td>
-                    <td style={{ padding: "16px 20px", fontWeight: 950, fontSize: 18, color: "#1a1410" }}>
-                      {Number(o.amount_total).toFixed(2)} €
-                    </td>
-                    <td style={{ padding: "16px 20px" }}>
-                      <OrderStatusBadge shipping_status={o.shipping_status} status={o.status} />
-                    </td>
-                    <td style={{ padding: "16px 20px", textAlign: "right" }}>
-                      <Link href={`/admin/commandes`} style={{ fontSize: 14, fontWeight: 800, color: "#1a1410", textDecoration: "none", padding: "8px 16px", borderRadius: 10, border: "2px solid rgba(26,20,16,0.2)", display: "inline-block" }}>
-                        Détail
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14 }}>
+              {tasks.map(t => (
+                <Link key={t.label} href={t.href}
+                  style={{ display: "block", textDecoration: "none", background: C.card, borderRadius: 16, padding: "22px 22px", border: `1px solid ${C.faint}` }}>
+                  <div style={{ fontSize: 40, fontWeight: 950, letterSpacing: -1.5, color: C.amber, lineHeight: 1 }}>{t.count}</div>
+                  <div style={{ fontSize: 14, color: C.warm, fontWeight: 700, marginTop: 8 }}>{t.label}</div>
+                  <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>Voir →</div>
+                </Link>
+              ))}
+            </div>
           )}
         </div>
-      </div>
 
+        {/* ── BLOC 4 · État du site (ligne discrète, indicateurs) ── */}
+        {d && (
+          <div style={{ marginBottom: 36, display: "flex", gap: 20, flexWrap: "wrap", alignItems: "center", fontSize: 13, color: C.muted }}>
+            <Link href="/admin/popups" style={{ color: C.muted, textDecoration: "none" }}>
+              Pop-up : <span style={{ color: d.livePopupTitle ? C.green : C.muted, fontWeight: 800 }}>{d.livePopupTitle ? `actif — ${d.livePopupTitle}` : "inactif"}</span>
+            </Link>
+            <span style={{ opacity: 0.4 }}>·</span>
+            <Link href="/admin/codes-promos" style={{ color: C.muted, textDecoration: "none" }}>
+              Codes promo actifs : <span style={{ color: C.warm, fontWeight: 800 }}>{d.promoActive}</span>
+            </Link>
+          </div>
+        )}
+
+        {/* ── BLOC 5 · Aujourd'hui en chiffres ── */}
+        {d && (
+          <div>
+            {sectionTitle("Aujourd'hui en chiffres")}
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 14 }}>
+              {[
+                { label: "Commandes", value: String(d.ordersToday) },
+                { label: "Chiffre d'affaires", value: eur(d.caToday) },
+                { label: "Sessions", value: String(d.sessionsToday) },
+              ].map(k => (
+                <div key={k.label} style={{ background: C.card, borderRadius: 16, padding: "22px 22px", border: `1px solid ${C.faint}` }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: C.muted, marginBottom: 8 }}>{k.label}</div>
+                  <div style={{ fontSize: 32, fontWeight: 950, letterSpacing: -1, color: C.warm, lineHeight: 1 }}>{k.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {!d && (
+          <div style={{ color: C.muted, fontSize: 14 }}>Données momentanément indisponibles.</div>
+        )}
+      </div>
     </div>
   );
 }

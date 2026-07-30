@@ -28,7 +28,7 @@ import GTMScript from "@/components/analytics/GTMScript";
 // MerchantBadge / GoogleCustomerReviews). writeConsent y émet aussi un événement pour
 // que les autres chargements tiers réagissent au choix. Le gating ci-dessous des 3
 // traceurs (GTM/GA4/Pixel) est INCHANGÉ (toujours `status === "accepted"`).
-import { readConsent, writeConsent, onOpenConsent, type ConsentStatus } from "@/components/analytics/consent-store";
+import { readConsent, writeConsent, onOpenConsent, syncConsentCookie, type ConsentStatus } from "@/components/analytics/consent-store";
 import { isInternalTraffic } from "@/lib/internal-traffic";
 
 const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID;
@@ -48,6 +48,10 @@ export default function ConsentManager() {
   useEffect(() => {
     const c = readConsent();
     setStatus(c);
+    // Lot M3 — reprise : reflète le statut localStorage EXISTANT dans le cookie
+    // serveur `milk_consent` (visiteurs déjà passés, cookie pas encore posé). Ne
+    // change ni la bannière, ni son timing, ni la décision de consentement.
+    syncConsentCookie();
     // Même détection que fbqTrack : cookie milk_internal_traffic OU ?internal=milk2026.
     // Lue APRÈS le montage (client) → document.cookie / location.search disponibles.
     setInternal(isInternalTraffic());

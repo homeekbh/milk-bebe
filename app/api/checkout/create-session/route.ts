@@ -19,6 +19,7 @@ import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-to
 import { computeParrainage } from "@/lib/parrainage";
 import { getParrainageSettings, validateParrainCode, listUsableRewards, reserveRewards, releaseRewards, getUserFromRequest } from "@/lib/parrainage-server";
 import { computeScopedShadow, maskEmail } from "@/lib/promo-scope-adapter";
+import { getClientIp } from "@/lib/server/client-ip";
 
 // Pin l'API version au plus récent supporté par le SDK installé (cf.
 // node_modules/stripe/types/apiVersion.d.ts → '2026-01-28.clover').
@@ -622,6 +623,34 @@ export async function POST(req: Request) {
     // orders.total_weight_g, puis lu par create-label pour la vraie tranche transporteur.
     const totalWeightG = Math.round(shippingWeightG) + PACKAGING_WEIGHT_G;
 
+    // ── Contexte marketing (Lot M3) — capturé CÔTÉ SERVEUR depuis headers/cookies,
+    //    JAMAIS depuis le body (contrat de requête inchangé). Persisté tel quel dans
+    //    pending_orders.tracking pour un usage CAPI ULTÉRIEUR (aucun envoi ici).
+    //    Toute la construction est enveloppée : le moindre échec → tracking = null,
+    //    l'achat n'échoue JAMAIS à cause de ce lot. Aucune valeur n'est logguée en clair.
+    let tracking: any = null;
+    try {
+      const cookieHeader = req.headers.get("cookie") ?? "";
+      const cookieVal = (name: string): string | null => {
+        for (const c of cookieHeader.split(";")) {
+          const i = c.indexOf("=");
+          if (i >= 0 && c.slice(0, i).trim() === name) return c.slice(i + 1).trim() || null;
+        }
+        return null;
+      };
+      const consentRaw = cookieVal("milk_consent");
+      const ip = getClientIp(req);
+      tracking = {
+        consent:     consentRaw === "accepted" || consentRaw === "refused" ? consentRaw : null,
+        fbp:         cookieVal("_fbp"),
+        fbc:         cookieVal("_fbc"),
+        ip:          ip && ip !== "unknown" ? ip : null,
+        ua:          req.headers.get("user-agent") || null,
+        referer:     req.headers.get("referer") || null,
+        captured_at: new Date().toISOString(),
+      };
+    } catch { tracking = null; }
+
     // ── DRAFT (pending_orders) : SÉLECTION RÉSOLUE (produits + pièces de packs
     //    avec leurs tailles) + livraison + promo. Sert au webhook à RETROUVER la
     //    commande et décrémenter. Le BILLING reste les line_items Stripe (calculés
@@ -647,6 +676,7 @@ export async function POST(req: Request) {
         guest_email: customer_email ?? null,
         locale:      safeLocale,
         parrainage:  parrainagePayload,
+        tracking,
         status:      "pending",
       }])
       .select("id").single();

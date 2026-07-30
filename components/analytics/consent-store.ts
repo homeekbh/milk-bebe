@@ -11,6 +11,12 @@
  * `useConsentAccepted()` est RÉACTIF : writeConsent() émet un événement `milk-consent-
  * changed` → les composants montés se mettent à jour dès que l'utilisateur choisit
  * (pas besoin de recharger la page). L'événement `storage` couvre les autres onglets.
+ *
+ * Lot M3 — MIROIR COOKIE `milk_consent` (accepted|refused) : localStorage n'est pas
+ * lisible côté serveur ; on écrit donc EN PLUS un cookie non-httpOnly que le serveur
+ * (create-session) peut relire. localStorage reste la SOURCE DE VÉRITÉ de l'affichage ;
+ * le cookie n'en est qu'un reflet. Écrit à chaque writeConsent + posé au montage
+ * depuis un statut localStorage préexistant (reprise des visiteurs déjà passés).
  */
 
 import { useEffect, useState } from "react";
@@ -21,6 +27,18 @@ const KEY        = "milk_cookie_consent";
 const MAX_AGE_MS = 13 * 30 * 24 * 60 * 60 * 1000; // ~13 mois (recommandation CNIL)
 const EVENT      = "milk-consent-changed";
 const OPEN_EVENT = "milk-open-consent"; // demande de ré-ouverture de la bannière (art. 7-3)
+
+// ── Miroir cookie lisible côté serveur (Lot M3) ──────────────────────────────
+const COOKIE          = "milk_consent";
+const COOKIE_MAX_AGE_S = 60 * 60 * 24 * 365; // 1 an
+function writeConsentCookie(status: "accepted" | "refused") {
+  if (typeof document === "undefined") return;
+  try {
+    // Secure UNIQUEMENT en https (sinon le cookie serait rejeté en dev http).
+    const secure = (typeof location !== "undefined" && location.protocol === "https:") ? "; Secure" : "";
+    document.cookie = `${COOKIE}=${status}; path=/; max-age=${COOKIE_MAX_AGE_S}; SameSite=Lax${secure}`;
+  } catch { /* cookies bloqués → ignoré */ }
+}
 
 export function readConsent(): ConsentStatus {
   try {
@@ -36,7 +54,19 @@ export function readConsent(): ConsentStatus {
 
 export function writeConsent(status: "accepted" | "refused") {
   try { localStorage.setItem(KEY, JSON.stringify({ status, ts: Date.now() })); } catch {}
+  writeConsentCookie(status); // Lot M3 : miroir serveur, écrit en même temps que localStorage
   try { window.dispatchEvent(new Event(EVENT)); } catch {}
+}
+
+/**
+ * Lot M3 — Reprise : pose le cookie miroir depuis le statut localStorage EXISTANT.
+ * Pour les visiteurs déjà passés (choix en localStorage mais cookie pas encore posé),
+ * à appeler AU MONTAGE. Idempotent (rafraîchit juste le TTL) ; ne pose RIEN si aucun
+ * choix n'a encore été fait (statut null).
+ */
+export function syncConsentCookie() {
+  const status = readConsent();
+  if (status === "accepted" || status === "refused") writeConsentCookie(status);
 }
 
 /**

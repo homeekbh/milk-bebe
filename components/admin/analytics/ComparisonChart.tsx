@@ -17,19 +17,30 @@ export type ComparisonChartProps = {
   granularity:  "hour" | "day" | "month";
   metric:       MetricKey;
   label:        string;   // libellé de la métrique (ex. « Sessions »)
+  currentLabel: string;   // libellé de la période courante (ex. « aujourd'hui »)
   compareLabel: string;   // libellé de la comparaison (ex. « vs semaine dernière »)
 };
 
-// Palier supérieur « joli » pour l'axe Y (1 / 2 / 5 × 10ⁿ).
-function niceCeil(v: number): number {
-  if (v <= 0) return 1;
-  const p = Math.pow(10, Math.floor(Math.log10(v)));
-  const n = v / p;
-  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+// Plafond de l'axe Y (A7.C1) : plus petit palier LISIBLE ≥ 1,10× le max réel des
+// deux séries. Paliers = {1, 2, 2.5, 5} × 10ⁿ (→ 1,2,5,10,20,25,50,100,200,250,500…).
+// Colle au pic : max 22 → 24,2 → 25 (fini l'axe à 50 avec la moitié vide).
+function niceCeil(maxReal: number): number {
+  if (maxReal <= 0) return 1;
+  const target = maxReal * 1.10;
+  const mant = [1, 2, 2.5, 5];
+  const base = Math.floor(Math.log10(target));
+  for (let e = base - 1; e <= base + 3; e++) {
+    for (const m of mant) {
+      const c = m * Math.pow(10, e);
+      if (c >= target) return Math.round(c * 100) / 100;
+    }
+  }
+  return Math.pow(10, base + 1);
 }
+const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
 
-export default function ComparisonChart({ points, compare, granularity, metric, label, compareLabel }: ComparisonChartProps) {
+export default function ComparisonChart({ points, compare, granularity, metric, label, currentLabel, compareLabel }: ComparisonChartProps) {
   const [hi, setHi] = useState<number | null>(null);
 
   const cur = points.map(p => Number(p[metric]) || 0);
@@ -73,7 +84,17 @@ export default function ComparisonChart({ points, compare, granularity, metric, 
   const gid = `cmpgrad-${metric}`;
 
   return (
-    <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
+    <div>
+      {/* Légende (A7.C2) — libellés issus des mêmes fonctions que la barre de contrôle. */}
+      <div style={{ display: "flex", gap: 16, marginBottom: 8, flexWrap: "wrap", alignItems: "center" }}>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: C.muted }}>
+          <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="#c49a4a" strokeWidth={2} strokeLinecap="round" /></svg>{cap(currentLabel)}
+        </span>
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 700, color: C.muted }}>
+          <svg width={20} height={8}><line x1={0} y1={4} x2={20} y2={4} stroke="rgba(242,237,230,0.35)" strokeWidth={2} strokeDasharray="4 2" strokeLinecap="round" /></svg>{cap(compareLabel.replace(/^vs\s*/i, ""))}
+        </span>
+      </div>
+      <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
       <svg viewBox={`0 0 ${VBW} ${VBH}`} preserveAspectRatio="xMidYMid meet"
         style={{ width: "100%", minWidth: 320, display: "block" }} onMouseLeave={() => setHi(null)}>
         <defs>
@@ -126,6 +147,7 @@ export default function ComparisonChart({ points, compare, granularity, metric, 
           </g>
         )}
       </svg>
+      </div>
     </div>
   );
 }

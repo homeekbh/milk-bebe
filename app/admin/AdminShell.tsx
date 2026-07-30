@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 import React from "react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -30,142 +30,6 @@ const NAV: Array<{ href: string; label: string; icon: string; badgeKey?: "review
   { href: "/admin/logs",         label: "Activité",     icon: "📋" },
 ];
 
-// ── Calendrier avec stats ─────────────────────────────────────────────────────
-function AdminCalendar({ onClose }: { onClose: () => void }) {
-  const today = new Date();
-  const [year,    setYear]    = useState(today.getFullYear());
-  const [month,   setMonth]   = useState(today.getMonth());
-  const [stats,   setStats]   = useState<Record<string, { orders: number; revenue: number }>>({});
-  const [loading, setLoading] = useState(true);
-  const [tooltip, setTooltip] = useState<{ day: number; x: number; y: number } | null>(null);
-
-  const MOIS  = ["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-  const JOURS = ["L","M","M","J","V","S","D"];
-
-  const loadStats = useCallback(async (y: number, mo: number) => {
-    setLoading(true);
-    const start = new Date(y, mo, 1).toISOString();
-    const end   = new Date(y, mo + 1, 0, 23, 59, 59).toISOString();
-    try {
-      const { data } = await supabase
-        .from("orders")
-        .select("created_at, amount_total")
-        .gte("created_at", start)
-        .lte("created_at", end)
-        .eq("status", "payee")
-        .eq("is_internal_test", false); // exclut les commandes de test internes
-      const map: Record<string, { orders: number; revenue: number }> = {};
-      (data ?? []).forEach((o: any) => {
-        const key = String(new Date(o.created_at).getDate());
-        if (!map[key]) map[key] = { orders: 0, revenue: 0 };
-        map[key].orders++;
-        map[key].revenue += (o.amount_total ?? 0) / 100;
-      });
-      setStats(map);
-    } catch {}
-    setLoading(false);
-  }, []);
-
-  useEffect(() => { loadStats(year, month); }, [year, month, loadStats]);
-
-  const firstDay    = new Date(year, month, 1);
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  let startDay = firstDay.getDay() - 1;
-  if (startDay < 0) startDay = 6;
-
-  const cells: (number | null)[] = [
-    ...Array(startDay).fill(null),
-    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
-  ];
-  while (cells.length % 7 !== 0) cells.push(null);
-
-  const isThisMonth = today.getFullYear() === year && today.getMonth() === month;
-  const totalOrders  = Object.values(stats).reduce((a, b) => a + b.orders, 0);
-  const totalRevenue = Object.values(stats).reduce((a, b) => a + b.revenue, 0);
-
-  function getColor(n: number) {
-    if (!n) return "rgba(0,0,0,0.04)";
-    if (n === 1) return "rgba(196,154,74,0.2)";
-    if (n === 2) return "rgba(196,154,74,0.45)";
-    if (n <= 4)  return "rgba(196,154,74,0.7)";
-    return "#c49a4a";
-  }
-
-  return (
-    <div onClick={e => e.stopPropagation()}
-      style={{ position: "fixed", top: 78, right: 16, zIndex: 500, background: "#fff", borderRadius: 20, boxShadow: "0 20px 60px rgba(0,0,0,0.18)", width: 360, padding: 20 }}>
-
-      {/* Navigation mois */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
-        <button onClick={() => { const d = new Date(year, month - 1); setYear(d.getFullYear()); setMonth(d.getMonth()); }}
-          style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: "pointer", fontSize: 18 }}>‹</button>
-        <div style={{ fontWeight: 900, fontSize: 17, color: "#1a1410" }}>{MOIS[month]} {year}</div>
-        <button onClick={() => { const d = new Date(year, month + 1); setYear(d.getFullYear()); setMonth(d.getMonth()); }}
-          style={{ width: 32, height: 32, borderRadius: 8, border: "1px solid rgba(0,0,0,0.1)", background: "#fff", cursor: "pointer", fontSize: 18 }}>›</button>
-        <button onClick={onClose}
-          style={{ width: 32, height: 32, borderRadius: 99, background: "#f5f0e8", border: "none", cursor: "pointer", fontSize: 16, fontWeight: 900, marginLeft: 8 }}>✕</button>
-      </div>
-
-      {/* Jours de la semaine */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 2, marginBottom: 4 }}>
-        {JOURS.map((j, i) => (
-          <div key={i} style={{ textAlign: "center", fontSize: 11, fontWeight: 800, color: i >= 5 ? "#c49a4a" : "rgba(26,20,16,0.35)", paddingBottom: 6 }}>{j}</div>
-        ))}
-      </div>
-
-      {/* Grille jours */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3 }}>
-        {cells.map((day, i) => {
-          if (!day) return <div key={i} />;
-          const s = stats[String(day)];
-          const isToday = isThisMonth && day === today.getDate();
-          return (
-            <div key={i}
-              onMouseEnter={e => s && setTooltip({ day, x: (e.target as HTMLElement).getBoundingClientRect().left, y: (e.target as HTMLElement).getBoundingClientRect().top })}
-              onMouseLeave={() => setTooltip(null)}
-              title={s ? `${s.orders} cmd · ${s.revenue.toFixed(2)} €` : ""}
-              style={{
-                aspectRatio: "1", borderRadius: 7, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
-                background: getColor(s?.orders ?? 0),
-                border: isToday ? "2px solid #c49a4a" : "1px solid rgba(0,0,0,0.05)",
-                cursor: s ? "pointer" : "default", position: "relative",
-              }}>
-              <span style={{ fontSize: 13, fontWeight: isToday ? 900 : 600, color: "#1a1410" }}>{day}</span>
-              {s && <span style={{ fontSize: 8, fontWeight: 900, color: "rgba(26,20,16,0.55)", lineHeight: 1 }}>{s.orders}c</span>}
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Légende */}
-      <div style={{ marginTop: 14, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-        <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)" }}>Intensité :</span>
-        {[1,2,3,5].map((n, i) => (
-          <div key={i} style={{ display: "flex", alignItems: "center", gap: 3 }}>
-            <div style={{ width: 12, height: 12, borderRadius: 3, background: getColor(n) }} />
-            <span style={{ fontSize: 10, color: "rgba(26,20,16,0.45)" }}>{["1","2","3-4","5+"][i]}</span>
-          </div>
-        ))}
-      </div>
-
-      {/* Total mois */}
-      {!loading && (
-        <div style={{ marginTop: 12, padding: "12px 16px", borderRadius: 12, background: "#f5f0e8", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <div>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)", marginBottom: 2 }}>Ce mois</div>
-            <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1410" }}>{totalOrders} commande{totalOrders !== 1 ? "s" : ""}</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(26,20,16,0.4)", marginBottom: 2 }}>Chiffre d'affaires</div>
-            <div style={{ fontSize: 18, fontWeight: 900, color: "#c49a4a" }}>{totalRevenue.toFixed(2)} €</div>
-          </div>
-        </div>
-      )}
-      {loading && <div style={{ marginTop: 12, textAlign: "center", fontSize: 13, color: "rgba(26,20,16,0.4)", padding: "12px 0" }}>Chargement...</div>}
-    </div>
-  );
-}
-
 // ── Layout Admin ──────────────────────────────────────────────────────────────
 // TODO (C2 — backlog post-launch) : migrer l'auth admin vers @supabase/ssr
 // (session en cookies httpOnly). Actuellement le JWT est en localStorage (lu par
@@ -181,7 +45,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [open,      setOpen]      = useState(false);
   const [userEmail, setUserEmail] = useState("");
   const [checking,  setChecking]  = useState(true);
-  const [showCal,   setShowCal]   = useState(false);
   const [badges,    setBadges]    = useState<{ reviewsPending: number; commandesPending: number }>({ reviewsPending: 0, commandesPending: 0 });
   const headerRoRef = useRef<ResizeObserver | null>(null);
 
@@ -199,11 +62,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   // Mesure la hauteur RÉELLE du header et l'expose en variable CSS --admin-header-h,
   // que la barre période sticky de /admin/analytics lit (top: var(--admin-header-h)).
   // ⚠️ Callback ref (pas un useEffect à deps []) : il se déclenche au MONTAGE RÉEL
-  // du <header>, donc APRÈS l'auth (checking→false). Un useEffect [] tournait pendant
-  // le spinner (header absent → headerRef null → sortie) et ne se relançait jamais →
-  // --admin-header-h restait vide → la barre retombait sur le fallback 78px alors que
-  // le header fait ~134px (contenu wrappé) → barre cachée derrière le header. Le
-  // ResizeObserver recalcule si la hauteur change (resize fenêtre, wrap 1↔2 lignes).
+  // du <header> (après l'auth checking→false) et recalcule via ResizeObserver.
   const setHeaderRef = useCallback((el: HTMLElement | null) => {
     headerRoRef.current?.disconnect();
     headerRoRef.current = null;
@@ -285,17 +144,28 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   );
 
   return (
-    <div style={{ display: "flex", minHeight: "100vh", background: "#ede8df" }}
-      onClick={() => showCal && setShowCal(false)}>
+    <div style={{ display: "flex", minHeight: "100vh", background: "#ede8df" }}>
 
       {/* ── SIDEBAR ── */}
       <aside style={{ width: 220, flexShrink: 0, background: "#1a1410", display: mobile ? "none" : "flex", flexDirection: "column", position: "fixed", top: 0, left: 0, bottom: 0, overflowY: "auto", zIndex: 100 }}>
-        <div style={{ padding: "20px 16px", borderBottom: "1px solid rgba(242,237,230,0.08)" }}>
+        <div style={{ padding: "20px 16px 12px" }}>
           <div style={{ background: "#c49a4a", borderRadius: 12, padding: "10px 14px", display: "flex", alignItems: "center", gap: 8 }}>
             <MilkLogo color="#1a1410" size={20} />
             <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.6)" }}>ADMIN</span>
           </div>
         </div>
+
+        {/* ── Identité compte + lien site (A7.A2) ── */}
+        <div style={{ padding: "0 16px 12px", borderBottom: "1px solid rgba(242,237,230,0.08)", display: "flex", alignItems: "center", gap: 10 }}>
+          <div style={{ width: 30, height: 30, borderRadius: 99, background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 13, fontWeight: 950, color: "#1a1410", flexShrink: 0 }}>
+            {userEmail.slice(0, 1).toUpperCase() || "A"}
+          </div>
+          <div style={{ minWidth: 0, flex: 1 }}>
+            <div style={{ fontSize: 11, color: "rgba(242,237,230,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail || "Admin"}</div>
+            <Link href="/" target="_blank" style={{ fontSize: 11, fontWeight: 700, color: "#c49a4a", textDecoration: "none" }}>↗ Voir le site</Link>
+          </div>
+        </div>
+
         <nav style={{ flex: 1, padding: "14px 10px" }}>
           {NAV.map(item => {
             const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
@@ -314,17 +184,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             );
           })}
         </nav>
-        <div style={{ padding: "14px 10px", borderTop: "1px solid rgba(242,237,230,0.08)", display: "grid", gap: 6 }}>
-          {userEmail && (
-            <div style={{ padding: "10px 12px", borderRadius: 10, background: "rgba(242,237,230,0.06)" }}>
-              <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(242,237,230,0.4)", marginBottom: 2 }}>Admin</div>
-              <div style={{ fontSize: 11, color: "rgba(242,237,230,0.3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{userEmail}</div>
-            </div>
-          )}
-          <Link href="/" target="_blank"
-            style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, textDecoration: "none", color: "rgba(242,237,230,0.35)", fontSize: 13, fontWeight: 700 }}>
-            ↗ Voir le site
-          </Link>
+        <div style={{ padding: "14px 10px", borderTop: "1px solid rgba(242,237,230,0.08)" }}>
           <button onClick={handleSignOut}
             style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", borderRadius: 10, background: "rgba(220,38,38,0.1)", border: "1px solid rgba(220,38,38,0.2)", color: "#f87171", fontSize: 13, fontWeight: 700, cursor: "pointer", width: "100%" }}>
             ⇥ Déconnexion
@@ -340,6 +200,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div style={{ background: "#c49a4a", borderRadius: 12, padding: "10px 14px", marginBottom: 16, display: "flex", alignItems: "center", gap: 8 }}>
               <MilkLogo color="#1a1410" size={20} />
               <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(26,20,16,0.6)" }}>ADMIN</span>
+            </div>
+            <div style={{ marginBottom: 12, fontSize: 11, color: "rgba(242,237,230,0.5)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+              {userEmail || "Admin"} · <Link href="/" target="_blank" style={{ color: "#c49a4a", textDecoration: "none" }}>↗ Voir le site</Link>
             </div>
             {NAV.map(item => {
               const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
@@ -368,43 +231,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* ── CONTENU ── */}
       <div style={{ flex: 1, marginLeft: mobile ? 0 : 220, display: "flex", flexDirection: "column", minHeight: "100vh" }}>
 
-        {/* ── HEADER avec horloges ── */}
-        <header ref={setHeaderRef} style={{ position: "sticky", top: 0, zIndex: 50, background: "rgba(245,240,232,0.97)", backdropFilter: "blur(10px)", borderBottom: "1px solid rgba(26,20,16,0.1)", padding: "0 20px", minHeight: 78, display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
-
-          {/* Bouton menu mobile */}
+        {/* ── HEADER SOMBRE SLIM : recherche uniquement (Lot A7.A) ── */}
+        <header ref={setHeaderRef} style={{ position: "sticky", top: 0, zIndex: 50, background: "#0d0b09", borderBottom: "1px solid rgba(242,237,230,0.08)", padding: "0 20px", minHeight: 60, display: "flex", alignItems: "center", gap: 16 }}>
           {mobile && (
             <button onClick={() => setOpen(true)}
-              style={{ padding: "8px 12px", borderRadius: 10, background: "#1a1410", color: "#f2ede6", border: "none", cursor: "pointer", fontSize: 18, flexShrink: 0 }}>
+              style={{ padding: "8px 12px", borderRadius: 10, background: "#c49a4a", color: "#1a1410", border: "none", cursor: "pointer", fontSize: 18, flexShrink: 0 }}>
               ☰
             </button>
           )}
-
-          {/* Recherche */}
           <div style={{ flex: 1, minWidth: 120 }}>
-            <SearchGlobal />
-          </div>
-
-
-          {/* ── BOUTON CALENDRIER ── */}
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
-            <button
-              onClick={e => { e.stopPropagation(); setShowCal(v => !v); }}
-              style={{ padding: "8px 14px", borderRadius: 10, background: showCal ? "#1a1410" : "rgba(26,20,16,0.08)", color: showCal ? "#c49a4a" : "#1a1410", border: "none", cursor: "pointer", fontSize: 20, fontWeight: 900, display: "flex", alignItems: "center", gap: 6 }}>
-              📅
-              <span style={{ fontSize: 12, fontWeight: 800 }}>Stats</span>
-            </button>
-            <Link href="/produits" target="_blank"
-              style={{ padding: "8px 12px", borderRadius: 8, background: "rgba(26,20,16,0.08)", color: "rgba(26,20,16,0.6)", fontSize: 12, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap" }}>
-              ↗ Site
-            </Link>
-            <div style={{ width: 34, height: 34, borderRadius: 99, background: "#c49a4a", display: "grid", placeItems: "center", fontSize: 14, fontWeight: 950, color: "#1a1410", flexShrink: 0 }}>
-              {userEmail.slice(0, 1).toUpperCase() || "A"}
-            </div>
+            <SearchGlobal dark />
           </div>
         </header>
-
-        {/* ── CALENDRIER ── */}
-        {showCal && <AdminCalendar onClose={() => setShowCal(false)} />}
 
         <OrderAlerts />
         <main style={{ flex: 1 }}>

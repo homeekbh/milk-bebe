@@ -92,18 +92,18 @@ function AnalogClock({ tz, size = 68 }: { tz: string; size?: number }) {
 }
 
 // ── Heure digitale ────────────────────────────────────────────────────────────
-function DigitalTime({ tz }: { tz: string }) {
+function DigitalTime({ tz, dark = false }: { tz: string; dark?: boolean }) {
   const [now, setNow] = useState(new Date());
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(t);
   }, []);
   const time = now.toLocaleTimeString("fr-FR", { timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit" });
-  return <span style={{ fontFamily: "monospace", fontSize: 15, fontWeight: 900, color: "#1a1410", letterSpacing: 0.5 }}>{time}</span>;
+  return <span style={{ fontFamily: "monospace", fontSize: 13, fontWeight: 900, color: dark ? "#f2ede6" : "#1a1410", letterSpacing: 0.5 }}>{time}</span>;
 }
 
 // ── Barre d'horloges modifiables ──────────────────────────────────────────────
-export default function ClocksBar({ size = 64 }: { size?: number }) {
+export default function ClocksBar({ size = 64, dark = false }: { size?: number; dark?: boolean }) {
   const [clocks, setClocks] = useState<CityOption[]>(DEFAULT_CLOCKS);
   const [openIdx, setOpenIdx] = useState<number | null>(null);
   const [mounted, setMounted] = useState(false);
@@ -155,12 +155,13 @@ export default function ClocksBar({ size = 64 }: { size?: number }) {
               style={{
                 display: "flex", flexDirection: "column", alignItems: "center", gap: 4,
                 padding: "6px 10px", borderRadius: 12,
-                background: "rgba(26,20,16,0.05)", border: "1px solid rgba(26,20,16,0.08)",
+                background: dark ? "transparent" : "rgba(26,20,16,0.05)",
+                border: `1px solid ${dark ? "rgba(242,237,230,0.10)" : "rgba(26,20,16,0.08)"}`,
                 cursor: "pointer", fontFamily: "inherit",
               }}>
               <AnalogClock tz={clk.tz} size={size} />
-              <DigitalTime tz={clk.tz} />
-              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(26,20,16,0.55)", letterSpacing: 0.3, textAlign: "center", lineHeight: 1.3 }}>
+              <DigitalTime tz={clk.tz} dark={dark} />
+              <div style={{ fontSize: 10, fontWeight: 800, color: dark ? "rgba(242,237,230,0.7)" : "rgba(26,20,16,0.55)", letterSpacing: 0.3, textAlign: "center", lineHeight: 1.3 }}>
                 <div>🌍 {clk.city}</div>
                 <div style={{ fontSize: 9, opacity: 0.7 }}>{utcLabel}</div>
               </div>

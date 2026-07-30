@@ -183,13 +183,6 @@ img[loading="lazy"] { content-visibility: auto; }
   }
 }
 
-/* ── Admin header : masquer les 4 horloges sous 700px de large OU en paysage
-   téléphone (hauteur ≤ 500px) — elles gonflaient le header en bloc 2×2 et cassaient
-   le calage de la barre période sticky. Tablettes/desktop (hauts) intacts. ── */
-@media (max-width: 700px), (max-height: 500px) and (orientation: landscape) {
-  .admin-clocks-wrap { display: none !important; }
-}
-
 /* ── Rappels visuels checkout (panier non vide, CTA « créer un compte ») ──
    Même esprit que milk-promo-pulse (PromoSticker), teinte amber du design system.
    Centralisés ici → réutilisables par le Header (icône panier) ET le panier. ── */

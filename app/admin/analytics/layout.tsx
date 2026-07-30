@@ -1,44 +1,26 @@
 "use client";
-// app/admin/analytics/layout.tsx (Lot A3)
-// Layout partagé du dashboard analytics : fournit le conteneur paddé (repris À
-// L'IDENTIQUE de l'ancien wrapper de page.tsx), le titre, la barre de contrôle
-// STICKY (PeriodBar) et le contexte de rafraîchissement — le tout AU-DESSUS de
-// {children}. Quand les 8 sous-routes existeront, la barre ne se démontera pas
-// à chaque navigation. Aucune navigation par onglets dans ce lot.
+// app/admin/analytics/layout.tsx (Lot A3 · en-têtes compactés A7.B1)
+// Titre « Statistiques » + onglets sur UNE ligne (sous-titre supprimé — l'info de
+// période est juste en dessous dans PeriodBar). Barre de contrôle STICKY + contexte
+// de rafraîchissement, le tout AU-DESSUS de {children}.
 import { Suspense } from "react";
-import { useSearchParams } from "next/navigation";
 import { useIsNarrow } from "@/lib/useIsNarrow";
 import { C } from "@/components/admin/analytics/tokens";
-import { parseQuery, periodLabelOf } from "@/components/admin/analytics/period";
 import { AnalyticsRefreshProvider } from "@/components/admin/analytics/refresh-context";
 import PeriodBar from "@/components/admin/analytics/PeriodBar";
 import AnalyticsTabs from "@/components/admin/analytics/AnalyticsTabs";
-
-// Titre + sous-titre — repris À L'IDENTIQUE de page.tsx. periodLabel dérivé de
-// l'URL (même source que la page). Lit useSearchParams → sous <Suspense>.
-function AnalyticsHeader() {
-  const sp = useSearchParams();
-  const periodLabel = periodLabelOf(parseQuery(new URLSearchParams(sp.toString())));
-  return (
-    <div style={{ marginBottom: 16 }}>
-      <h1 style={{ margin: 0, fontSize: 28, fontWeight: 950, letterSpacing: -1, color: C.warm }}>Statistiques</h1>
-      <div style={{ fontSize: 14, color: C.muted, marginTop: 6 }}>
-        Tableau de bord complet M!LK · données {periodLabel}
-      </div>
-    </div>
-  );
-}
 
 export default function AnalyticsLayout({ children }: { children: React.ReactNode }) {
   const narrow = useIsNarrow();
   return (
     <AnalyticsRefreshProvider>
-      <div style={{ padding: narrow ? "20px 12px" : "36px 40px", background: C.bg, minHeight: "100vh" }}>
-        {/* useSearchParams (titre, barre, page) exige une frontière Suspense au
-            build : une SEULE ici couvre les trois. */}
+      <div style={{ padding: narrow ? "16px 12px" : "24px 40px", background: C.bg, minHeight: "100vh" }}>
         <Suspense fallback={null}>
-          <AnalyticsHeader />
-          <AnalyticsTabs />
+          {/* Titre + onglets sur une ligne (desktop) ; empilés sur mobile (onglets scroll). */}
+          <div style={{ display: "flex", flexDirection: narrow ? "column" : "row", alignItems: narrow ? "stretch" : "center", gap: narrow ? 8 : 20, marginBottom: 12 }}>
+            <h1 style={{ margin: 0, fontSize: 22, fontWeight: 950, letterSpacing: -1, color: C.warm, whiteSpace: "nowrap", flexShrink: 0 }}>Statistiques</h1>
+            <div style={{ flex: 1, minWidth: 0 }}><AnalyticsTabs /></div>
+          </div>
           <PeriodBar />
           {children}
         </Suspense>

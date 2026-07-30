@@ -10,6 +10,7 @@ import { useWishlist }                 from "@/context/WishlistContext";
 import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import { capitalizeSlug }              from "@/lib/category-labels";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
+import RatingInline                     from "@/components/product/RatingInline";
 import ShareButtons                    from "@/components/shared/ShareButtons";
 import { trackViewItem, metaViewContent } from "@/lib/analytics";
 import { computeDeliveryEstimate }        from "@/lib/delivery-estimate";
@@ -349,7 +350,7 @@ function StockAlertForm({ productId, productName, productSlug, taille }: {
 }
 // ─────────────────────────────────────────────────────────────────────────────
 
-export default function ProductClient({ initialProduct, header, initialPromo, initialDeliveryEstimate, categoryLabel, subcategoryLabel }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean; initialDeliveryEstimate?: string; categoryLabel?: string; subcategoryLabel?: string }) {
+export default function ProductClient({ initialProduct, header, initialPromo, initialDeliveryEstimate, categoryLabel, subcategoryLabel, rating }: { initialProduct: any; header: React.ReactNode; initialPromo?: boolean; initialDeliveryEstimate?: string; categoryLabel?: string; subcategoryLabel?: string; rating?: { avg: number; count: number; avgStr: string; countStr: string } | null }) {
   const t                    = useTranslations("product") as unknown as TFn;
   const locale               = useLocale();
   const { addToCart, items }               = useCart();
@@ -894,6 +895,14 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
             {needsTaille && (
               <div key={blink} style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "12px 14px", borderRadius: 12, fontWeight: 800, fontSize: 14, textAlign: "center", color: blink > 0 ? "#fff" : AMBER, background: blink > 0 ? "#dc2626" : "rgba(196,154,74,0.12)", border: blink > 0 ? "none" : "1px solid rgba(196,154,74,0.28)", ...(blink > 0 ? { animation: "size-shake 0.45s ease-in-out 2" } : {}) }}>
                 ☝️ {t("select_size_alert")}
+              </div>
+            )}
+            {/* Lot T — note compacte NON cliquable, emplacement 2 : juste au-dessus
+                du bouton d'achat. Rendue depuis la prop SSR `rating` (aucun fetch
+                client → aucun saut). Rien si 0 avis. */}
+            {rating && (
+              <div style={{ display: "flex", justifyContent: "center", marginBottom: 2 }}>
+                <RatingInline avg={rating.avg} avgStr={rating.avgStr} countStr={rating.countStr} />
               </div>
             )}
             <button onClick={handleAddToCart} disabled={outTaille}

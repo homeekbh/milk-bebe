@@ -442,6 +442,7 @@
     "see_collection": "See collection →"
   },
   "product": {
+    "reviews_count": "{count, plural, one {# review} other {# reviews}}",
     "add_to_cart": "Add to cart",
     "out_of_stock": "Out of stock",
     "promo": "SALE",

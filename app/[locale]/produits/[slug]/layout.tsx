@@ -3,6 +3,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { JsonLd } from "@/components/seo/JsonLd";
 import { getTranslations } from "next-intl/server";
 import { getAlternates } from "@/i18n/seo";
+import { getProductRating } from "@/lib/server/product-rating";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 
@@ -121,17 +122,13 @@ async function getProductJsonLd(slug: string, locale: string) {
     && (!promoEnd   || todayStr <= promoEnd);
   const price = promoActive ? (promoPrice as number) : priceTtc;
 
-  // Avis approuvés pour aggregateRating
-  const { data: reviews } = await supabaseServer
-    .from("reviews")
-    .select("rating")
-    .eq("product_id", product.id)
-    .eq("approved", true);
-
-  const aggregateRating = (reviews && reviews.length > 0) ? {
+  // Note via la SOURCE UNIQUE partagée (Lot T) → aggregateRating JSON-LD == note
+  // visible de la fiche (page.tsx utilise le même helper).
+  const rating = await getProductRating(product.id);
+  const aggregateRating = rating ? {
     "@type":      "AggregateRating",
-    ratingValue:  (reviews.reduce((s, r) => s + Number(r.rating ?? 0), 0) / reviews.length).toFixed(1),
-    reviewCount:  reviews.length,
+    ratingValue:  rating.avg.toFixed(1),
+    reviewCount:  rating.count,
     bestRating:   5,
     worstRating:  1,
   } : null;

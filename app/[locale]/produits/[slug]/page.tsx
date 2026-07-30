@@ -6,6 +6,8 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { supabaseServer } from "@/lib/server/supabase";
 import ProductClient from "./ProductClient";
+import RatingInline from "@/components/product/RatingInline";
+import { getProductRating } from "@/lib/server/product-rating";
 import { computeDeliveryEstimate } from "@/lib/delivery-estimate";
 import { getCategoryLabel, getSubcategoryLabel } from "@/lib/category-labels-server";
 import ProductBadge from "@/components/product/ProductBadge";
@@ -78,6 +80,18 @@ export default async function ProductPage(
   const categoryLabel    = productCat ? await getCategoryLabel(productCat, localeKey) : "";
   const subcategoryLabel = product.subcategory_slug ? await getSubcategoryLabel(productCat, product.subcategory_slug, localeKey) : "";
 
+  // Note produit — SOURCE UNIQUE (même helper que l'aggregateRating du JSON-LD du
+  // layout). Calculée CÔTÉ SERVEUR → rendue dans le HTML initial (aucun saut au
+  // chargement, cf. Lot S). null si 0 avis → on n'affiche rien. Chaînes localisées
+  // formatées ici (une fois) puis passées telles quelles aux deux emplacements.
+  const r = await getProductRating(product.id);
+  const rating = r ? {
+    avg:      r.avg,
+    count:    r.count,
+    avgStr:   r.avg.toLocaleString(locale === "en" ? "en-GB" : "fr-FR", { minimumFractionDigits: 1, maximumFractionDigits: 1 }),
+    countStr: t("reviews_count", { count: r.count }),
+  } : null;
+
   // Header SSR — reproduit À L'IDENTIQUE l'ancien bloc eyebrow + <h1> + prix.
   const header = (
     <>
@@ -94,6 +108,14 @@ export default async function ProductPage(
       <h1 translate="no" style={{ margin: 0, fontSize: "clamp(22px,2vw,30px)", fontWeight: 950, letterSpacing: -1, lineHeight: 1.1, color: DARK }}>
         {product.name}
       </h1>
+
+      {/* Lot T — note compacte NON cliquable, emplacement 1 : juste sous le titre.
+          Rendue en SSR (rien si 0 avis). Source unique partagée avec le JSON-LD. */}
+      {rating && (
+        <div style={{ marginTop: 2 }}>
+          <RatingInline avg={rating.avg} avgStr={rating.avgStr} countStr={rating.countStr} />
+        </div>
+      )}
 
       {promo ? (
         <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -141,5 +163,5 @@ export default async function ProductPage(
   // Estimé de livraison calculé CÔTÉ SERVEUR (horloge unique) → transmis en prop, plus de divergence
   // d'hydratation sur la date « Livré … » (cf. lib/delivery-estimate.ts).
   const deliveryEstimate = computeDeliveryEstimate(t.raw("days") as string[], t.raw("months") as string[]);
-  return <ProductClient initialProduct={product} header={header} initialPromo={promo} initialDeliveryEstimate={deliveryEstimate} categoryLabel={categoryLabel} subcategoryLabel={subcategoryLabel} />;
+  return <ProductClient initialProduct={product} header={header} initialPromo={promo} initialDeliveryEstimate={deliveryEstimate} categoryLabel={categoryLabel} subcategoryLabel={subcategoryLabel} rating={rating} />;
 }

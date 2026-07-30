@@ -442,6 +442,7 @@
     "see_collection": "Voir la collection →"
   },
   "product": {
+    "reviews_count": "{count} avis",
     "add_to_cart": "Ajouter au panier",
     "out_of_stock": "Rupture de stock",
     "promo": "PROMO",

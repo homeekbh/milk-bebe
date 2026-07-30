@@ -8,8 +8,8 @@
 import { useState } from "react";
 import { C, MONTHS_FR } from "@/components/admin/analytics/tokens";
 
-export type SeriesPoint = { k: string; sessions: number; visitors: number; views: number };
-export type MetricKey = "sessions" | "visitors" | "views";
+export type SeriesPoint = { k: string; [metric: string]: number | string };
+export type MetricKey = string; // généralisé (A8) : sessions, revenue, add_to_cart… — rendu inchangé
 
 export type ComparisonChartProps = {
   points:       SeriesPoint[];
@@ -21,13 +21,13 @@ export type ComparisonChartProps = {
   compareLabel: string;   // libellé de la comparaison (ex. « vs semaine dernière »)
 };
 
-// Plafond de l'axe Y (A7.C1) : plus petit palier LISIBLE ≥ 1,10× le max réel des
-// deux séries. Paliers = {1, 2, 2.5, 5} × 10ⁿ (→ 1,2,5,10,20,25,50,100,200,250,500…).
-// Colle au pic : max 22 → 24,2 → 25 (fini l'axe à 50 avec la moitié vide).
+// Plafond de l'axe Y (A7.C1 · paliers A8.4) : plus petit palier LISIBLE ≥ 1,10× le
+// max réel des deux séries. Paliers = {1, 2, 2.5, 3, 4, 5} × 10ⁿ. Colle au pic :
+// 22 → 25 · 340 → 400 (au lieu de 500, hors cible avant l'ajout de 3 et 4).
 function niceCeil(maxReal: number): number {
   if (maxReal <= 0) return 1;
   const target = maxReal * 1.10;
-  const mant = [1, 2, 2.5, 5];
+  const mant = [1, 2, 2.5, 3, 4, 5];
   const base = Math.floor(Math.log10(target));
   for (let e = base - 1; e <= base + 3; e++) {
     for (const m of mant) {

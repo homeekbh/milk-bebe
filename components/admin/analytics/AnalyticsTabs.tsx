@@ -1,11 +1,11 @@
 "use client";
-// components/admin/analytics/AnalyticsTabs.tsx (Lot A4)
-// Navigation par onglets du dashboard analytics. L'onglet actif est déterminé par
-// usePathname(). Chaque lien PRÉSERVE la query string courante (useSearchParams)
-// → changer d'onglet ne perd JAMAIS la période / le mode / le toggle bots.
-// Thème sombre (la spec disait #1a1410, invisible sur fond #0d0b09 → adapté en
-// C.warm + soulignement ambre, décision utilisateur).
+// components/admin/analytics/AnalyticsTabs.tsx (Lot A4 · menu mobile A8.1)
+// Desktop : onglets en ligne. Mobile (useIsNarrow) : MENU DÉROULANT (bouton = onglet
+// actif + chevron ; liste au clic ; actif marqué ; fermeture clic-extérieur + Échap).
+// Réutilise le pattern popover click-outside déjà présent (AdminClocks / SearchGlobal).
+// Chaque lien PRÉSERVE la query string courante (période, mode, bots).
 import Link from "next/link";
+import { useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useIsNarrow } from "@/lib/useIsNarrow";
 import { C } from "@/components/admin/analytics/tokens";
@@ -24,26 +24,52 @@ export default function AnalyticsTabs() {
   const pathname = usePathname();
   const sp = useSearchParams();
   const qs = sp.toString();
+  const hrefOf = (h: string) => qs ? `${h}?${qs}` : h;
+  const active = TABS.find(t => t.href === pathname) ?? TABS[0];
+
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDoc = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDoc);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDoc); document.removeEventListener("keydown", onKey); };
+  }, [open]);
+
+  if (narrow) {
+    return (
+      <div ref={ref} style={{ position: "relative", marginBottom: 12 }}>
+        <button onClick={() => setOpen(v => !v)}
+          style={{ width: "100%", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10, background: "#161210", border: `1px solid ${C.faint}`, color: C.warm, fontSize: 12, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", cursor: "pointer" }}>
+          <span>{active.label}</span>
+          <span style={{ color: C.amber, transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s", fontSize: 11 }}>▾</span>
+        </button>
+        {open && (
+          <div style={{ position: "absolute", top: "calc(100% + 6px)", left: 0, right: 0, zIndex: 40, background: "#161210", border: `1px solid ${C.faint}`, borderRadius: 10, boxShadow: "0 16px 40px rgba(0,0,0,0.5)", overflow: "hidden" }}>
+            {TABS.map(t => {
+              const on = t.href === active.href;
+              return (
+                <Link key={t.href} href={hrefOf(t.href)} prefetch={false} onClick={() => setOpen(false)}
+                  style={{ display: "block", padding: "11px 14px", textDecoration: "none", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: on ? "#c49a4a" : "rgba(242,237,230,0.7)", background: on ? "rgba(196,154,74,0.12)" : "transparent" }}>
+                  {on ? "✓ " : ""}{t.label}
+                </Link>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
-    <nav style={{
-      display: "flex", gap: narrow ? 4 : 8, marginBottom: 16,
-      overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch",
-      borderBottom: `1px solid ${C.faint}`,
-    }}>
+    <nav style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", borderBottom: `1px solid ${C.faint}` }}>
       {TABS.map(t => {
-        const active = pathname === t.href;
-        const href = qs ? `${t.href}?${qs}` : t.href;
+        const on = pathname === t.href;
         return (
-          <Link key={t.href} href={href} prefetch={false}
-            style={{
-              flexShrink: 0, textDecoration: "none", whiteSpace: "nowrap",
-              padding: narrow ? "8px 10px" : "10px 14px",
-              fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase",
-              color: active ? C.warm : "rgba(242,237,230,0.55)",
-              borderBottom: active ? "2px solid #c49a4a" : "2px solid transparent",
-              background: "transparent", marginBottom: -1,
-            }}>
+          <Link key={t.href} href={hrefOf(t.href)} prefetch={false}
+            style={{ flexShrink: 0, textDecoration: "none", whiteSpace: "nowrap", padding: "10px 14px", fontSize: 11, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase", color: on ? C.warm : "rgba(242,237,230,0.55)", borderBottom: on ? "2px solid #c49a4a" : "2px solid transparent", background: "transparent", marginBottom: -1 }}>
             {t.label}
           </Link>
         );

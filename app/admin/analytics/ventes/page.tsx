@@ -4,6 +4,7 @@
 // + promos + commandes-data (statuts de livraison, agrégés client-side).
 import { useMemo } from "react";
 import { useAnalyticsData } from "@/components/admin/analytics/useAnalyticsData";
+import AnalyticsComparison from "@/components/admin/analytics/AnalyticsComparison";
 import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C } from "@/components/admin/analytics/tokens";
 import { SectionTitle, Card, KpiCard } from "@/components/admin/analytics/ui";
@@ -68,6 +69,7 @@ export default function VentesPage() {
 
   return (
     <>
+      <AnalyticsComparison metrics={[{ key: "revenue", label: "Chiffre d'affaires" }, { key: "orders", label: "Commandes" }]} />
       {serverError && (
         <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 12, background: "rgba(239,68,68,0.12)", border: `1px solid rgba(239,68,68,0.45)`, color: C.red, fontSize: 14, fontWeight: 800 }}>
           ⛔ {serverError}

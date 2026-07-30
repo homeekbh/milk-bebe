@@ -3,6 +3,7 @@
 // JSX copié À L'IDENTIQUE de l'ancien page.tsx. Ne fetche QUE page-views.
 // WorldVisitorsMap déplacé ici (A4.4).
 import { useAnalyticsData } from "@/components/admin/analytics/useAnalyticsData";
+import AnalyticsComparison from "@/components/admin/analytics/AnalyticsComparison";
 import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C, CHANNEL_COLORS, CHANNEL_LABELS_FR, WEEKDAYS } from "@/components/admin/analytics/tokens";
 import { KpiCard, SectionTitle, Card } from "@/components/admin/analytics/ui";
@@ -23,6 +24,7 @@ export default function TraficPage() {
 
   return (
     <>
+      <AnalyticsComparison metrics={[{ key: "sessions", label: "Sessions" }, { key: "visitors", label: "Visiteurs" }, { key: "views", label: "Vues" }]} />
       {/* Erreur API explicite (ex. 400 bornes invalides, Lot G-1) — jamais muette (leçon Lot N). */}
       {serverError && (
         <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 12, background: "rgba(239,68,68,0.12)", border: `1px solid rgba(239,68,68,0.45)`, color: C.red, fontSize: 14, fontWeight: 800 }}>

@@ -4,6 +4,7 @@
 // Fetche page-views + wishlist + abandoned-carts.
 import { useState, useMemo } from "react";
 import { useAnalyticsData } from "@/components/admin/analytics/useAnalyticsData";
+import AnalyticsComparison from "@/components/admin/analytics/AnalyticsComparison";
 import { Skeleton, BehaviorPlaceholder } from "@/components/admin/analytics/widgets";
 import { C } from "@/components/admin/analytics/tokens";
 import { SectionTitle, Card } from "@/components/admin/analytics/ui";
@@ -47,6 +48,7 @@ export default function ComportementPage() {
 
   return (
     <>
+      <AnalyticsComparison metrics={[{ key: "product_views", label: "Vues produit" }, { key: "add_to_cart", label: "Ajouts panier" }, { key: "begin_checkout", label: "Checkouts initiés" }]} />
       {serverError && (
         <div style={{ marginBottom: 20, padding: "14px 20px", borderRadius: 12, background: "rgba(239,68,68,0.12)", border: `1px solid rgba(239,68,68,0.45)`, color: C.red, fontSize: 14, fontWeight: 800 }}>
           ⛔ {serverError}

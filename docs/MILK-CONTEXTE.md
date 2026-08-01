@@ -32,6 +32,8 @@ rien.
 | Panier 100 % packs → 503 au paiement | 01/08 | Cause : repli `["none"]` sur `.in("id", …)` d'une colonne **uuid** dans `create-session` (`products.id` et `packs.id`). Un panier ne contenant QUE des packs → `itemIds` vide → `"none"::uuid` rejeté par Postgres → 503, sans jamais atteindre le chargement des packs. **Symptôme observé en prod le 01/08 (5 erreurs 503, toutes des tests).** Corrigé au commit `4a4f547` : la requête n'est exécutée que si la liste d'ids est non vide. |
 | Ajouts de packs jamais enregistrés (analytics) | 01/08 | Cause : l'uuid du **pack** était écrit dans `analytics_events.product_id` → violation de la FK vers `products` → erreur avalée (réponse 200). Corrigé au commit `4a4f547` : `product_id` n'est posé que si l'uuid existe réellement dans `products`, sinon `null` + id réel conservé dans `metadata.product_ref`. ⚠️ **Conséquence à retenir : toute analyse fondée sur « zéro add_to_cart de pack en base » AVANT ce correctif est SANS VALEUR — la donnée n'existait pas.** |
 | Lot 2a — boutons de tunnel muets + scroll au milieu | 01/08 | Boutons « Continuer »/« Payer » grisés désormais **expliqués** (livraison : 4 conditions FR + 2 internationales ; paiement : 3 conditions, `!loading` jamais montré), signal visuel sur le champ téléphone, « Continuer mes achats » sur les 3 étapes + le panier, scroll en haut via le hook partagé `useScrollTopWhenReady`. **Purement additif, aucune condition de passage modifiée.** Commit `36eabf9`. |
+| Lot 3a — nav admin par sections | 01/08 | Sidebar admin réorganisée en 5 sections (Ventes, Catalogue, Marketing, Contenu, Pilotage), Accueil isolé, entrée Stock. Pure réorganisation, aucune route changée. Commit `04097e0`. |
+| Lot 3b — CA comptable vs stats web + page Stock | 01/08 | (1) Prédicats `countsInAccounting` (cliente + vente_directe) / `countsInWebStats` (cliente) dans `lib/orders.ts`, **13 points d'appel alignés** (analytics = web, comptabilité/export/home/clients = accounting ; `stock-dormant` garde `isValidOrder` à dessein — toute sortie de stock compte). (2) **`parrainage/stats` : no-op `is_internal_test` corrigé** — les chiffres de parrainage ont **changé, ils étaient faux** (commandes de test avec code parrain comptées depuis l'origine). (3) Page `/admin/stock` **en lecture** : matrice motif×taille + commandes par produit + reclassification (n'écrit que `classification`/`classification_note`, aucun effet stock/facture/email ; `'test'` refusé). Commits `3e9e57e` + `947f7c1`. |
 
 ---
 
@@ -122,6 +124,7 @@ avant d'avoir des achats.
 | Campagne « Toutes nos excuses, et une bonne nouvelle » | 01/08 | **Envoyée le 01/08 vers 3h30** à **65 destinataires** (8 comptes + 57 newsletter), **0 échec**, tracée dans `activity_log` sous `type: "campaign_send"`. Commit `04c66fb`. |
 | Pays de compte non desservi = cul-de-sac | 01/08 | Une cliente dont le profil porte un pays hors zone de livraison **ne peut pas commander**. Depuis `36eabf9` elle en connaît la **raison** (« Nous ne livrons pas encore dans ce pays » sous le bouton), mais le cul-de-sac **subsiste** — aucune issue proposée. Piste : lui suggérer de changer de pays de livraison, ou d'écrire à contact@milkbebe.fr. **Non chiffré** : on ne sait pas combien de comptes sont dans ce cas. |
 | Lot 2b — tunnel, reste à faire | 01/08 | (a) deux définitions divergentes de « livraison complète » entre `/checkout/livraison` (`relayOk`, id numérique) et `/checkout/paiement` (`!!state.selectedRelay`) → **factoriser en fonction partagée** ; (b) `CheckoutContext` en **sessionStorage**, volatil en WebView Instagram/Facebook alors que le panier (localStorage) survit ; (c) éjections **silencieuses** par `router.replace` dans les gardes (aucun message au client). |
+| Suites du lot 3 — reste à faire | 01/08 | **(a) Lot 3b-2** — saisie manuelle d'une sortie de stock (formulaire → création de commande, décrément **aux deux niveaux** `products.sizes_stock` ET `colors[].sizes_stock`, garde-fous email/facture). *Décisions actées :* pas de n° de facture si montant 0 € ou classification `cadeau`/`influenceuse` ; case « demander un avis » **décochée par défaut**, sinon poser `review_email_sent_at` + `next_size_email_sent_at` à la création ; `stripe_session_id` étant NOT NULL → synthétiser `manual-<uuid>`. **(b) Lot 3c** — les crons **avis J+7** et **taille-suivante** ne filtrent NI `is_internal_test` NI `classification` : une commande de test marquée livrée déclenche **déjà** une demande d'avis. **(c)** rendre **lisible dans l'UI la divergence** CA analytics (web) vs CA comptable dès qu'une vente sera classée `vente_directe`. **(d)** `export/factures` ne filtre ni classification ni test — à recouper avec la décision « facture à 0 € ? ». |
 
 ---
 
@@ -219,3 +222,17 @@ sessions non engagées, contre 32 % pour Google). Ne pas supposer l'inverse.
 laisser tourner ; au-dessus de 2,5 passer à 2 €/jour ou couper. Vérifier aussi la
 portée : si elle dépasse largement 1 200, Meta a élargi malgré l'audience
 personnalisée.
+
+---
+
+## 9. Commentaires de code périmés — à corriger quand on rouvre le fichier
+
+Le commentaire ment ; le code a raison. À rectifier au prochain passage sur ces fichiers.
+
+- **`supabase/migrations/025_stock_par_motif_phase1_rpcs.sql`** — l'en-tête affirme
+  « NON EXÉCUTÉ, aucun code applicatif ne les appelle » alors que le webhook Stripe
+  appelle `decrement_stock_motif` en **dual-write** (`route.ts:470`), et que les 14
+  produits ont déjà des `colors[].sizes_stock` peuplés.
+- **`app/api/stripe/webhook/route.ts`** (≈ l.51-54) — le commentaire dit que
+  `facture_seq` / `next_facture_number` / `orders.invoice_number` « ne sont pas en
+  base » alors que la facturation est **vivante** (commande réelle `MILK-2026-000009`).

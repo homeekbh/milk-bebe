@@ -308,6 +308,28 @@ Tout scroll-to-top doit se déclencher quand le contenu devient **PRÊT**, pas a
 montage. Et le hook doit être appelé **AVANT** le `return null` (règle des hooks
 React). Vu sur le tunnel `/checkout/*`, corrigé par `useScrollTopWhenReady`.
 
+### Deux notions de CA — et le filtre no-op qui les rend faux
+
+Le projet distingue **deux notions de chiffre d'affaires** :
+- **CA comptable** (`countsInAccounting`) : classification `'cliente'` ou
+  `'vente_directe'`. Une vente physique est de l'argent encaissé — elle compte en
+  comptabilité, TVA et facturation.
+- **Statistiques web** (`countsInWebStats`) : `'cliente'` seule. Une vente physique
+  n'a produit ni visite ni panier ; l'inclure fausserait le taux de conversion et
+  le panier moyen.
+
+Les deux composent avec `isValidOrder` (tests, annulations, remboursements exclus).
+
+⚠️ **Piège structurel.** Un filtre portant sur une colonne (`is_internal_test`,
+`classification`) est un **no-op silencieux si la colonne n'a pas été SÉLECTIONNÉE**
+dans la requête : elle vaut `undefined` et le prédicat la laisse passer. Le filtre
+paraît correct à la lecture, et ne filtre rien. C'est ce qui a rendu les
+statistiques de parrainage fausses depuis l'origine.
+
+**Règle : toute requête utilisant `isValidOrder`, `countsInAccounting` ou
+`countsInWebStats` DOIT sélectionner explicitement `is_internal_test` ET
+`classification`.**
+
 ---
 
 ## Lire les données sans se tromper

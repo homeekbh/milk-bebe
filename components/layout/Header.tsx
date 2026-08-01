@@ -190,8 +190,8 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
         .hdr-link:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
         /* Entrée « collection »/« la marque » = libellé + chevron : le survol s'applique au conteneur entier. */
         .hdr-collection:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
-        /* Liens à l'intérieur d'un panneau déroulant (ex. « La marque »). */
-        .hdr-menulink:hover { background: rgba(128,128,128,0.12) !important; }
+        /* Liens à l'intérieur d'un panneau déroulant (ex. « La marque ») — survol sobre : texte ambre. */
+        .hdr-menulink:hover { color: #c49a4a !important; }
         .hdr-icon:hover { background: rgba(128,128,128,0.1) !important; }
         /* keyframes milk-cart-pulse / milk-cart-glow → définis dans globals.css */
       `}</style>
@@ -245,14 +245,14 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
             <HeaderDropdown label={t("collection")} href="/produits" active={collectionActive}
               menuId="milk-collection-menu" colors={{ text: C.text, amber: C.amber, dropBg: C.dropBg, dropBdr: C.dropBdr }}>
-              <CategoryNav variant="list" tone={theme} slugs={categorySlugs} currentSlug={collectionCurrentSlug} showAll />
+              <CategoryNav variant="list" tone={theme} dense slugs={categorySlugs} currentSlug={collectionCurrentSlug} showAll />
             </HeaderDropdown>
             <HeaderDropdown label={t("brand_section")} href="/qui-sommes-nous" active={brandActive}
               menuId="milk-brand-menu" colors={{ text: C.text, amber: C.amber, dropBg: C.dropBg, dropBdr: C.dropBdr }}>
-              <nav aria-label={t("brand_section")} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <nav aria-label={t("brand_section")} style={{ display: "flex", flexDirection: "column", gap: 1 }}>
                 {brandLinks.map(l => (
                   <Link key={l.href} href={l.href} className="hdr-menulink"
-                    style={{ padding: "14px 18px", borderRadius: 14, textDecoration: "none", fontSize: 17, fontWeight: 800, color: C.text, transition: "background 0.15s" }}>
+                    style={{ padding: "9px 12px", borderRadius: 8, textDecoration: "none", fontSize: 14.5, fontWeight: 600, color: C.text, transition: "color 0.15s" }}>
                     {l.label}
                   </Link>
                 ))}

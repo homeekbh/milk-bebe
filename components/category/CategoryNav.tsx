@@ -48,11 +48,12 @@ type Props = {
   currentSlug?: string;          // surligne la catégorie active (ex. page catégorie)
   showAll?: boolean;             // ajoute « Tous les produits » (→ /produits) en tête
   withIcons?: boolean;           // variant list : affiche les icônes (drawer)
+  dense?: boolean;               // variant list : lignes fines sans carte (menu déroulant desktop)
   onNavigate?: () => void;       // ferme le menu / drawer au clic
 };
 
 export default function CategoryNav({
-  slugs, variant, tone = "light", currentSlug, showAll = false, withIcons = false, onNavigate,
+  slugs, variant, tone = "light", currentSlug, showAll = false, withIcons = false, dense = false, onNavigate,
 }: Props) {
   const tc = useTranslations("catalog");
   const tn = useTranslations("nav");
@@ -94,23 +95,32 @@ export default function CategoryNav({
     );
   }
 
-  // variant === "list"
+  // variant === "list" — deux densités :
+  //  • dense (menu déroulant desktop) : lignes fines ~38px, SANS carte, survol = texte ambre → liste élégante.
+  //  • défaut (drawer mobile plein écran) : zones de touche généreuses, léger fond, icônes.
   const textCol  = dark ? "#f2ede6" : "#1a1410";
   const itemBg   = dark ? "rgba(242,237,230,0.05)" : "transparent";
   const iconCol  = dark ? "rgba(242,237,230,0.6)" : "rgba(26,20,16,0.55)";
   return (
-    <nav aria-label="Catégories" style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <style>{`.milk-catnav-item:hover{background:rgba(128,128,128,0.12)!important}`}</style>
+    <nav aria-label="Catégories" style={{ display: "flex", flexDirection: "column", gap: dense ? 1 : 6 }}>
+      <style>{`
+        .milk-catnav-item:hover{ background:rgba(128,128,128,0.12)!important }
+        .milk-catnav-item-dense:hover{ color:#c49a4a!important }
+      `}</style>
       {entries.map(e => {
         const active = isActive(e.slug);
         const Icon = e.slug ? (ICONS[e.slug] ?? FallbackIcon) : null;
         return (
           <Link key={e.href} href={e.href} onClick={onNavigate}
             aria-current={active ? "page" : undefined}
-            className="milk-catnav-item"
-            style={{ display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 14,
-              textDecoration: "none", fontSize: 17, fontWeight: active ? 900 : 800,
-              background: itemBg, color: active ? "#c49a4a" : textCol, transition: "background 0.15s" }}>
+            className={dense ? "milk-catnav-item-dense" : "milk-catnav-item"}
+            style={dense
+              ? { display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", borderRadius: 8,
+                  textDecoration: "none", fontSize: 14.5, fontWeight: active ? 800 : 600,
+                  background: "transparent", color: active ? "#c49a4a" : textCol, transition: "color 0.15s" }
+              : { display: "flex", alignItems: "center", gap: 12, padding: "14px 18px", borderRadius: 14,
+                  textDecoration: "none", fontSize: 17, fontWeight: active ? 900 : 800,
+                  background: itemBg, color: active ? "#c49a4a" : textCol, transition: "background 0.15s" }}>
             {withIcons && Icon && <Icon c={active ? "#c49a4a" : iconCol} />}
             {e.label}
           </Link>

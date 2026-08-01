@@ -24,7 +24,7 @@ type Props = {
   panelMinWidth?: number;
 };
 
-export default function HeaderDropdown({ label, href, active, menuId, colors, children, panelMinWidth = 240 }: Props) {
+export default function HeaderDropdown({ label, href, active, menuId, colors, children, panelMinWidth = 200 }: Props) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
   const pathname = usePathname();
@@ -66,10 +66,13 @@ export default function HeaderDropdown({ label, href, active, menuId, colors, ch
         <>
           {/* Pont invisible déclencheur↔panneau (anti zone-morte au survol). */}
           <div aria-hidden style={{ position: "absolute", top: "100%", left: 0, right: 0, height: 8 }} />
+          {/* Le conteneur (offsetParent) démarre au bord de la BOÎTE du déclencheur, soit ~16px à gauche
+              du texte (le lien a padding-left:16). On décale donc le panneau de 14px vers la droite pour
+              que son bord GAUCHE tombe sous la PREMIÈRE LETTRE du libellé (mesuré au navigateur, Lot 4c). */}
           <div id={menuId} role="menu" onClick={() => setOpen(false)}
-            style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, minWidth: panelMinWidth,
-              background: colors.dropBg, border: colors.dropBdr, borderRadius: 14,
-              boxShadow: "0 16px 40px rgba(0,0,0,0.35)", padding: 8, zIndex: 10000 }}>
+            style={{ position: "absolute", top: "calc(100% + 8px)", left: 14, minWidth: panelMinWidth,
+              background: colors.dropBg, border: colors.dropBdr, borderRadius: 10,
+              boxShadow: "0 14px 34px rgba(0,0,0,0.30)", padding: 5, zIndex: 10000 }}>
             {children}
           </div>
         </>

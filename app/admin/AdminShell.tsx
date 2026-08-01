@@ -22,7 +22,7 @@ const NAV: NavItem[] = [
   { href: "/admin",              label: "Accueil",      icon: "▦"  },
 
   { href: "/admin/commandes",    label: "Commandes",    icon: "📦", badgeKey: "commandesPending", section: "Ventes" },
-  { href: "/admin/stock",        label: "Stock",        icon: "📦", soon: true },
+  { href: "/admin/stock",        label: "Stock",        icon: "📦" },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
   { href: "/admin/comptes",      label: "Comptes",      icon: "🆕" },
 

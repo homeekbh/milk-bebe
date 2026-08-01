@@ -1827,7 +1827,9 @@ export default function HomePage() {
   }, []);
 
   return (
-    <div className="milk-home-root" style={{ background: P.light, color: P.dark, overflowX: "hidden" }}>
+    // clip et NON hidden : hidden fait calculer overflow-y:auto → conteneur de scroll qui casse
+    // position:sticky et rogne tout enfant dépassant (cf. convention globals.css:48-50 / 286-289).
+    <div className="milk-home-root" style={{ background: P.light, color: P.dark, overflowX: "clip" }}>
       <style>{`
         @keyframes milk-spin     { from{transform:rotate(0)} to{transform:rotate(360deg)} }
         @keyframes milk-bounce   { 0%,100%{transform:translateY(0)} 50%{transform:translateY(6px)} }

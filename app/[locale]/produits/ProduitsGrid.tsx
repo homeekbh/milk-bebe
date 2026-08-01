@@ -256,8 +256,9 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
   function changeSearch(v: string)    { setSearch(v);             setPage(1); }
 
   return (
-    // Fond global taupe clair — pleine largeur
-    <div style={{ background: C.light, minHeight: "100vh", overflowX: "hidden" }}>
+    // Fond global taupe clair — pleine largeur. clip et NON hidden : hidden force overflow-y:auto
+    // (conteneur de scroll → casse position:sticky, rogne les enfants) — convention globals.css:48/286.
+    <div style={{ background: C.light, minHeight: "100vh", overflowX: "clip" }}>
       <style>{`
         ${MILK_STYLES}
         ${PROMO_STYLES}

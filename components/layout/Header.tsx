@@ -191,7 +191,10 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
       `}</style>
 
       <header ref={el => { headerRef.current = el; }}
-        style={{ position: "fixed", top: "calc(var(--milk-promo-h, 0px) + var(--milk-topbar-h, 0px))", left: 0, width: "100%", zIndex: 9999, overflowX: "hidden", background: C.bg, borderBottom: C.border, backdropFilter: opaque ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s, top 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
+        // clip et NON hidden : hidden force le navigateur à calculer overflow-y:auto, ce qui rogne
+        // tout enfant dépassant la hauteur du header (ici le menu déroulant « collection »). Même
+        // convention que html/body dans globals.css:48-50 et 286-289, où le piège est documenté.
+        style={{ position: "fixed", top: "calc(var(--milk-promo-h, 0px) + var(--milk-topbar-h, 0px))", left: 0, width: "100%", zIndex: 9999, overflowX: "clip", background: C.bg, borderBottom: C.border, backdropFilter: opaque ? "blur(16px) saturate(1.5)" : "none", transition: "background 0.25s, border-color 0.25s, top 0.3s cubic-bezier(0.4,0,0.2,1)" }}>
         <div style={{ maxWidth: 1600, margin: "0 auto", padding: "0 clamp(8px,3vw,20px)", display: "flex", alignItems: "center", justifyContent: "space-between", height: 68, gap: 16 }}>
 
           {/* ✅ Logo — clic scroll to top */}

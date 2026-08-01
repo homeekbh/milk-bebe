@@ -283,6 +283,19 @@ appareil**.
 Ce filtre couvre `fbqTrack` et le chargement du pixel Meta. Il ne peut rien pour
 un appareil qui n'a jamais ouvert le lien.
 
+### Une sentinelle sur `.in()` / `.eq()` casse sur une colonne typée
+
+Ne jamais passer une valeur sentinelle (`["none"]`, `"0"`, `""`…) à `.in()` ou
+`.eq()` pour couvrir le cas d'une liste vide : sur une colonne typée (`uuid`,
+`int`), Postgres rejette le cast et l'erreur remonte comme une **panne de base**
+(503, interprétée à tort comme un incident DB). Si la liste est vide, **ne pas
+requêter du tout** — partir d'un tableau vide.
+
+Et un `uuid` bien formé n'est **pas** une preuve d'existence : sur une colonne
+portant une clé étrangère, **vérifier l'existence, pas le format**. (Coûté : un
+503 sur tout panier 100 % packs, plus tous les ajouts de packs perdus en
+analytics — commit `4a4f547`.)
+
 ---
 
 ## Lire les données sans se tromper

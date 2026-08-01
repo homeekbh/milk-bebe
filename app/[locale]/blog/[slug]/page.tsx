@@ -104,7 +104,9 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
+  // ⚠️ DIAGNOSTIC TEMPORAIRE (lot 3b — bug blog : 500 prod sans log). À RETIRER une fois la cause connue.
   const { locale, slug } = await params;
+  try {
   const post = await getPost(slug);
   if (!post) return { title: "Journal" };
   return {
@@ -113,6 +115,11 @@ export async function generateMetadata({
     alternates: getAlternates(locale, `/blog/${slug}`),
     openGraph: post.image_url ? { images: [{ url: post.image_url }], type: "article" } : undefined,
   };
+  } catch (err: any) {
+    console.error(`[blog/[slug]] generateMetadata FAILURE slug=${slug} name=${err?.name} msg=${err?.message}`);
+    console.error(err?.stack ?? err);
+    throw err;
+  }
 }
 
 export default async function BlogArticlePage({
@@ -120,7 +127,11 @@ export default async function BlogArticlePage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
+  // ⚠️ DIAGNOSTIC TEMPORAIRE (lot 3b — bug blog : 500 prod sans aucun log applicatif).
+  // Enrobe TOUT le rendu : logue name/message/stack en cas d'échec, puis relance (comportement inchangé).
+  // À RETIRER dès que la cause est identifiée dans les logs Vercel.
   const { locale, slug } = await params;
+  try {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "blog" });
 
@@ -285,4 +296,11 @@ export default async function BlogArticlePage({
       <BeholdWidget />
     </div>
   );
+  } catch (err: any) {
+    // notFound()/redirect() lèvent un flux de contrôle Next (digest "NEXT_…") → relancer sans le logguer.
+    if (err?.digest && String(err.digest).startsWith("NEXT_")) throw err;
+    console.error(`[blog/[slug]] RENDER FAILURE slug=${slug} locale=${locale} name=${err?.name} msg=${err?.message}`);
+    console.error(err?.stack ?? err);
+    throw err;
+  }
 }

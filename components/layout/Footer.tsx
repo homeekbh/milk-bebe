@@ -76,12 +76,14 @@ export default function Footer() {
 
         <div style={{ display: "grid", gap: 12, alignContent: "start" }}>
           <div style={{ fontSize: 11, fontWeight: 900, letterSpacing: 2.5, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 2 }}>{t("col_brand")}</div>
+          {/* « Notre engagement » retiré (Lot 4b) : il pointait vers /qui-sommes-nous, exactement comme
+              « Notre histoire » — deux libellés pour une seule page. Cette colonne liste désormais
+              EXACTEMENT les mêmes entrées que le déroulant « La marque » du header. */}
           {[
-            { label: t("link_story"),      href: "/qui-sommes-nous" },
-            { label: t("link_bamboo"),     href: "/pourquoi-bambou" },
-            { label: tNav("blog"),         href: "/blog" },
-            { label: t("link_reviews"),    href: "/avis-clients" },
-            { label: t("link_commitment"), href: "/qui-sommes-nous" },
+            { label: t("link_story"),   href: "/qui-sommes-nous" },
+            { label: t("link_bamboo"),  href: "/pourquoi-bambou" },
+            { label: tNav("blog"),      href: "/blog" },
+            { label: t("link_reviews"), href: "/avis-clients" },
           ].map(l => <Link key={l.href+l.label} href={l.href} style={{ fontSize: 14, color: "rgba(242,237,230,0.5)", textDecoration: "none", fontWeight: 500 }}>{l.label}</Link>)}
         </div>
 

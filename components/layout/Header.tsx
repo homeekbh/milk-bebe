@@ -9,6 +9,7 @@ import { useCart }     from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
 import CategoryNav from "@/components/category/CategoryNav";
+import HeaderDropdown from "@/components/layout/HeaderDropdown";
 
 /* ── Icônes SVG ──────────────────────────────────────────────────────────── */
 function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
@@ -75,15 +76,14 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
   const { ids: wishIds }  = useWishlist();
   const { user, signOut } = useAuth();
   const t                 = useTranslations("nav");
+  const tf                = useTranslations("footer"); // libellés « La marque » (mêmes qu'au pied de page)
   const locale            = useLocale();
 
   const [scrolled,   setScrolled]   = useState(false);
   const [theme,      setTheme]      = useState<"dark"|"light">("dark");
   const [mobileOpen, setMobileOpen] = useState(false);
-  // Menu déroulant « Notre collection » (desktop, Lot 4). Ouverture survol + clic ; fermeture
-  // clic extérieur + Échap (voir useEffect). collectionRef borne la zone « intérieur ».
-  const [collectionOpen, setCollectionOpen] = useState(false);
-  const collectionRef = useRef<HTMLDivElement | null>(null);
+  // Les menus déroulants desktop (« Notre collection », « La marque ») gèrent leur propre état
+  // ouvert/fermé dans la coquille partagée HeaderDropdown (Lot 4b) — plus d'état ici.
 
   const userTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -108,17 +108,7 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
   const cartPulse = totalItems > 0 ? "milk-cart-pulse 1.8s ease-in-out infinite" : undefined;
   const cartGlow  = totalItems > 0 ? "milk-cart-glow 1.8s ease-in-out infinite"  : undefined;
 
-  useEffect(() => { setMobileOpen(false); setCollectionOpen(false); }, [pathname]);
-
-  // Menu « Notre collection » : fermeture au clic hors de la zone et à la touche Échap (a11y).
-  useEffect(() => {
-    if (!collectionOpen) return;
-    const onDown = (e: MouseEvent) => { if (collectionRef.current && !collectionRef.current.contains(e.target as Node)) setCollectionOpen(false); };
-    const onKey  = (e: KeyboardEvent) => { if (e.key === "Escape") setCollectionOpen(false); };
-    document.addEventListener("mousedown", onDown);
-    document.addEventListener("keydown", onKey);
-    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
-  }, [collectionOpen]);
+  useEffect(() => { setMobileOpen(false); }, [pathname]);
 
   useEffect(() => {
     const compute = () => {
@@ -154,6 +144,18 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
     ? (pathname.split("/")[2] || undefined)
     : pathname === "/produits" ? "" : undefined;
 
+  // Deux entrées de nav déroulantes (Lot 4b). « La marque » calque la colonne « LA MARQUE » du
+  // pied de page (mêmes libellés, mêmes URL) — brandLinks est la source unique (desktop + drawer).
+  const collectionActive = pathname.startsWith("/produits") || pathname.startsWith("/categorie");
+  const brandActive = pathname === "/qui-sommes-nous" || pathname === "/pourquoi-bambou"
+    || pathname.startsWith("/blog") || pathname.startsWith("/avis-clients");
+  const brandLinks = [
+    { label: tf("link_story"),   href: "/qui-sommes-nous" },
+    { label: tf("link_bamboo"),  href: "/pourquoi-bambou" },
+    { label: t("blog"),          href: "/blog" },
+    { label: tf("link_reviews"), href: "/avis-clients" },
+  ];
+
   const C = useMemo(() => {
     const dark = theme === "dark";
     return {
@@ -186,8 +188,10 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
           .milk-burger  { display: flex !important; }
         }
         .hdr-link:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
-        /* Entrée « collection » = libellé + chevron : le survol s'applique au conteneur entier. */
+        /* Entrée « collection »/« la marque » = libellé + chevron : le survol s'applique au conteneur entier. */
         .hdr-collection:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
+        /* Liens à l'intérieur d'un panneau déroulant (ex. « La marque »). */
+        .hdr-menulink:hover { background: rgba(128,128,128,0.12) !important; }
         .hdr-icon:hover { background: rgba(128,128,128,0.1) !important; }
         /* keyframes milk-cart-pulse / milk-cart-glow → définis dans globals.css */
       `}</style>
@@ -234,62 +238,26 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
             </div>
           </Link>
 
-          {/* Nav desktop */}
+          {/* Nav desktop — deux déroulants SYMÉTRIQUES via la coquille partagée HeaderDropdown (Lot 4b) :
+              « Notre collection » (panneau = CategoryNav) et « La marque » (panneau = liste de liens,
+              mêmes entrées que la colonne « LA MARQUE » du pied de page). Le libellé de chacun reste un
+              lien (/produits, /qui-sommes-nous) ; le chevron déplie. */}
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
-            {/* « Notre collection » (Lot 4) : le libellé mène toujours à /produits ; le chevron
-                ouvre/ferme le menu des catégories. Survol OU clic ouvre ; clic extérieur + Échap ferme
-                (cf. useEffect). Pont invisible sous le déclencheur → pas de zone morte au survol. */}
-            {(() => {
-              const collectionActive = pathname.startsWith("/produits") || pathname.startsWith("/categorie");
-              return (
-                <div ref={collectionRef} style={{ position: "relative" }}
-                  onMouseEnter={() => setCollectionOpen(true)}
-                  onMouseLeave={() => setCollectionOpen(false)}>
-                  {/* Libellé + chevron = UNE entrée de nav → UN SEUL soulignement et UN SEUL survol,
-                      portés par CE conteneur (et non par chaque élément → fini le double trait décalé). */}
-                  <div className="hdr-collection" style={{ display: "inline-flex", alignItems: "center", borderRadius: 10,
-                    opacity: collectionActive ? 1 : 0.85, transition: "all 0.15s",
-                    borderBottom: collectionActive ? `2px solid ${C.amber}` : "2px solid transparent" }}>
-                    <Link href="/produits" onFocus={() => setCollectionOpen(true)}
-                      style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 4px 8px 16px", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center" }}>
-                      {t("collection")}
-                    </Link>
-                    <button type="button"
-                      aria-haspopup="menu" aria-expanded={collectionOpen} aria-controls="milk-collection-menu"
-                      aria-label={t("collection")}
-                      onClick={() => setCollectionOpen(v => !v)}
-                      style={{ background: "none", border: "none", cursor: "pointer", color: C.text, padding: "8px 12px 8px 4px", display: "inline-flex", alignItems: "center" }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden
-                        style={{ transform: collectionOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
-                        <path d="M6 9l6 6 6-6" stroke={C.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                      </svg>
-                    </button>
-                  </div>
-                  {collectionOpen && (
-                    <>
-                      {/* Pont invisible comblant l'espace déclencheur↔panneau (anti zone-morte au survol). */}
-                      <div aria-hidden style={{ position: "absolute", top: "100%", left: 0, right: 0, height: 8 }} />
-                      <div id="milk-collection-menu" role="menu"
-                        style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, minWidth: 240,
-                          background: C.dropBg, border: C.dropBdr, borderRadius: 14,
-                          boxShadow: "0 16px 40px rgba(0,0,0,0.35)", padding: 8, zIndex: 10000 }}>
-                        <CategoryNav variant="list" tone={theme} slugs={categorySlugs}
-                          currentSlug={collectionCurrentSlug} showAll onNavigate={() => setCollectionOpen(false)} />
-                      </div>
-                    </>
-                  )}
-                </div>
-              );
-            })()}
-            {[
-              { label: t("about"),  href: "/qui-sommes-nous", active: pathname === "/qui-sommes-nous" },
-              { label: t("bamboo"), href: "/pourquoi-bambou", active: pathname === "/pourquoi-bambou" },
-            ].map(l => (
-              <Link key={l.href} href={l.href} className="hdr-link"
-                style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 16px", borderRadius: 10, opacity: l.active ? 1 : 0.85, borderBottom: l.active ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block", whiteSpace: "nowrap" }}>
-                {l.label}
-              </Link>
-            ))}
+            <HeaderDropdown label={t("collection")} href="/produits" active={collectionActive}
+              menuId="milk-collection-menu" colors={{ text: C.text, amber: C.amber, dropBg: C.dropBg, dropBdr: C.dropBdr }}>
+              <CategoryNav variant="list" tone={theme} slugs={categorySlugs} currentSlug={collectionCurrentSlug} showAll />
+            </HeaderDropdown>
+            <HeaderDropdown label={t("brand_section")} href="/qui-sommes-nous" active={brandActive}
+              menuId="milk-brand-menu" colors={{ text: C.text, amber: C.amber, dropBg: C.dropBg, dropBdr: C.dropBdr }}>
+              <nav aria-label={t("brand_section")} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {brandLinks.map(l => (
+                  <Link key={l.href} href={l.href} className="hdr-menulink"
+                    style={{ padding: "14px 18px", borderRadius: 14, textDecoration: "none", fontSize: 17, fontWeight: 800, color: C.text, transition: "background 0.15s" }}>
+                    {l.label}
+                  </Link>
+                ))}
+              </nav>
+            </HeaderDropdown>
           </nav>
 
           {/* Actions desktop — avec sélecteur de langue FR | EN */}
@@ -401,10 +369,7 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
               currentSlug={collectionCurrentSlug} onNavigate={() => setMobileOpen(false)} />
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>{t("brand_section")}</div>
-            {[
-              { label: t("about"),  href: "/qui-sommes-nous" },
-              { label: t("bamboo"), href: "/pourquoi-bambou" },
-            ].map(l => (
+            {brandLinks.map(l => (
               <Link key={l.href} href={l.href} onClick={() => setMobileOpen(false)}
                 style={{ padding: "14px 18px", borderRadius: 14, background: "rgba(242,237,230,0.04)", textDecoration: "none", fontSize: 17, fontWeight: 700, color: "rgba(242,237,230,0.7)" }}>
                 {l.label}

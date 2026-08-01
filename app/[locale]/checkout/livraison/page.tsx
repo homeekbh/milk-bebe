@@ -7,6 +7,9 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
+import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
+import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
+import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import CountrySelector from "@/components/checkout/CountrySelector";
 import RelaySelector from "@/components/checkout/RelaySelector";
 import CheckoutAddressForm, { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
@@ -100,6 +103,8 @@ export default function CheckoutLivraisonPage() {
   const [relayOpen,         setRelayOpen]         = useState(false);
   const [relayPostalSearch, setRelayPostalSearch] = useState("");
   const [relayResetKey,     setRelayResetKey]     = useState(0);
+  // Téléphone : signal visuel (2a-2) affiché seulement après un blur invalide OU quand il est le seul blocage.
+  const [phoneTouched, setPhoneTouched] = useState(false);
 
   // Adresse « différente » (FR domicile connecté) : modale de saisie pays-first.
   const [addrModalOpen, setAddrModalOpen] = useState(false);
@@ -267,6 +272,9 @@ export default function CheckoutLivraisonPage() {
     router.push("/checkout/paiement");
   };
 
+  // Scroll en haut dès que le contenu s'affiche (négation exacte du return null ci-dessous).
+  useScrollTopWhenReady(hydrated && !isCartEmpty && state.completedSteps >= 1);
+
   if (!hydrated || isCartEmpty || state.completedSteps < 1) return null;
 
   // ── Styles ────────────────────────────────────────────────────────────────
@@ -274,6 +282,30 @@ export default function CheckoutLivraisonPage() {
   const optBtn = (active: boolean): React.CSSProperties => ({ display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%", gap: 12, padding: "14px 16px", borderRadius: 12, border: active ? "2px solid #1a1410" : "1px solid rgba(26,20,16,0.15)", background: active ? "rgba(196,154,74,0.08)" : "#fff", cursor: "pointer", fontWeight: 700, fontSize: 15, color: "#1a1410", textAlign: "left" });
   const lbl: React.CSSProperties = { display: "block", fontSize: 12, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.5)", marginBottom: 6 };
   const inp: React.CSSProperties = { width: "100%", padding: "11px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.15)", fontSize: 15, fontWeight: 600, background: "#fff", boxSizing: "border-box", color: "#1a1410" };
+
+  // ── AFFICHAGE (2a-1 / 2a-2) — dérivé en LECTURE SEULE des conditions existantes.
+  //    Ne modifie NI canContinue, NI frModeChosen/frPhoneOk/relayOk, NI les gardes. ──
+  // Téléphone = seul blocage restant (toutes les autres conditions FR satisfaites) → on le signale même sans interaction.
+  const phoneSoleBlocker = isFrance && frModeChosen && !frPhoneOk &&
+    (dc?.type === "home" ? isAddressComplete(state.shippingAddress as CheckoutAddress) : relayOk);
+  const phoneError = isFrance && !frPhoneOk && (phoneTouched || phoneSoleBlocker);
+  // Liste des conditions non satisfaites, affichée sous « Continuer » quand il est désactivé.
+  const missingHints: string[] = [];
+  if (!canContinue) {
+    if (isFrance) {
+      if (!frModeChosen) missingHints.push(en ? "Choose a delivery method" : "Choisis un mode de livraison");
+      if (!frPhoneOk)    missingHints.push(en ? "Add your phone number" : "Ajoute ton numéro de téléphone");
+      if (frModeChosen && dc?.type === "home" && !isAddressComplete(state.shippingAddress as CheckoutAddress))
+        missingHints.push(en ? "Complete your delivery address" : "Complète ton adresse de livraison");
+      if (isRelayType && !relayOk) missingHints.push(en ? "Select a pickup point" : "Sélectionne un point relais");
+    } else if (!zone) {
+      // Pays non desservi (zone non résolue) — atteignable via un pays de compte non livrable pré-positionné.
+      missingHints.push(en ? "We don't ship to this country yet" : "Nous ne livrons pas encore dans ce pays");
+    } else if (dc?.kind !== "international") {
+      // Zone OK mais mode international pas encore résolu (transitoire — l'effet le repose au render suivant).
+      missingHints.push(en ? "Select your delivery country" : "Sélectionne ton pays de livraison");
+    }
+  }
 
   return (
     <div style={{ maxWidth: 640, margin: "0 auto", padding: "100px 24px 80px" }}>
@@ -321,7 +353,9 @@ export default function CheckoutLivraisonPage() {
             <label htmlFor="fr-phone" style={lbl}>{en ? "Phone number" : "Numéro de téléphone"} <span style={{ color: "#b91c1c" }}>*</span></label>
             <input id="fr-phone" type="tel" inputMode="tel" autoComplete="tel"
               placeholder={en ? "e.g. 06 12 34 56 78" : "Ex : 06 12 34 56 78"}
-              value={state.phone} onChange={e => update({ phone: e.target.value })} style={inp} />
+              value={state.phone} onChange={e => update({ phone: e.target.value })}
+              onBlur={() => setPhoneTouched(true)}
+              style={phoneError ? { ...inp, border: "1px solid #dc2626", background: "rgba(220,38,38,0.05)" } : inp} />
             {!frPhoneOk && state.phone.length > 0 && (
               <div style={{ marginTop: 6, fontSize: 12, color: "#b91c1c", fontWeight: 700 }}>
                 {en ? "Invalid format (10 digits, e.g. 06 12 34 56 78)." : "Format invalide (10 chiffres, ex : 06 12 34 56 78)."}
@@ -443,6 +477,14 @@ export default function CheckoutLivraisonPage() {
           style={{ padding: "13px 24px", borderRadius: 12, border: "none", background: canContinue ? "#1a1410" : "#d1cdc8", color: "#f2ede6", fontWeight: 900, fontSize: 15, cursor: canContinue ? "pointer" : "not-allowed" }}>
           {en ? "Continue" : "Continuer"}
         </button>
+      </div>
+
+      {/* Conditions manquantes (affichage) — visibles quand « Continuer » est désactivé. */}
+      <CheckoutMissingHints items={missingHints} />
+
+      {/* Continuer mes achats (secondaire) → catalogue. */}
+      <div style={{ marginTop: 12 }}>
+        <ContinueShoppingLink />
       </div>
 
       {/* ── Modale « adresse de livraison différente » (FR domicile connecté) ── */}

@@ -5,6 +5,7 @@ import { useAuth }  from "@/context/AuthContext";
 import { useState, useEffect, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
+import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
 import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
@@ -629,6 +630,11 @@ export default function CartPage() {
                   style={{ width: "100%", padding: "16px", borderRadius: 14, background: "#1a1410", color: "#f2ede6", fontWeight: 900, fontSize: 16, border: "none", cursor: "pointer", marginBottom: 12 }}>
                   {t("validate")}
                 </button>
+
+                {/* Continuer mes achats (secondaire) → catalogue. N'affecte NI « Valider » NI goToCheckout(). */}
+                <div style={{ marginBottom: 12 }}>
+                  <ContinueShoppingLink />
+                </div>
 
                 <button onClick={handleClearCart}
                   style={{ width: "100%", padding: "12px", borderRadius: 12, background: "none", border: "1px solid rgba(26,20,16,0.12)", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, cursor: "pointer" }}>

@@ -7,6 +7,9 @@ import { useCart } from "@/context/CartContext";
 import { useAuth } from "@/context/AuthContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
+import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
+import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
+import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
@@ -204,9 +207,22 @@ export default function CheckoutPaiementPage() {
     if (!hasPhone || !deliveryComplete) router.replace("/checkout/livraison");
   }, [hydrated, isCartEmpty, state.completedSteps, hasEmail, hasPhone, deliveryComplete, router]);
 
+  // Scroll en haut dès que le contenu s'affiche (négation exacte du return null ci-dessous).
+  useScrollTopWhenReady(hydrated && !isCartEmpty && state.completedSteps >= 2);
+
   if (!hydrated || isCartEmpty || state.completedSteps < 2) return null;
 
   const canPay = hasEmail && hasPhone && deliveryComplete && !loading;
+
+  // ── AFFICHAGE (2a-1) — conditions non satisfaites listées sous « Payer ». Dérivé en
+  //    LECTURE de hasEmail/hasPhone/deliveryComplete. `!loading` EXCLU (pas une action client).
+  //    canPay et les gardes de navigation restent inchangés. ──
+  const missingHints: string[] = [];
+  if (!canPay && !loading) {
+    if (!hasEmail)         missingHints.push(en ? "Enter your email address" : "Renseigne ton adresse email");
+    if (!hasPhone)         missingHints.push(en ? "Add your phone number" : "Ajoute ton numéro de téléphone");
+    if (!deliveryComplete) missingHints.push(en ? "Complete your delivery details" : "Complète tes informations de livraison");
+  }
 
   // Libellé du bouton selon le cas (TEXTE uniquement — logique paiement inchangée).
   // FR : adresse déjà dans le tunnel → « Payer ». International : adresse saisie sur
@@ -465,6 +481,9 @@ export default function CheckoutPaiementPage() {
       </button>
       <style>{`@keyframes milk-spin { to { transform: rotate(360deg); } }`}</style>
 
+      {/* Conditions manquantes (affichage) — visibles quand « Payer » est désactivé (hors chargement). */}
+      <CheckoutMissingHints items={missingHints} />
+
       {/* Ligne rassurante — INTERNATIONAL uniquement (adresse saisie/confirmée sur Stripe). */}
       {!isFrance && (
         <div style={{ marginTop: 12, fontSize: 12.5, color: "rgba(26,20,16,0.55)", textAlign: "center", lineHeight: 1.6 }}>
@@ -485,6 +504,11 @@ export default function CheckoutPaiementPage() {
           style={{ padding: "13px 24px", borderRadius: 12, border: "1px solid rgba(26,20,16,0.2)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
           {en ? "Back to delivery" : "Retour à la livraison"}
         </button>
+      </div>
+
+      {/* Continuer mes achats (secondaire) → catalogue. */}
+      <div style={{ marginTop: 12 }}>
+        <ContinueShoppingLink />
       </div>
     </div>
   );

@@ -9,6 +9,8 @@ import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import CountrySelector from "@/components/checkout/CountrySelector";
+import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
+import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import { isValidPostalCode, postalInputMode, postalMaxLength } from "@/lib/postal";
 
 // Miroir de app/[locale]/inscription/page.tsx (authErrorKey non exporté) : mappe
@@ -105,6 +107,9 @@ export default function CheckoutComptePage() {
       .catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session?.access_token]);
+
+  // Scroll en haut dès que le contenu s'affiche (négation exacte du return null ci-dessous).
+  useScrollTopWhenReady(hydrated && !isCartEmpty);
 
   if (!hydrated || isCartEmpty) return null;
 
@@ -388,6 +393,11 @@ export default function CheckoutComptePage() {
           style={{ padding: "13px 24px", borderRadius: 12, border: "1px solid rgba(26,20,16,0.2)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 15, cursor: "pointer" }}>
           {en ? "Back to cart" : "Retour au panier"}
         </button>
+      </div>
+
+      {/* Continuer mes achats (secondaire) — retour au catalogue : intention distincte du retour panier. */}
+      <div style={{ marginTop: 12 }}>
+        <ContinueShoppingLink />
       </div>
     </div>
   );

@@ -822,10 +822,12 @@ export async function POST(req: Request) {
       // Batch : 1 seule requête pour TOUS les produits (élimine le N+1 — avant,
       // 1 requête .single() par article via Promise.all).
       const enrichIds = [...new Set((itemsRaw as any[]).map(i => i.id).filter(Boolean))];
-      const { data: enrichProds } = await supabaseServer
-        .from("products")
-        .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, category_slug")
-        .in("id", enrichIds.length ? enrichIds : ["none"]);
+      const { data: enrichProds } = enrichIds.length
+        ? await supabaseServer
+            .from("products")
+            .select("id, name, slug, price_ttc, promo_price, promo_start, promo_end, category_slug")
+            .in("id", enrichIds)
+        : { data: [] };
       const enrichMap: Record<string, any> = {};
       (enrichProds ?? []).forEach((p: any) => { enrichMap[p.id] = p; });
 
@@ -1005,9 +1007,9 @@ export async function POST(req: Request) {
         // et à logguer le nom du produit dans les alertes stock)
         const _itemIds   = [...new Set(items.map((i: any) => i.id).filter(Boolean))];
         const _itemSlugs = [...new Set(items.map((i: any) => i.slug).filter(Boolean))];
-        const { data: _allProds } = await supabaseServer
-          .from("products").select("id, slug, name")
-          .in("id", _itemIds.length ? _itemIds : ["none"]);
+        const { data: _allProds } = _itemIds.length
+          ? await supabaseServer.from("products").select("id, slug, name").in("id", _itemIds)
+          : { data: [] };
         const { data: _allProds2 } = _itemSlugs.length
           ? await supabaseServer.from("products").select("id, slug, name").in("slug", _itemSlugs)
           : { data: [] };

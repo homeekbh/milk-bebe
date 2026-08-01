@@ -270,6 +270,17 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         /* Carte promo déjà animée (shake) → on coupe la respiration de sa pastille (pas de double mouvement). */
         .pcard-promo .milk-badge { animation: none !important; }
 
+        /* ── Lot 4b : « Nos packs » = une OFFRE, pas un filtre ───────────────────────
+           Fond ambre PLEIN #c49a4a + texte sombre #1a1410 → contraste 7.01:1 (WCAG AAA).
+           Un peu plus grande que les catégories, détachée de la rangée (séparateur desktop).
+           Animation d'entrée UNE seule fois (pas de boucle), coupée si prefers-reduced-motion. */
+        .pg-packs { padding:10px 24px !important; font-weight:900 !important; box-shadow:0 2px 10px rgba(196,154,74,0.35); }
+        .pg-packs:hover { box-shadow:0 6px 18px rgba(196,154,74,0.5); filter:brightness(1.03); }
+        .pg-sep { width:1px; height:28px; align-self:center; margin:0 4px; background:rgba(26,20,16,0.16); flex-shrink:0; }
+        @keyframes milk-pack-pop { 0%{transform:scale(0.9);opacity:0} 60%{transform:scale(1.05);opacity:1} 100%{transform:scale(1);opacity:1} }
+        @media (prefers-reduced-motion: no-preference) { .pg-packs { animation:milk-pack-pop 0.5s cubic-bezier(0.34,1.56,0.64,1) both; } }
+        @media (max-width:768px) { .pg-sep{display:none} .pg-cats .pg-packs{ padding:0 18px !important; min-height:40px !important; } }
+
         .pgrid    { display:grid; grid-template-columns:repeat(4,1fr); gap:16px; }
         .ess-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
         @media(max-width:1200px){ .pgrid{grid-template-columns:repeat(3,1fr)!important} .ess-grid{grid-template-columns:repeat(2,1fr)!important} }
@@ -334,8 +345,12 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
                 </button>
               );
             })}
-            <button onClick={() => setShowPacks(true)}
-              style={{ padding: "9px 18px", borderRadius: 99, border: "none", cursor: "pointer", background: showPacks ? C.amber : "rgba(196,154,74,0.18)", color: showPacks ? C.dark : "#9a7327", fontWeight: 800, fontSize: "clamp(12px,1.2vw,14px)", transition: "all 0.15s", whiteSpace: "nowrap" }}>
+            {/* Séparateur avant « Nos packs » — seulement quand des pastilles catégorie précèdent
+                (page /produits) ; masqué en mobile (rangée qui wrap). Sur page catégorie : rien
+                avant → pas de séparateur flottant. */}
+            {!categoryNav && <span className="pg-sep" aria-hidden />}
+            <button onClick={() => setShowPacks(true)} className="pg-packs"
+              style={{ borderRadius: 99, border: "none", cursor: "pointer", background: "#c49a4a", color: "#1a1410", fontSize: "clamp(12px,1.2vw,14px)", whiteSpace: "nowrap", transition: "box-shadow 0.15s, filter 0.15s", outline: showPacks ? "2px solid #1a1410" : "none", outlineOffset: -3 }}>
               🎁 {t("filter_packs")}
             </button>
             {/* Loupe — MOBILE uniquement (DERNIER enfant de .pg-cats → s'intègre au wrap) ; masquée en desktop via .pg-tools-toggle{display:none} */}

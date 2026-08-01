@@ -58,11 +58,21 @@ export async function POST(req: Request) {
     const body: any = await req.json().catch(() => ({}));
     const ua = req.headers.get("user-agent") ?? null;
 
-    const productId = uuidOrNull(body.product_id);
+    // product_id doit être un uuid BIEN FORMÉ *et* un produit réellement existant.
+    // Un pack a un uuid valide mais absent de products → l'INSERT violait la FK
+    // analytics_events_product_id_fkey (observé le 01/08 : ajouts de packs jamais
+    // enregistrés). On vérifie donc l'existence ; tout uuid absent — ou toute erreur
+    // de vérification — → product_id = null, et l'id réel est préservé dans metadata.
+    let productId = uuidOrNull(body.product_id);
+    if (productId) {
+      const { data: prodExists, error: prodErr } = await supabaseServer
+        .from("products").select("id").eq("id", productId).maybeSingle();
+      if (prodErr || !prodExists) productId = null;
+    }
     const orderId   = uuidOrNull(body.order_id);
 
     const metadata = { ...(body.metadata && typeof body.metadata === "object" ? body.metadata : {}) };
-    // On préserve les refs non-UUID dans metadata pour ne rien perdre.
+    // On préserve dans metadata les refs non-UUID ET les uuid absents de products (ex. packs) pour ne rien perdre.
     if (body.product_id && !productId) metadata.product_ref = body.product_id;
     if (body.order_id   && !orderId)   metadata.order_ref   = body.order_id;
 

@@ -170,13 +170,22 @@ export async function POST(req: Request) {
 
     // Batch : 1 seule requête pour TOUS les produits du panier (élimine le N+1).
     const itemIds = [...new Set(itemsArr.map((i: any) => i.id).filter(Boolean))];
-    const { data: productsData, error: productsErr } = await supabaseServer
-      .from("products").select("*").in("id", itemIds.length ? itemIds : ["none"]);
-    // Erreur DB transitoire → NE PAS la masquer en « produit introuvable » (400, faux négatif qui
-    // fait croire à un panier invalide) : renvoyer 503 pour inviter à réessayer. (Aucune récompense
-    // n'est encore réservée à ce stade — la réservation R2 vient plus bas.)
-    if (productsErr) {
-      return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+    // itemIds VIDE (ex. panier 100% packs) → NE PAS interroger la base. L'ancien repli
+    // `.in("id", ["none"])` passait la chaîne "none" à un cast uuid (products.id est de
+    // type uuid) → erreur Postgres interprétée comme panne DB → 503, et le bloc packs
+    // n'était jamais atteint. La requête n'est exécutée que s'il y a au moins un id.
+    let productsData: any[] = [];
+    if (itemIds.length > 0) {
+      const { data, error: productsErr } = await supabaseServer
+        .from("products").select("*").in("id", itemIds);
+      // Erreur DB transitoire → NE PAS la masquer en « produit introuvable » (400, faux négatif qui
+      // fait croire à un panier invalide) : renvoyer 503 pour inviter à réessayer. (Aucune récompense
+      // n'est encore réservée à ce stade — la réservation R2 vient plus bas.)
+      if (productsErr) {
+        console.error("[create-session] products load failed (503):", productsErr.message);
+        return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+      }
+      productsData = data ?? [];
     }
     const productMap: Record<string, any> = {};
     (productsData ?? []).forEach((p: any) => { productMap[p.id] = p; });
@@ -297,14 +306,22 @@ export async function POST(req: Request) {
     let packsSubtotal = 0;
     if (packsArr.length > 0) {
       const packIds = [...new Set(packsArr.map((p: any) => p.pack_id).filter(Boolean))];
-      const { data: packsData, error: packsErr } = await supabaseServer
-        .from("packs")
-        .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock, weight_g, colors ) )`)
-        .in("id", packIds.length ? packIds : ["none"])
-        .eq("active", true);
-      // Erreur DB transitoire → 503 réessayable, pas un faux « pack indisponible » (400 trompeur).
-      if (packsErr) {
-        return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+      // Même correctif que pour les produits : packIds VIDE → ne pas requêter (le repli
+      // `.in("id", ["none"])` castait "none" en uuid → 503). Si packIds est vide, la boucle
+      // plus bas rejette proprement chaque pack en « Coffret introuvable » (400).
+      let packsData: any[] = [];
+      if (packIds.length > 0) {
+        const { data, error: packsErr } = await supabaseServer
+          .from("packs")
+          .select(`id, slug, title, price, image_url, active, pack_items ( product:products ( id, name, slug, sizes, sizes_stock, stock, weight_g, colors ) )`)
+          .in("id", packIds)
+          .eq("active", true);
+        // Erreur DB transitoire → 503 réessayable, pas un faux « pack indisponible » (400 trompeur).
+        if (packsErr) {
+          console.error("[create-session] packs load failed (503):", packsErr.message);
+          return Response.json({ error: "Service momentanément indisponible. Réessayez dans un instant." }, { status: 503 });
+        }
+        packsData = data ?? [];
       }
       const packMap: Record<string, any> = {};
       (packsData ?? []).forEach((p: any) => { packMap[p.id] = p; });

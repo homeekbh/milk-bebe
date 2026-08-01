@@ -491,7 +491,7 @@ function Hero() {
             display:    "flex",
             alignItems: "center",
             justifyContent: "flex-start",
-            padding:    "clamp(80px, 14vh, 160px) 5vw clamp(160px, 22vh, 240px)",
+            padding:    "clamp(80px, 14vh, 160px) 5vw clamp(240px, 28vh, 320px)",
             opacity:    contOp,
             transform:  contTrans,
             willChange: "transform, opacity",
@@ -542,11 +542,12 @@ function Hero() {
             <p
               className="milk-hero-sub"
               style={{
-                margin:    "0 0 28px",
+                margin:    "0 0 26px",
                 fontSize:  "clamp(14px, 1.7vw, 18px)",
-                color:     "rgba(242,237,230,0.85)",
-                maxWidth:  520,
-                lineHeight: 1.7,
+                fontWeight: 400,
+                color:     "rgba(242,237,230,0.72)",
+                maxWidth:  460,
+                lineHeight: 1.5,
                 textShadow:"0 1px 8px rgba(13,11,9,0.55)",
               }}
             >
@@ -559,7 +560,7 @@ function Hero() {
                 href="/produits"
                 className="milk-hero-cta-primary"
                 style={{
-                  padding:      "16px 32px",
+                  padding:      "12px 30px",
                   borderRadius: 14,
                   background:   P.cream,
                   color:        P.dark,
@@ -577,7 +578,7 @@ function Hero() {
                 href="/pourquoi-bambou"
                 className="milk-hero-cta-secondary"
                 style={{
-                  padding:      "16px 32px",
+                  padding:      "12px 30px",
                   borderRadius: 14,
                   border:       "1px solid rgba(242,237,230,0.4)",
                   color:        P.cream,

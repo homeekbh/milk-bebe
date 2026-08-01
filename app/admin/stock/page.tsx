@@ -118,6 +118,29 @@ export default function AdminStockPage() {
 
   return (
     <div style={{ padding: "36px 40px", maxWidth: 1200 }}>
+      {/* Carte produit : ligne compacte, identique desktop/mobile, ajustée par media query.
+          min-width:0 sur la colonne texte + nowrap/ellipsis = anti-débordement (le titre ne
+          peut plus pousser/chevaucher le bloc « stock »). */}
+      <style>{`
+        .stk-card { display:flex; align-items:center; gap:14px; width:100%; padding:14px 18px; background:none; border:none; cursor:pointer; text-align:left; -webkit-tap-highlight-color:transparent; transition:background 0.12s; }
+        .stk-card:hover  { background:rgba(26,20,16,0.025); }
+        .stk-card:active { background:rgba(26,20,16,0.06); }
+        .stk-thumb { width:48px; height:48px; border-radius:10px; background:#ede8df; overflow:hidden; flex-shrink:0; }
+        .stk-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
+        .stk-main  { flex:1; min-width:0; }
+        .stk-title { font-size:15px; font-weight:900; color:#1a1410; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .stk-meta  { font-size:12px; font-weight:600; color:rgba(26,20,16,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+        .stk-count { flex-shrink:0; text-align:right; line-height:1.1; }
+        .stk-count-n { font-size:24px; font-weight:950; letter-spacing:-1px; }
+        .stk-count-l { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-top:1px; }
+        .stk-chevron { flex-shrink:0; width:22px; text-align:center; font-size:20px; color:rgba(26,20,16,0.4); transition:transform 0.2s; }
+        .stk-chevron.open { transform:rotate(90deg); }
+        @media (max-width:640px) {
+          .stk-card { gap:12px; padding:12px 14px; }
+          .stk-count-n { font-size:20px; }
+          .stk-count-l:not(.low) { display:none; }
+        }
+      `}</style>
       <div style={{ marginBottom: 24 }}>
         <h1 style={{ margin: 0, fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>Stock</h1>
         <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginTop: 6, fontWeight: 600 }}>
@@ -159,25 +182,20 @@ export default function AdminStockPage() {
             const low    = p.total <= LOW_STOCK;
             return (
               <div key={p.id} id={`stock-prod-${p.id}`} style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden", scrollMarginTop: STICKY_H + 8 }}>
-                {/* En-tête cliquable */}
-                <button onClick={() => toggle(p.id)}
-                  style={{ width: "100%", display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>
-                  <div style={{ width: 48, height: 48, borderRadius: 10, background: "#ede8df", overflow: "hidden", flexShrink: 0 }}>
-                    {p.image_url ? <img src={p.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : null}
+                {/* En-tête cliquable — carte compacte en ligne (mobile + desktop via classes). */}
+                <button onClick={() => toggle(p.id)} className="stk-card">
+                  <div className="stk-thumb">
+                    {p.image_url ? <img src={p.image_url} alt="" /> : null}
                   </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 16, fontWeight: 900, color: "#1a1410" }}>{p.name}</div>
-                    <div style={{ fontSize: 12, color: "rgba(26,20,16,0.45)", fontWeight: 600 }}>
-                      {p.category_slug ?? "—"} · {p.motifs.length} motif(s) · {p.orders.length} commande(s)
-                    </div>
+                  <div className="stk-main">
+                    <div className="stk-title">{p.name}</div>
+                    <div className="stk-meta">{p.category_slug ?? "—"} · {p.motifs.length} motif(s) · {p.orders.length} commande(s)</div>
                   </div>
-                  <div style={{ textAlign: "right", flexShrink: 0 }}>
-                    <div style={{ fontSize: 24, fontWeight: 950, letterSpacing: -1, color: low ? "#b91c1c" : "#1a1410" }}>{p.total}</div>
-                    <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: low ? "#b91c1c" : "rgba(26,20,16,0.4)" }}>
-                      {low ? "⚠ stock bas" : "en stock"}
-                    </div>
+                  <div className="stk-count">
+                    <div className="stk-count-n" style={{ color: low ? "#b91c1c" : "#1a1410" }}>{p.total}</div>
+                    <div className={`stk-count-l${low ? " low" : ""}`} style={{ color: low ? "#b91c1c" : "rgba(26,20,16,0.4)" }}>{low ? "⚠ bas" : "en stock"}</div>
                   </div>
-                  <span style={{ fontSize: 18, color: "rgba(26,20,16,0.35)", flexShrink: 0 }}>{isOpen ? "▾" : "▸"}</span>
+                  <span className={`stk-chevron${isOpen ? " open" : ""}`} aria-hidden>▸</span>
                 </button>
 
                 {isOpen && (

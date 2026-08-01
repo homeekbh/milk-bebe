@@ -186,6 +186,8 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
           .milk-burger  { display: flex !important; }
         }
         .hdr-link:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
+        /* Entrée « collection » = libellé + chevron : le survol s'applique au conteneur entier. */
+        .hdr-collection:hover { background: rgba(128,128,128,0.1) !important; opacity: 1 !important; }
         .hdr-icon:hover { background: rgba(128,128,128,0.1) !important; }
         /* keyframes milk-cart-pulse / milk-cart-glow → définis dans globals.css */
       `}</style>
@@ -239,28 +241,24 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
                 (cf. useEffect). Pont invisible sous le déclencheur → pas de zone morte au survol. */}
             {(() => {
               const collectionActive = pathname.startsWith("/produits") || pathname.startsWith("/categorie");
-              const trigStyle = (radius: string, pad: string): React.CSSProperties => ({
-                color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: pad,
-                borderRadius: radius, opacity: collectionActive ? 1 : 0.85,
-                borderBottom: collectionActive ? `2px solid ${C.amber}` : "2px solid transparent",
-                transition: "all 0.15s", whiteSpace: "nowrap", background: "none", border: "none", cursor: "pointer",
-                display: "inline-flex", alignItems: "center",
-              });
               return (
                 <div ref={collectionRef} style={{ position: "relative" }}
                   onMouseEnter={() => setCollectionOpen(true)}
                   onMouseLeave={() => setCollectionOpen(false)}>
-                  <div style={{ display: "inline-flex", alignItems: "center" }}>
-                    <Link href="/produits" className="hdr-link"
-                      onFocus={() => setCollectionOpen(true)}
-                      style={{ ...trigStyle("10px 0 0 10px", "8px 6px 8px 16px"), borderRight: "none" }}>
+                  {/* Libellé + chevron = UNE entrée de nav → UN SEUL soulignement et UN SEUL survol,
+                      portés par CE conteneur (et non par chaque élément → fini le double trait décalé). */}
+                  <div className="hdr-collection" style={{ display: "inline-flex", alignItems: "center", borderRadius: 10,
+                    opacity: collectionActive ? 1 : 0.85, transition: "all 0.15s",
+                    borderBottom: collectionActive ? `2px solid ${C.amber}` : "2px solid transparent" }}>
+                    <Link href="/produits" onFocus={() => setCollectionOpen(true)}
+                      style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 4px 8px 16px", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center" }}>
                       {t("collection")}
                     </Link>
-                    <button type="button" className="hdr-link"
+                    <button type="button"
                       aria-haspopup="menu" aria-expanded={collectionOpen} aria-controls="milk-collection-menu"
                       aria-label={t("collection")}
                       onClick={() => setCollectionOpen(v => !v)}
-                      style={trigStyle("0 10px 10px 0", "8px 12px 8px 4px")}>
+                      style={{ background: "none", border: "none", cursor: "pointer", color: C.text, padding: "8px 12px 8px 4px", display: "inline-flex", alignItems: "center" }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden
                         style={{ transform: collectionOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
                         <path d="M6 9l6 6 6-6" stroke={C.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>

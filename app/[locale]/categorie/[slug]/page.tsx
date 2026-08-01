@@ -8,6 +8,7 @@ import { CategorySeoContent } from "@/components/seo/CategorySeoContent";
 import { GigoteusesFaq }       from "@/components/seo/GigoteusesFaq";
 import { Breadcrumb }          from "@/components/seo/Breadcrumb";
 import ViewItemListTracker     from "@/components/analytics/ViewItemListTracker";
+import CategoryNav             from "@/components/category/CategoryNav";
 
 // ISR : page catégorie SEO (landing organique). Cache CDN + régénération 2 min.
 export const revalidate = 120;
@@ -371,6 +372,15 @@ export default async function CategoriePage({ params }: Props) {
         title={catH1}
         subtitle={catSub}
         defaultCategory={slug}
+        categoryNav={
+          <CategoryNav
+            variant="row"
+            tone="light"
+            slugs={products.map(p => p.category_slug ?? "")}
+            currentSlug={slug}
+            showAll
+          />
+        }
       />
       <CategorySeoContent slug={slug} locale={locale} />
       {slug === "gigoteuses" && <GigoteusesFaq locale={locale} />}

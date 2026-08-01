@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useCart }     from "@/context/CartContext";
 import { useWishlist } from "@/context/WishlistContext";
 import { useAuth } from "@/context/AuthContext";
+import CategoryNav from "@/components/category/CategoryNav";
 
 /* ── Icônes SVG ──────────────────────────────────────────────────────────── */
 function CartIcon({ size = 22, color = "#fff" }: { size?: number; color?: string }) {
@@ -44,26 +45,9 @@ function HeartIcon({ size = 22, color = "#fff", filled = false }: { size?: numbe
   );
 }
 
-/* ── Icônes catégories ───────────────────────────────────────────────────── */
-function BodiesIcon({ c }: { c: string }) {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3c-1.5 0-2.5.8-2.5 2v1H7L5 8v4h2v8h10v-8h2V8l-2-2h-2.5V5c0-1.2-1-2-2.5-2Z" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>;
-}
-function PyjamaIcon({ c }: { c: string }) {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M8 3h8M8 3C6 3 5 4.5 5 6v16h14V6c0-1.5-1-3-3-3" stroke={c} strokeWidth="1.6" strokeLinecap="round"/><path d="M9 3v4l3 2 3-2V3" stroke={c} strokeWidth="1.6" strokeLinejoin="round"/></svg>;
-}
-function GigoteuseIcon({ c }: { c: string }) {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 3c-3.5 0-6 2-6 5v8c0 2.5 2.5 5 6 5s6-2.5 6-5V8c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M9 3.5c0-1 1.3-1.5 3-1.5s3 .5 3 1.5" stroke={c} strokeWidth="1.6" strokeLinecap="round"/></svg>;
-}
-function AccessoiresIcon({ c }: { c: string }) {
-  return <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M12 2C8.5 2 6 4 6 7v1H5a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V9a1 1 0 0 0-1-1h-1V7c0-3-2.5-5-6-5Z" stroke={c} strokeWidth="1.6"/><path d="M6 11v9a1 1 0 0 0 1 1h10a1 1 0 0 0 1-1v-9" stroke={c} strokeWidth="1.6"/></svg>;
-}
-
-const CATS = [
-  { label: "Bodies",      href: "/categorie/bodies",      Icon: BodiesIcon      },
-  { label: "Pyjamas",     href: "/categorie/pyjamas",     Icon: PyjamaIcon      },
-  { label: "Gigoteuses",  href: "/categorie/gigoteuses",  Icon: GigoteuseIcon   },
-  { label: "Accessoires", href: "/categorie/accessoires", Icon: AccessoiresIcon },
-];
+// Icônes catégories + tableau CATS (codé en dur, sans « Langes ») DÉPLACÉS dans le composant
+// partagé components/category/CategoryNav.tsx (Lot 4). Le Header reçoit désormais la liste des
+// catégories (dérivée des produits publiés) via la prop `categorySlugs` et délègue le rendu.
 
 /* ── Détection thème ─────────────────────────────────────────────────────── */
 function findTheme(headerEl: HTMLElement | null): "dark" | "light" {
@@ -84,7 +68,7 @@ function findTheme(headerEl: HTMLElement | null): "dark" | "light" {
   } catch { return "dark"; }
 }
 
-export default function Header() {
+export default function Header({ categorySlugs = [] }: { categorySlugs?: string[] }) {
   const pathname          = usePathname();
   const router            = useRouter();
   const { items }         = useCart();
@@ -96,6 +80,10 @@ export default function Header() {
   const [scrolled,   setScrolled]   = useState(false);
   const [theme,      setTheme]      = useState<"dark"|"light">("dark");
   const [mobileOpen, setMobileOpen] = useState(false);
+  // Menu déroulant « Notre collection » (desktop, Lot 4). Ouverture survol + clic ; fermeture
+  // clic extérieur + Échap (voir useEffect). collectionRef borne la zone « intérieur ».
+  const [collectionOpen, setCollectionOpen] = useState(false);
+  const collectionRef = useRef<HTMLDivElement | null>(null);
 
   const userTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -120,7 +108,17 @@ export default function Header() {
   const cartPulse = totalItems > 0 ? "milk-cart-pulse 1.8s ease-in-out infinite" : undefined;
   const cartGlow  = totalItems > 0 ? "milk-cart-glow 1.8s ease-in-out infinite"  : undefined;
 
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
+  useEffect(() => { setMobileOpen(false); setCollectionOpen(false); }, [pathname]);
+
+  // Menu « Notre collection » : fermeture au clic hors de la zone et à la touche Échap (a11y).
+  useEffect(() => {
+    if (!collectionOpen) return;
+    const onDown = (e: MouseEvent) => { if (collectionRef.current && !collectionRef.current.contains(e.target as Node)) setCollectionOpen(false); };
+    const onKey  = (e: KeyboardEvent) => { if (e.key === "Escape") setCollectionOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => { document.removeEventListener("mousedown", onDown); document.removeEventListener("keydown", onKey); };
+  }, [collectionOpen]);
 
   useEffect(() => {
     const compute = () => {
@@ -149,6 +147,12 @@ export default function Header() {
   // Header opaque dès le mount sur TOUTES les pages sauf la homepage (qui reste
   // transparente sur son hero, puis opaque au scroll).
   const opaque = scrolled || pathname !== "/";
+
+  // Catégorie active pour surligner dans le menu « collection » : slug si /categorie/[slug],
+  // "" (→ « Tous les produits ») si /produits, sinon undefined (rien de surligné).
+  const collectionCurrentSlug = pathname.startsWith("/categorie/")
+    ? (pathname.split("/")[2] || undefined)
+    : pathname === "/produits" ? "" : undefined;
 
   const C = useMemo(() => {
     const dark = theme === "dark";
@@ -227,10 +231,58 @@ export default function Header() {
 
           {/* Nav desktop */}
           <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
+            {/* « Notre collection » (Lot 4) : le libellé mène toujours à /produits ; le chevron
+                ouvre/ferme le menu des catégories. Survol OU clic ouvre ; clic extérieur + Échap ferme
+                (cf. useEffect). Pont invisible sous le déclencheur → pas de zone morte au survol. */}
+            {(() => {
+              const collectionActive = pathname.startsWith("/produits") || pathname.startsWith("/categorie");
+              const trigStyle = (radius: string, pad: string): React.CSSProperties => ({
+                color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: pad,
+                borderRadius: radius, opacity: collectionActive ? 1 : 0.85,
+                borderBottom: collectionActive ? `2px solid ${C.amber}` : "2px solid transparent",
+                transition: "all 0.15s", whiteSpace: "nowrap", background: "none", border: "none", cursor: "pointer",
+                display: "inline-flex", alignItems: "center",
+              });
+              return (
+                <div ref={collectionRef} style={{ position: "relative" }}
+                  onMouseEnter={() => setCollectionOpen(true)}
+                  onMouseLeave={() => setCollectionOpen(false)}>
+                  <div style={{ display: "inline-flex", alignItems: "center" }}>
+                    <Link href="/produits" className="hdr-link"
+                      onFocus={() => setCollectionOpen(true)}
+                      style={{ ...trigStyle("10px 0 0 10px", "8px 6px 8px 16px"), borderRight: "none" }}>
+                      {t("collection")}
+                    </Link>
+                    <button type="button" className="hdr-link"
+                      aria-haspopup="menu" aria-expanded={collectionOpen} aria-controls="milk-collection-menu"
+                      aria-label={t("collection")}
+                      onClick={() => setCollectionOpen(v => !v)}
+                      style={trigStyle("0 10px 10px 0", "8px 12px 8px 4px")}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" aria-hidden
+                        style={{ transform: collectionOpen ? "rotate(180deg)" : "none", transition: "transform 0.2s" }}>
+                        <path d="M6 9l6 6 6-6" stroke={C.text} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                      </svg>
+                    </button>
+                  </div>
+                  {collectionOpen && (
+                    <>
+                      {/* Pont invisible comblant l'espace déclencheur↔panneau (anti zone-morte au survol). */}
+                      <div aria-hidden style={{ position: "absolute", top: "100%", left: 0, right: 0, height: 8 }} />
+                      <div id="milk-collection-menu" role="menu"
+                        style={{ position: "absolute", top: "calc(100% + 8px)", left: 0, minWidth: 240,
+                          background: C.dropBg, border: C.dropBdr, borderRadius: 14,
+                          boxShadow: "0 16px 40px rgba(0,0,0,0.35)", padding: 8, zIndex: 10000 }}>
+                        <CategoryNav variant="list" tone={theme} slugs={categorySlugs}
+                          currentSlug={collectionCurrentSlug} showAll onNavigate={() => setCollectionOpen(false)} />
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
             {[
-              { label: t("collection"), href: "/produits",         active: pathname.startsWith("/produits") || pathname.startsWith("/categorie") },
-              { label: t("about"),      href: "/qui-sommes-nous",  active: pathname === "/qui-sommes-nous" },
-              { label: t("bamboo"),     href: "/pourquoi-bambou",  active: pathname === "/pourquoi-bambou" },
+              { label: t("about"),  href: "/qui-sommes-nous", active: pathname === "/qui-sommes-nous" },
+              { label: t("bamboo"), href: "/pourquoi-bambou", active: pathname === "/pourquoi-bambou" },
             ].map(l => (
               <Link key={l.href} href={l.href} className="hdr-link"
                 style={{ color: C.text, textDecoration: "none", fontWeight: 700, fontSize: 15, padding: "8px 16px", borderRadius: 10, opacity: l.active ? 1 : 0.85, borderBottom: l.active ? `2px solid ${C.amber}` : "2px solid transparent", transition: "all 0.15s", display: "inline-block", whiteSpace: "nowrap" }}>
@@ -344,13 +396,8 @@ export default function Header() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 6h18M3 12h18M3 18h18" stroke="#c49a4a" strokeWidth="2" strokeLinecap="round"/></svg>
               {t("all_products")}
             </Link>
-            {CATS.map(cat => (
-              <Link key={cat.href} href={cat.href} onClick={() => setMobileOpen(false)}
-                style={{ padding: "14px 18px", borderRadius: 14, background: "rgba(242,237,230,0.05)", textDecoration: "none", fontSize: 17, fontWeight: 800, color: "#f2ede6", display: "flex", alignItems: "center", gap: 12 }}>
-                <cat.Icon c="rgba(242,237,230,0.6)" />
-                {cat.label}
-              </Link>
-            ))}
+            <CategoryNav variant="list" tone="dark" withIcons slugs={categorySlugs}
+              currentSlug={collectionCurrentSlug} onNavigate={() => setMobileOpen(false)} />
             <div style={{ height: 1, background: "rgba(242,237,230,0.08)", margin: "8px 0" }} />
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", marginBottom: 4 }}>{t("brand_section")}</div>
             {[

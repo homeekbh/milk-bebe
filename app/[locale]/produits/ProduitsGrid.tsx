@@ -12,6 +12,7 @@ import PackCard, { type Pack } from "@/components/packs/PackCard";
 import { isPromoActive } from "@/lib/promo";
 import ProductBadge from "@/components/product/ProductBadge";
 import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
+import { CATEGORY_ORDER } from "@/lib/categories-nav";
 
 const PROMO_STYLES = `
   @keyframes milk-promo-shake {
@@ -114,17 +115,14 @@ function ProductCard({ p }: { p: Product }) {
   );
 }
 
-// Ordre d'affichage préférentiel pour les catégories connues
-const CAT_ORDER: Record<string, number> = {
-  bodies: 1, pyjamas: 2, gigoteuses: 3, accessoires: 4, langes: 5,
-};
+// Ordre d'affichage : CATEGORY_ORDER partagé (lib/categories-nav) — source UNIQUE de l'ordre (Lot 4).
 function buildCategoriesFromProducts(products: Product[]): { slug: string; label: string }[] {
   const seen = new Set<string>();
   const cats: { slug: string; label: string }[] = [{ slug: "", label: "Tout" }];
   products
     .filter(p => p.published !== false && p.category_slug)
     .map(p => p.category_slug!)
-    .sort((a, b) => (CAT_ORDER[a] ?? 99) - (CAT_ORDER[b] ?? 99))
+    .sort((a, b) => (CATEGORY_ORDER[a] ?? 99) - (CATEGORY_ORDER[b] ?? 99))
     .forEach(slug => {
       if (!seen.has(slug)) {
         seen.add(slug);
@@ -142,8 +140,12 @@ const SORTS = [
   { value: "promo",      key: "sort_promo"      },
 ];
 
-export default function ProduitsGrid({ products, title, subtitle, defaultCategory }: {
+export default function ProduitsGrid({ products, title, subtitle, defaultCategory, categoryNav }: {
   products: Product[]; title: string; subtitle?: string; defaultCategory?: string;
+  // Lot 4 : sur la page catégorie, on injecte ici la barre de navigation entre univers (CategoryNav),
+  // rendue EN TÊTE (au-dessus du hero). Sa présence masque les pastilles-filtre de catégorie (doublon) ;
+  // les outils (recherche, tri, Packs) restent.
+  categoryNav?: React.ReactNode;
 }) {
   const t = useTranslations("catalog");
   const locale = useLocale();
@@ -195,6 +197,18 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     setShuffleRank(rank);
   }, [products]);
 
+  // Phase C (Lot 4) — à l'arrivée sur /produits, lire ?categorie= et pré-sélectionner le filtre.
+  // Client-only (window.location) → pas de useSearchParams, donc pas de Suspense ni de rendu
+  // dynamique forcé (même parti pris que profil/page). Slug inconnu → ignoré. Skippé sur /categorie.
+  useEffect(() => {
+    if (defaultCategory) return;
+    try {
+      const c = new URLSearchParams(window.location.search).get("categorie");
+      if (c && products.some(p => p.category_slug === c)) { setActiveCategory(c); setPage(1); }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const filtered = useMemo(() => {
     let list = products.filter(p => p.published !== false);
     if (activeCategory) list = list.filter(p => p.category_slug === activeCategory);
@@ -228,6 +242,15 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
     setShowPacks(false);
     setActiveCategory(slug);
     setPage(1);
+    // Phase C (Lot 4) — sur /produits (jamais /categorie), refléter la catégorie dans l'URL
+    // (?categorie=slug) : lien partageable, bouton Retour fonctionnel, sans re-render serveur.
+    // scroll:false → la page ne saute pas. On préserve les autres query params éventuels.
+    if (!defaultCategory && typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      if (slug) params.set("categorie", slug); else params.delete("categorie");
+      const qs = params.toString();
+      router.replace(`${window.location.pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    }
   }
   function changeSort(v: string)      { setSortValue(v);          setPage(1); }
   function changeSearch(v: string)    { setSearch(v);             setPage(1); }
@@ -282,6 +305,9 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
       {/* Zone contenu avec padding */}
       <div className="pg-content" style={{ paddingTop: 100, paddingBottom: 0, padding: "100px 4vw 0" }}>
 
+        {/* Lot 4 — barre de navigation entre univers (page catégorie), au-dessus du hero. */}
+        {categoryNav && <div style={{ marginBottom: 24 }}>{categoryNav}</div>}
+
         <Reveal>
           <div className="pg-head" style={{ marginBottom: 32 }}>
             <div className="pg-eyebrow" style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: C.amber, marginBottom: 10 }}>{t("eyebrow")}</div>
@@ -299,7 +325,7 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         {/* Filtres : catégories + loupe (wrap 2 lignes en mobile) ; outils recherche/tri repliés derrière la loupe */}
         <div className="pg-filters" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
           <div className="pg-cats" style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-            {buildCategoriesFromProducts(products).map(cat => {
+            {!categoryNav && buildCategoriesFromProducts(products).map(cat => {
               const active = !showPacks && activeCategory === cat.slug;
               return (
                 <button key={cat.slug} onClick={() => changeCat(cat.slug)}

@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { routing } from "@/i18n/routing";
 import { getAlternates } from "@/i18n/seo";
 import { listDeliverableCountries } from "@/lib/delivery-config";
+import { getNavCategorySlugs } from "@/lib/categories-nav-server";
 
 import Header        from "@/components/layout/Header";
 import Footer        from "@/components/layout/Footer";
@@ -276,6 +277,9 @@ export default async function LocaleLayout({
   if (!hasLocale(routing.locales, locale)) notFound();
   setRequestLocale(locale);
 
+  // Catégories de navigation (dérivées des produits publiés, cachées) → Header desktop + drawer (Lot 4).
+  const categorySlugs = await getNavCategorySlugs();
+
   return (
     <html lang={locale}>
       <head>
@@ -328,7 +332,7 @@ export default async function LocaleLayout({
                 <IntroProvider>
                   <IntroScreen />
                   <PopupBienvenue />
-                  <Header />
+                  <Header categorySlugs={categorySlugs} />
                   <main>{children}</main>
                   <Footer />
                   <ChatWidget />

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { marked } from "marked";
-import DOMPurify from "isomorphic-dompurify";
 
 // Helper inline — token Supabase depuis localStorage (même pattern que /admin/produits).
 function adminFetch(url: string, options: RequestInit = {}) {
@@ -232,7 +231,15 @@ export default function BlogEditor() {
             </div>
             <div style={{ display: "grid", gap: 6 }}>
               <label style={LS}>Aperçu</label>
-              <div className="blog-prose-admin" style={{ minHeight: 460, padding: "16px 20px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", background: "#fbfaf8", overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(previewHtml) }} />
+              {/* ⚠️ SANITISATION DE L'APERÇU RETIRÉE le 01/08/2026 — même cause que la page publique :
+                  isomorphic-dompurify charge jsdom, qui casse en serverless (ERR_REQUIRE_ESM sur
+                  html-encoding-sniffer). /admin/blog/[id] étant une route DYNAMIQUE, ce composant client
+                  est rendu au SSR à chaque requête → l'appel jsdom y plantait aussi (Erika ne pouvait
+                  plus rouvrir un article). CHOIX CONSCIENT : l'aperçu affiche la propre prose d'Erika
+                  dans l'admin protégé — la sanitiser contre elle-même ne protège personne ; marked.parse
+                  suffit. SI le contenu blog devient un jour éditable par un tiers ou importable depuis
+                  une source externe, sanitiser À L'ÉCRITURE — surtout PAS rebrancher jsdom au rendu. */}
+              <div className="blog-prose-admin" style={{ minHeight: 460, padding: "16px 20px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", background: "#fbfaf8", overflowY: "auto" }} dangerouslySetInnerHTML={{ __html: previewHtml }} />
             </div>
           </div>
           <style>{`

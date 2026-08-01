@@ -6,12 +6,6 @@ const nextConfig: NextConfig = {
   turbopack: {},
   compress:          true,
   poweredByHeader:   false,
-  // isomorphic-dompurify charge jsdom côté serveur (sanitizer de /[locale]/blog/[slug]).
-  // jsdom a des require() dynamiques que le tracing serverless de Vercel n'inclut PAS dans le
-  // bundle de la fonction → échec de résolution au runtime → 500 sans log applicatif, alors même
-  // que le build passe et que le rendu local (next start) est en 200. On externalise les deux :
-  // Vercel les charge depuis node_modules au runtime au lieu de les bundler. (Bug blog, lot 3b.)
-  serverExternalPackages: ["isomorphic-dompurify", "jsdom"],
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [

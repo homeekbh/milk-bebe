@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { marked } from "marked";
-import DOMPurify from "isomorphic-dompurify";
 import Image from "next/image";
 import { getTranslations, setRequestLocale } from "next-intl/server";
 import { Link } from "@/i18n/navigation";
@@ -104,9 +103,7 @@ export async function generateMetadata({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }): Promise<Metadata> {
-  // ⚠️ DIAGNOSTIC TEMPORAIRE (lot 3b — bug blog : 500 prod sans log). À RETIRER une fois la cause connue.
   const { locale, slug } = await params;
-  try {
   const post = await getPost(slug);
   if (!post) return { title: "Journal" };
   return {
@@ -115,11 +112,6 @@ export async function generateMetadata({
     alternates: getAlternates(locale, `/blog/${slug}`),
     openGraph: post.image_url ? { images: [{ url: post.image_url }], type: "article" } : undefined,
   };
-  } catch (err: any) {
-    console.error(`[blog/[slug]] generateMetadata FAILURE slug=${slug} name=${err?.name} msg=${err?.message}`);
-    console.error(err?.stack ?? err);
-    throw err;
-  }
 }
 
 export default async function BlogArticlePage({
@@ -127,11 +119,7 @@ export default async function BlogArticlePage({
 }: {
   params: Promise<{ locale: string; slug: string }>;
 }) {
-  // ⚠️ DIAGNOSTIC TEMPORAIRE (lot 3b — bug blog : 500 prod sans aucun log applicatif).
-  // Enrobe TOUT le rendu : logue name/message/stack en cas d'échec, puis relance (comportement inchangé).
-  // À RETIRER dès que la cause est identifiée dans les logs Vercel.
   const { locale, slug } = await params;
-  try {
   setRequestLocale(locale);
   const t = await getTranslations({ locale, namespace: "blog" });
 
@@ -142,10 +130,20 @@ export default async function BlogArticlePage({
     getRecent(slug),
     marked.parse(post.content || "", { breaks: true, gfm: true }),
   ]);
-  // Défense en profondeur : même si le contenu vient de l'admin, on sanitise le
-  // HTML de marked avant dangerouslySetInnerHTML (gfm/breaks conservés côté
-  // marked). isomorphic-dompurify tourne côté serveur (jsdom intégré) → SSR OK.
-  const html = DOMPurify.sanitize(rawHtml as string);
+  // ⚠️ SANITISATION AU RENDU RETIRÉE le 01/08/2026 — jsdom casse en serverless.
+  // isomorphic-dompurify charge jsdom, dont une dépendance (html-encoding-sniffer) fait un require()
+  // CommonJS sur un module devenu ESM pur (@exodus/bytes) → ERR_REQUIRE_ESM à CHAQUE rendu en
+  // production (le build passe et le rendu local est en 200 car le Node local diffère). Externaliser
+  // le paquet ne répare PAS un require() incompatible : la seule issue est de ne plus exécuter jsdom
+  // au rendu. On rend donc directement la sortie de marked.parse().
+  //
+  // CHOIX CONSCIENT DE SÉCURITÉ : le contenu blog provient EXCLUSIVEMENT de l'admin protégé, où seule
+  // Erika écrit. On fait confiance à cette source ; marked.parse suffit à produire le HTML.
+  //
+  // ⚠️ SI un jour le contenu blog devient éditable par un tiers, OU importable depuis une source
+  // externe (flux, API publique, migration), il FAUDRA sanitiser À L'ÉCRITURE (avant insertion en
+  // base) — surtout PAS re-brancher un sanitizer jsdom ici au rendu.
+  const html = rawHtml as string;
 
   const canonical = `${BASE}/${locale}/blog/${post.slug}`;
   const blogPostingLd = {
@@ -296,11 +294,4 @@ export default async function BlogArticlePage({
       <BeholdWidget />
     </div>
   );
-  } catch (err: any) {
-    // notFound()/redirect() lèvent un flux de contrôle Next (digest "NEXT_…") → relancer sans le logguer.
-    if (err?.digest && String(err.digest).startsWith("NEXT_")) throw err;
-    console.error(`[blog/[slug]] RENDER FAILURE slug=${slug} locale=${locale} name=${err?.name} msg=${err?.message}`);
-    console.error(err?.stack ?? err);
-    throw err;
-  }
 }

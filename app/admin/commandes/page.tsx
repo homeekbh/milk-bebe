@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useIsNarrow } from "@/lib/useIsNarrow";
 import { getTrackingInfo, carrierLabel } from "@/lib/sendcloud-utils";
+import { countsInAccounting } from "@/lib/orders";
 async function logActivity(type: string, message: string, opts?: { entity_name?: string; entity_id?: string }) {
   try {
     let token = "";
@@ -926,8 +927,13 @@ export default function AdminCommandes() {
   });
 
   const isCancelled = (o: Order) => o.shipping_status === "annulee" || (o as any).status === "annulee" || (o as any).status === "remboursee";
-  const validOrders = orders.filter(o => !isCancelled(o));
-  const totalCA     = validOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);  // exclut annulées
+  // « CA valide » / « Panier moyen » = CA COMPTABLE ENCAISSÉ (countsInAccounting : classification
+  // 'cliente' + 'vente_directe', hors tests / annulées / remboursées) — pas une statistique web.
+  // commandes-data fait select("*") → is_internal_test ET classification sont bien SÉLECTIONNÉS
+  // (sinon le filtre serait un no-op silencieux, cf. lib/orders). `isCancelled` reste utilisé pour
+  // les compteurs de statut ci-dessous, qui sont opérationnels et non du CA.
+  const validOrders = orders.filter(o => countsInAccounting(o));
+  const totalCA     = validOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
   const pending     = orders.filter(o => o.shipping_status === "en_preparation" && !isCancelled(o)).length;
   const labelCreated = orders.filter(o => o.shipping_status === "label_created" && !isCancelled(o)).length;
   const shipped     = orders.filter(o => o.shipping_status === "expediee").length;

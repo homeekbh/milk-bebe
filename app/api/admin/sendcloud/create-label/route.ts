@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import { routingCountry } from "@/lib/delivery-config";
 import type { NextRequest } from "next/server";
 
@@ -775,6 +776,14 @@ export async function POST(req: NextRequest) {
       // Pas de parcelId (cas dégénéré) → simple warning, aucun risque de double colis.
       console.warn("[sendcloud] Colonnes optionnelles non disponibles:", updateErr2.message);
     }
+
+    // Journal d'activité — création d'étiquette (action commande, hors stock/paiement).
+    // logActivity avale ses propres erreurs : ne peut ni throw ni altérer le flux d'expédition.
+    await logActivity(
+      "etiquette_creee",
+      `Étiquette créée — commande #${String(order.id).slice(0, 8).toUpperCase()} (${isInternational ? "FedEx international" : effectiveCarrier}${trackingNumber ? `, suivi ${trackingNumber}` : ", suivi en attente"})`,
+      { entity_id: String(order.id), meta: { carrier: isInternational ? "fedex" : effectiveCarrier, tracking_number: trackingNumber || null, parcel_id: parcelId, shipping_option_code: shippingOptionCode, forced_recreate: order.sendcloud_parcel_id ? true : undefined } },
+    );
 
     // ── 8. Réponse ──────────────────────────────────────────────────────────
     const shippingOption = `${isInternational ? "fedex" : effectiveCarrier}/${isInternational ? "international" : deliveryType} (${shippingOptionCode})`;

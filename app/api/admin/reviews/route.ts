@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -28,6 +29,15 @@ export async function PUT(req: NextRequest) {
   const { data, error } = await supabaseServer
     .from("reviews").update(update).eq("id", id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  // Journal : la modération d'un avis change ce que voient les clientes (publication / masquage).
+  const parts: string[] = [];
+  if (approved !== undefined) parts.push(approved ? "approuvé (publié)" : "rejeté (masqué)");
+  if (reply    !== undefined) parts.push(reply && String(reply).trim() ? "réponse ajoutée" : "réponse retirée");
+  await logActivity("avis_modere", `Avis ${parts.join(", ") || "modifié"}`, {
+    entity_id: String(id),
+    meta: { approved, has_reply: !!(reply && String(reply).trim()) },
+  });
   return Response.json(data);
 }
 
@@ -40,5 +50,7 @@ export async function DELETE(req: NextRequest) {
 
   const { error } = await supabaseServer.from("reviews").delete().eq("id", id);
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  await logActivity("avis_supprime", "Avis supprimé", { entity_id: String(id) });
   return Response.json({ ok: true });
 }

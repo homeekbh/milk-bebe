@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -29,6 +30,10 @@ export async function POST(req: NextRequest) {
   }]).select().single();
 
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  await logActivity("popup_cree", `Popup créée : ${data.title}`, {
+    entity_id: data.id, entity_name: data.title,
+  });
   return Response.json(data);
 }
 
@@ -42,6 +47,10 @@ export async function PUT(req: NextRequest) {
   const { data, error } = await supabaseServer
     .from("popups").update(rest).eq("id", id).select().single();
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  await logActivity("popup_modifiee", `Popup modifiée : ${data?.title ?? id}`, {
+    entity_id: String(id), entity_name: data?.title ?? null,
+  });
   return Response.json({ ok: true, data });
 }
 
@@ -51,7 +60,12 @@ export async function DELETE(req: NextRequest) {
 
   const { id } = await req.json();
   if (!id) return Response.json({ error: "id manquant" }, { status: 400 });
+  const { data: existing } = await supabaseServer.from("popups").select("title").eq("id", id).single();
   const { error } = await supabaseServer.from("popups").delete().eq("id", id);
   if (error) return Response.json({ error: error.message }, { status: 400 });
+
+  await logActivity("popup_supprimee", `Popup supprimée : ${existing?.title ?? id}`, {
+    entity_id: String(id), entity_name: existing?.title ?? null,
+  });
   return Response.json({ ok: true });
 }

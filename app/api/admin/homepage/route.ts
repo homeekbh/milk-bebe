@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
+import { logActivity }    from "@/lib/server/audit";
 import type { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -62,6 +63,11 @@ export async function POST(req: NextRequest) {
     if (cErr) console.warn("[admin/homepage] coffret_active non persisté (colonne manquante ?):", cErr.message);
     else coffretPersisted = true;
   }
+
+  await logActivity("homepage_config", `Accueil : « ${section_title} » — ${product_ids.length} produit${product_ids.length > 1 ? "s" : ""} mis en avant`, {
+    entity_id: "main",
+    meta: { section_title, product_count: product_ids.length, coffret_active: coffretPersisted ? body.coffret_active : undefined },
+  });
 
   return Response.json({ ...data, coffret_active: coffretPersisted ? body.coffret_active : (data as any).coffret_active ?? false });
 }

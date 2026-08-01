@@ -47,6 +47,30 @@ async function fetchOrderBySession(sessionId: string): Promise<any | null> {
   }
 }
 
+// Déduplication d'achat PERSISTANTE. sessionStorage mourait à la fermeture de l'onglet :
+// rouvrir le lien de confirmation (email, nouvel onglet) re-trackait l'achat → conversions
+// GA4/Google Ads gonflées. On passe en localStorage, avec une liste BORNÉE de session_id
+// (FIFO, cap 20) : elle ne grossit jamais, et couvre la réouverture d'anciennes commandes.
+const PURCHASE_TRACK_KEY = "milk_purchase_tracked";
+const PURCHASE_TRACK_CAP = 20;
+function purchaseAlreadyTracked(sessionId: string): boolean {
+  if (!sessionId) return false;
+  try {
+    const a = JSON.parse(localStorage.getItem(PURCHASE_TRACK_KEY) ?? "[]");
+    return Array.isArray(a) && a.includes(sessionId);
+  } catch { return false; }
+}
+function markPurchaseTracked(sessionId: string): void {
+  if (!sessionId) return;
+  try {
+    const raw = JSON.parse(localStorage.getItem(PURCHASE_TRACK_KEY) ?? "[]");
+    const a = (Array.isArray(raw) ? raw : []).filter((x: any) => x !== sessionId);
+    a.push(sessionId);
+    while (a.length > PURCHASE_TRACK_CAP) a.shift(); // ne conserve que les 20 derniers
+    localStorage.setItem(PURCHASE_TRACK_KEY, JSON.stringify(a));
+  } catch {}
+}
+
 export default function SuccessPage() {
   const t = useTranslations("product");
   const { items, clearCart } = useCart();
@@ -101,12 +125,14 @@ export default function SuccessPage() {
       }));
       const snapValue = items.reduce((a, it) => a + (it.price ?? 0) * (it.quantity ?? 1), 0);
 
-      // Dédup : ne pas re-tracker un achat déjà tracké (refresh de /success).
-      let alreadyTracked = false;
-      try { alreadyTracked = !!sessionId && sessionStorage.getItem("milk_purchase_tracked") === sessionId; } catch {}
+      // Dédup PERSISTANTE : un achat déjà tracké (refresh, nouvel onglet, ou
+      // réouverture ultérieure du lien de confirmation) n'est jamais re-émis.
+      const alreadyTracked = purchaseAlreadyTracked(sessionId);
 
-      if (!alreadyTracked && (snapItems.length > 0 || sessionId)) {
-        try { if (sessionId) sessionStorage.setItem("milk_purchase_tracked", sessionId); } catch {}
+      // On n'émet AUCUN achat sans session_id : un vrai achat en a toujours un, et
+      // sans lui aucune déduplication n'est possible (ni GA4 ni Meta) → 100 % fantôme.
+      if (!alreadyTracked && sessionId) {
+        markPurchaseTracked(sessionId);
 
         void (async () => {
           let value: number = snapValue;

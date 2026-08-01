@@ -9,26 +9,49 @@ import SearchGlobal from "@/components/admin/SearchGlobal";
 import { MilkLogo } from "@/components/shared/MilkLogo";
 import OrderAlerts from "@/components/admin/OrderAlerts";
 
-const NAV: Array<{ href: string; label: string; icon: string; badgeKey?: "reviewsPending" | "commandesPending" }> = [
-  { href: "/admin",              label: "Accueil"  ,    icon: "▦"  },
-  { href: "/admin/homepage",     label: "Homepage",     icon: "🏠" },
-  { href: "/admin/produits",     label: "Produits",     icon: "🏷" },
-  { href: "/admin/packs",        label: "Packs",        icon: "🎁" },
-  { href: "/admin/blog",         label: "Journal",      icon: "✍️" },
-  { href: "/admin/categories",   label: "Catégories",   icon: "📂" },
-  { href: "/admin/commandes",    label: "Commandes",    icon: "📦", badgeKey: "commandesPending" },
+// PURE RÉORGANISATION (lot 3a) : même ensemble de routes, regroupées en sections.
+//   - `section` : titre de groupe rendu AU-DESSUS de cette entrée (1re de son groupe).
+//   - `soon`    : entrée visible mais NON cliquable (route pas encore créée).
+type NavItem = {
+  href: string; label: string; icon: string;
+  badgeKey?: "reviewsPending" | "commandesPending";
+  section?: string;
+  soon?: boolean;
+};
+const NAV: NavItem[] = [
+  { href: "/admin",              label: "Accueil",      icon: "▦"  },
+
+  { href: "/admin/commandes",    label: "Commandes",    icon: "📦", badgeKey: "commandesPending", section: "Ventes" },
+  { href: "/admin/stock",        label: "Stock",        icon: "📦", soon: true },
   { href: "/admin/clients",      label: "Clients",      icon: "👥" },
   { href: "/admin/comptes",      label: "Comptes",      icon: "🆕" },
-  { href: "/admin/codes-promos", label: "Codes promos", icon: "🎟" },
+
+  { href: "/admin/produits",     label: "Produits",     icon: "🏷", section: "Catalogue" },
+  { href: "/admin/packs",        label: "Packs",        icon: "🎁" },
+  { href: "/admin/categories",   label: "Catégories",   icon: "📂" },
+
+  { href: "/admin/codes-promos", label: "Codes promos", icon: "🎟", section: "Marketing" },
   { href: "/admin/parrainage",   label: "Parrainage",   icon: "🎁" },
-  { href: "/admin/avis",         label: "Avis",         icon: "★",  badgeKey: "reviewsPending" },
-  { href: "/admin/popups",       label: "Pop-ups",      icon: "💬" },
   { href: "/admin/newsletter",   label: "Newsletter",   icon: "📧" },
+  { href: "/admin/popups",       label: "Pop-ups",      icon: "💬" },
+
+  { href: "/admin/homepage",     label: "Homepage",     icon: "🏠", section: "Contenu" },
+  { href: "/admin/blog",         label: "Journal",      icon: "✍️" },
+  { href: "/admin/avis",         label: "Avis",         icon: "★",  badgeKey: "reviewsPending" },
+
+  { href: "/admin/analytics",    label: "Statistiques", icon: "📈", section: "Pilotage" },
   { href: "/admin/comptabilite", label: "Comptabilité", icon: "📊" },
   { href: "/admin/factures",     label: "Factures",     icon: "🧾" },
-  { href: "/admin/analytics",    label: "Statistiques", icon: "📈" },
   { href: "/admin/logs",         label: "Activité",     icon: "📋" },
 ];
+
+// Titre de section : discret, filet 1px au-dessus, non cliquable.
+const SECTION_TITLE_STYLE: React.CSSProperties = {
+  marginTop: 12, paddingTop: 12, paddingLeft: 12, paddingRight: 12, marginBottom: 4,
+  borderTop: "1px solid rgba(242,237,230,0.08)",
+  fontSize: 10, fontWeight: 800, letterSpacing: 1.5, textTransform: "uppercase",
+  color: "rgba(242,237,230,0.35)",
+};
 
 // ── Layout Admin ──────────────────────────────────────────────────────────────
 // TODO (C2 — backlog post-launch) : migrer l'auth admin vers @supabase/ssr
@@ -170,17 +193,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           {NAV.map(item => {
             const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
             const count = item.badgeKey ? badges[item.badgeKey] : 0;
+            const title = item.section ? <div style={SECTION_TITLE_STYLE}>{item.section}</div> : null;
+            // Stock (soon) : visible mais NON cliquable — aucune route, aucun 404 possible.
+            if (item.soon) return (
+              <React.Fragment key={item.href}>
+                {title}
+                <div aria-disabled="true" title="Bientôt disponible"
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, color: "rgba(242,237,230,0.3)", fontWeight: 700, fontSize: 14, cursor: "default" }}>
+                  <span style={{ fontSize: 15 }}>{item.icon}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", border: "1px solid rgba(242,237,230,0.12)", borderRadius: 6, padding: "2px 6px" }}>Bientôt</span>
+                </div>
+              </React.Fragment>
+            );
             return (
-              <Link key={item.href} href={item.href}
-                style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14, transition: "all 0.15s" }}>
-                <span style={{ fontSize: 15 }}>{item.icon}</span>
-                <span style={{ flex: 1 }}>{item.label}</span>
-                {count > 0 && (
-                  <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, display: "grid", placeItems: "center" }}>
-                    {count > 99 ? "99+" : count}
-                  </span>
-                )}
-              </Link>
+              <React.Fragment key={item.href}>
+                {title}
+                <Link href={item.href}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14, transition: "all 0.15s" }}>
+                  <span style={{ fontSize: 15 }}>{item.icon}</span>
+                  <span style={{ flex: 1 }}>{item.label}</span>
+                  {count > 0 && (
+                    <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, display: "grid", placeItems: "center" }}>
+                      {count > 99 ? "99+" : count}
+                    </span>
+                  )}
+                </Link>
+              </React.Fragment>
             );
           })}
         </nav>
@@ -207,17 +246,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {NAV.map(item => {
               const active = item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href);
               const count = item.badgeKey ? badges[item.badgeKey] : 0;
+              const title = item.section ? <div style={SECTION_TITLE_STYLE}>{item.section}</div> : null;
+              // Stock (soon) : visible mais NON cliquable — aucune route, aucun 404 possible.
+              if (item.soon) return (
+                <React.Fragment key={item.href}>
+                  {title}
+                  <div aria-disabled="true" title="Bientôt disponible"
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, color: "rgba(242,237,230,0.3)", fontWeight: 700, fontSize: 14, cursor: "default" }}>
+                    <span>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    <span style={{ fontSize: 9, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(242,237,230,0.3)", border: "1px solid rgba(242,237,230,0.12)", borderRadius: 6, padding: "2px 6px" }}>Bientôt</span>
+                  </div>
+                </React.Fragment>
+              );
               return (
-                <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14 }}>
-                  <span>{item.icon}</span>
-                  <span style={{ flex: 1 }}>{item.label}</span>
-                  {count > 0 && (
-                    <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, display: "grid", placeItems: "center" }}>
-                      {count > 99 ? "99+" : count}
-                    </span>
-                  )}
-                </Link>
+                <React.Fragment key={item.href}>
+                  {title}
+                  <Link href={item.href} onClick={() => setOpen(false)}
+                    style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 12px", borderRadius: 10, marginBottom: 2, textDecoration: "none", background: active ? "rgba(196,154,74,0.15)" : "transparent", color: active ? "#c49a4a" : "rgba(242,237,230,0.55)", fontWeight: 700, fontSize: 14 }}>
+                    <span>{item.icon}</span>
+                    <span style={{ flex: 1 }}>{item.label}</span>
+                    {count > 0 && (
+                      <span style={{ minWidth: 20, height: 20, padding: "0 6px", borderRadius: 99, background: "#dc2626", color: "#fff", fontSize: 11, fontWeight: 900, display: "grid", placeItems: "center" }}>
+                        {count > 99 ? "99+" : count}
+                      </span>
+                    )}
+                  </Link>
+                </React.Fragment>
               );
             })}
             <button onClick={handleSignOut}

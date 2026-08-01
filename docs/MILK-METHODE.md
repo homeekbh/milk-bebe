@@ -296,6 +296,18 @@ portant une clé étrangère, **vérifier l'existence, pas le format**. (Coûté
 503 sur tout panier 100 % packs, plus tous les ajouts de packs perdus en
 analytics — commit `4a4f547`.)
 
+### `return null` pendant l'hydratation gèle la position de scroll
+
+Une page qui fait `return null` pendant l'hydratation conserve la position de
+scroll précédente : le navigateur n'a rien à scroller au moment de la navigation,
+puis le contenu apparaît en place. Le piège est aggravé quand le Provider qui porte
+`hydrated` persiste dans le layout — la page suivante ne remonte alors pas du tout,
+et le scroll par défaut de Next ne se déclenche jamais.
+
+Tout scroll-to-top doit se déclencher quand le contenu devient **PRÊT**, pas au
+montage. Et le hook doit être appelé **AVANT** le `return null` (règle des hooks
+React). Vu sur le tunnel `/checkout/*`, corrigé par `useScrollTopWhenReady`.
+
 ---
 
 ## Lire les données sans se tromper

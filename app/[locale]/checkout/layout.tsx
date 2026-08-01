@@ -1,12 +1,13 @@
 import { CheckoutProvider } from "@/components/checkout/CheckoutContext";
 
 // Layout du tunnel checkout (Lot 4a) : monte le CheckoutProvider (état partagé +
-// persistance sessionStorage) autour de toutes les pages /checkout/*.
+// persistance localStorage, enveloppe TTL 2h — cf. lib/checkout-storage) autour de
+// toutes les pages /checkout/*.
 //
 // ⚠️⚠️ NE PAS REMONTER LE CheckoutProvider AU LAYOUT RACINE ([locale]/layout.tsx)
 // NI AILLEURS QUI ENVELOPPERAIT /panier. Le PONT D'ÉTAT panier → tunnel en DÉPEND :
-//   1. /panier écrit les codes promo/parrain dans sessionStorage (clé
-//      milk_checkout_state) au clic « Valider » — cf. goToCheckout() dans
+//   1. /panier écrit les codes promo/parrain dans localStorage (clé milk_checkout_state,
+//      via mergeCheckoutState) au clic « Valider » — cf. goToCheckout() dans
 //      app/[locale]/panier/page.tsx ;
 //   2. le CheckoutProvider RÉ-HYDRATE ces codes en se (re)montant à l'entrée de
 //      /checkout — cf. l'useEffect([]) d'hydratation dans CheckoutContext.tsx.

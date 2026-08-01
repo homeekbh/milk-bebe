@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { Link, useRouter } from "@/i18n/navigation";
 import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import { combinePromos, type ValidatedPromo } from "@/lib/promo-combine";
+import { mergeCheckoutState } from "@/lib/checkout-storage";
 import { computeParrainage, type ParrainageSettings } from "@/lib/parrainage";
 import { trackBeginCheckout, metaInitiateCheckout } from "@/lib/analytics";
 
@@ -347,7 +348,7 @@ export default function CartPage() {
 
   // ── PONT D'ÉTAT panier → tunnel ────────────────────────────────────────────
   // « Valider » : écrit les codes promo (ValidatedPromo[]) + le code parrain saisis
-  // ici dans sessionStorage sous la clé milk_checkout_state — MÊME format que celui
+  // ici dans localStorage via mergeCheckoutState (cf. lib/checkout-storage) — MÊME état que celui
   // hydraté par le CheckoutContext. Merge NON destructif (préserve un état tunnel
   // déjà présent : email, téléphone, pays, livraison…). Les produits/packs, eux, sont
   // relus par le Context depuis milk_cart_v2 / milk_pack_cart. Puis on navigue vers
@@ -373,13 +374,8 @@ export default function CartPage() {
     );
     metaInitiateCheckout(cartValue, numItems);
 
-    // ── Pont d'état : codes → sessionStorage (cf. bloc au-dessus) ───────────────
-    try {
-      const KEY = "milk_checkout_state";
-      let existing: Record<string, unknown> = {};
-      try { existing = JSON.parse(sessionStorage.getItem(KEY) ?? "{}") || {}; } catch {}
-      sessionStorage.setItem(KEY, JSON.stringify({ ...existing, promoCodes, parrainData }));
-    } catch {}
+    // ── Pont d'état : codes → localStorage (merge non destructif, cf. bloc au-dessus) ──
+    mergeCheckoutState({ promoCodes, parrainData });
     router.push("/checkout/compte");
   }
 

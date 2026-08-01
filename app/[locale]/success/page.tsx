@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
 import GoogleCustomerReviews from "@/components/analytics/GoogleCustomerReviews";
 import { trackPurchase, metaPurchase, trackRemoveFromWishlist } from "@/lib/analytics";
+import { clearCheckoutState } from "@/lib/checkout-storage";
 
 const FALLBACK_CATEGORY = "pyjamas";
 
@@ -213,8 +214,12 @@ export default function SuccessPage() {
         }
       } catch {}
 
-      // ── 3. clearCart une seule fois ───────────────────────────────────────
+      // ── 3. clearCart + purge de l'état du tunnel, une seule fois ──────────
       clearCart();
+      // Purge email/tél/adresse/relais/progression après un achat réussi : sans ça, une
+      // prochaine commande ré-hydraterait les données de la précédente (bug actif
+      // aujourd'hui, qu'aggraverait la migration localStorage). cf. lib/checkout-storage.
+      clearCheckoutState();
       cleared.current = true;
 
       // ✅ Pour les users connectés : marquer le panier abandonné comme converti côté client

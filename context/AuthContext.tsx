@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase-client";
+import { clearCheckoutState } from "@/lib/checkout-storage";
 import type { User, Session } from "@supabase/supabase-js";
 
 interface AuthContextType {
@@ -62,6 +63,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function signOut() {
     await supabase.auth.signOut();
+    clearCheckoutState(); // ne pas laisser email/tél/adresse du tunnel derrière soi (lot 2b)
     setIsAdmin(false);
     setUser(null);
     setSession(null);

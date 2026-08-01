@@ -2,13 +2,15 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import { useCart } from "@/context/CartContext";
+import { readCheckoutState, writeCheckoutState } from "@/lib/checkout-storage";
 import type { ServicePoint } from "@/components/checkout/RelaySelector";
 import type { ValidatedPromo } from "@/lib/promo-combine";
 
 /**
  * État PARTAGÉ du nouveau tunnel checkout (panier → compte → livraison → paiement).
- * Construit À CÔTÉ du tunnel prod (/panier). Persisté en sessionStorage → un refresh
- * en plein tunnel ne perd rien. Le panier reste la source de vérité des articles
+ * Construit À CÔTÉ du tunnel prod (/panier). Persisté en localStorage (enveloppe
+ * horodatée, TTL 2h — cf. lib/checkout-storage) : survit au recyclage de WebView,
+ * purgé à l'achat et à la déconnexion. Le panier reste la source de vérité des articles
  * (produits milk_cart_v2 via useCart, packs milk_pack_cart) ; ce contexte ne tient
  * que les données du tunnel + un marqueur de progression pour les gardes de nav.
  *
@@ -58,8 +60,6 @@ export type CheckoutState = {
   shippingAddress: Record<string, unknown> | null;
   completedSteps:  number;                           // progression (gardes de nav)
 };
-
-const STORAGE_KEY = "milk_checkout_state";
 
 const DEFAULT_STATE: CheckoutState = {
   email:           "",
@@ -120,14 +120,10 @@ export function CheckoutProvider({ children }: { children: React.ReactNode }) {
   const [hydrated, setHydrated] = useState(false);
   const [packCount, setPackCount] = useState(0);
 
-  // Hydratation au montage : état sauvegardé (sessionStorage) prioritaire, complété
+  // Hydratation au montage : état sauvegardé (localStorage, TTL 2h) prioritaire, complété
   // par l'email déjà connu et le compteur de packs.
   useEffect(() => {
-    let restored: Partial<CheckoutState> = {};
-    try {
-      const raw = sessionStorage.getItem(STORAGE_KEY);
-      if (raw) restored = JSON.parse(raw);
-    } catch {}
+    const restored = readCheckoutState();            // localStorage (TTL 2h) + repli legacy
     const seed = readSeedEmail();
     setState({
       ...DEFAULT_STATE,
@@ -140,9 +136,10 @@ export function CheckoutProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   // Persistance (après hydratation, pour ne pas écraser le state sauvegardé au 1er render).
+  // Horodatée à CHAQUE écriture → le TTL court depuis la dernière activité (checkout-storage).
   useEffect(() => {
     if (!hydrated) return;
-    try { sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {}
+    writeCheckoutState(state);
   }, [state, hydrated]);
 
   // Rafraîchir le compteur packs (autre onglet / retour panier).

@@ -52,6 +52,53 @@ const cellColor = (n: number): string => n <= 0 ? "#b91c1c" : n <= LOW_STOCK ? "
 const fmtEUR = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
 const fmtDate = (d: string) => new Date(d).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "2-digit" });
 
+// ── Suggestions clientes (Lot 3b-3) ─────────────────────────────────────────────────────────────
+// Fusion COMPTES (accounts-list : email + first_name/last_name, fallback FR déjà résolu) + ACHETEUSES
+// (commandes-data : customer_name/email/phone/adresse), dédupliquées par email MINUSCULE. But : éviter
+// de recréer un doublon à la saisie manuelle, et savoir si la personne a un espace client.
+type Suggestion = {
+  email:      string; // minuscule : clé de dédup ET de rattachement à l'espace client
+  firstName:  string;
+  lastName:   string;
+  phone:      string;
+  address:    { line1: string; line2: string; postal: string; city: string; country: string } | null;
+  hasAccount: boolean; // true → la commande sera visible dans un espace client
+};
+// SEULE source du découpage « Prénom Nom » → {first,last}. Ne pas dupliquer cette logique ailleurs.
+function splitFullName(full: string | null | undefined): { first: string; last: string } {
+  const parts = String(full ?? "").trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
+  return { first: parts[0], last: parts.slice(1).join(" ") };
+}
+// Le compte prime pour le nom (structuré) ; téléphone + adresse viennent de la commande la PLUS
+// RÉCENTE (commandes-data est trié created_at DESC → 1re occurrence d'un email = la plus récente).
+function buildSuggestions(accounts: any[], orders: any[]): Suggestion[] {
+  const byEmail = new Map<string, Suggestion>();
+  for (const a of Array.isArray(accounts) ? accounts : []) {
+    const email = String(a?.email ?? "").toLowerCase().trim();
+    if (!email) continue;
+    byEmail.set(email, { email, firstName: a?.first_name ?? "", lastName: a?.last_name ?? "", phone: "", address: null, hasAccount: true });
+  }
+  const filled = new Set<string>(); // email déjà enrichi phone/adresse par sa commande la + récente
+  for (const o of Array.isArray(orders) ? orders : []) {
+    const email = String(o?.customer_email ?? "").toLowerCase().trim();
+    if (!email) continue;
+    const sa = (o?.shipping_address && typeof o.shipping_address === "object") ? o.shipping_address : null;
+    const address = sa ? { line1: sa.line1 ?? "", line2: sa.line2 ?? "", postal: sa.postal_code ?? "", city: sa.city ?? "", country: sa.country ?? "FR" } : null;
+    const phone = o?.customer_phone ? String(o.customer_phone) : "";
+    const cur = byEmail.get(email);
+    if (cur) {
+      if (!filled.has(email)) { if (phone) cur.phone = phone; if (address) cur.address = address; filled.add(email); }
+    } else {
+      const { first, last } = splitFullName(o?.customer_name);
+      byEmail.set(email, { email, firstName: first, lastName: last, phone, address, hasAccount: false });
+      filled.add(email);
+    }
+  }
+  return [...byEmail.values()];
+}
+
 export default function AdminStockPage() {
   const [products, setProducts]   = useState<ProductRow[]>([]);
   const [loading, setLoading]     = useState(true);
@@ -76,6 +123,9 @@ export default function AdminStockPage() {
   const [mPromos, setMPromos] = useState<{ code: string }[]>([]);
   const [mBusy, setMBusy]     = useState(false);
   const [mErr, setMErr]       = useState<string[]>([]);
+  // Autocomplétion clientes (Lot 3b-3) — chargée en mémoire à l'ouverture, filtrée côté client.
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggOpen, setSuggOpen]       = useState(false);
 
   const mLbl: React.CSSProperties  = { display: "block", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(26,20,16,0.45)", marginBottom: 6 };
   const mInp: React.CSSProperties  = { padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, background: "#fff", color: "#1a1410", outline: "none", width: "100%", boxSizing: "border-box" };
@@ -102,6 +152,30 @@ export default function AdminStockPage() {
     }).catch(() => {});
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mOpen]);
+
+  // Suggestions clientes — comptes (accounts-list) + acheteuses (commandes-data) fusionnés une fois
+  // à l'ouverture. ≈15 personnes → tout en mémoire, aucune recherche serveur (comme SearchGlobal).
+  useEffect(() => {
+    if (!mOpen || suggestions.length) return;
+    Promise.all([
+      adminFetch("/api/admin/accounts-list").then(r => r.json()).then(d => Array.isArray(d?.accounts) ? d.accounts : []).catch(() => []),
+      adminFetch("/api/admin/commandes-data").then(r => r.json()).then(d => Array.isArray(d) ? d : []).catch(() => []),
+    ]).then(([accs, ords]) => setSuggestions(buildSuggestions(accs, ords))).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mOpen]);
+
+  // Filtre : dès 2 caractères dans Prénom OU Nom. Recherche sur prénom + nom + email (tous les termes
+  // saisis doivent matcher). Trié : comptes d'abord (une commande y sera visible), puis alpha.
+  const suggQuery  = `${mCust.prenom} ${mCust.nom}`.trim().toLowerCase();
+  const suggActive = mCust.prenom.trim().length >= 2 || mCust.nom.trim().length >= 2;
+  const suggMatches = useMemo(() => {
+    if (!suggActive) return [];
+    const terms = suggQuery.split(/\s+/).filter(Boolean);
+    return suggestions
+      .filter(s => { const hay = `${s.firstName} ${s.lastName} ${s.email}`.toLowerCase(); return terms.every(t => hay.includes(t)); })
+      .sort((a, b) => (Number(b.hasAccount) - Number(a.hasAccount)) || `${a.firstName} ${a.lastName}`.localeCompare(`${b.firstName} ${b.lastName}`))
+      .slice(0, 8);
+  }, [suggActive, suggQuery, suggestions]);
 
   async function submitManual() {
     setMErr([]);
@@ -138,6 +212,23 @@ export default function AdminStockPage() {
       }
     } catch { setMErr(["Erreur réseau."]); }
     finally { setMBusy(false); }
+  }
+
+  // Pré-remplissage depuis une suggestion — tout reste modifiable ensuite.
+  function pickSuggestion(s: Suggestion) {
+    setMCust(v => ({
+      ...v,
+      prenom:  s.firstName || v.prenom,
+      nom:     s.lastName  || v.nom,
+      email:   s.email     || v.email,
+      phone:   s.phone     || v.phone,
+      line1:   s.address?.line1   || v.line1,
+      line2:   s.address?.line2   || v.line2,
+      postal:  s.address?.postal  || v.postal,
+      city:    s.address?.city    || v.city,
+      country: s.address?.country || v.country,
+    }));
+    setSuggOpen(false);
   }
 
   useEffect(() => {
@@ -464,14 +555,35 @@ export default function AdminStockPage() {
             {/* Coordonnées */}
             <label style={mLbl}>Coordonnées (optionnel)</label>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
-              <input placeholder="Prénom" value={mCust.prenom} onChange={e => setMCust(v => ({ ...v, prenom: e.target.value }))} style={mInp} />
-              <input placeholder="Nom" value={mCust.nom} onChange={e => setMCust(v => ({ ...v, nom: e.target.value }))} style={mInp} />
+              <input placeholder="Prénom" value={mCust.prenom} onChange={e => { setMCust(v => ({ ...v, prenom: e.target.value })); setSuggOpen(true); }} style={mInp} />
+              <input placeholder="Nom" value={mCust.nom} onChange={e => { setMCust(v => ({ ...v, nom: e.target.value })); setSuggOpen(true); }} style={mInp} />
               <input placeholder="Email" value={mCust.email} onChange={e => setMCust(v => ({ ...v, email: e.target.value }))} style={mInp} />
               <input placeholder="Téléphone" value={mCust.phone} onChange={e => setMCust(v => ({ ...v, phone: e.target.value }))} style={mInp} />
               <input placeholder="Adresse" value={mCust.line1} onChange={e => setMCust(v => ({ ...v, line1: e.target.value }))} style={{ ...mInp, gridColumn: "1 / -1" }} />
               <input placeholder="Code postal" value={mCust.postal} onChange={e => setMCust(v => ({ ...v, postal: e.target.value }))} style={mInp} />
               <input placeholder="Ville" value={mCust.city} onChange={e => setMCust(v => ({ ...v, city: e.target.value }))} style={mInp} />
             </div>
+
+            {/* Suggestions clientes (Lot 3b-3) — apparaissent dès 2 caractères dans Prénom ou Nom. */}
+            {suggOpen && suggMatches.length > 0 && (
+              <div style={{ marginTop: -4, marginBottom: 12, border: "1px solid rgba(26,20,16,0.15)", borderRadius: 10, overflow: "hidden", background: "#fff" }}>
+                {suggMatches.map(s => (
+                  <div key={s.email} onClick={() => pickSuggestion(s)}
+                    style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, padding: "8px 12px", cursor: "pointer", borderBottom: "1px solid rgba(26,20,16,0.06)" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#1a1410", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{`${s.firstName} ${s.lastName}`.trim() || "—"}</div>
+                      <div style={{ fontSize: 12, color: "rgba(26,20,16,0.5)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{s.email}</div>
+                    </div>
+                    <span style={{ flexShrink: 0, fontSize: 10, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.4, padding: "3px 8px", borderRadius: 6, background: s.hasAccount ? "rgba(22,163,74,0.12)" : "rgba(26,20,16,0.06)", color: s.hasAccount ? "#16a34a" : "rgba(26,20,16,0.5)" }}>
+                      {s.hasAccount ? "Compte" : "Sans compte"}
+                    </span>
+                  </div>
+                ))}
+                <div style={{ padding: "6px 12px", fontSize: 11, color: "rgba(26,20,16,0.45)", background: "#faf8f4" }}>
+                  Clique pour pré-remplir · « Compte » = la commande sera visible dans son espace client
+                </div>
+              </div>
+            )}
 
             {/* Montant + promo */}
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12, alignItems: "end" }}>

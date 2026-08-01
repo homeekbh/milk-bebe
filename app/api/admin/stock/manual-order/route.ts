@@ -77,7 +77,9 @@ export async function POST(req: NextRequest) {
     stripe_session_id: `manual-${randomUUID()}`,
     items,
     amount_total:      amount,
-    customer_email:    body?.customer_email ? String(body.customer_email).trim() : null,
+    // toLowerCase : le rattachement à l'espace client interroge .eq("customer_email", email.toLowerCase())
+    // — sans ça, une saisie « Erika@Gmail.com » ne s'afficherait jamais chez la cliente.
+    customer_email:    body?.customer_email ? String(body.customer_email).trim().toLowerCase() : null,
     customer_name:     fullName || null,
     customer_phone:    body?.customer_phone ? String(body.customer_phone).trim().slice(0, 30) : null,
     promo_code:        body?.promo_code ? String(body.promo_code).trim().toUpperCase() : null, // DOC uniquement, n'incrémente pas uses_count

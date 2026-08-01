@@ -26,6 +26,7 @@ type Order = {
   id: string; created_at: string; amount_total: number;
   status: string; shipping_status: string; items: any[];
   shipping_address: any; tracking_number?: string;
+  classification?: string | null; source?: string | null;
 };
 
 const BG = "#ede8df"; const DARK = "#1a1410"; const AMBER = "#c49a4a"; const WARM = "#f2ede6";
@@ -38,6 +39,15 @@ function getTrackingUrl(notes: string | undefined, tracking: string): string | n
   return getTrackingInfo(notes, tracking).url;
 }
 const EMPTY_ADDRESS: Address = { line1: "", line2: "", city: "", postal_code: "", country: "FR" };
+
+// Rendu monétaire côté cliente (décision lot 3b-3) — UNE fonction pour les DEUX spots (total commande
+// ET prix par article). cadeau/influenceuse → « Vue avec Erika » à la place du montant ; vente_directe
+// et toute commande web → montant normal. ⚠️ amount_total reste 0 en base : on masque UNIQUEMENT le rendu.
+function courtesyMoney(order: { classification?: string | null }, euros: number): string {
+  const c = String(order?.classification ?? "").toLowerCase();
+  if (c === "cadeau" || c === "influenceuse") return "Vue avec Erika";
+  return `${(Number(euros) || 0).toFixed(2)} €`;
+}
 
 const SHIPPING_STATUS: Record<string, { label: string; bg: string; text: string }> = {
   en_preparation: { label: "En préparation", bg: "#fef3c7", text: "#92400e" },
@@ -331,7 +341,7 @@ export default function ProfilPage() {
                     </div>
                     <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                       <span style={{ padding: "4px 12px", borderRadius: 99, background: s.bg, color: s.text, fontSize: 12, fontWeight: 800 }}>{s.label}</span>
-                      <span style={{ fontSize: 18, fontWeight: 950, color: DARK }}>{Number(order.amount_total).toFixed(2)} €</span>
+                      <span style={{ fontSize: 18, fontWeight: 950, color: DARK }}>{courtesyMoney(order, order.amount_total)}</span>
                     </div>
                   </div>
                   <div style={{ padding: "14px 20px" }}>
@@ -348,7 +358,7 @@ export default function ProfilPage() {
                           )}
                           <div style={{ fontSize: 12, color: "rgba(26,20,16,0.4)", marginTop: 1 }}>Qté : {item.quantity}</div>
                         </div>
-                        <div style={{ fontWeight: 800, fontSize: 15, color: DARK }}>{(Number(item.price) * Number(item.quantity)).toFixed(2)} €</div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: DARK }}>{courtesyMoney(order, Number(item.price) * Number(item.quantity))}</div>
                       </div>
                     ))}
                   </div>

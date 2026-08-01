@@ -25,7 +25,9 @@ export async function GET(req: Request) {
 
   const { data, error } = await supabaseServer
     .from("orders")
-    .select("id, created_at, amount_total, status, shipping_status, items, shipping_address, tracking_number")
+    // classification + source : nécessaires à l'affichage « Vue avec Erika » (cadeau/influenceuse)
+    // côté espace client. Sans eux, le prédicat serait un no-op silencieux. amount_total reste tel quel.
+    .select("id, created_at, amount_total, status, shipping_status, items, shipping_address, tracking_number, classification, source")
     .eq("customer_email", email.toLowerCase().trim())
     .order("created_at", { ascending: false });
 

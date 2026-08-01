@@ -45,6 +45,14 @@ const CLASS_META: Record<string, { label: string; bg: string; color: string; bor
   influenceuse:  { label: "Influenceuse",  bg: "rgba(196,154,74,0.16)", color: "#a8791f",             border: "rgba(196,154,74,0.4)" },
   cadeau:        { label: "Cadeau",        bg: "rgba(22,163,74,0.12)",  color: "#16a34a",             border: "rgba(22,163,74,0.35)" },
 };
+// Pastilles rondes (Lot 3b-1e) — fond SATURÉ + couleur du chiffre choisie sur le CONTRASTE RÉEL
+// (WCAG AA, vérifié par calcul, pas deviné) : blanc sur bleu/vert soutenus, sombre sur l'ambre clair.
+//   vente_directe #2563eb + blanc = 5.17:1 · cadeau #15803d + blanc = 5.02:1 · influenceuse #c49a4a + sombre = 7.01:1
+const PILL_SOLID: Record<string, { bg: string; fg: string }> = {
+  vente_directe: { bg: "#2563eb", fg: "#ffffff" },
+  influenceuse:  { bg: "#c49a4a", fg: "#1a1410" },
+  cadeau:        { bg: "#15803d", fg: "#ffffff" },
+};
 const LOW_STOCK = 5;
 const STICKY_H  = 72; // hauteur approx. du header admin sticky (offset du scroll sous le header)
 
@@ -300,8 +308,8 @@ export default function AdminStockPage() {
         .stk-main  { flex:1; min-width:0; }
         .stk-title { font-size:15px; font-weight:900; color:#1a1410; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .stk-meta  { display:flex; align-items:center; gap:8px; min-width:0; margin-top:2px; }
-        .stk-pills { flex-shrink:0; display:flex; align-items:center; gap:8px; }
-        .stk-pill  { font-size:11px; font-weight:800; white-space:nowrap; letter-spacing:-0.2px; }
+        .stk-pills { flex-shrink:0; display:flex; align-items:center; gap:5px; }
+        .stk-pill  { width:23px; height:23px; flex-shrink:0; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; font-weight:700; line-height:1; box-sizing:border-box; }
         .stk-meta-txt { min-width:0; font-size:12px; font-weight:600; color:rgba(26,20,16,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .stk-count { flex-shrink:0; text-align:right; line-height:1.1; }
         .stk-count-n { font-size:24px; font-weight:950; letter-spacing:-1px; }
@@ -312,6 +320,7 @@ export default function AdminStockPage() {
           .stk-card { gap:12px; padding:12px 14px; }
           .stk-count-n { font-size:20px; }
           .stk-count-l:not(.low) { display:none; }
+          .stk-pill { width:20px; height:20px; font-size:11px; }
         }
       `}</style>
       <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
@@ -383,7 +392,7 @@ export default function AdminStockPage() {
                         <span className="stk-pills">
                           {pills.map(({ c, n }) => (
                             <span key={c} className="stk-pill" title={CLASS_META[c].label}
-                              style={{ color: CLASS_META[c].color, ...(emphasized ? { background: CLASS_META[c].bg, border: `1px solid ${CLASS_META[c].border}`, borderRadius: 99, padding: "2px 9px" } : {}) }}>● {n}</span>
+                              style={{ background: PILL_SOLID[c].bg, color: PILL_SOLID[c].fg }}>{n}</span>
                           ))}
                         </span>
                       )}

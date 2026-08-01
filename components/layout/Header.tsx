@@ -242,7 +242,7 @@ export default function Header({ categorySlugs = [] }: { categorySlugs?: string[
               « Notre collection » (panneau = CategoryNav) et « La marque » (panneau = liste de liens,
               mêmes entrées que la colonne « LA MARQUE » du pied de page). Le libellé de chacun reste un
               lien (/produits, /qui-sommes-nous) ; le chevron déplie. */}
-          <nav className="milk-nav" style={{ alignItems: "center", gap: 4, flex: 1, justifyContent: "center" }}>
+          <nav className="milk-nav" style={{ alignItems: "center", gap: 4, marginLeft: "auto" }}>
             <HeaderDropdown label={t("collection")} href="/produits" active={collectionActive}
               menuId="milk-collection-menu" colors={{ text: C.text, amber: C.amber, dropBg: C.dropBg, dropBdr: C.dropBdr }}>
               <CategoryNav variant="list" tone={theme} dense slugs={categorySlugs} currentSlug={collectionCurrentSlug} showAll />

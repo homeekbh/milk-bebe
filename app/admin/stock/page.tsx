@@ -46,6 +46,7 @@ const CLASS_META: Record<string, { label: string; bg: string; color: string; bor
   cadeau:        { label: "Cadeau",        bg: "rgba(22,163,74,0.12)",  color: "#16a34a",             border: "rgba(22,163,74,0.35)" },
 };
 const LOW_STOCK = 5;
+const STICKY_H  = 72; // hauteur approx. du header admin sticky (offset du scroll sous le header)
 
 const cellColor = (n: number): string => n <= 0 ? "#b91c1c" : n <= LOW_STOCK ? "#a8791f" : "#1a1410";
 const fmtEUR = (n: number) => `${(Number(n) || 0).toFixed(2)} €`;
@@ -57,7 +58,7 @@ export default function AdminStockPage() {
   const [error, setError]         = useState("");
   const [search, setSearch]       = useState("");
   const [classFilter, setFilter]  = useState<string>("all");
-  const [open, setOpen]           = useState<Set<string>>(new Set());
+  const [open, setOpen]           = useState<string | null>(null); // un seul produit déplié à la fois
   const [saving, setSaving]       = useState<string | null>(null);
 
   useEffect(() => {
@@ -71,7 +72,21 @@ export default function AdminStockPage() {
       .catch(() => { setError("Erreur de chargement."); setLoading(false); });
   }, []);
 
-  const toggle = (id: string) => setOpen(prev => { const n = new Set(prev); n.has(id) ? n.delete(id) : n.add(id); return n; });
+  // Accordéon exclusif : après ouverture, si l'en-tête du produit n'est plus
+  // confortablement visible (le bloc précédent, plus haut, vient de se refermer),
+  // on scrolle jusqu'à lui, sous le header admin sticky. Sur mobile en particulier.
+  useEffect(() => {
+    if (!open) return;
+    const el = document.getElementById(`stock-prod-${open}`);
+    if (!el) return;
+    const top = el.getBoundingClientRect().top;
+    if (top < STICKY_H || top > window.innerHeight - 80) {
+      el.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }, [open]);
+
+  // Un seul produit déplié : ouvrir referme le précédent ; re-cliquer sur l'ouvert le referme.
+  const toggle = (id: string) => setOpen(prev => (prev === id ? null : id));
   const motifNameOf = (p: ProductRow, motifId: string) => p.motifs.find(m => m.id === motifId)?.name ?? motifId.slice(0, 6);
 
   const visible = useMemo(() => {
@@ -139,11 +154,11 @@ export default function AdminStockPage() {
       ) : (
         <div style={{ display: "grid", gap: 12 }}>
           {visible.map(p => {
-            const isOpen = open.has(p.id);
+            const isOpen = open === p.id;
             const orders = ordersOf(p);
             const low    = p.total <= LOW_STOCK;
             return (
-              <div key={p.id} style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden" }}>
+              <div key={p.id} id={`stock-prod-${p.id}`} style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden", scrollMarginTop: STICKY_H + 8 }}>
                 {/* En-tête cliquable */}
                 <button onClick={() => toggle(p.id)}
                   style={{ width: "100%", display: "flex", alignItems: "center", gap: 16, padding: "16px 20px", background: "none", border: "none", cursor: "pointer", textAlign: "left" }}>

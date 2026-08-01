@@ -708,6 +708,29 @@ export default function AdminCommandes() {
     setRefundModal(null);
   }
 
+  // === ANNULER UNE SORTIE MANUELLE (source='manual') ===
+  // Route dédiée : remet le stock (claim atomique, exactement 1×), AUCUN Stripe/email/facture.
+  // cancel_refund échouerait en 502 sur la session synthétique "manual-…".
+  async function cancelManualOrder(order: any) {
+    const short = String(order.id).slice(0, 8).toUpperCase();
+    if (!confirm(
+      `Annuler la sortie manuelle #${short} ?\n\n` +
+      `Les articles seront REMIS EN STOCK.\n` +
+      `Aucun remboursement Stripe : cette sortie n'a jamais été payée en ligne.`
+    )) return;
+    const res = await adminFetch(`/api/admin/orders/${order.id}/cancel-manual`, {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({ reason: "annulation sortie manuelle (admin)" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) { alert(`Erreur: ${data.error ?? `HTTP ${res.status}`}`); return; }
+    alert(data.already_cancelled
+      ? "Cette sortie était déjà annulée — aucun stock restitué à nouveau."
+      : `✅ Sortie annulée — stock restitué (${data.restocked_lines ?? 0} ligne(s)).`);
+    await load();
+  }
+
   // === MARQUER / DÉMARQUER « TEST INTERNE » (exclue des dashboards analytics) ===
   async function toggleInternalTest(order: any) {
     const next = !order?.is_internal_test;
@@ -1508,22 +1531,35 @@ export default function AdminCommandes() {
                           </button>
                         )}
 
-                        {/* === ANNULER + REMBOURSER STRIPE === Visible si pas déjà annulée/remboursée */}
+                        {/* === ANNULATION === Visible si pas déjà annulée/remboursée.
+                            Sortie manuelle (source='manual') → route cancel-manual qui REMET le
+                            stock, sans Stripe (la session "manual-…" ferait échouer cancel_refund
+                            en 502). Commande web → Annuler + Rembourser Stripe (+ partiel). */}
                         {(order as any).status !== "remboursee" && order.shipping_status !== "annulee" && (
-                          <>
+                          (order as any).source === "manual" ? (
                             <button
-                              onClick={() => setRefundModal({ orderId: order.id, amount: Number(order.amount_total ?? 0), reason: "", customMessage: "", sending: false, mode: "full" })}
+                              onClick={() => cancelManualOrder(order)}
+                              title="Annule cette sortie manuelle et REMET les articles en stock. Aucun remboursement Stripe : cette sortie n'a jamais été payée en ligne."
                               style={{ padding: "12px 16px", borderRadius: 12, background: "#dc2626", color: "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: "pointer" }}
                             >
-                              🔴 Annuler + Rembourser Stripe
+                              ↩️ Annuler cette sortie
                             </button>
-                            <button
-                              onClick={() => setRefundModal({ orderId: order.id, amount: 0, reason: "", customMessage: "", sending: false, mode: "partial" })}
-                              style={{ padding: "12px 16px", borderRadius: 12, background: "#fff", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
-                            >
-                              💸 Remboursement partiel
-                            </button>
-                          </>
+                          ) : (
+                            <>
+                              <button
+                                onClick={() => setRefundModal({ orderId: order.id, amount: Number(order.amount_total ?? 0), reason: "", customMessage: "", sending: false, mode: "full" })}
+                                style={{ padding: "12px 16px", borderRadius: 12, background: "#dc2626", color: "#fff", fontWeight: 900, fontSize: 13, border: "none", cursor: "pointer" }}
+                              >
+                                🔴 Annuler + Rembourser Stripe
+                              </button>
+                              <button
+                                onClick={() => setRefundModal({ orderId: order.id, amount: 0, reason: "", customMessage: "", sending: false, mode: "partial" })}
+                                style={{ padding: "12px 16px", borderRadius: 12, background: "#fff", color: "#b91c1c", fontWeight: 800, fontSize: 13, border: "1px solid #fecaca", cursor: "pointer" }}
+                              >
+                                💸 Remboursement partiel
+                              </button>
+                            </>
+                          )
                         )}
 
                         {/* === MARQUER TEST INTERNE (exclusion analytics) === toujours dispo */}

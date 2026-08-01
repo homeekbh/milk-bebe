@@ -61,6 +61,85 @@ export default function AdminStockPage() {
   const [open, setOpen]           = useState<string | null>(null); // un seul produit déplié à la fois
   const [saving, setSaving]       = useState<string | null>(null);
 
+  // ── Sortie manuelle (B1/B2) ─────────────────────────────────────────────────
+  type MLine = { product_id: string; motif_id: string; size: string; qty: number };
+  const [mOpen, setMOpen]     = useState(false);
+  const [mClass, setMClass]   = useState<"cadeau" | "influenceuse" | "vente_directe">("cadeau");
+  const [mLines, setMLines]   = useState<MLine[]>([{ product_id: "", motif_id: "", size: "", qty: 1 }]);
+  const [mCust, setMCust]     = useState({ prenom: "", nom: "", email: "", phone: "", line1: "", line2: "", postal: "", city: "", country: "FR" });
+  const [mAmount, setMAmount] = useState("0");
+  const [mPromo, setMPromo]   = useState("");
+  const [mFreeShip, setMFree] = useState(true);
+  const [mNote, setMNote]     = useState("");
+  const [mReview, setMReview] = useState(false);
+  const [mGiven, setMGiven]   = useState(false);
+  const [mPromos, setMPromos] = useState<{ code: string }[]>([]);
+  const [mBusy, setMBusy]     = useState(false);
+  const [mErr, setMErr]       = useState<string[]>([]);
+
+  const mLbl: React.CSSProperties  = { display: "block", fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: 0.5, color: "rgba(26,20,16,0.45)", marginBottom: 6 };
+  const mInp: React.CSSProperties  = { padding: "9px 11px", borderRadius: 9, border: "1px solid rgba(26,20,16,0.15)", fontSize: 13, background: "#fff", color: "#1a1410", outline: "none", width: "100%", boxSizing: "border-box" };
+  const mSec: React.CSSProperties  = { padding: "9px 14px", borderRadius: 10, border: "1px solid rgba(26,20,16,0.2)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 13, cursor: "pointer" };
+  const mChk: React.CSSProperties  = { display: "flex", alignItems: "center", gap: 8, fontSize: 13, fontWeight: 600, color: "#1a1410", cursor: "pointer" };
+
+  const mProd  = (id: string) => products.find(p => p.id === id);
+  const mAvail = (l: MLine) => {
+    const p = mProd(l.product_id); if (!p) return 0;
+    if (l.motif_id) { const m = p.motifs.find(x => x.id === l.motif_id); if (!m) return 0; return l.size ? Number(m.sizes_stock?.[l.size] ?? 0) : m.stock; }
+    return l.size ? Number(p.sizes_stock?.[l.size] ?? 0) : p.total;
+  };
+  const setLine = (i: number, patch: Partial<MLine>) => setMLines(prev => prev.map((l, j) => j === i ? { ...l, ...patch } : l));
+  const mAutoAmount = (cls: string) => (cls === "cadeau" || cls === "influenceuse") ? "0" : mAmount;
+
+  // Codes promo ACTIFS pour le menu (à l'ouverture) — GET /api/admin/promos, filtré client (doc. seulement).
+  useEffect(() => {
+    if (!mOpen || mPromos.length) return;
+    adminFetch("/api/admin/promos").then(r => r.json()).then((d: any) => {
+      const now = Date.now();
+      const list = (Array.isArray(d) ? d : Array.isArray(d?.promos) ? d.promos : []).filter((c: any) =>
+        c?.active && (!c.expires_at || new Date(c.expires_at).getTime() > now) && (!c.max_uses || (c.uses_count ?? 0) < c.max_uses));
+      setMPromos(list.map((c: any) => ({ code: c.code })));
+    }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mOpen]);
+
+  async function submitManual() {
+    setMErr([]);
+    const valid = mLines.filter(l => l.product_id && l.qty > 0);
+    if (!valid.length) { setMErr(["Ajoute au moins un article."]); return; }
+    const over = valid.filter(l => l.qty > mAvail(l));
+    if (over.length) { setMErr(over.map(l => { const p = mProd(l.product_id); return `« ${p?.name ?? l.product_id} »${l.size ? ` — ${l.size}` : ""} : demandé ${l.qty}, dispo ${mAvail(l)}`; })); return; }
+    const items = valid.map(l => {
+      const p = mProd(l.product_id)!;
+      const m = l.motif_id ? p.motifs.find(x => x.id === l.motif_id) : null;
+      return { product_id: l.product_id, slug: p.slug, category_slug: p.category_slug ?? "", motif_id: l.motif_id || null, size: l.size || null, qty: l.qty, price: 0,
+        name: `${p.name}${l.size ? ` — ${l.size}` : ""}${m ? ` — ${m.name}` : ""}` };
+    });
+    const shipping_address = (mCust.line1 || mCust.city || mCust.postal)
+      ? { name: `${mCust.prenom} ${mCust.nom}`.trim(), line1: mCust.line1, line2: mCust.line2, city: mCust.city, postal_code: mCust.postal, country: mCust.country }
+      : null;
+    setMBusy(true);
+    try {
+      const res = await adminFetch("/api/admin/stock/manual-order", { method: "POST", body: JSON.stringify({
+        classification: mClass, items,
+        customer_name: `${mCust.prenom} ${mCust.nom}`.trim(), customer_email: mCust.email, customer_phone: mCust.phone, shipping_address,
+        amount_total: Number(mAutoAmount(mClass)) || 0, promo_code: mPromo || null,
+        free_shipping: mFreeShip, classification_note: mNote, request_review: mReview, already_delivered: mGiven,
+      }) });
+      const d = await res.json();
+      if (d?.ok) {
+        setMOpen(false);
+        setMLines([{ product_id: "", motif_id: "", size: "", qty: 1 }]); setMNote(""); setMAmount("0");
+        setMCust({ prenom: "", nom: "", email: "", phone: "", line1: "", line2: "", postal: "", city: "", country: "FR" });
+        setLoading(true);
+        adminFetch("/api/admin/stock").then(r => r.json()).then(dd => { setProducts(Array.isArray(dd?.products) ? dd.products : []); setLoading(false); }).catch(() => setLoading(false));
+      } else {
+        setMErr(Array.isArray(d?.details) ? d.details : [d?.error ?? "Échec de l'enregistrement."]);
+      }
+    } catch { setMErr(["Erreur réseau."]); }
+    finally { setMBusy(false); }
+  }
+
   useEffect(() => {
     adminFetch("/api/admin/stock")
       .then(r => r.json())
@@ -144,11 +223,17 @@ export default function AdminStockPage() {
           .stk-count-l:not(.low) { display:none; }
         }
       `}</style>
-      <div style={{ marginBottom: 24 }}>
-        <h1 style={{ margin: 0, fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>Stock</h1>
-        <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginTop: 6, fontWeight: 600 }}>
-          Vue en lecture · l'édition du stock reste dans la fiche produit. {visible.length} produit(s).
+      <div style={{ marginBottom: 24, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 style={{ margin: 0, fontSize: 36, fontWeight: 950, letterSpacing: -1.5, color: "#1a1410" }}>Stock</h1>
+          <div style={{ fontSize: 14, color: "rgba(26,20,16,0.5)", marginTop: 6, fontWeight: 600 }}>
+            Vue en lecture · l'édition du stock reste dans la fiche produit. {visible.length} produit(s).
+          </div>
         </div>
+        <button onClick={() => setMOpen(true)}
+          style={{ padding: "12px 20px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 14, border: "none", cursor: "pointer", flexShrink: 0 }}>
+          + Enregistrer une sortie manuelle
+        </button>
       </div>
 
       {/* Contrôles : recherche, puis filtre classification avec son titre explicatif */}
@@ -320,6 +405,115 @@ export default function AdminStockPage() {
               </div>
             );
           })}
+        </div>
+      )}
+
+      {/* ── Modale : enregistrer une sortie manuelle (B2) ── */}
+      {mOpen && (
+        <div onClick={() => !mBusy && setMOpen(false)} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.5)", zIndex: 500, display: "grid", placeItems: "start center", padding: "32px 16px", overflowY: "auto" }}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "#fff", borderRadius: 18, width: "100%", maxWidth: 660, padding: "26px 28px", boxShadow: "0 20px 60px rgba(0,0,0,0.3)" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+              <h2 style={{ margin: 0, fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Sortie manuelle de stock</h2>
+              <button onClick={() => !mBusy && setMOpen(false)} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)", lineHeight: 1 }}>×</button>
+            </div>
+
+            {/* Type */}
+            <label style={mLbl}>Type de sortie</label>
+            <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
+              {(["cadeau", "influenceuse", "vente_directe"] as const).map(c => (
+                <button key={c} onClick={() => setMClass(c)}
+                  style={{ padding: "8px 14px", borderRadius: 10, fontWeight: 800, fontSize: 13, cursor: "pointer",
+                    border: `1px solid ${mClass === c ? CLASS_META[c].color : CLASS_META[c].border}`, background: mClass === c ? CLASS_META[c].bg : "#fff", color: CLASS_META[c].color }}>
+                  {CLASS_META[c].label}
+                </button>
+              ))}
+            </div>
+
+            {/* Articles */}
+            <label style={mLbl}>Articles (le stock disponible est indiqué ; le serveur refuse toute sortie sous zéro)</label>
+            <div style={{ display: "grid", gap: 8, marginBottom: 8 }}>
+              {mLines.map((l, i) => {
+                const p = mProd(l.product_id);
+                const sizes = p ? p.sizes : [];
+                const avail = mAvail(l);
+                return (
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto auto 62px auto", gap: 6, alignItems: "center" }}>
+                    <select value={l.product_id} onChange={e => setLine(i, { product_id: e.target.value, motif_id: "", size: "" })} style={mInp}>
+                      <option value="">— produit —</option>
+                      {products.map(pr => <option key={pr.id} value={pr.id}>{pr.name}</option>)}
+                    </select>
+                    <select value={l.motif_id} onChange={e => setLine(i, { motif_id: e.target.value })} disabled={!p || !p.motifs.length} style={{ ...mInp, width: "auto", opacity: (!p || !p.motifs.length) ? 0.5 : 1 }}>
+                      <option value="">{p && p.motifs.length ? "— motif —" : "—"}</option>
+                      {(p?.motifs ?? []).map(m => <option key={m.id ?? m.name} value={m.id ?? ""}>{m.name}</option>)}
+                    </select>
+                    <select value={l.size} onChange={e => setLine(i, { size: e.target.value })} disabled={!sizes.length} style={{ ...mInp, width: "auto", opacity: sizes.length ? 1 : 0.5 }}>
+                      <option value="">{sizes.length ? "— taille —" : "—"}</option>
+                      {sizes.map(s => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <input type="number" min={1} value={l.qty} onChange={e => setLine(i, { qty: Math.max(1, Number(e.target.value) || 1) })} style={mInp} />
+                    <span style={{ fontSize: 12, fontWeight: 700, textAlign: "right", minWidth: 58, color: !l.product_id ? "transparent" : (l.qty > avail ? "#b91c1c" : "rgba(26,20,16,0.5)") }}>dispo {l.product_id ? avail : ""}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ display: "flex", gap: 10, marginBottom: 16 }}>
+              <button onClick={() => setMLines(prev => [...prev, { product_id: "", motif_id: "", size: "", qty: 1 }])} style={mSec}>+ ligne</button>
+              {mLines.length > 1 && <button onClick={() => setMLines(prev => prev.slice(0, -1))} style={mSec}>− ligne</button>}
+            </div>
+
+            {/* Coordonnées */}
+            <label style={mLbl}>Coordonnées (optionnel)</label>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12 }}>
+              <input placeholder="Prénom" value={mCust.prenom} onChange={e => setMCust(v => ({ ...v, prenom: e.target.value }))} style={mInp} />
+              <input placeholder="Nom" value={mCust.nom} onChange={e => setMCust(v => ({ ...v, nom: e.target.value }))} style={mInp} />
+              <input placeholder="Email" value={mCust.email} onChange={e => setMCust(v => ({ ...v, email: e.target.value }))} style={mInp} />
+              <input placeholder="Téléphone" value={mCust.phone} onChange={e => setMCust(v => ({ ...v, phone: e.target.value }))} style={mInp} />
+              <input placeholder="Adresse" value={mCust.line1} onChange={e => setMCust(v => ({ ...v, line1: e.target.value }))} style={{ ...mInp, gridColumn: "1 / -1" }} />
+              <input placeholder="Code postal" value={mCust.postal} onChange={e => setMCust(v => ({ ...v, postal: e.target.value }))} style={mInp} />
+              <input placeholder="Ville" value={mCust.city} onChange={e => setMCust(v => ({ ...v, city: e.target.value }))} style={mInp} />
+            </div>
+
+            {/* Montant + promo */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8, marginBottom: 12, alignItems: "end" }}>
+              <div>
+                <label style={mLbl}>Montant (€)</label>
+                <input type="number" min={0} step="0.01" value={mAutoAmount(mClass)} disabled={mClass === "cadeau" || mClass === "influenceuse"}
+                  onChange={e => setMAmount(e.target.value)} style={{ ...mInp, opacity: (mClass === "cadeau" || mClass === "influenceuse") ? 0.6 : 1 }} />
+              </div>
+              <div>
+                <label style={mLbl}>Code promo (documentaire)</label>
+                <select value={mPromo} onChange={e => setMPromo(e.target.value)} style={mInp}>
+                  <option value="">— aucun —</option>
+                  {mPromos.map(pc => <option key={pc.code} value={pc.code}>{pc.code}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Note */}
+            <label style={mLbl}>Note (optionnel)</label>
+            <input placeholder="ex. collab @machin, code 100%" value={mNote} onChange={e => setMNote(e.target.value)} style={{ ...mInp, marginBottom: 14 }} />
+
+            {/* Cases */}
+            <div style={{ display: "grid", gap: 10, marginBottom: 16 }}>
+              <label style={mChk}><input type="checkbox" checked={mFreeShip} onChange={e => setMFree(e.target.checked)} /> Livraison offerte</label>
+              <label style={mChk}><input type="checkbox" checked={mReview} onChange={e => setMReview(e.target.checked)} /> Demander un avis <span style={{ color: "rgba(26,20,16,0.45)", fontWeight: 500 }}>(sinon les emails avis / taille suivante sont neutralisés)</span></label>
+              <label style={mChk}><input type="checkbox" checked={mGiven} onChange={e => setMGiven(e.target.checked)} /> Article déjà remis en main propre <span style={{ color: "rgba(26,20,16,0.45)", fontWeight: 500 }}>(marque « livrée »)</span></label>
+            </div>
+
+            {mErr.length > 0 && (
+              <div style={{ marginBottom: 14, padding: "12px 14px", borderRadius: 10, background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#b91c1c", fontSize: 13, fontWeight: 700, lineHeight: 1.6 }}>
+                {mErr.map((e, i) => <div key={i}>❌ {e}</div>)}
+              </div>
+            )}
+
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+              <button onClick={() => !mBusy && setMOpen(false)} style={mSec}>Annuler</button>
+              <button onClick={submitManual} disabled={mBusy}
+                style={{ padding: "12px 24px", borderRadius: 12, background: mBusy ? "#d1cdc8" : "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: mBusy ? "wait" : "pointer" }}>
+                {mBusy ? "Enregistrement…" : "Enregistrer la sortie"}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

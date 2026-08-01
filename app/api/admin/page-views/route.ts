@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, fetchAllPaged, VALID_STATUSES, isValidOrder, pct, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, fetchAllPaged, VALID_STATUSES, countsInWebStats, pct, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
 import { geocodeCity } from "@/lib/geo/geocode-fr";
 import type { NextRequest } from "next/server";
 
@@ -365,9 +365,15 @@ export async function GET(req: NextRequest) {
       if (e.event_type === "add_to_cart")    cartSess.add(e.session_id);
       if (e.event_type === "begin_checkout") checkoutSess.add(e.session_id);
     });
-    const ordCur = await supabaseServer.from("orders").select("status, shipping_status")
+    // ⚠️ Cette étape « Achat » compte des COMMANDES, pas des événements web. Elle DOIT donc filtrer sur
+    // countsInWebStats ('cliente' seule) : une sortie manuelle (cadeau / influenceuse / vente_directe)
+    // n'a produit ni visite, ni panier, ni paiement web — la compter ici gonfle le funnel (bug du 01/08 :
+    // un cadeau valait 1 « achat »). Et la requête DOIT sélectionner is_internal_test ET classification,
+    // sinon countsInWebStats devient un NO-OP silencieux (colonne absente → défaut 'cliente' → comptée).
+    // 2ᵉ occurrence de ce piège structurel : il est écrit ici, à l'endroit exact où il frappe.
+    const ordCur = await supabaseServer.from("orders").select("status, shipping_status, is_internal_test, classification")
       .in("status", VALID_STATUSES).gte("created_at", from).lte("created_at", to).limit(100000);
-    const purchases = (ordCur.data ?? []).filter(isValidOrder).length;
+    const purchases = (ordCur.data ?? []).filter(countsInWebStats).length;
     const funnel = [
       { key: "sessions",    label: "Sessions",     count: sessions.size,      estimated: false },
       { key: "view_item",   label: "Vue produit",  count: viewSess.size,      estimated: false },

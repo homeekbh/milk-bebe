@@ -129,7 +129,10 @@ export default function AdminStockPage() {
         .stk-thumb img { width:100%; height:100%; object-fit:cover; display:block; }
         .stk-main  { flex:1; min-width:0; }
         .stk-title { font-size:15px; font-weight:900; color:#1a1410; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-        .stk-meta  { font-size:12px; font-weight:600; color:rgba(26,20,16,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-top:2px; }
+        .stk-meta  { display:flex; align-items:center; gap:8px; min-width:0; margin-top:2px; }
+        .stk-pills { flex-shrink:0; display:flex; align-items:center; gap:8px; }
+        .stk-pill  { font-size:11px; font-weight:800; white-space:nowrap; letter-spacing:-0.2px; }
+        .stk-meta-txt { min-width:0; font-size:12px; font-weight:600; color:rgba(26,20,16,0.45); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
         .stk-count { flex-shrink:0; text-align:right; line-height:1.1; }
         .stk-count-n { font-size:24px; font-weight:950; letter-spacing:-1px; }
         .stk-count-l { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:0.5px; margin-top:1px; }
@@ -148,9 +151,10 @@ export default function AdminStockPage() {
         </div>
       </div>
 
-      {/* Contrôles : recherche + filtre classification */}
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "center", marginBottom: 20 }}>
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…" style={{ ...inp, flex: "1 1 240px" }} />
+      {/* Contrôles : recherche, puis filtre classification avec son titre explicatif */}
+      <div style={{ marginBottom: 20 }}>
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Rechercher un produit…" style={{ ...inp, display: "block", width: "100%", maxWidth: 360, marginBottom: 16 }} />
+        <div style={{ fontSize: 12, fontWeight: 800, textTransform: "uppercase", letterSpacing: 1, color: "#c49a4a", marginBottom: 8 }}>Filtrer les commandes par type</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {["all", ...CLASSES].map(c => {
             const active = classFilter === c;
@@ -180,6 +184,15 @@ export default function AdminStockPage() {
             const isOpen = open === p.id;
             const orders = ordersOf(p);
             const low    = p.total <= LOW_STOCK;
+            // Pastilles : résumé des classifications NON-'cliente' des commandes de ce produit
+            // (« ● N » coloré, sans libellé). 'cliente' est omis — redondant avec « N commande(s) ».
+            // Conteneur non rétrécissable placé AVANT le texte tronqué → jamais avalé par l'ellipse.
+            const classCounts = p.orders.reduce((a, o) => { a[o.classification] = (a[o.classification] ?? 0) + 1; return a; }, {} as Record<string, number>);
+            const allPills = (["vente_directe", "influenceuse", "cadeau"] as const).filter(c => (classCounts[c] ?? 0) > 0).map(c => ({ c, n: classCounts[c] }));
+            // Filtre actif → on ne montre que la pastille de cette classe, mise en avant (chip bordé).
+            // ('cliente' n'a pas de pastille → un filtre 'cliente' n'en affiche aucune, cohérent.)
+            const emphasized = classFilter !== "all";
+            const pills = emphasized ? allPills.filter(x => x.c === classFilter) : allPills;
             return (
               <div key={p.id} id={`stock-prod-${p.id}`} style={{ background: "#fff", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", overflow: "hidden", scrollMarginTop: STICKY_H + 8 }}>
                 {/* En-tête cliquable — carte compacte en ligne (mobile + desktop via classes). */}
@@ -189,7 +202,17 @@ export default function AdminStockPage() {
                   </div>
                   <div className="stk-main">
                     <div className="stk-title">{p.name}</div>
-                    <div className="stk-meta">{p.category_slug ?? "—"} · {p.motifs.length} motif(s) · {p.orders.length} commande(s)</div>
+                    <div className="stk-meta">
+                      {pills.length > 0 && (
+                        <span className="stk-pills">
+                          {pills.map(({ c, n }) => (
+                            <span key={c} className="stk-pill" title={CLASS_META[c].label}
+                              style={{ color: CLASS_META[c].color, ...(emphasized ? { background: CLASS_META[c].bg, border: `1px solid ${CLASS_META[c].border}`, borderRadius: 99, padding: "2px 9px" } : {}) }}>● {n}</span>
+                          ))}
+                        </span>
+                      )}
+                      <span className="stk-meta-txt">{p.category_slug ?? "—"} · {p.motifs.length} motif(s) · {p.orders.length} commande(s)</span>
+                    </div>
                   </div>
                   <div className="stk-count">
                     <div className="stk-count-n" style={{ color: low ? "#b91c1c" : "#1a1410" }}>{p.total}</div>

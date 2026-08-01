@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { escapeHtml }     from "@/lib/escape-html";
 import { Resend }         from "resend";
+import { countsInWebStats } from "@/lib/orders";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -143,7 +144,9 @@ export async function GET(req: Request) {
 
     const { data: orders, error } = await supabaseServer
       .from("orders")
-      .select("id, customer_email, customer_name, items")
+      // is_internal_test / classification / status / shipping_status : REQUIS par
+      // countsInWebStats (filtrage périmètre plus bas). Non sélectionnés = prédicat no-op.
+      .select("id, customer_email, customer_name, items, is_internal_test, classification, status, shipping_status")
       .in("status", ["payee", "expediee", "livree"])
       .is("next_size_email_sent_at", null)
       .gte("created_at", dateMin.toISOString())
@@ -153,9 +156,13 @@ export async function GET(req: Request) {
       errors.push(`Supabase error (${tailleActuelle}): ${error.message}`);
       continue;
     }
-    if (!orders || orders.length === 0) continue;
+    // Périmètre lot 3c (même logique que emails/avis) : countsInWebStats = 'cliente'
+    // seule + exclut is_internal_test et statuts non valides. Colonnes REQUISES
+    // sélectionnées ci-dessus (sinon no-op silencieux). Pas de réimplémentation SQL.
+    const eligibles = (orders ?? []).filter(countsInWebStats);
+    if (eligibles.length === 0) continue;
 
-    for (const order of orders) {
+    for (const order of eligibles) {
       const items = Array.isArray(order.items) ? order.items : [];
 
       // Filtrer les articles avec la taille ciblée (exclut taille unique automatiquement)

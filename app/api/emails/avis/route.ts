@@ -1,6 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { escapeHtml }     from "@/lib/escape-html";
 import { Resend }         from "resend";
+import { countsInWebStats } from "@/lib/orders";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 const BASE   = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
@@ -43,7 +44,9 @@ export async function GET(req: Request) {
   // représentent une vraie opportunité de vente.
   const { data: orders, error: ordersErr } = await supabaseServer
     .from("orders")
-    .select("id, customer_email, customer_name, items, delivered_at")
+    // is_internal_test / classification / status / shipping_status : REQUIS par
+    // countsInWebStats (filtrage périmètre plus bas). Non sélectionnés = prédicat no-op.
+    .select("id, customer_email, customer_name, items, delivered_at, is_internal_test, classification, status, shipping_status")
     .eq("shipping_status", "livree")
     .is("review_email_sent_at", null)
     .not("delivered_at", "is", null)
@@ -60,13 +63,19 @@ export async function GET(req: Request) {
     console.error("[emails:avis] lecture commandes échouée:", ordersErr.message);
     return Response.json({ error: ordersErr.message }, { status: 500 });
   }
-  if (!orders || orders.length === 0) {
+  // Périmètre lot 3c : seules les VRAIES clientes reçoivent une demande d'avis.
+  // countsInWebStats (source unique, lib/orders) = classification 'cliente' uniquement,
+  // + exclut is_internal_test et les statuts non valides (remboursée/annulée…). On NE
+  // réimplémente PAS ce filtre en SQL : ce serait une 2e définition de « cliente », vouée
+  // à diverger. Une commande de test, un cadeau ou une collab n'a rien à recevoir ici.
+  const eligibles = (orders ?? []).filter(countsInWebStats);
+  if (eligibles.length === 0) {
     return Response.json({ ok: true, sent: 0 });
   }
 
   let sent = 0;
 
-  for (const order of orders) {
+  for (const order of eligibles) {
     const items  = Array.isArray(order.items) ? order.items : [];
     const prenom = order.customer_name?.split(" ")[0] ?? "toi";
 

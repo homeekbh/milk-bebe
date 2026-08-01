@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, isValidOrder, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, countsInWebStats, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -24,13 +24,13 @@ export async function GET(req: NextRequest) {
     // Toutes les commandes valides (depuis l'origine) pour situer la 1re commande.
     const { data, error } = await supabaseServer
       .from("orders")
-      .select("customer_email, status, shipping_status, created_at, is_internal_test")
+      .select("customer_email, status, shipping_status, created_at, is_internal_test, classification")
       .in("status", VALID_STATUSES)
       .gte("created_at", "2024-01-01")
       .limit(200000);
     if (error) return fail(error.message);
 
-    const valid = (data ?? []).filter(isValidOrder).filter(o => o.customer_email);
+    const valid = (data ?? []).filter(countsInWebStats).filter(o => o.customer_email);
 
     const firstOrder = new Map<string, number>();     // email → 1re commande (ms)
     const activeInPeriod = new Set<string>();

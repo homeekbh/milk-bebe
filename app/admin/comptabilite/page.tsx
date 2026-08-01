@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { isValidOrder, getNetAmount } from "@/lib/orders";
+import { countsInAccounting, getNetAmount } from "@/lib/orders";
 import { tvaFromTTC, htFromTTC } from "@/lib/tva";
 
 function adminFetch(url: string, options: RequestInit = {}) {
@@ -85,7 +85,8 @@ export default function AdminComptabilite() {
   // Source unique de vérité : seules les commandes valides au sens M!LK
   // (cf. lib/orders.ts) contribuent au CA. Filtre AVANT toute agrégation
   // pour exclure annulées/remboursées/échecs paiement.
-  const validOrders = useMemo(() => orders.filter(isValidOrder), [orders]);
+  // ACCOUNTING (cliente + vente_directe) : le CA comptable inclut les ventes physiques encaissées.
+  const validOrders = useMemo(() => orders.filter(countsInAccounting), [orders]);
 
   const months = useMemo((): MonthData[] => {
     const map: Record<string, MonthData> = {};

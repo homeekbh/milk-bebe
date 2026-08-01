@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getNetAmount, isValidOrder } from "@/lib/orders";
+import { getNetAmount, countsInAccounting } from "@/lib/orders";
 import { csvCell } from "@/lib/csv";
 import { ventilateTTC } from "@/lib/tva";
 import type { NextRequest } from "next/server";
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
     // Colonne « Montant net qui compte dans le CA » : 0 pour les commandes exclues du CA
     // (remboursée totale / annulée / échec) — sinon la somme de la colonne surestimait le CA et
     // contredisait la page Comptabilité (qui filtre déjà via isValidOrder).
-    const netAmount    = isValidOrder(o) ? getNetAmount(o) : 0;
+    const netAmount    = countsInAccounting(o) ? getNetAmount(o) : 0;
     const v            = ventilateTTC(Number(o.amount_total ?? 0)); // ventilation TVA 20 % « en dedans »
 
     return [

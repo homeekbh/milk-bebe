@@ -1,6 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { isValidOrder, getNetAmount } from "@/lib/orders";
+import { countsInAccounting, getNetAmount } from "@/lib/orders";
 import { resolveAnalyticsRange, parisDayKey, fetchAllPaged } from "@/lib/analytics-server";
 import * as Sentry from "@sentry/nextjs";
 import type { NextRequest } from "next/server";
@@ -147,7 +147,9 @@ export async function GET(req: NextRequest) {
 
     // ── Chiffres du jour + comparaison J-7 (D7 / D12) ───────────────────────────
     const fromMs = new Date(dayFrom).getTime(), toMs = new Date(dayTo).getTime();
-    const validAll = orders.filter(isValidOrder);
+    // ACCOUNTING (cliente + vente_directe) : le tableau de bord affiche l'argent RÉELLEMENT
+    // encaissé aujourd'hui — une vente physique en fait partie ; seuls cadeaux/influenceuses sortent.
+    const validAll = orders.filter(countsInAccounting);
     const validToday = validAll.filter(o => { const t = new Date(o.created_at).getTime(); return t >= fromMs && t <= toMs; });
     const ordersToday = validToday.length;
     const caToday = validToday.reduce((s, o) => s + getNetAmount(o), 0);

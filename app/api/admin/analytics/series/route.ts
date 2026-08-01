@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { resolveAnalyticsRange, fetchAllPaged, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
-import { isValidOrder, getNetAmount } from "@/lib/orders";
+import { countsInWebStats, getNetAmount } from "@/lib/orders";
 import * as Sentry from "@sentry/nextjs";
 import type { NextRequest } from "next/server";
 
@@ -136,7 +136,7 @@ export async function GET(req: NextRequest) {
       }
       if (src === "ord") {
         const acc = new Map<string, number>(keys.map(k => [k, 0]));
-        for (const r of rows) { if (!isValidOrder(r)) continue; const k = bucketKey(r.created_at, g); if (!acc.has(k)) continue; acc.set(k, acc.get(k)! + (metric === "revenue" ? getNetAmount(r) : 1)); }
+        for (const r of rows) { if (!countsInWebStats(r)) continue; const k = bucketKey(r.created_at, g); if (!acc.has(k)) continue; acc.set(k, acc.get(k)! + (metric === "revenue" ? getNetAmount(r) : 1)); }
         return keys.map(k => acc.get(k)!);
       }
       // prof / nl : comptage par created_at
@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
       const src = METRIC_SRC[metric];
       if (src === "pv") { if (metric === "views") return rows.length; const set = new Set<string>(); for (const r of rows) { const id = metric === "sessions" ? r.session_id : r.visitor_id; if (id) set.add(id); } return set.size; }
       if (src === "ae") { const ev = EVENT_OF[metric]; return rows.filter(r => r.event_type === ev).length; }
-      if (src === "ord") { let acc = 0; for (const r of rows) { if (!isValidOrder(r)) continue; acc += metric === "revenue" ? getNetAmount(r) : 1; } return metric === "revenue" ? Math.round(acc * 100) / 100 : acc; }
+      if (src === "ord") { let acc = 0; for (const r of rows) { if (!countsInWebStats(r)) continue; acc += metric === "revenue" ? getNetAmount(r) : 1; } return metric === "revenue" ? Math.round(acc * 100) / 100 : acc; }
       return rows.length;
     };
     const totalsObj = (main: boolean, filter?: (r: any, m: string) => boolean) => {

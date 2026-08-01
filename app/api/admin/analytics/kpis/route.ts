@@ -1,15 +1,15 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, isValidOrder, getNetAmount, VALID_STATUSES, pct, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, countsInWebStats, getNetAmount, VALID_STATUSES, pct, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const COLS = "amount_total, refund_amount, status, shipping_status, customer_email, created_at, is_internal_test";
+const COLS = "amount_total, refund_amount, status, shipping_status, customer_email, created_at, is_internal_test, classification";
 
 function summarize(rows: any[]) {
-  const valid   = (rows ?? []).filter(isValidOrder);
+  const valid   = (rows ?? []).filter(countsInWebStats);
   const revenue = valid.reduce((s, o) => s + getNetAmount(o), 0);
   const count   = valid.length;
   const avg     = count > 0 ? revenue / count : 0;

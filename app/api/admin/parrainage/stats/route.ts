@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin } from "@/lib/admin-auth";
-import { isValidOrder } from "@/lib/orders";
+import { countsInWebStats } from "@/lib/orders";
 
 export const dynamic = "force-dynamic";
 
@@ -15,12 +15,12 @@ export async function GET(req: NextRequest) {
 
   // 1) orders → filleuls (commandes payées valides avec code) + remise filleul €.
   const { data: ords } = await supabaseServer
-    .from("orders").select("parrain_code, parrain_discount, status, shipping_status");
+    .from("orders").select("parrain_code, parrain_discount, status, shipping_status, is_internal_test, classification");
   const filleulsByCode = new Map<string, number>();
   let filleulsTotaux = 0;
   let remiseFilleulTotal = 0;
   for (const o of ords ?? []) {
-    if (!o.parrain_code || !isValidOrder(o as any)) continue;
+    if (!o.parrain_code || !countsInWebStats(o as any)) continue;
     filleulsTotaux++;
     remiseFilleulTotal += Number(o.parrain_discount) || 0;
     filleulsByCode.set(o.parrain_code, (filleulsByCode.get(o.parrain_code) ?? 0) + 1);

@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, isValidOrder, getNetAmount, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, countsInWebStats, getNetAmount, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseServer
       .from("orders")
-      .select("customer_email, customer_name, amount_total, refund_amount, status, shipping_status, created_at, is_internal_test")
+      .select("customer_email, customer_name, amount_total, refund_amount, status, shipping_status, created_at, is_internal_test, classification")
       .in("status", VALID_STATUSES)
       .gte("created_at", from).lte("created_at", to)
       .limit(100000);
@@ -24,7 +24,7 @@ export async function GET(req: NextRequest) {
 
     const map = new Map<string, { email: string; name: string; orders_count: number; total_revenue: number; last_order_at: string }>();
 
-    (data ?? []).filter(isValidOrder).forEach(o => {
+    (data ?? []).filter(countsInWebStats).forEach(o => {
       const email = o.customer_email;
       if (!email) return;
       const cur = map.get(email) ?? { email, name: "", orders_count: 0, total_revenue: 0, last_order_at: o.created_at };

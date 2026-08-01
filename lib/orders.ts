@@ -103,3 +103,42 @@ export function getNetAmount(o: OrderForCalc): number {
 export function sumValidCA(orders: OrderForCalc[]): number {
   return orders.filter(isValidOrder).reduce((s, o) => s + getNetAmount(o), 0);
 }
+
+// ── PÉRIMÈTRE PAR CLASSIFICATION (Lot 3b) ────────────────────────────────────
+// Deux prédicats de périmètre, EN PLUS de isValidOrder (tests / annulations /
+// remboursements restent exclus exactement comme aujourd'hui) :
+//   - countsInAccounting : CA COMPTABLE (factures, TVA, comptabilité) → 'cliente'
+//     + 'vente_directe'. Une vente physique est de l'argent réellement encaissé.
+//   - countsInWebStats   : STATS WEB (conversion, panier moyen, analytics, top
+//     produits/clients, geo, promos, rétention) → 'cliente' UNIQUEMENT. Une vente
+//     physique n'a produit ni visite ni panier → elle fausserait la conversion.
+// 'influenceuse' et 'cadeau' sont exclus des DEUX. 'test' n'est PAS une
+// classification : les tests restent gérés par is_internal_test (dans isValidOrder) —
+// un seul mécanisme, on n'en crée surtout pas un second.
+//
+// ⚠️ MÊME GARDE-FOU QUE is_internal_test (cf. isValidOrder l.66) : la colonne
+// `classification` n'a d'effet QUE si la requête l'a SÉLECTIONNÉE. Absente
+// (undefined / null / "") → traitée comme 'cliente' → RÉTROCOMPATIBLE : aucune
+// commande légitime ne disparaît par accident, et les commandes d'avant la migration
+// (sans classification) comptent normalement. REVERS ASSUMÉ : le même piège de no-op
+// qu'avec is_internal_test — une requête qui OUBLIE de sélectionner `classification`
+// n'exclura PAS les vente_directe / influenceuse / cadeau. Donc TOUTE requête utilisant
+// ces prédicats DOIT sélectionner `classification` (ET `is_internal_test`).
+const ACCOUNTING_CLASSES = new Set(["cliente", "vente_directe"]);
+const WEB_STATS_CLASSES  = new Set(["cliente"]);
+
+/** Classification effective : absente/vide → 'cliente' (défaut rétrocompatible). */
+function classificationOf(o: OrderForCalc): string {
+  const c = o?.classification;
+  return c == null || c === "" ? "cliente" : String(c).toLowerCase();
+}
+
+/** Compte dans le CA COMPTABLE (cliente + vente_directe) — commandes valides seulement. */
+export function countsInAccounting(o: OrderForCalc): boolean {
+  return isValidOrder(o) && ACCOUNTING_CLASSES.has(classificationOf(o));
+}
+
+/** Compte dans les STATS WEB (cliente uniquement) — commandes valides seulement. */
+export function countsInWebStats(o: OrderForCalc): boolean {
+  return isValidOrder(o) && WEB_STATS_CLASSES.has(classificationOf(o));
+}

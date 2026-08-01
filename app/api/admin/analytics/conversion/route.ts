@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, isValidOrder, VALID_STATUSES, fetchAllPaged, pct, ok, fail, botSessionIds } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, countsInWebStats, VALID_STATUSES, fetchAllPaged, pct, ok, fail, botSessionIds } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -35,14 +35,14 @@ export async function GET(req: NextRequest) {
           return q.order("viewed_at", { ascending: true }).range(rf, rt);
         }),
         (lt
-          ? supabaseServer.from("orders").select("status, shipping_status, is_internal_test").in("status", VALID_STATUSES).gte("created_at", a).lt("created_at", b).limit(100000)
-          : supabaseServer.from("orders").select("status, shipping_status, is_internal_test").in("status", VALID_STATUSES).gte("created_at", a).lte("created_at", b).limit(100000)),
+          ? supabaseServer.from("orders").select("status, shipping_status, is_internal_test, classification").in("status", VALID_STATUSES).gte("created_at", a).lt("created_at", b).limit(100000)
+          : supabaseServer.from("orders").select("status, shipping_status, is_internal_test, classification").in("status", VALID_STATUSES).gte("created_at", a).lte("created_at", b).limit(100000)),
       ]);
       if (ords.error) throw new Error(ords.error.message);
       const botSet    = excludeBots ? botSessionIds(rows) : new Set<string>();
       const distinct  = new Set(rows.map((r: any) => r.session_id).filter(Boolean).filter((s: string) => !botSet.has(s))).size;
       const sessions  = distinct > 0 ? distinct : rows.length; // fallback si session_id absent
-      const purchases = (ords.data ?? []).filter(isValidOrder).length;
+      const purchases = (ords.data ?? []).filter(countsInWebStats).length;
       return { sessions, purchases, conversion_rate: sessions > 0 ? (purchases / sessions) * 100 : 0 };
     };
 

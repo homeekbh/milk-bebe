@@ -6,10 +6,10 @@
  * - Fuseau UNIQUE pour tout découpage calendaire : Europe/Paris (Lot G-1a).
  * - Réutilise la SOURCE UNIQUE de vérité du CA (lib/orders.ts) : isValidOrder + getNetAmount.
  */
-import { VALID_STATUSES, isValidOrder, getNetAmount } from "@/lib/orders";
+import { VALID_STATUSES, isValidOrder, getNetAmount, countsInWebStats, countsInAccounting } from "@/lib/orders";
 import { isCrawlerUA } from "@/lib/bot-detection";
 
-export { VALID_STATUSES, isValidOrder, getNetAmount };
+export { VALID_STATUSES, isValidOrder, getNetAmount, countsInWebStats, countsInAccounting };
 
 export type PeriodKey = "1" | "3" | "7" | "30" | "90" | "all";
 

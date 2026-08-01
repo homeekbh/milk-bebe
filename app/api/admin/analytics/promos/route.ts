@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, isValidOrder, getNetAmount, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, countsInWebStats, getNetAmount, VALID_STATUSES, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -16,13 +16,13 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseServer
       .from("orders")
-      .select("promo_code, discount, amount_total, refund_amount, status, shipping_status, created_at, is_internal_test")
+      .select("promo_code, discount, amount_total, refund_amount, status, shipping_status, created_at, is_internal_test, classification")
       .in("status", VALID_STATUSES)
       .gte("created_at", from).lte("created_at", to)
       .limit(100000);
     if (error) return fail(error.message);
 
-    const valid = (data ?? []).filter(isValidOrder);
+    const valid = (data ?? []).filter(countsInWebStats);
 
     const map = new Map<string, { code: string; uses_count: number; revenue: number; discount_total: number }>();
     let withCount = 0,  withRevenue = 0;

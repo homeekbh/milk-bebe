@@ -1,22 +1,17 @@
 ﻿import { supabaseServer } from "@/lib/server/supabase";
 import Link from "next/link";
+// Annuaire client (CRM) : ACCOUNTING (cliente + vente_directe) — un vrai acheteur, y compris
+// une vente physique, doit apparaître ici avec son vrai total. Prédicat partagé (lib/orders) au
+// lieu de la copie locale, qui ne filtrait ni la classification ni les statuts non-CA.
+import { countsInAccounting } from "@/lib/orders";
 
 export const dynamic  = "force-dynamic";
 export const revalidate = 0;
 
-function isValidOrder(o: any): boolean {
-  if (o?.is_internal_test === true) return false; // commande de test interne → hors CA
-  const s  = String(o?.status ?? "").toLowerCase();
-  const sh = String(o?.shipping_status ?? "").toLowerCase();
-  if (s === "remboursee" || s === "annulee") return false;
-  if (sh === "annulee" || sh === "retour") return false;
-  return true;
-}
-
 export default async function AdminClients() {
   const { data: orders } = await supabaseServer
     .from("orders")
-    .select("id, customer_email, customer_name, created_at, amount_total, items, shipping_address, shipping_status, status, is_internal_test")
+    .select("id, customer_email, customer_name, created_at, amount_total, items, shipping_address, shipping_status, status, is_internal_test, classification")
     .order("created_at", { ascending: false });
 
   // Construire profils clients — comptabilise total ET valides séparément
@@ -39,7 +34,7 @@ export default async function AdminClients() {
     }
     const c = map.get(o.customer_email);
     c.orders += 1;
-    const valid = isValidOrder(o);
+    const valid = countsInAccounting(o);
     if (valid) {
       c.validOrders += 1;
       c.total       += Number(o.amount_total ?? 0);

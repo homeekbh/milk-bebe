@@ -19,7 +19,7 @@ export async function generateMetadata({
     ? "Baby essentials for 0-6 months in OEKO-TEX certified bamboo. Soft on skin, temperature-regulating, nothing you don't need. Free delivery over €60."
     : "Des essentiels bébé 0-6 mois en bambou certifié OEKO-TEX. Doux sur la peau, thermorégulants, sans superflu. Livraison offerte dès 60€.";
   const ogTitle = isEN
-    ? "M!LK — Baby bamboo essentials OEKO-TEX | 0-6 months"
+    ? "M!LK — OEKO-TEX bamboo essentials for newborns"
     : "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois";
   const ogAlt = isEN
     ? "M!LK — premium baby bamboo essentials"

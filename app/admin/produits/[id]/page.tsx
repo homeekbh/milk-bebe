@@ -1027,6 +1027,8 @@ export default function AdminProductForm() {
   const [showPreview,  setShowPreview]  = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [allProducts,  setAllProducts]  = useState<any[]>([]);
+  const [motifPresets, setMotifPresets] = useState<{ name: string; hex: string; image_url: string }[]>([]);
+  const [presetOpen,   setPresetOpen]   = useState(false);
   const [loadingProds, setLoadingProds] = useState(false);
   const [activeTab,    setActiveTab]    = useState("general");
   const [dynCategories, setDynCategories] = useState<{slug:string;label:string}[]>([
@@ -1183,6 +1185,21 @@ export default function AdminProductForm() {
     setLoadingProds(false);
   }
 
+  // Palette des motifs déjà utilisés → sélecteur « Reprendre un motif existant » (onglet Stock).
+  // Requête CIBLÉE /api/admin/motifs : ne lit que products.colors, dédupliqué par nom côté
+  // serveur — on ne rapatrie PAS les 14 produits entiers (la modale « Copier » garde son
+  // chargement paresseux, inchangé).
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await adminFetch("/api/admin/motifs");
+        if (!res.ok) return;
+        const d = await res.json();
+        if (Array.isArray(d?.motifs)) setMotifPresets(d.motifs);
+      } catch {}
+    })();
+  }, []);
+
   // Dupliquer les cards + FAQs d'un produit source vers ce produit
   function duplicateFromProduct(source: any) {
     const cat = source.category_slug ?? "";
@@ -1236,7 +1253,33 @@ export default function AdminProductForm() {
   // décrément). Repli sur les tailles produit (sans motif : Bandeau/Bonnet), puis le scalaire.
   const computedStock   = totalFromColors ?? totalFromSizes;
 
-  function addColor() { setColors(p => [...p, { name: "", hex: "#f2ede6", stock: "0", image_url: "", sizes: [], sizes_stock: {}, validated: false }]); }
+  // ⚠️ Chaque motif DOIT porter un id dès sa création. Cet uuid est la clé de
+  //    decrement_stock_motif (jointure `elem->>'id'`) ET de la résolution du nom dans
+  //    /admin/stock (`orders.items[].motif_id` → `colors[].id`). SANS id : create-session ne
+  //    résout pas le motif → `motif_id` null → la RPC de décrément par motif est COURT-CIRCUITÉE
+  //    (elle n'échoue pas : aucun log, aucune alerte) → `colors[].sizes_stock` ne se décrémente
+  //    JAMAIS, et le motif reste orphelin dans /admin/stock. La migration 025 a rendu cet id
+  //    porteur ; ce chemin de création UI ne le générait pas — d'où ce `crypto.randomUUID()`.
+  function addColor() { setColors(p => [...p, { id: crypto.randomUUID(), name: "", hex: "#f2ede6", stock: "0", image_url: "", sizes: [], sizes_stock: {}, validated: false }]); }
+
+  // ── Sélecteur « Reprendre un motif existant » : ajoute un motif PRÉ-REMPLI (nom, hex,
+  //    image_url) depuis la palette catalogue `motifPresets` (cf. /api/admin/motifs, dédup
+  //    par nom côté serveur, AUCUNE nouvelle table). NOUVEL uuid par produit (l'id doit rester
+  //    unique par produit : clé du décrément/restock et de la résolution du nom dans
+  //    /admin/stock). NI stock NI tailles repris. validated:false → passe par la validation
+  //    manuelle (étape 1). Additif : « + Ajouter un motif » (saisie vierge) reste inchangé.
+  function addColorFromExisting(src: { name: string; hex: string; image_url: string }) {
+    setColors(p => [...p, {
+      id:          crypto.randomUUID(),
+      name:        src.name,
+      hex:         src.hex || "#f2ede6",
+      image_url:   src.image_url || "",
+      stock:       "0",
+      sizes:       [],
+      sizes_stock: {},
+      validated:   false,
+    }]);
+  }
   function removeColor(i: number) { setColors(p => p.filter((_, idx) => idx !== i)); }
   function updateColor(i: number, k: keyof ColorEntry, v: string | string[] | Record<string,string> | boolean) {
     setColors(p => p.map((c, idx) => {
@@ -1647,10 +1690,42 @@ export default function AdminProductForm() {
                 Pour chaque motif : 1️⃣ Valider le motif → 2️⃣ Sélectionner les tailles → 3️⃣ Saisir les quantités
               </div>
             </div>
-            <button onClick={addColor}
-              style={{ padding: "12px 20px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
-              + Ajouter un motif
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+              {motifPresets.length > 0 && (
+                <div style={{ position: "relative" }}>
+                  <button type="button" onClick={() => setPresetOpen(o => !o)}
+                    title="Reprendre un motif déjà utilisé : nom, couleur et image pré-remplis. Stock et tailles restent à saisir."
+                    style={{ padding: "12px 16px", borderRadius: 12, background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 14, border: "2px solid rgba(26,20,16,0.15)", cursor: "pointer", whiteSpace: "nowrap", display: "inline-flex", alignItems: "center", gap: 8 }}>
+                    ↺ Reprendre un motif <span style={{ fontSize: 10, opacity: 0.55 }}>▾</span>
+                  </button>
+                  {presetOpen && (
+                    <>
+                      {/* overlay : ferme au clic extérieur (pas de listener global) */}
+                      <div onClick={() => setPresetOpen(false)} style={{ position: "fixed", inset: 0, zIndex: 40 }} />
+                      <div style={{ position: "absolute", top: "calc(100% + 6px)", right: 0, zIndex: 41, background: "#fff", border: "1px solid rgba(26,20,16,0.12)", borderRadius: 12, boxShadow: "0 12px 32px rgba(26,20,16,0.16)", minWidth: 232, maxHeight: 320, overflowY: "auto", padding: 6 }}>
+                        {motifPresets.map(m => (
+                          <button key={m.name} type="button"
+                            onClick={() => { addColorFromExisting(m); setPresetOpen(false); }}
+                            style={{ display: "flex", alignItems: "center", gap: 10, width: "100%", padding: "8px 10px", border: "none", background: "transparent", cursor: "pointer", borderRadius: 8, textAlign: "left" as const }}
+                            onMouseEnter={e => { e.currentTarget.style.background = "rgba(26,20,16,0.05)"; }}
+                            onMouseLeave={e => { e.currentTarget.style.background = "transparent"; }}>
+                            {/* pastille couleur + vignette image si présente */}
+                            <span style={{ position: "relative", width: 26, height: 26, borderRadius: 7, overflow: "hidden", background: m.hex || "#f2ede6", border: "1px solid rgba(0,0,0,0.15)", flexShrink: 0 }}>
+                              {m.image_url && <img src={m.image_url} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} />}
+                            </span>
+                            <span style={{ fontSize: 14, fontWeight: 800, color: "#1a1410" }}>{m.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
+              <button onClick={addColor}
+                style={{ padding: "12px 20px", borderRadius: 12, background: "#1a1410", color: "#c49a4a", fontWeight: 900, fontSize: 15, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                + Ajouter un motif
+              </button>
+            </div>
           </div>
 
           {/* Stock total */}

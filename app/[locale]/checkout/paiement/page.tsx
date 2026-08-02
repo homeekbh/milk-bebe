@@ -10,6 +10,7 @@ import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
 import { setCheckoutNotice } from "@/lib/checkout-storage";
+import { isRelayValid } from "@/lib/relay";
 import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
@@ -191,7 +192,7 @@ export default function CheckoutPaiementPage() {
   const deliveryComplete = isFrance
     ? (dc?.kind === "fr" && !!dc.carrier && !!dc.type && (dc.type === "home"
         ? isAddressComplete(state.shippingAddress as CheckoutAddress)
-        : !!state.selectedRelay))
+        : isRelayValid(state.selectedRelay)))
     // International : adresse collectée par Stripe (pas de saisie tunnel) → pays
     // livrable + mode international suffisent. Le body n'envoie PAS home_address (ligne
     // ci-dessous), donc le webhook reprend l'adresse Stripe pour orders.shipping_address.

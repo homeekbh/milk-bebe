@@ -11,6 +11,7 @@ import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
 import { useCheckoutNoticeItems } from "@/components/checkout/useCheckoutNotice";
 import { setCheckoutNotice } from "@/lib/checkout-storage";
+import { isRelayValid } from "@/lib/relay";
 import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import CountrySelector from "@/components/checkout/CountrySelector";
 import RelaySelector from "@/components/checkout/RelaySelector";
@@ -258,7 +259,8 @@ export default function CheckoutLivraisonPage() {
   // Relais VALIDE = un vrai point relais Sendcloud (id numérique). Un id non numérique
   // (ex. ancien "manual:…" encore en Context) n'est PAS étiquetable → on refuse le passage
   // au paiement : le client doit sélectionner un relais trouvé, ou basculer sur le domicile.
-  const relayOk = !!state.selectedRelay && /^\d+$/.test(String(state.selectedRelay.id ?? ""));
+  // Règle UNIQUE partagée avec paiement (isRelayValid) — celle qu'exige create-label en aval.
+  const relayOk = isRelayValid(state.selectedRelay);
   const canContinue = isFrance
     // FR : mode choisi + (adresse domicile complète OU relais VALIDE) + TÉLÉPHONE.
     ? frModeChosen && frPhoneOk && (dc!.type === "home"

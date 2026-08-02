@@ -59,9 +59,9 @@ function ProductCard({ p }: { p: Product }) {
       <div className={`pcard-grid${promo ? " pcard-promo" : ""}`}
         style={{ position: "relative", borderRadius: 18, overflow: "hidden", background: C.taupe,
           display: "flex", flexDirection: "column", height: "100%",
-          border: promo ? "2px solid rgba(245,184,65,0.45)" : `1.5px solid rgba(26,20,16,0.1)`,
+          border: promo ? "2px solid rgba(196,154,74,0.45)" : `1.5px solid rgba(26,20,16,0.1)`,
           transition: "all 0.28s cubic-bezier(0.34,1.56,0.64,1)", cursor: "pointer",
-          boxShadow: promo ? "0 4px 20px rgba(245,184,65,0.20)" : "0 4px 16px rgba(0,0,0,0.1)",
+          boxShadow: promo ? "0 4px 20px rgba(196,154,74,0.20)" : "0 4px 16px rgba(0,0,0,0.1)",
           transform: "translateY(-2px)" }}>
         <div style={{ position: "relative", aspectRatio: "3/4", background: C.light, overflow: "hidden" }}>
           {p.image_url ? (

@@ -15,15 +15,10 @@ import { BADGE_KEYFRAMES } from "@/components/product/badgeStyles";
 import { CATEGORY_ORDER } from "@/lib/categories-nav";
 
 const PROMO_STYLES = `
-  @keyframes milk-promo-shake {
-    0%,100% { transform: translateY(-2px) rotate(0deg); }
-    15%     { transform: translateY(-2px) rotate(-0.5deg) scale(1.01); }
-    35%     { transform: translateY(-2px) rotate(0.5deg) scale(1.015); }
-    55%     { transform: translateY(-2px) rotate(-0.35deg) scale(1.01); }
-    75%     { transform: translateY(-2px) rotate(0.25deg); }
-  }
-  .pcard-promo { animation: milk-promo-shake 2.2s ease-in-out infinite; }
-  .pcard-promo:hover { animation: none !important; transform: translateY(-6px) scale(1.02) !important; }
+  /* Carte promo : plus d'animation en boucle (retirée lot D — un élément qui bouge sans
+     arrêt fait « cheap » sur cette palette sobre ; cf. lot 4b, entrée en une seule passe).
+     Différenciation = bordure + ombre ambre (inline) + léger lift au survol. */
+  .pcard-promo:hover { transform: translateY(-6px) scale(1.02) !important; }
 `;
 
 const PER_PAGE = 16;

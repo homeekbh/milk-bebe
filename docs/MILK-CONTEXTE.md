@@ -167,8 +167,12 @@ Ne rien planifier sur ces points sans reconnaissance préalable.
   endroits (`ProductClient.tsx:905`, `page.tsx:116`). L'anti-dérive est déjà
   satisfaite.
 
-Reste à faire : rendre `RatingInline` cliquable (prop `onClick` optionnelle),
-fetcher au clic, afficher dans `Modal`. La fiche ne possède que l'agrégat.
+**FAIT** (commit `f1d5593`, 02/08) : `RatingInline` a une prop `onClick` OPTIONNELLE
+(câblée UNIQUEMENT au-dessus du bouton d'achat, `ProductClient.tsx:905` ; la note sous
+le titre reste statique — deux points d'entrée n'apportaient rien). `ProductReviewsModal`
+réutilise `Modal` (pas de 7ᵉ modale), fetch AU CLIC, états chargement / erreur (+ réessai) /
+aucun avis / liste (étoiles, prénom, commentaire, réponse M!LK, date). À 0 avis,
+`getProductRating` renvoie null → `RatingInline` non rendu → non cliquable par construction.
 
 *Contexte :* `ReviewsBlock` a été retiré **volontairement** de la fiche et déplacé
 sur `/produits`. Un audit externe l'avait signalé à tort comme un oubli.

@@ -15,6 +15,7 @@ const AMBER        = "#c49a4a";
 const COUNTRY_FILL = "#1c1814";                 // fond neutre des pays (pas de choroplèthe)
 const COUNTRY_STK  = "rgba(242,237,230,0.08)";  // contour discret des pays
 const POINT_STK    = "#1a1410";                 // contour foncé des points villes
+const POINT_FILL   = "#f2ede6";                 // remplissage CLAIR au repos — contraste 15.2:1 sur le fond pays #1c1814 (vs 6.8:1 pour l'ambre)
 const PANEL        = "#161210";
 const TEXT         = "#f2ede6";
 
@@ -24,7 +25,8 @@ const MAX_ZOOM = 12;
 /**
  * Carte du monde SVG pur (d3-geo geoNaturalEarth1 + topojson world-atlas) — mode
  * POINTS SEULS : les pays sont un simple fond neutre (#1c1814, contour discret),
- * la donnée est portée UNIQUEMENT par les points villes (ambre, rayon ∝ √sessions).
+ * la donnée est portée UNIQUEMENT par les points villes (remplissage clair + contour
+ * foncé pour le contraste, ambre au survol ; rayon ∝ √sessions).
  * Plus de choroplèthe → plus de jointure ISO2→numeric ni de i18n-iso-countries.
  *
  * Zoom : d3-zoom (molette = zoom, glisser = pan, scaleExtent [1,12]) sur UN <g>
@@ -116,10 +118,10 @@ export default function WorldVisitorsMap({ cities }: { cities: City[] }) {
                 cx={pt.x}
                 cy={pt.y}
                 r={pt.r / k}
-                fill={AMBER}
-                fillOpacity={active ? 0.95 : 0.72}
+                fill={active ? AMBER : POINT_FILL}
+                fillOpacity={active ? 1 : 0.9}
                 stroke={POINT_STK}
-                strokeWidth={active ? 1.4 : 0.9}
+                strokeWidth={active ? 1.7 : 0.9}
                 vectorEffect="non-scaling-stroke"
                 style={{ cursor: "pointer", transition: "fill-opacity 0.12s" }}
                 onMouseEnter={() => setHover({ x: pt.x, y: pt.y, label: pt.label })}

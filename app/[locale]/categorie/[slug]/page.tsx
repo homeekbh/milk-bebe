@@ -90,13 +90,13 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   bodies: {
     fr: {
       seoTitle: "Body bébé bambou OEKO-TEX — Body nourrisson ultra-doux 0-6 mois",
-      seoDesc:  "Body bébé en bambou certifié OEKO-TEX. Ultra-doux, hypoallergénique, pour peaux sensibles. Encolure enveloppe + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.",
+      seoDesc:  "En bambou certifié OEKO-TEX, doux pour les peaux sensibles. Encolure enveloppe et moufles intégrées, faciles à enfiler. Livraison offerte dès 60€.",
       keywords: ["body bébé", "body nourrisson", "body bambou bébé", "body bébé peau sensible", "body bébé OEKO-TEX", "body bébé doux", "body naissance"],
       h1: "Bodies bébé bambou",
     },
     en: {
       seoTitle: "Baby Bodysuits OEKO-TEX Bamboo — Ultra-soft Newborn Bodysuits 0-6 months",
-      seoDesc:  "OEKO-TEX certified bamboo baby bodysuits. Ultra-soft, hypoallergenic, for sensitive skin. Envelope neckline + built-in fold-over mittens. Free delivery from €60.",
+      seoDesc:  "OEKO-TEX certified bamboo, gentle on sensitive skin. Envelope neckline and fold-over mittens, easy to slip on. Free delivery over €60.",
       keywords: ["baby bodysuit", "newborn bodysuit", "bamboo bodysuit", "OEKO-TEX baby bodysuit"],
       h1: "Baby Bodysuits",
     },
@@ -104,13 +104,13 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   pyjamas: {
     fr: {
       seoTitle: "Pyjama bébé bambou OEKO-TEX — Grenouillère nourrisson ultra-douce 0-6 mois",
-      seoDesc:  "Pyjama bébé en bambou certifié OEKO-TEX. Grenouillère nourrisson ultra-douce, thermorégulante. Double zip inversé + moufles intégrées. Livraison offerte dès 60€ en France métropolitaine.",
+      seoDesc:  "En bambou certifié OEKO-TEX, thermorégulant pour des nuits sereines. Double zip inversé pour changer sans réveiller bébé. Livraison offerte dès 60€.",
       keywords: ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "grenouillère nourrisson", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "turbulette pyjama"],
       h1: "Pyjamas bébé bambou",
     },
     en: {
       seoTitle: "Baby Pyjamas OEKO-TEX Bamboo — Ultra-soft Newborn Sleepsuits 0-6 months",
-      seoDesc:  "OEKO-TEX certified bamboo baby pyjamas. Ultra-soft, temperature-regulating newborn sleepsuits. Double reverse zip + built-in mittens. Free delivery from €60.",
+      seoDesc:  "OEKO-TEX certified bamboo that regulates temperature for calmer nights. Double reverse zip for changes without waking baby. Free delivery over €60.",
       keywords: ["baby pyjamas", "newborn sleepsuit", "bamboo baby pyjamas", "OEKO-TEX baby sleepsuit"],
       h1: "Baby Pyjamas",
     },
@@ -118,7 +118,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   gigoteuses: {
     fr: {
       seoTitle: "Gigoteuse bébé bambou — Turbulette nourrisson 0-3 mois à nouer",
-      seoDesc:  "Gigoteuse bébé en bambou certifié OEKO-TEX. Turbulette nourrisson respirante, à nouer. Zéro bouton, change facile la nuit. Livraison offerte dès 60€ en France métropolitaine.",
+      seoDesc:  "En bambou certifié OEKO-TEX, respirante et à nouer. Pas un seul bouton : le change de nuit se fait sans réveiller bébé. Livraison offerte dès 60€.",
       keywords: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "turbulette 0-3 mois", "gigoteuse bébé respirante", "gigoteuse sans bouton"],
       h1: "Gigoteuses à nouer bébé bambou",
     },
@@ -132,7 +132,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   langes: {
     fr: {
       seoTitle: "Lange bébé bambou OEKO-TEX — Emmaillotage nourrisson 120x120 cm",
-      seoDesc:  "Lange bébé en bambou certifié OEKO-TEX. 120×120 cm, multi-usage : emmaillotage, couverture, protection soleil. Livraison offerte dès 60€ en France métropolitaine.",
+      seoDesc:  "En bambou certifié OEKO-TEX, 120×120 cm. Emmaillotage, couverture, protection soleil : un lange, mille usages. Livraison offerte dès 60€.",
       keywords: ["lange bébé", "lange emmaillotage", "lange bambou", "emmaillotage nourrisson", "lange bébé 120x120", "couverture emmaillotage"],
       h1: "Langes bébé bambou",
     },
@@ -146,7 +146,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   accessoires: {
     fr: {
       seoTitle: "Accessoires bébé bambou OEKO-TEX — Bonnets, Bandeaux nourrisson",
-      seoDesc:  "Accessoires bébé en bambou certifié OEKO-TEX. Bonnets et bandeaux nourrisson ultra-doux. Livraison offerte dès 60€ en France métropolitaine.",
+      seoDesc:  "Bonnets et bandeaux en bambou certifié OEKO-TEX, doux sur la tête des nouveau-nés. La touche qui finit la tenue. Livraison offerte dès 60€.",
       keywords: ["accessoire bébé", "bonnet bébé", "bandeau bébé", "accessoire nourrisson", "bonnet bambou bébé"],
       h1: "Accessoires bébé bambou",
     },

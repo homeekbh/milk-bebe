@@ -23,8 +23,8 @@ export async function generateMetadata(
     ? "Vêtements bébé bambou OEKO-TEX — Pyjamas, Bodies, Gigoteuses, Turbulettes"
     : "Baby Bamboo Clothing OEKO-TEX — Pyjamas, Bodysuits, Sleep Bags";
   const description = isFR
-    ? "Découvrez la collection M!LK : pyjamas bébé, bodies nourrisson, gigoteuses, turbulettes et accessoires en bambou certifié OEKO-TEX. Ultra-doux, thermorégulants, pour peaux sensibles. Livraison offerte dès 60€ en France métropolitaine."
-    : "Discover M!LK's collection: baby pyjamas, bodysuits, sleep bags and accessories in OEKO-TEX certified bamboo. Ultra-soft, temperature-regulating, for sensitive skin.";
+    ? "Toute la collection en bambou certifié OEKO-TEX : des pièces douces et respirantes, du jour à la nuit, 0-6 mois. Livraison offerte dès 60€."
+    : "The full M!LK range in OEKO-TEX certified bamboo: soft, breathable pieces for day and night, sized 0-6 months. Free delivery over €60.";
   return {
     title,
     description,

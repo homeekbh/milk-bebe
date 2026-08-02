@@ -12,6 +12,18 @@ export async function generateMetadata({
   params: Promise<{ locale: string }>;
 }): Promise<Metadata> {
   const { locale } = await params;
+  const isEN = locale === "en";
+  // Métadonnées LOCALISÉES : /en ne doit JAMAIS servir de texte FR (signal de qualité
+  // faible pour Google). `desc` sert la meta + og + twitter (source unique par locale).
+  const desc = isEN
+    ? "Baby essentials for 0-6 months in OEKO-TEX certified bamboo. Soft on skin, temperature-regulating, nothing you don't need. Free delivery over €60."
+    : "Des essentiels bébé 0-6 mois en bambou certifié OEKO-TEX. Doux sur la peau, thermorégulants, sans superflu. Livraison offerte dès 60€.";
+  const ogTitle = isEN
+    ? "M!LK — Baby bamboo essentials OEKO-TEX | 0-6 months"
+    : "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois";
+  const ogAlt = isEN
+    ? "M!LK — premium baby bamboo essentials"
+    : "M!LK — Essentiels bébé bambou premium";
   return {
   // `absolute` → contourne le title.template du layout racine (sinon « | M!LK »
   // serait dupliqué). Title court et lisible, localisé FR/EN.
@@ -20,9 +32,13 @@ export async function generateMetadata({
       ? "Baby Bamboo Bodysuits & Pyjamas OEKO-TEX | M!LK"
       : "Bodies & Pyjamas bébé bambou OEKO-TEX | M!LK",
   },
-  description:
-    "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX Standard 100. 3× plus doux que le coton, thermorégulateur, antibactérien. Idéal peaux sensibles, eczéma. Cadeau naissance parfait. Livraison offerte dès 60€ en France métropolitaine. Marque française.",
-  keywords: [
+  description: desc,
+  keywords: isEN ? [
+    "bamboo baby clothes", "baby bodysuit bamboo", "baby pyjamas bamboo", "newborn sleepsuit bamboo",
+    "baby sleep bag bamboo", "baby swaddle bamboo", "OEKO-TEX baby clothes", "baby clothes sensitive skin",
+    "baby clothes eczema", "temperature-regulating baby clothes", "newborn essentials", "baby shower gift",
+    "new baby gift bamboo", "0-6 months baby clothes", "French baby brand", "M!LK baby", "milkbebe",
+  ] : [
     "body nourrisson bambou", "body bébé naissance bambou", "body bébé 0 3 mois bambou",
     "body bébé nouveau né bambou", "body bébé 0 6 mois", "body bébé manches longues bambou",
     "body bébé certifié OEKO-TEX", "body bébé peau sensible", "body bébé thermorégulateur",
@@ -50,22 +66,21 @@ export async function generateMetadata({
     // canonique d'une page (localePrefix:'always').
     url:       `${BASE_URL}/${locale}`,
     siteName:  "M!LK",
-    title:     "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois",
-    description:
-      "Bodies, pyjamas, gigoteuses et langes nourrisson 0-6 mois en bambou certifié OEKO-TEX. 3× plus doux que le coton. Cadeau naissance parfait.",
+    title:     ogTitle,
+    description: desc,
     images: [
       {
         url:    `${BASE_URL}/images/og/milk-og-homepage.jpg`,
         width:  1200,
         height: 630,
-        alt:    "M!LK — Essentiels bébé bambou premium",
+        alt:    ogAlt,
       },
     ],
   },
   twitter: {
     card:        "summary_large_image",
-    title:       "M!LK — Essentiels bébé bambou OEKO-TEX | 0-6 mois",
-    description: "Bodies, pyjamas, gigoteuses et langes nourrisson en bambou certifié OEKO-TEX. Doux, thermorégulateur, anti-bactérien.",
+    title:       ogTitle,
+    description: desc,
     images:      [`${BASE_URL}/images/og/milk-og-homepage.jpg`],
   },
   alternates: getAlternates(locale),

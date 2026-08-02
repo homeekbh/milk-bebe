@@ -157,20 +157,6 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
       h1: "Baby Accessories",
     },
   },
-  bonnet: {
-    fr: {
-      seoTitle: "Bonnet bébé bambou OEKO-TEX — Bonnet nourrisson ultra-doux",
-      seoDesc:  "Bonnet bébé en bambou certifié OEKO-TEX. Ultra-doux, anatomique, pour les premières heures. Livraison offerte dès 60€ en France métropolitaine.",
-      keywords: ["bonnet bébé", "bonnet nourrisson", "bonnet bambou bébé", "bonnet naissance", "bonnet bébé doux"],
-      h1: "Bonnets bébé bambou",
-    },
-    en: {
-      seoTitle: "Baby Hats OEKO-TEX Bamboo — Ultra-soft Newborn Beanie",
-      seoDesc:  "OEKO-TEX certified bamboo baby hats. Ultra-soft, anatomical fit for the first hours. Free delivery from €60.",
-      keywords: ["baby hat", "newborn beanie", "bamboo baby hat", "newborn hat"],
-      h1: "Baby Hats",
-    },
-  },
 };
 
 function getCategoryMeta(slug: string, locale: string) {

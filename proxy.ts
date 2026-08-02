@@ -36,6 +36,23 @@ export async function proxy(req: NextRequest) {
     return intlMiddleware(req);
   }
 
+  // 2-bis. SEO — /categorie/bonnet est une catégorie MORTE : le bonnet a été reclassé
+  //    sous « accessoires » (0 produit en category_slug='bonnet' → la page 404). 301
+  //    PERMANENT vers /categorie/accessoires, EN UN SEUL SAUT pour les TROIS formes :
+  //    préfixée /fr, préfixée /en, ET la forme NUE /categorie/bonnet (URL pré-i18n encore
+  //    connue de Google — cas des vestiges Search Console). Placé AVANT la redirection
+  //    générique sans-préfixe (§3) : sinon la forme nue ferait /categorie/bonnet →
+  //    /fr/categorie/bonnet → /fr/categorie/accessoires (double redirection, pénalisée).
+  //    Locale préservée ; la forme nue part sur /fr. « bonnet » exact seulement (pas
+  //    « bonnets », pas un sous-chemin).
+  const bonnetMatch = pathname.match(/^(?:\/(fr|en))?\/categorie\/bonnet\/?$/);
+  if (bonnetMatch) {
+    const loc = bonnetMatch[1] === "en" ? "en" : "fr";
+    const url = req.nextUrl.clone();
+    url.pathname = `/${loc}/categorie/accessoires`;
+    return NextResponse.redirect(url, 301);
+  }
+
   // 3. SEO — toute autre URL SANS préfixe → 301 PERMANENT vers son équivalent /fr.
   //    Avant : next-intl renvoyait un 307 TEMPORAIRE, donc Google gardait les deux
   //    URLs (/categorie/X ET /fr/categorie/X) indexées et diluait le signal. Le 301

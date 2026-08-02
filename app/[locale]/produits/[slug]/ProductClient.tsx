@@ -11,6 +11,7 @@ import { Breadcrumb }                  from "@/components/seo/Breadcrumb";
 import { capitalizeSlug }              from "@/lib/category-labels";
 import ProductRecommendations          from "@/components/product/ProductRecommendations";
 import RatingInline                     from "@/components/product/RatingInline";
+import ProductReviewsModal              from "@/components/product/ProductReviewsModal";
 import ShareButtons                    from "@/components/shared/ShareButtons";
 import { trackViewItem, metaViewContent } from "@/lib/analytics";
 import { computeDeliveryEstimate }        from "@/lib/delivery-estimate";
@@ -359,6 +360,7 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
   // Produit fourni en SSR par page.tsx (coque server) → plus de fetch client,
   // plus d'écran « Chargement ».
   const [product]     = useState<any>(initialProduct);
+  const [reviewsOpen, setReviewsOpen] = useState(false);
   const [related,     setRelated]     = useState<any[]>([]);
   const [loading]     = useState(false);
   const [taille,      setTaille]      = useState("");
@@ -902,9 +904,10 @@ export default function ProductClient({ initialProduct, header, initialPromo, in
                 client → aucun saut). Rien si 0 avis. */}
             {rating && (
               <div style={{ display: "flex", justifyContent: "center", marginBottom: 2 }}>
-                <RatingInline avg={rating.avg} avgStr={rating.avgStr} countStr={rating.countStr} />
+                <RatingInline avg={rating.avg} avgStr={rating.avgStr} countStr={rating.countStr} onClick={() => setReviewsOpen(true)} />
               </div>
             )}
+            <ProductReviewsModal open={reviewsOpen} onClose={() => setReviewsOpen(false)} productId={String(product.id)} en={locale === "en"} />
             <button onClick={handleAddToCart} disabled={outTaille}
               style={{ padding: "17px 24px", borderRadius: 16, border: "none", fontWeight: 900, fontSize: "clamp(14px,1.3vw,17px)", cursor: outTaille ? "not-allowed" : "pointer", background: added ? "#2d6a2d" : outTaille ? "rgba(26,20,16,0.2)" : DARK, color: added ? "#fff" : outTaille ? "rgba(26,20,16,0.4)" : WARM, transition: "all 0.2s", position: "relative" }}>
               {added ? t("added") : outTaille ? t("sold_out") : needsTaille ? t("choose_size_up") : t("add_price", { price: (Number(displayPrice) * qty).toFixed(2) })}

@@ -124,56 +124,64 @@ export default function SuccessPage() {
         variant:  it.taille ?? it.couleur,
         slug:     it.slug,
       }));
-      const snapValue = items.reduce((a, it) => a + (it.price ?? 0) * (it.quantity ?? 1), 0);
-
-      // Dédup PERSISTANTE : un achat déjà tracké (refresh, nouvel onglet, ou
-      // réouverture ultérieure du lien de confirmation) n'est jamais re-émis.
-      const alreadyTracked = purchaseAlreadyTracked(sessionId);
-
-      // On n'émet AUCUN achat sans session_id : un vrai achat en a toujours un, et
-      // sans lui aucune déduplication n'est possible (ni GA4 ni Meta) → 100 % fantôme.
-      if (!alreadyTracked && sessionId) {
-        markPurchaseTracked(sessionId);
-
+      // Dédup PERSISTANTE (localStorage, FIFO borné) : une session dont l'achat a DÉJÀ été
+      // émis avec succès n'est jamais re-émise (refresh, nouvel onglet, réouverture du lien
+      // de confirmation). ⚠️ Le drapeau est posé APRÈS une émission réussie (plus bas), pas
+      // avant : un webhook Stripe en retard ou un onglet fermé pendant l'attente n'est donc
+      // PAS perdu — il repart à la prochaine ouverture de /success (l'e-mail de confirmation
+      // y pointe). On n'émet RIEN sans session_id (dédup impossible → 100 % fantôme, 01/08).
+      if (sessionId && !purchaseAlreadyTracked(sessionId)) {
         void (async () => {
-          let value: number = snapValue;
-          let purchaseItems = snapItems;
-          let coupon: string | undefined;
-          let txId = sessionId || `order_${Date.now()}`;
-          let orderEmail = "";
-
-          if (sessionId) {
-            let order = await fetchOrderBySession(sessionId);
-            if (!order) { await sleep(2000); order = await fetchOrderBySession(sessionId); }
-            if (order) {
-              value  = Math.max(0, Number(order.amount_total ?? snapValue) - Number(order.refund_amount ?? 0));
-              coupon = order.promo_code ?? undefined;
-              txId   = order.id ?? txId;
-              orderEmail = order.customer_email ?? "";
-              if (Array.isArray(order.items) && order.items.length > 0) {
-                purchaseItems = order.items.map((it: any) => ({
-                  id:       String(it.id ?? ""),
-                  name:     it.name ?? "",
-                  price:    Number(it.price ?? 0),
-                  quantity: Number(it.quantity ?? 1),
-                  category: it.category_slug,
-                  variant:  it.taille ?? it.couleur,
-                  slug:     it.slug,
-                }));
-              }
-            }
+          // Fenêtre de grâce ~9 s (back-off), EN PLUS du retry interne de /api/orders/by-session :
+          // on ATTEND le vrai montant (amount_total = sous-total + port − remise, source Stripe)
+          // plutôt que d'émettre le sous-total nu du snapshot (sans port ni remise → valeur fausse).
+          let order = await fetchOrderBySession(sessionId);
+          for (const wait of [1500, 3000, 4500]) {
+            if (order) break;
+            await sleep(wait);
+            order = await fetchOrderBySession(sessionId);
           }
 
-          if (purchaseItems.length > 0 || value > 0) {
+          // Google Customer Reviews : INDÉPENDANT du tracking valeur. Posé dès qu'on a un
+          // orderId + email (commande trouvée en priorité, sinon session + email invité).
+          const gcrEmail = (order?.customer_email ?? "") || readGuestEmail();
+          const gcrId    = order?.id || sessionId;
+          if (gcrId && gcrEmail) setGcr({ orderId: gcrId, email: gcrEmail });
+
+          // (b) Pas de commande confirmée → on N'ÉMET PAS et on NE MARQUE PAS : le sous-total
+          // nu fausserait Meta/GA4/Google Ads. On réessaie à la prochaine visite (vrai montant).
+          if (!order) return;
+
+          // (a) Jamais d'émission à 0 € : un vrai achat payé n'est jamais nul (Stripe ne crée
+          // pas de session payée à 0). amount_total net d'un éventuel remboursement.
+          const value = Math.max(0, Number(order.amount_total ?? 0) - Number(order.refund_amount ?? 0));
+          if (!(value > 0)) return;
+
+          const purchaseItems = (Array.isArray(order.items) && order.items.length > 0)
+            ? order.items.map((it: any) => ({
+                id:       String(it.id ?? ""),
+                name:     it.name ?? "",
+                price:    Number(it.price ?? 0),
+                quantity: Number(it.quantity ?? 1),
+                category: it.category_slug,
+                variant:  it.taille ?? it.couleur,
+                slug:     it.slug,
+              }))
+            : snapItems;
+          const txId   = order.id ?? sessionId;
+          const coupon = order.promo_code ?? undefined;
+
+          // Les deux émissions client partent ENSEMBLE, comme une seule unité, AVANT de marquer :
+          //   - trackPurchase → GA4 (dataLayer) + event interne (Google Ads importe le purchase GA4) ;
+          //   - metaPurchase  → pixel Meta (eventID = session_id → dédup avec la CAPI serveur).
+          // Aucune ne renvoie de succès/échec (fbq/dataLayer fire-and-forget, gardés en interne),
+          // donc pas d'état « à moitié émis » à réconcilier. On ne marque QUE si les deux appels
+          // ont abouti sans lever : sinon pas de marquage → réessai à la prochaine visite.
+          try {
             trackPurchase({ id: txId, value, tax: 0, shipping: 0, coupon, items: purchaseItems });
-            // eventId = session_id de l'URL (Lot M4) → chaîne IDENTIQUE à l'event_id CAPI
-            // du webhook (session.id Stripe) → déduplication pixel ↔ serveur.
-            metaPurchase(txId, value, sessionId || undefined);
-          }
-
-          // Google Customer Reviews : email de la commande sinon guest/sb.
-          const email = orderEmail || readGuestEmail();
-          if (txId && email) setGcr({ orderId: txId, email });
+            metaPurchase(txId, value, sessionId);
+            markPurchaseTracked(sessionId); // succès → dédup permanente (bloque toute 2ᵉ émission)
+          } catch { /* émission interrompue → non marquée → repart à la prochaine visite */ }
         })();
       }
 

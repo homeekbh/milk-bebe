@@ -445,6 +445,66 @@ function ValeursSection() {
 }
 
 /* ──────────────────────────────────────────────────────────────────────────
+   FABRICATION — comment nos vêtements sont faits (provenance, partenaire).
+   Même motif de section : eyebrow ambre + titre + contenu, entrée useReveal.
+   ────────────────────────────────────────────────────────────────────────── */
+function FabricationSection() {
+  const t = useTranslations("about");
+  const { ref, visible } = useReveal<HTMLDivElement>(0.1);
+  const cols = [
+    { label: t("fab_menton_label"),  l1: t("fab_menton_l1"),  l2: t("fab_menton_l2") },
+    { label: t("fab_partner_label"), l1: t("fab_partner_l1"), l2: t("fab_partner_l2") },
+  ];
+  return (
+    <section
+      ref={ref}
+      style={{ background: P.light, padding: "clamp(56px, 8vw, 96px) 5vw", position: "relative", overflow: "hidden" }}
+    >
+      <div
+        aria-hidden
+        style={{ position: "absolute", inset: 0, pointerEvents: "none", backgroundImage: NOISE_BG, mixBlendMode: "multiply", opacity: 0.35 }}
+      />
+      <div
+        style={{
+          position: "relative",
+          maxWidth: 880,
+          margin: "0 auto",
+          opacity: visible ? 1 : 0,
+          transform: visible ? "translateY(0)" : "translateY(24px)",
+          transition: "opacity 0.8s ease, transform 0.8s cubic-bezier(0.22,1,0.36,1)",
+        }}
+      >
+        <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 3, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{t("fab_eyebrow")}</div>
+        <h2 style={{ margin: "0 0 24px", fontWeight: 950, letterSpacing: -1.5, lineHeight: 1.08, color: P.dark, fontSize: "clamp(28px, 4vw, 50px)" }}>{t("fab_title")}</h2>
+
+        <p style={{ margin: "0 0 32px", fontSize: "clamp(15px, 1.5vw, 18px)", lineHeight: 1.85, color: P.muted }}>{t("fab_intro")}</p>
+
+        <h3 style={{ margin: "0 0 12px", fontSize: "clamp(17px, 1.9vw, 22px)", fontWeight: 950, color: P.dark, letterSpacing: -0.4 }}>{t("fab_partner_title")}</h3>
+        <p style={{ margin: "0 0 14px", fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>{t("fab_partner_p1")}</p>
+        <p style={{ margin: "0 0 36px", fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>{t("fab_partner_p2")}</p>
+
+        <h3 style={{ margin: "0 0 16px", fontSize: "clamp(17px, 1.9vw, 22px)", fontWeight: 950, color: P.dark, letterSpacing: -0.4 }}>{t("fab_where_title")}</h3>
+        <div className="qsn-fab-cols" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, marginBottom: 36 }}>
+          {cols.map((c) => (
+            <div key={c.label} style={{ background: P.cream, border: `1px solid ${P.faintLine}`, borderRadius: 18, padding: "22px 24px", boxShadow: "0 8px 26px rgba(26,20,16,0.05)" }}>
+              <div style={{ fontSize: 12, fontWeight: 900, letterSpacing: 1.5, textTransform: "uppercase", color: P.amber, marginBottom: 12 }}>{c.label}</div>
+              <p style={{ margin: "0 0 6px", fontSize: "clamp(14px, 1.4vw, 16px)", fontWeight: 700, color: P.dark, lineHeight: 1.5 }}>{c.l1}</p>
+              <p style={{ margin: 0, fontSize: "clamp(14px, 1.4vw, 16px)", fontWeight: 700, color: P.dark, lineHeight: 1.5 }}>{c.l2}</p>
+            </div>
+          ))}
+        </div>
+
+        <p style={{ margin: "0 0 36px", fontSize: "clamp(15px, 1.6vw, 18px)", lineHeight: 1.8, color: P.dark, fontWeight: 600 }}>{t("fab_closing")}</p>
+
+        <h3 style={{ margin: "0 0 12px", fontSize: "clamp(17px, 1.9vw, 22px)", fontWeight: 950, color: P.dark, letterSpacing: -0.4 }}>{t("fab_notwanted_title")}</h3>
+        <p style={{ margin: "0 0 14px", fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>{t("fab_notwanted_p1")}</p>
+        <p style={{ margin: 0, fontSize: "clamp(15px, 1.5vw, 17px)", lineHeight: 1.85, color: P.muted }}>{t("fab_notwanted_p2")}</p>
+      </div>
+    </section>
+  );
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
    PHILOSOPHIE — citation, fond cream, scroll-driven
    ────────────────────────────────────────────────────────────────────────── */
 function PhilosophieSection() {
@@ -531,6 +591,7 @@ export default function QuiSommesNousPage() {
           .qsn-kpis       { grid-template-columns: repeat(2,1fr) !important; }
           .qsn-kpis > div:nth-child(2) { border-right: none !important; }
           .qsn-val        { grid-template-columns: 1fr !important; }
+          .qsn-fab-cols   { grid-template-columns: 1fr !important; }
         }
         .qsn-valcard:hover {
           transform: perspective(1400px) translateY(-6px) scale(1.01) !important;
@@ -556,6 +617,7 @@ export default function QuiSommesNousPage() {
       <IntroErika />
       <KPIsSection />
       <ValeursSection />
+      <FabricationSection />
       <PhilosophieSection />
       <CTASection />
     </div>

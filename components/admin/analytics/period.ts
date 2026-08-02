@@ -106,11 +106,13 @@ export function resolvePreset(preset: PresetKey, from = "", to = ""): { from: st
 }
 
 // Granularité dérivée de l'écart (aucun réglage manuel).
-export function granularityOf(from: string, to: string): "hour" | "day" | "month" {
+export function granularityOf(from: string, to: string): "hour" | "day" | "week" {
+  // Pas dérivé du NOMBRE DE JOURS réel (écart des bornes), pas du nom du préset :
+  // une plage custom de 3 jours se comporte donc comme « 7 jours » (par jour).
   const days = Math.round((ymdToLocal(to).getTime() - ymdToLocal(from).getTime()) / 86400000);
-  if (days <= 2) return "hour";
-  if (days <= 93) return "day";
-  return "month";
+  if (days <= 1)  return "hour";   // aujourd'hui / hier (≤ 2 jours) → 24 pts/jour
+  if (days <= 89) return "day";    // 3 à 90 jours → 1 pt/jour
+  return "week";                   // > 90 jours → 1 pt/semaine (lundi)
 }
 
 // Comparaison par défaut + libellé. `alt` (today/yesterday) = même jour S-1 (J-7).
@@ -154,8 +156,8 @@ export function compareRangeOf(preset: PresetKey, from: string, to: string, alt 
 }
 
 // Suffixe de troncature (période en cours) selon la granularité.
-export function truncationSuffix(g: "hour" | "day" | "month"): string {
-  return g === "hour" ? ", même heure" : g === "day" ? ", même jour" : ", même mois";
+export function truncationSuffix(g: "hour" | "day" | "week"): string {
+  return g === "hour" ? ", même heure" : g === "week" ? ", même semaine" : ", même jour";
 }
 
 // ─── Contrat d'URL (Lot A5 — présets ; A3 pour bots/weekday) ─────────────────

@@ -165,7 +165,7 @@ export default function OverviewPage() {
             </div>
             {!series ? <Skeleton h={180} /> : (
               <ComparisonChart points={series.points} compare={series.compare} granularity={series.granularity}
-                metric={metric} label={METRICS.find(m => m.key === metric)!.label} currentLabel={periodLabel} compareLabel={cmp.label} />
+                metric={metric} label={METRICS.find(m => m.key === metric)!.label} currentLabel={periodLabel} compareLabel={cmp.label} narrow={narrow} />
             )}
           </Card>
         </div>

@@ -26,7 +26,7 @@ export const dynamic = "force-dynamic";
  * Points vides à 0 (jamais de trou). Troncature identique au Lot A5 (compare_truncated).
  */
 
-type Gran = "hour" | "day" | "month";
+type Gran = "hour" | "day" | "week";
 
 const METRIC_SRC: Record<string, "pv" | "ae" | "ord" | "prof" | "nl"> = {
   sessions: "pv", visitors: "pv", views: "pv",
@@ -47,21 +47,26 @@ const hourKeysBetween = (fromISO: string, toISO: string, maxKey?: string): strin
   }
   return keys;
 };
-const monthKeysBetween = (fromISO: string, toISO: string): string[] => {
-  const keys: string[] = [];
-  let [y, m] = parisDayKey(fromISO).slice(0, 7).split("-").map(Number);
-  const end = parisDayKey(toISO).slice(0, 7);
-  for (let g = 0; g < 600; g++) {
-    const k = `${y}-${String(m).padStart(2, "0")}`;
-    keys.push(k);
-    if (k === end) break;
-    m++; if (m > 12) { m = 1; y++; }
+// Lundi (clé "YYYY-MM-DD") de la semaine contenant le jour "YYYY-MM-DD".
+// Arithmétique calendaire pure (UTC midi) → le jour de semaine d'une date-only est
+// indépendant du fuseau, donc pas de bascule Paris/UTC.
+const mondayOfDayKey = (dayKey: string): string => {
+  const [y, m, d] = dayKey.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  dt.setUTCDate(dt.getUTCDate() - ((dt.getUTCDay() + 6) % 7)); // 0 = lundi
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+};
+const weekKeysBetween = (fromISO: string, toISO: string): string[] => {
+  const keys: string[] = []; const seen = new Set<string>();
+  for (const day of enumerateParisDays(fromISO, toISO)) {
+    const k = mondayOfDayKey(day);
+    if (!seen.has(k)) { seen.add(k); keys.push(k); }
   }
   return keys;
 };
 const bucketKey = (v: string, g: Gran): string => {
-  if (g === "hour")  return `${parisDayKey(v)}T${String(toParis(v).getHours()).padStart(2, "0")}`;
-  if (g === "month") return parisDayKey(v).slice(0, 7);
+  if (g === "hour") return `${parisDayKey(v)}T${String(toParis(v).getHours()).padStart(2, "0")}`;
+  if (g === "week") return mondayOfDayKey(parisDayKey(v));
   return parisDayKey(v);
 };
 
@@ -74,7 +79,7 @@ export async function GET(req: NextRequest) {
     const from = sp.get("from") ?? "", to = sp.get("to") ?? "";
     const cfrom = sp.get("cfrom") ?? "", cto = sp.get("cto") ?? "";
     const gRaw = sp.get("g") ?? "day";
-    const g: Gran = gRaw === "hour" || gRaw === "month" ? gRaw : "day";
+    const g: Gran = gRaw === "hour" || gRaw === "week" ? gRaw : "day";
     const excludeBots = sp.get("bots") === "exclude";
 
     const requested = (sp.get("m") ?? "sessions,visitors,views").split(",").map(s => s.trim()).filter(m => METRIC_SRC[m]);
@@ -114,7 +119,7 @@ export async function GET(req: NextRequest) {
     const todayKey = parisDayKey(new Date());
     const inProgress = to === todayKey;
     const maxHourKey = inProgress && g === "hour" ? `${todayKey}T${String(toParis(new Date()).getHours()).padStart(2, "0")}` : undefined;
-    const keysFor = (r: { from: string; to: string }, max?: string) => g === "hour" ? hourKeysBetween(r.from, r.to, max) : g === "month" ? monthKeysBetween(r.from, r.to) : enumerateParisDays(r.from, r.to);
+    const keysFor = (r: { from: string; to: string }, max?: string) => g === "hour" ? hourKeysBetween(r.from, r.to, max) : g === "week" ? weekKeysBetween(r.from, r.to) : enumerateParisDays(r.from, r.to);
     const mainKeys = keysFor(F, maxHourKey);
     const cmpKeys  = keysFor(Cr);
 

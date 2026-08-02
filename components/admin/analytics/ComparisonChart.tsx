@@ -6,7 +6,7 @@
 // courant vs point i comparaison) ; la comparaison, plus longue (période entière),
 // dépasse la courbe courante partielle — « on voit où elle a fini ».
 import { useState } from "react";
-import { C, MONTHS_FR } from "@/components/admin/analytics/tokens";
+import { C } from "@/components/admin/analytics/tokens";
 
 export type SeriesPoint = { k: string; [metric: string]: number | string };
 export type MetricKey = string; // généralisé (A8) : sessions, revenue, add_to_cart… — rendu inchangé
@@ -14,11 +14,12 @@ export type MetricKey = string; // généralisé (A8) : sessions, revenue, add_t
 export type ComparisonChartProps = {
   points:       SeriesPoint[];
   compare:      SeriesPoint[];
-  granularity:  "hour" | "day" | "month";
+  granularity:  "hour" | "day" | "week";
   metric:       MetricKey;
   label:        string;   // libellé de la métrique (ex. « Sessions »)
   currentLabel: string;   // libellé de la période courante (ex. « aujourd'hui »)
   compareLabel: string;   // libellé de la comparaison (ex. « vs semaine dernière »)
+  narrow?:      boolean;  // écran étroit (mobile) → moins de libellés d'axe
 };
 
 // Plafond de l'axe Y (A7.C1 · paliers A8.4) : plus petit palier LISIBLE ≥ 1,10× le
@@ -40,7 +41,7 @@ function niceCeil(maxReal: number): number {
 const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
 const fmt = (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${Math.round(v)}`);
 
-export default function ComparisonChart({ points, compare, granularity, metric, label, currentLabel, compareLabel }: ComparisonChartProps) {
+export default function ComparisonChart({ points, compare, granularity, metric, label, currentLabel, compareLabel, narrow = false }: ComparisonChartProps) {
   const [hi, setHi] = useState<number | null>(null);
 
   const cur = points.map(p => Number(p[metric]) || 0);
@@ -63,24 +64,41 @@ export default function ComparisonChart({ points, compare, granularity, metric, 
   const area = cur.length ? `${curLine} L ${x(cur.length - 1).toFixed(1)} ${(TOP + innerH).toFixed(1)} L ${x(0).toFixed(1)} ${(TOP + innerH).toFixed(1)} Z` : "";
 
   const keyAt = (i: number) => points[i]?.k ?? compare[i]?.k ?? "";
+  // Libellé d'axe court selon le pas : heure → « 14h » ; jour/semaine → « 12/07 »
+  // (semaine = date du lundi ; le pas hebdomadaire se lit à l'espacement + l'infobulle).
   const xLabel = (i: number): string => {
     const k = keyAt(i);
     if (!k) return "";
-    if (granularity === "hour")  { const hh = k.slice(11, 13); return ["00", "06", "12", "18"].includes(hh) ? hh : ""; }
-    if (granularity === "month") { const mi = Number(k.slice(5, 7)) - 1; return `${MONTHS_FR[mi] ?? k}.`; }
+    if (granularity === "hour") return `${k.slice(11, 13)}h`;
     return `${k.slice(8, 10)}/${k.slice(5, 7)}`;
   };
-  const showLabel = (i: number): boolean => {
-    if (granularity === "hour")  return xLabel(i) !== "";
-    if (granularity === "month") return true;
-    return maxLen > 15 ? (i % 5 === 0 || i === maxLen - 1) : true; // jour : tous les 5 si > 15 points
+  // Date complète d'un point pour l'infobulle (avec l'heure / le « sem. » selon le pas).
+  const fmtKey = (k: string): string => {
+    if (!k) return "—";
+    if (granularity === "hour") return `${k.slice(8, 10)}/${k.slice(5, 7)} ${k.slice(11, 13)}h`;
+    if (granularity === "week") return `sem. ${k.slice(8, 10)}/${k.slice(5, 7)}`;
+    return `${k.slice(8, 10)}/${k.slice(5, 7)}`;
   };
+  // Anti-chevauchement : on n'affiche QUE le nombre de libellés qui TIENT dans la largeur
+  // (viewBox 600), aux indices RÉPARTIS uniformément (premier + dernier inclus). Mobile
+  // (narrow) → encore moins. Jamais deux libellés collés, quel que soit le nb de points.
+  const labelUnitW = granularity === "hour" ? 20 : 30; // largeur approx d'un libellé (unités viewBox)
+  const fitLabels  = Math.max(2, Math.floor(innerW / (labelUnitW + 8)));
+  const maxLabels  = narrow ? Math.max(2, Math.round(fitLabels * 0.55)) : fitLabels;
+  const nLabels    = Math.min(maxLen, maxLabels);
+  const labelIdx   = new Set<number>();
+  if (nLabels <= 1) labelIdx.add(maxLen - 1);
+  else for (let j = 0; j < nLabels; j++) labelIdx.add(Math.round((j * (maxLen - 1)) / (nLabels - 1)));
+  const showLabel = (i: number): boolean => labelIdx.has(i);
 
   // Infobulle
   const hv = hi != null ? hi : null;
   const cv  = hv != null && hv < cur.length ? cur[hv] : null;
   const cvp = hv != null && hv < cmp.length ? cmp[hv] : null;
   const delta = cv != null && cvp != null && cvp > 0 ? ((cv - cvp) / cvp) * 100 : null;
+  const hoverCx = hv != null ? Math.min(Math.max(x(hv), 82), VBW - 82) : 0; // centre clampé (boîte 156)
+  const curKey  = hv != null ? (points[hv]?.k ?? "")  : "";
+  const cmpKey  = hv != null ? (compare[hv]?.k ?? "") : "";
   const gid = `cmpgrad-${metric}`;
 
   return (
@@ -134,14 +152,17 @@ export default function ComparisonChart({ points, compare, granularity, metric, 
         {hv != null && cv != null && <circle cx={x(hv)} cy={y(cv)} r={3.5} fill="#c49a4a" stroke="#161210" strokeWidth={1.5} />}
         {hv != null && cvp != null && <circle cx={x(hv)} cy={y(cvp)} r={3} fill="rgba(242,237,230,0.6)" />}
 
-        {/* Guide + infobulle */}
+        {/* Guide + infobulle : métrique, valeur COURANTE + sa date, valeur COMPARÉE +
+            sa date, écart %. Chaque série porte donc sa date respective (ambre = en cours,
+            gris = période précédente). */}
         {hv != null && (
           <g pointerEvents="none">
             <line x1={x(hv)} x2={x(hv)} y1={TOP} y2={TOP + innerH} stroke="rgba(196,154,74,0.35)" strokeWidth={1} />
-            <rect x={Math.min(Math.max(x(hv), 70), VBW - 70) - 66} y={4} width={132} height={44} rx={6} fill="#0d0b09" opacity={0.96} />
-            <text x={Math.min(Math.max(x(hv), 70), VBW - 70)} y={17} fill="#c49a4a" fontSize={10} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{label} : {cv ?? "—"}</text>
-            <text x={Math.min(Math.max(x(hv), 70), VBW - 70)} y={29} fill="rgba(242,237,230,0.7)" fontSize={9} textAnchor="middle" fontFamily="system-ui">{compareLabel} : {cvp ?? "—"}</text>
-            <text x={Math.min(Math.max(x(hv), 70), VBW - 70)} y={42} fill={delta == null ? C.muted : delta >= 0 ? "#22c55e" : "#ef4444"} fontSize={10} fontWeight={800} textAnchor="middle" fontFamily="system-ui">
+            <rect x={hoverCx - 78} y={2} width={156} height={58} rx={6} fill="#0d0b09" opacity={0.96} />
+            <text x={hoverCx} y={15} fill={C.muted} fontSize={9} fontWeight={700} textAnchor="middle" fontFamily="system-ui">{label}</text>
+            <text x={hoverCx} y={28} fill="#c49a4a" fontSize={10.5} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{fmtKey(curKey)} — {cv ?? "—"}</text>
+            <text x={hoverCx} y={40} fill="rgba(242,237,230,0.72)" fontSize={9.5} textAnchor="middle" fontFamily="system-ui">{fmtKey(cmpKey)} — {cvp ?? "—"}</text>
+            <text x={hoverCx} y={53} fill={delta == null ? C.muted : delta >= 0 ? "#22c55e" : "#ef4444"} fontSize={10} fontWeight={800} textAnchor="middle" fontFamily="system-ui">
               {delta == null ? "n/a" : `${delta >= 0 ? "▲ +" : "▼ "}${delta.toFixed(1)}%`}
             </text>
           </g>

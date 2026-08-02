@@ -9,6 +9,8 @@ import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
+import { useCheckoutNoticeItems } from "@/components/checkout/useCheckoutNotice";
+import { setCheckoutNotice } from "@/lib/checkout-storage";
 import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import CountrySelector from "@/components/checkout/CountrySelector";
 import RelaySelector from "@/components/checkout/RelaySelector";
@@ -57,7 +59,7 @@ export default function CheckoutLivraisonPage() {
   useEffect(() => {
     if (!hydrated) return;
     if (isCartEmpty) { router.replace("/panier"); return; }
-    if (state.completedSteps < 1) router.replace("/checkout/compte");
+    if (state.completedSteps < 1) { setCheckoutNotice("step"); router.replace("/checkout/compte"); }
   }, [hydrated, isCartEmpty, state.completedSteps, router]);
 
   // ── Pré-positionnement (UNE fois, à l'hydratation) : pays du compte + pré-remplissage
@@ -275,6 +277,11 @@ export default function CheckoutLivraisonPage() {
   // Scroll en haut dès que le contenu s'affiche (négation exacte du return null ci-dessous).
   useScrollTopWhenReady(hydrated && !isCartEmpty && state.completedSteps >= 1);
 
+  // Motif d'éjection éventuel (lot 2b sujet 3), lu quand la page est stable (mêmes
+  // conditions que le return null ci-dessous) → ne consomme pas un motif destiné à la
+  // page suivante quand Livraison est elle-même source d'éjection.
+  const noticeItems = useCheckoutNoticeItems(en, hydrated && !isCartEmpty && state.completedSteps >= 1);
+
   if (!hydrated || isCartEmpty || state.completedSteps < 1) return null;
 
   // ── Styles ────────────────────────────────────────────────────────────────
@@ -313,6 +320,9 @@ export default function CheckoutLivraisonPage() {
       <h1 style={{ fontSize: 28, fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 16 }}>
         {en ? "Step 2 — Delivery" : "Étape 2 — Livraison"}
       </h1>
+
+      {/* Motif d'éjection (lot 2b sujet 3) — arrivée depuis une garde de nav. */}
+      <CheckoutMissingHints items={noticeItems} />
 
       {/* Pays (pré-positionné sur le pays du compte) */}
       <CountrySelector value={country} onChange={onCountryChange} />

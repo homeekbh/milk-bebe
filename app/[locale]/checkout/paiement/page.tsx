@@ -9,6 +9,7 @@ import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
 import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
+import { setCheckoutNotice } from "@/lib/checkout-storage";
 import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
 import { isAddressComplete, type CheckoutAddress } from "@/components/checkout/CheckoutAddressForm";
 import { computeCartTotals, computeInternationalCartTotals } from "@/lib/cart-totals";
@@ -200,11 +201,11 @@ export default function CheckoutPaiementPage() {
   useEffect(() => {
     if (!hydrated) return;
     if (isCartEmpty)              { router.replace("/panier"); return; }
-    if (state.completedSteps < 1) { router.replace("/checkout/compte"); return; }
-    if (state.completedSteps < 2) { router.replace("/checkout/livraison"); return; }
-    if (!hasEmail)                { router.replace("/checkout/compte"); return; }
+    if (state.completedSteps < 1) { setCheckoutNotice("step"); router.replace("/checkout/compte"); return; }
+    if (state.completedSteps < 2) { setCheckoutNotice("step"); router.replace("/checkout/livraison"); return; }
+    if (!hasEmail)                { setCheckoutNotice("step"); router.replace("/checkout/compte"); return; }
     // Téléphone FR manquant OU livraison incomplète → étape Livraison (le tél FR y est).
-    if (!hasPhone || !deliveryComplete) router.replace("/checkout/livraison");
+    if (!hasPhone || !deliveryComplete) { setCheckoutNotice("step"); router.replace("/checkout/livraison"); }
   }, [hydrated, isCartEmpty, state.completedSteps, hasEmail, hasPhone, deliveryComplete, router]);
 
   // Scroll en haut dès que le contenu s'affiche (négation exacte du return null ci-dessous).

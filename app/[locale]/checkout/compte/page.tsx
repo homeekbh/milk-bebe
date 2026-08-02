@@ -8,6 +8,8 @@ import { useAuth } from "@/context/AuthContext";
 import { useCart } from "@/context/CartContext";
 import { useCheckout } from "@/components/checkout/CheckoutContext";
 import CheckoutProgress from "@/components/checkout/CheckoutProgress";
+import CheckoutMissingHints from "@/components/checkout/CheckoutMissingHints";
+import { useCheckoutNoticeItems } from "@/components/checkout/useCheckoutNotice";
 import CountrySelector from "@/components/checkout/CountrySelector";
 import ContinueShoppingLink from "@/components/checkout/ContinueShoppingLink";
 import { useScrollTopWhenReady } from "@/components/checkout/useScrollTopWhenReady";
@@ -110,6 +112,10 @@ export default function CheckoutComptePage() {
 
   // Scroll en haut dès que le contenu s'affiche (négation exacte du return null ci-dessous).
   useScrollTopWhenReady(hydrated && !isCartEmpty);
+
+  // Motif d'éjection éventuel (lot 2b sujet 3), lu quand la page est stable (mêmes
+  // conditions que le return null ci-dessous) → affiché via <CheckoutMissingHints>.
+  const noticeItems = useCheckoutNoticeItems(en, hydrated && !isCartEmpty);
 
   if (!hydrated || isCartEmpty) return null;
 
@@ -259,6 +265,9 @@ export default function CheckoutComptePage() {
       <h1 style={{ fontSize: 28, fontWeight: 950, letterSpacing: -1, color: "#1a1410", marginBottom: 20 }}>
         {en ? "Step 1 — Account" : "Étape 1 — Compte"}
       </h1>
+
+      {/* Motif d'éjection (lot 2b sujet 3) — arrivée depuis une garde de nav. */}
+      <CheckoutMissingHints items={noticeItems} />
 
       {user ? (
         /* ── Déjà connecté ── */

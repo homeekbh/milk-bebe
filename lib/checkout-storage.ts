@@ -35,7 +35,8 @@ export function readCheckoutState(): Partial<CheckoutState> {
       const env = JSON.parse(raw) as Envelope | null;
       if (env && typeof env.t === "number" && env.v && typeof env.v === "object") {
         if (Date.now() - env.t <= TTL_MS) return env.v;
-        clearCheckoutState(); // expiré → purge (localStorage + tout repli legacy)
+        clearCheckoutState();          // expiré → purge (localStorage + tout repli legacy)
+        setCheckoutNotice("expired");  // motif d'éjection : affiché une fois sur la page d'arrivée
         return {};
       }
     }
@@ -67,4 +68,26 @@ export function mergeCheckoutState(patch: Partial<CheckoutState>): void {
 export function clearCheckoutState(): void {
   try { localStorage.removeItem(CHECKOUT_STORAGE_KEY); } catch {}
   try { sessionStorage.removeItem(CHECKOUT_STORAGE_KEY); } catch {}
+}
+
+// ── Motif d'éjection (lot 2b sujet 3) ────────────────────────────────────────
+// Pourquoi la cliente a été renvoyée en arrière par une garde de nav. Posé au point
+// d'éjection, lu UNE fois sur la page d'arrivée. sessionStorage (transitoire, meurt avec
+// l'onglet) : un avis d'éjection n'a pas à survivre à la session.
+export type CheckoutNotice = "cart_empty" | "step" | "expired";
+const NOTICE_KEY = "milk_checkout_notice";
+
+// Premier posé gagne : un motif déjà présent (ex. "expired" posé à l'hydratation) n'est
+// PAS écrasé par une garde qui se déclenche ensuite dans le même cycle.
+export function setCheckoutNotice(n: CheckoutNotice): void {
+  try { if (!sessionStorage.getItem(NOTICE_KEY)) sessionStorage.setItem(NOTICE_KEY, n); } catch {}
+}
+
+// Lit ET consomme (one-shot) → un rechargement ne réaffiche pas le message.
+export function takeCheckoutNotice(): CheckoutNotice | null {
+  try {
+    const n = sessionStorage.getItem(NOTICE_KEY);
+    if (n) sessionStorage.removeItem(NOTICE_KEY);
+    return n === "cart_empty" || n === "step" || n === "expired" ? n : null;
+  } catch { return null; }
 }

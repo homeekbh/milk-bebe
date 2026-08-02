@@ -9,7 +9,6 @@ import { getNavCategorySlugs } from "@/lib/categories-nav-server";
 
 import Header        from "@/components/layout/Header";
 import Footer        from "@/components/layout/Footer";
-import ChatWidget    from "@/components/bot/ChatWidget";
 import { IntroProvider }  from "@/context/IntroContext";
 import IntroScreen   from "@/components/intro/IntroScreen";
 import { CartProvider }   from "@/context/CartContext";
@@ -335,7 +334,6 @@ export default async function LocaleLayout({
                   <Header categorySlugs={categorySlugs} />
                   <main>{children}</main>
                   <Footer />
-                  <ChatWidget />
                   <ConsentManager />
                   <ExitIntentPopup />
                   <PromoSticker />

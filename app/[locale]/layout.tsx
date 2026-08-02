@@ -188,11 +188,15 @@ export async function generateMetadata({
     title:          "M!LK",
   },
 
-  // ── Vérification Search Console ──────────────────────────────────────────────
-  // Ajouter NEXT_PUBLIC_GSC_VERIFICATION dans Vercel pour activer
-  ...(process.env.NEXT_PUBLIC_GSC_VERIFICATION ? {
-    verification: { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION },
-  } : {}),
+  // ── Vérification de domaine ──────────────────────────────────────────────────
+  // facebook-domain-verification : CONSTANTE (Meta Business Manager). Rendue par ce
+  //   layout sur /fr, /en et TOUTES les pages publiques (jamais conditionnée à la locale).
+  //   La racine "/" étant un 307 → /fr, Meta suit la redirection et lit la balise sur /fr.
+  // google : optionnelle, activée par NEXT_PUBLIC_GSC_VERIFICATION (Vercel).
+  verification: {
+    other: { "facebook-domain-verification": "db2gywy0qbieijydmnysrz2n2fkp2b" },
+    ...(process.env.NEXT_PUBLIC_GSC_VERIFICATION ? { google: process.env.NEXT_PUBLIC_GSC_VERIFICATION } : {}),
+  },
   };
 }
 

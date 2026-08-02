@@ -243,3 +243,30 @@ Le commentaire ment ; le code a raison. À rectifier au prochain passage sur ces
 - **`app/api/stripe/webhook/route.ts`** (≈ l.51-54) — le commentaire dit que
   `facture_seq` / `next_facture_number` / `orders.invoice_number` « ne sont pas en
   base » alors que la facturation est **vivante** (commande réelle `MILK-2026-000009`).
+
+---
+
+## 10. Moteur promo scopé (Lot 7c) — carte complète · flip REPORTÉ
+
+Reconnaissance du **2 août** (lecture code + base live). **Décision : on ne bascule pas.**
+Le legacy facture, le scopé tourne en ombre. Cette carte évite de refaire l'enquête.
+
+**Le flag.** `PROMO_ENGINE` est lu à **un seul endroit** — `app/api/checkout/create-session/route.ts:454` — **défaut `legacy`** (toute valeur ≠ `"scoped"`). La branche scopée ne remplace `serverDiscount` par le total scopé **que si la valeur vaut exactement `"scoped"`** (`:456-460`) ; sinon le coupon Stripe reste le calcul legacy. ⚠️ Valeur en prod **invérifiable par lecture** → **Vercel → Settings → Environment Variables → `PROMO_ENGINE`** (Production).
+
+**Aujourd'hui.** Le **legacy facture**. Le scopé (`computeScopedShadow`, `lib/promo-scope-adapter.ts`, moteur pur `lib/promo-scope.ts`) tourne **en parallèle**, jamais facturé, et **journalise** dans `promo_shadow_log` (best-effort, ne throw jamais → n'échoue jamais un checkout).
+
+**Données d'ombre (au 02/08).** **18 lignes, 18/18 de parité, Δ=0.** MAIS uniquement sur des codes de **portée `all`, uniques, sans cumul et sans pack** — exactement les cas où legacy et scopé sont *conçus pour concorder*. **AUCUN cas divergent n'a jamais été exercé** (ni code scopé, ni cumul de 2 codes, ni pack : 0 pack sur 10 commandes, 0 sur les drafts, pas de colonne `orders.packs`). La parité prouve « pas de régression sur le chemin facile », **PAS** la sûreté du flip.
+
+**Codes en base (au 02/08).** **1 seul : `ETE30`** (30 %, portée `all`, non cumulable, `uses=1`). **Zéro code `category`, zéro code `product`.** Tant que c'est le cas, legacy == scopé partout (un seul code non cumulable → aucun panier à 2 codes possible) et le flip ne changerait **rien**.
+
+**LES QUATRE PRÉREQUIS AU FLIP, dans l'ordre :**
+1. **`create-session` doit persister `scopedResult.appliedCodes`** (les codes réellement appliqués) au lieu de la liste legacy `serverPromoCodes`. Sinon, au flip, `used_count` s'incrémente sur des codes **rejetés** par le moteur scopé (`webhook:522-539` parcourt `draft.promo_codes`), et la commande affiche un code « appliqué » qui a donné **0 €**. **Correctif dans `create-session` SEUL** — le webhook est générique et lit `draft.promo_codes`, source de vérité. *(La facturation resterait juste : compta d'usage corrompue + affichage trompeur, jamais un sur-débit.)*
+2. **`lib/promo-combine.ts` (aperçu du panier) n'a AUCUNE logique de portée** : il remise le **sous-total entier** et **empile** les codes. Au flip, l'aperçu montrerait la remise legacy pendant que Stripe facture la remise scopée → **panier ≠ Stripe** (la cliente voit −X, paie −Y). **Obligatoire** : rendre l'aperçu scope-aware.
+3. **Aligner e-mails et facture** sur les codes réellement appliqués et la remise scopée par ligne (mêmes symptômes que #1, côté client).
+4. **Exercer les cas divergents EN OMBRE avant de flipper** : un code `category`, un code `product`, un panier avec **pack**, et **deux codes cumulables**. **Zéro ligne d'ombre sur ces cas aujourd'hui** → le flip serait à l'aveugle sur eux.
+
+**À trancher aussi — la sémantique du cumul.** Le legacy **empile** deux codes `all` (fixe puis %, sur le sous-total). Le scopé **verrouille chaque produit au 1er code** → un 2ᵉ code `all` est **rejeté** (`already_covered`), seul le 1er s'applique. Ce **changement de sens** de « cumulable » doit être confirmé avant le flip.
+
+**DÉCLENCHEUR : le jour où Erika veut un code de portée `category` ou `product`** (ex. « −20 % sur les gigoteuses »). **Pas avant.** Ce jour-là, faire les 4 prérequis en bloc, puis flipper (réversible par la variable d'env).
+
+**Tests.** `promo-scope.test.ts` (21) + `promo-scope-adapter.test.ts` (18) = **39 tests unitaires** couvrant le **moteur pur + l'adaptateur** (règle pack incluse, `promo-scope.test.ts:88`). Ils **ne couvrent PAS** le chemin `used_count` du webhook, où vit le prérequis #1.

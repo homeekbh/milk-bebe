@@ -251,7 +251,11 @@ Le commentaire ment ; le code a raison. À rectifier au prochain passage sur ces
 Reconnaissance du **2 août** (lecture code + base live). **Décision : on ne bascule pas.**
 Le legacy facture, le scopé tourne en ombre. Cette carte évite de refaire l'enquête.
 
-**Le flag.** `PROMO_ENGINE` est lu à **un seul endroit** — `app/api/checkout/create-session/route.ts:454` — **défaut `legacy`** (toute valeur ≠ `"scoped"`). La branche scopée ne remplace `serverDiscount` par le total scopé **que si la valeur vaut exactement `"scoped"`** (`:456-460`) ; sinon le coupon Stripe reste le calcul legacy. ⚠️ Valeur en prod **invérifiable par lecture** → **Vercel → Settings → Environment Variables → `PROMO_ENGINE`** (Production).
+**Le flag.** `PROMO_ENGINE` est lu à **un seul endroit** — `app/api/checkout/create-session/route.ts:454` — **défaut `legacy`** (toute valeur ≠ `"scoped"`). La branche scopée ne remplace `serverDiscount` par le total scopé **que si la valeur vaut exactement `"scoped"`** (`:456-460`) ; sinon le coupon Stripe reste le calcul legacy.
+
+**CONFIRMÉ le 02/08 : `PROMO_ENGINE` est ABSENTE de Vercel** — ni dans les variables du projet, ni dans les partagées ; **jamais créée**. Donc `process.env.PROMO_ENGINE` vaut `undefined`, le ternaire de `create-session:454` retombe sur `legacy`, et **le moteur legacy facture. L'état est sûr par défaut.**
+
+🔴 **DANGER — à lire AVANT de toucher à Vercel.** Créer la variable `PROMO_ENGINE` avec la valeur `"scoped"` **suffit à basculer la facturation, SANS aucun déploiement de code** (elle est lue au runtime serveur, à chaque requête). Or **les quatre prérequis ci-dessous ne sont PAS remplis** : l'aperçu panier divergerait de Stripe (la cliente verrait −X et paierait −Y), `used_count` s'incrémenterait sur des codes rejetés, et les cas divergents n'ont jamais été exercés en ombre. **N'ajoutez JAMAIS `PROMO_ENGINE` par mégarde en croyant activer une option inoffensive.** Le seul flip légitime : **après** les 4 prérequis, délibérément.
 
 **Aujourd'hui.** Le **legacy facture**. Le scopé (`computeScopedShadow`, `lib/promo-scope-adapter.ts`, moteur pur `lib/promo-scope.ts`) tourne **en parallèle**, jamais facturé, et **journalise** dans `promo_shadow_log` (best-effort, ne throw jamais → n'échoue jamais un checkout).
 

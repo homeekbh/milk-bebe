@@ -675,7 +675,7 @@ export async function POST(req: Request) {
     const { data: draft, error: draftErr } = await supabaseServer
       .from("pending_orders")
       .insert([{
-        products: validatedItems.map(i => ({ id: i.id, name: i.name, slug: i.slug, price: i.price, quantity: i.quantity, taille: i.taille, category_slug: i.category_slug })),
+        products: validatedItems.map(i => ({ id: i.id, name: i.name, slug: i.slug, price: i.price, quantity: i.quantity, taille: i.taille, motif_id: i.motif_id, motif_size: i.motif_size, category_slug: i.category_slug })),
         packs:    draftPacks,
         promo_code:  serverPromoCode || null, // 1er code (compat)
         promo_codes: serverPromoCodes,        // tous les codes appliqués (cumul)

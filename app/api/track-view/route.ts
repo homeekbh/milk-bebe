@@ -113,9 +113,21 @@ export async function POST(req: NextRequest) {
     // Insert à 3 niveaux : (1) complet + user_agent/is_bot ; (2) si ces colonnes
     // n'existent pas encore (SQL 011 non exécuté) → complet SANS ces champs, pour
     // ne perdre NI device NI géo ; (3) filet minimal historique.
+    //
+    // ⚠️ Les replis étaient SILENCIEUX : quand les colonnes 011 n'existaient pas, le tier-1
+    // échouait à CHAQUE vue et user_agent/is_bot étaient perdus ~2 mois sans que personne le
+    // voie (leçon des 138 catch muets du dépôt). On rend désormais l'échec VISIBLE (console +
+    // Sentry, message CONSTANT → une seule issue dédupliquée, pas un flood) mais NON bloquant :
+    // la ligne s'écrit quand même par un niveau inférieur, et un plantage ici ne casse pas l'UX.
     let { error } = await supabaseServer.from("page_views").insert([{ ...row, user_agent, is_bot }]);
-    if (error) ({ error } = await supabaseServer.from("page_views").insert([row]));
     if (error) {
+      console.error("[track-view] insert tier-1 (user_agent/is_bot) échec — repli sans ces champs:", error.message);
+      Sentry.captureMessage("track-view: perte user_agent/is_bot (repli tier-2) — signal bots dégradé", { level: "warning", extra: { pgError: error.message } });
+      ({ error } = await supabaseServer.from("page_views").insert([row]));
+    }
+    if (error) {
+      console.error("[track-view] insert tier-2 (row complet) échec — repli minimal (os/géo perdus):", error.message);
+      Sentry.captureMessage("track-view: perte os/géo (repli minimal) — colonne manquante ?", { level: "warning", extra: { pgError: error.message } });
       await supabaseServer.from("page_views").insert([{
         slug: page_path, name: b.page_title ?? null, category: b.category_slug ?? null,
         session_id: b.session_id ?? null, product_id: b.product_id ?? null,

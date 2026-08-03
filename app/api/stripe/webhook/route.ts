@@ -10,7 +10,7 @@ import { routingCountry } from "@/lib/delivery-config";
 import { ventilateTTC } from "@/lib/tva";
 import { revalidateProduct } from "@/lib/revalidate-product";
 import { sendPurchaseToCapi } from "@/lib/meta-capi";
-import { countsInAccounting } from "@/lib/orders";
+import { countsInAccounting, isProductSale } from "@/lib/orders";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -576,14 +576,16 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   //    ni la commande ni le retry Stripe. tracking lu depuis le draft DÉJÀ en mémoire
   //    (aucune requête supplémentaire). No-op si consent≠accepted / interne / token absent.
   //
-  //    FILTRE PÉRIMÈTRE VENTE (même prédicat que le funnel analytics, lib/orders — une seule
-  //    définition de « vente ») : une commande influenceuse / cadeau n'émet PAS de Purchase.
-  //    ⚠️ INERTE À L'ÉMISSION : `classification` n'est PAS posée à la création (webhook/tunnel
-  //    n'écrivent jamais cette colonne) — elle vaut donc le défaut 'cliente' ici, et n'est
-  //    reclassifiée en collab/cadeau que PLUS TARD par l'admin. countsInAccounting renvoie donc
-  //    true au webhook pour toutes les commandes. Ce garde ne bloquera réellement collab/cadeau
-  //    que le jour où la classification sera connue à la création (lot séparé). Cf. rapport.
-  if (orderData && countsInAccounting(orderData as any)) {
+  //    FILTRE VENTE (lib/orders — une seule définition, partagée avec le pixel /success). Deux gardes :
+  //    • countsInAccounting : périmètre classification. ⚠️ INERTE À L'ÉMISSION — `classification`
+  //      n'est PAS posée à la création (webhook/tunnel n'écrivent jamais cette colonne, défaut
+  //      'cliente'), reclassifiée en collab/cadeau PLUS TARD par l'admin → renvoie true ici pour
+  //      toutes les commandes. GARDÉE en place : DEVIENDRA ACTIVE quand la classification sera
+  //      connue à la création (lot séparé), et redeviendra alors le filtre définitif.
+  //    • isProductSale : montant produits (amount_total − port − refund) > 0. ACTIF dès l'émission
+  //      (ces champs existent à la création) → une collab/cadeau (produit offert, port seul) est
+  //      exclue MAINTENANT. La value CAPI reste `amount` (montant réel payé, port compris).
+  if (orderData && countsInAccounting(orderData as any) && isProductSale(orderData as any)) {
     try {
       await sendPurchaseToCapi({
         eventId:        session.id,

@@ -154,6 +154,29 @@ export function countsInWebStats(o: OrderForCalc): boolean {
   return isValidOrder(o) && !isManualEntry(o) && WEB_STATS_CLASSES.has(classificationOf(o));
 }
 
+/**
+ * VENTE DE PRODUIT — le montant PRODUITS réellement encaissé est strictement > 0 :
+ *   produit = amount_total − delivery_price (port) − refund_amount.
+ *
+ * Condition d'ÉMISSION du Purchase Meta (pixel + CAPI). Une collab / un cadeau (produit offert
+ * via code promo −100 %, seul le port est payé) a un montant produits NUL → n'émet PAS. À la
+ * différence de `classification` (posée APRÈS coup par l'admin, donc 'cliente' à l'émission),
+ * amount_total / delivery_price / refund_amount existent DÈS la création → ce prédicat est
+ * ACTIF à l'instant de l'émission. Prédicat UNIQUE partagé par les deux chemins.
+ *
+ * ⚠️ LIMITE ASSUMÉE : « montant produits nul = pas une vente ». Une opération commerciale à
+ *    −100 % pour de VRAIS clients (produit légitimement offert) ne serait donc pas comptée.
+ *    Compromis temporaire, en attendant que la classification soit posée à la création — auquel
+ *    cas `countsInAccounting` (déjà en place, aujourd'hui inerte) redeviendra le filtre définitif.
+ *
+ * N'AFFECTE PAS la `value` envoyée à Meta (montant réel payé, PORT COMPRIS) : c'est la CONDITION
+ * d'émission qui est filtrée, pas la valeur.
+ */
+export function isProductSale(o: OrderForCalc): boolean {
+  const product = Number(o?.amount_total ?? 0) - Number(o?.delivery_price ?? 0) - Number(o?.refund_amount ?? 0);
+  return product > 0;
+}
+
 // ── DÉCOMPOSITION DE L'ENCAISSEMENT (Lot cohérence comptable) ─────────────────
 // Modèle métier M!LK, non négociable, et SOURCE UNIQUE réconciliable pour les trois
 // pages (commandes / comptabilité / factures) :

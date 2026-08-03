@@ -20,9 +20,10 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function lookup(sessionId: string) {
   const { data } = await supabaseServer
     .from("orders")
-    // + champs du périmètre « vente » (countsInAccounting) pour que /success décide s'il émet un
-    //   Purchase : classification, shipping_status, is_internal_test, source. Non sensibles.
-    .select("id, amount_total, refund_amount, items, customer_email, discount, promo_code, status, shipping_status, classification, is_internal_test, source")
+    // + champs du périmètre « vente » (countsInAccounting) et du filtre VENTE DE PRODUIT
+    //   (isProductSale : delivery_price = port) pour que /success décide s'il émet un Purchase.
+    //   Toutes non sensibles.
+    .select("id, amount_total, refund_amount, delivery_price, items, customer_email, discount, promo_code, status, shipping_status, classification, is_internal_test, source")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
   return data;
@@ -50,6 +51,7 @@ export async function GET(req: Request) {
         id:             order.id,
         amount_total:   order.amount_total,
         refund_amount:  order.refund_amount ?? 0,
+        delivery_price: order.delivery_price ?? 0,   // port (isProductSale : produit = total − port − refund)
         items:          Array.isArray(order.items) ? order.items : [],
         customer_email: order.customer_email,
         discount:       order.discount ?? 0,

@@ -7,7 +7,7 @@ import { Link } from "@/i18n/navigation";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
 import GoogleCustomerReviews from "@/components/analytics/GoogleCustomerReviews";
 import { trackPurchase, metaPurchase, trackRemoveFromWishlist } from "@/lib/analytics";
-import { countsInAccounting } from "@/lib/orders";
+import { countsInAccounting, isProductSale } from "@/lib/orders";
 import { clearCheckoutState } from "@/lib/checkout-storage";
 
 const FALLBACK_CATEGORY = "pyjamas";
@@ -159,12 +159,18 @@ export default function SuccessPage() {
           if (!(value > 0)) return;
 
           // (c) PÉRIMÈTRE VENTE — même prédicat que le webhook CAPI et le funnel (lib/orders : une
-          // seule définition de « vente »). Une commande influenceuse / cadeau (produit offert, port
-          // seul) n'émet AUCUN Purchase. ⚠️ INERTE À L'ÉMISSION : classification n'est pas posée à la
-          // création → order.classification vaut null/'cliente' ici, donc countsInAccounting renvoie
-          // true pour toutes les commandes. Ne bloquera collab/cadeau que si la classification est
-          // connue à la création (lot séparé). Cf. rapport.
+          // seule définition de « vente »). ⚠️ INERTE À L'ÉMISSION : classification n'est pas posée à
+          // la création → order.classification vaut null/'cliente' ici, donc countsInAccounting renvoie
+          // true pour toutes les commandes. DEVIENDRA ACTIVE quand la classification sera posée à la
+          // création (lot séparé). On la GARDE en place (filtre définitif à terme). Cf. rapport.
           if (!countsInAccounting(order)) return;
+
+          // (d) VENTE DE PRODUIT — filtre ACTIF dès l'émission (s'appuie sur amount_total / port /
+          // refund, tous présents à la création, contrairement à classification). Une collab/cadeau
+          // (produit offert, seul le port payé) a un montant produits nul → aucun Purchase émis. La
+          // value envoyée reste le montant réel payé (port compris) : on filtre la CONDITION, pas la
+          // valeur. Limite assumée : un produit légitimement offert à −100 % ne serait pas compté.
+          if (!isProductSale(order)) return;
 
           const purchaseItems = (Array.isArray(order.items) && order.items.length > 0)
             ? order.items.map((it: any) => ({

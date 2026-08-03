@@ -20,7 +20,9 @@ const sleep = (ms: number) => new Promise(r => setTimeout(r, ms));
 async function lookup(sessionId: string) {
   const { data } = await supabaseServer
     .from("orders")
-    .select("id, amount_total, refund_amount, items, customer_email, discount, promo_code, status")
+    // + champs du périmètre « vente » (countsInAccounting) pour que /success décide s'il émet un
+    //   Purchase : classification, shipping_status, is_internal_test, source. Non sensibles.
+    .select("id, amount_total, refund_amount, items, customer_email, discount, promo_code, status, shipping_status, classification, is_internal_test, source")
     .eq("stripe_session_id", sessionId)
     .maybeSingle();
   return data;
@@ -52,6 +54,12 @@ export async function GET(req: Request) {
         customer_email: order.customer_email,
         discount:       order.discount ?? 0,
         promo_code:     order.promo_code ?? null,
+        // Périmètre « vente » (countsInAccounting côté /success) — données non sensibles.
+        status:           order.status ?? null,
+        shipping_status:  order.shipping_status ?? null,
+        classification:   order.classification ?? null,
+        is_internal_test: order.is_internal_test ?? false,
+        source:           order.source ?? null,
       },
     });
   } catch {

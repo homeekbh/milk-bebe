@@ -10,6 +10,7 @@ import { routingCountry } from "@/lib/delivery-config";
 import { ventilateTTC } from "@/lib/tva";
 import { revalidateProduct } from "@/lib/revalidate-product";
 import { sendPurchaseToCapi } from "@/lib/meta-capi";
+import { countsInAccounting } from "@/lib/orders";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2026-01-28.clover",
@@ -574,20 +575,30 @@ async function handleUnifiedOrder(session: Stripe.Checkout.Session) {
   //    emails). Son PROPRE try/catch ; sendPurchaseToCapi ne throw jamais → n'affecte
   //    ni la commande ni le retry Stripe. tracking lu depuis le draft DÉJÀ en mémoire
   //    (aucune requête supplémentaire). No-op si consent≠accepted / interne / token absent.
-  try {
-    await sendPurchaseToCapi({
-      eventId:        session.id,
-      value:          amount,
-      tracking:       (draft as any).tracking,
-      isInternalTest: !!(orderData as any)?.is_internal_test,
-      email,
-      name,
-      phone:          String(delivery.customer_phone ?? session.customer_details?.phone ?? ""),
-      city:           (finalShippingAddress as any)?.city ?? null,
-      postal:         (finalShippingAddress as any)?.postal_code ?? null,
-      country:        (finalShippingAddress as any)?.country ?? delivery.country ?? null,
-    });
-  } catch { /* jamais bloquant */ }
+  //
+  //    FILTRE PÉRIMÈTRE VENTE (même prédicat que le funnel analytics, lib/orders — une seule
+  //    définition de « vente ») : une commande influenceuse / cadeau n'émet PAS de Purchase.
+  //    ⚠️ INERTE À L'ÉMISSION : `classification` n'est PAS posée à la création (webhook/tunnel
+  //    n'écrivent jamais cette colonne) — elle vaut donc le défaut 'cliente' ici, et n'est
+  //    reclassifiée en collab/cadeau que PLUS TARD par l'admin. countsInAccounting renvoie donc
+  //    true au webhook pour toutes les commandes. Ce garde ne bloquera réellement collab/cadeau
+  //    que le jour où la classification sera connue à la création (lot séparé). Cf. rapport.
+  if (orderData && countsInAccounting(orderData as any)) {
+    try {
+      await sendPurchaseToCapi({
+        eventId:        session.id,
+        value:          amount,
+        tracking:       (draft as any).tracking,
+        isInternalTest: !!(orderData as any)?.is_internal_test,
+        email,
+        name,
+        phone:          String(delivery.customer_phone ?? session.customer_details?.phone ?? ""),
+        city:           (finalShippingAddress as any)?.city ?? null,
+        postal:         (finalShippingAddress as any)?.postal_code ?? null,
+        country:        (finalShippingAddress as any)?.country ?? delivery.country ?? null,
+      });
+    } catch { /* jamais bloquant */ }
+  }
 }
 
 // ── checkout.session.expired — filet de sécurité paniers abandonnés ──────────

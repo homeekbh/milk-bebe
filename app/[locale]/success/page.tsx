@@ -7,6 +7,7 @@ import { Link } from "@/i18n/navigation";
 import ProductRecommendations from "@/components/product/ProductRecommendations";
 import GoogleCustomerReviews from "@/components/analytics/GoogleCustomerReviews";
 import { trackPurchase, metaPurchase, trackRemoveFromWishlist } from "@/lib/analytics";
+import { countsInAccounting } from "@/lib/orders";
 import { clearCheckoutState } from "@/lib/checkout-storage";
 
 const FALLBACK_CATEGORY = "pyjamas";
@@ -156,6 +157,14 @@ export default function SuccessPage() {
           // pas de session payée à 0). amount_total net d'un éventuel remboursement.
           const value = Math.max(0, Number(order.amount_total ?? 0) - Number(order.refund_amount ?? 0));
           if (!(value > 0)) return;
+
+          // (c) PÉRIMÈTRE VENTE — même prédicat que le webhook CAPI et le funnel (lib/orders : une
+          // seule définition de « vente »). Une commande influenceuse / cadeau (produit offert, port
+          // seul) n'émet AUCUN Purchase. ⚠️ INERTE À L'ÉMISSION : classification n'est pas posée à la
+          // création → order.classification vaut null/'cliente' ici, donc countsInAccounting renvoie
+          // true pour toutes les commandes. Ne bloquera collab/cadeau que si la classification est
+          // connue à la création (lot séparé). Cf. rapport.
+          if (!countsInAccounting(order)) return;
 
           const purchaseItems = (Array.isArray(order.items) && order.items.length > 0)
             ? order.items.map((it: any) => ({

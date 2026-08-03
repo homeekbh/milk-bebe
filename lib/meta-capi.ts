@@ -52,18 +52,28 @@ const normPhone = (phone: string | null | undefined, country: string | null | un
   return undefined;
 };
 
+// No-op RENDU VISIBLE (leçon track-view / user_agent : un repli muet a caché 2 mois une perte).
+// Message CONSTANT par cause → les issues Sentry se dédupliquent au lieu de flooder. Non bloquant.
+// Choix de niveaux : token/pixel absents = warning (vraie erreur de config) ; tracking absent /
+// consent inattendu = info ; consent 'refused' et test interne = AUCUN report (comportements
+// normaux et fréquents — un refus de cookies est légitime, pas une anomalie).
+const noopReport = (level: "warning" | "info", why: string): void => {
+  try { Sentry.captureMessage(`meta-capi Purchase no-op — ${why}`, level); } catch {}
+};
+
 export async function sendPurchaseToCapi(input: PurchaseCapiInput): Promise<void> {
   try {
     const token = process.env.META_CAPI_ACCESS_TOKEN;
     const pixel = process.env.NEXT_PUBLIC_META_PIXEL_ID;
     const t     = input.tracking;
 
-    // ── Sorties immédiates (no-op silencieux) ────────────────────────────────
-    if (!token) return;
-    if (!pixel) return;
-    if (!t) return;                       // drafts d'avant M3
-    if (t.consent !== "accepted") return;
-    if (input.isInternalTest) return;
+    // ── Sorties immédiates (no-op) — désormais tracées (sauf refus/test, cf. ci-dessus) ──────
+    if (!token) { noopReport("warning", "META_CAPI_ACCESS_TOKEN absent"); return; }
+    if (!pixel) { noopReport("warning", "NEXT_PUBLIC_META_PIXEL_ID absent"); return; }
+    if (!t)     { noopReport("info", "tracking absent (draft antérieur au Lot M3)"); return; }
+    if (t.consent === "refused") return;  // refus de cookies : légitime et fréquent → aucun report
+    if (t.consent !== "accepted") { noopReport("info", "consent ni 'accepted' ni 'refused' (null/inattendu)"); return; }
+    if (input.isInternalTest) return;     // commande de test interne → attendu, aucun report
 
     const version  = process.env.META_GRAPH_VERSION || "v25.0";
     const testCode = process.env.META_CAPI_TEST_EVENT_CODE;

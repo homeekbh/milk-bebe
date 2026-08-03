@@ -114,6 +114,17 @@ export default function AdminHome() {
               <ClocksBar size={66} dark />
             </div>
 
+            {/* ── VRAIE alerte webhook : paiement Stripe SANS commande en base (comparaison Stripe ↔ base,
+                   la seule qui puisse voir un échec réel). Aucune affirmation stock/email — c'est ce
+                   qu'on vient de corriger. Rouge = à traiter en priorité. ── */}
+            {d.stripeGaps && (
+              <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 14, background: "rgba(239,68,68,0.12)", border: `1px solid rgba(239,68,68,0.5)` }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.red }}>⚠️ {d.stripeGaps.count} paiement(s) Stripe sans commande en base sur les dernières {d.stripeGaps.windowHours} h</div>
+                <div style={{ fontSize: 12, color: "rgba(242,237,230,0.6)", marginTop: 4 }}>Webhook probablement tombé — vérifier sur le dashboard Stripe et rejouer l'événement.</div>
+                <div style={{ fontSize: 12, color: C.muted, marginTop: 6, fontFamily: "monospace", wordBreak: "break-all" }}>{d.stripeGaps.sessionIds.join(" · ")}</div>
+              </div>
+            )}
+
             {/* ── À préparer — tuile NEUTRE (ex-alerte webhook mensongère retirée) ── */}
             {d.aPreparer && (
               <Link href="/admin/commandes" style={{ display: "block", textDecoration: "none", ...card, marginBottom: 24 }}>

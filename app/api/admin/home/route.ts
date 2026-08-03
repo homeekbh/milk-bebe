@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { countsInAccounting, getNetAmount } from "@/lib/orders";
 import { resolveAnalyticsRange, parisDayKey, fetchAllPaged } from "@/lib/analytics-server";
+import { findPaidSessionsMissingOrders } from "@/lib/server/stripe-reconcile";
 import * as Sentry from "@sentry/nextjs";
 import type { NextRequest } from "next/server";
 
@@ -191,6 +192,18 @@ export async function GET(req: NextRequest) {
     let acc24 = 0, acc7 = 0;
     for (const p of profiles) { const t = p.created_at ? new Date(p.created_at).getTime() : 0; if (t >= d7) acc7++; if (t >= h24) acc24++; }
 
+    // ── Réconciliation Stripe (live) — bandeau si des paiements n'ont PAS de commande en base.
+    //    ISOLÉ dans son propre try/catch : un échec Stripe ne doit pas faire tomber l'accueil
+    //    (il n'affiche juste pas le bandeau + Sentry). Même détection que le cron quotidien
+    //    (helper partagé) → le bandeau est toujours à jour et s'auto-efface dès la commande créée.
+    let stripeGaps: { count: number; sessionIds: string[]; windowHours: number } | null = null;
+    try {
+      const { gaps, windowHours } = await findPaidSessionsMissingOrders(48);
+      if (gaps.length > 0) stripeGaps = { count: gaps.length, sessionIds: gaps.map(g => g.session_id), windowHours };
+    } catch (e) {
+      Sentry.captureException(e, { tags: { area: "admin-home-stripe-reconcile" } });
+    }
+
     return Response.json({
       data: {
         tasks: {
@@ -201,6 +214,7 @@ export async function GET(req: NextRequest) {
         },
         ruptures,
         aPreparer: aExpedier.length > 0 ? { count: aExpedier.length, oldest: ageLabel(aExpedierOldest) } : null,
+        stripeGaps,
         lastOrders,
         site: { popup: livePopup?.title ?? null, promoActive },
         promoCodes,

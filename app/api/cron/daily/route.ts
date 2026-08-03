@@ -1,7 +1,16 @@
 import { NextResponse } from "next/server";
 import { supabaseServer } from "@/lib/server/supabase";
+import { Resend } from "resend";
+import * as Sentry from "@sentry/nextjs";
+import { findPaidSessionsMissingOrders } from "@/lib/server/stripe-reconcile";
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
+const resend = new Resend(process.env.RESEND_API_KEY);
+const ADMIN_EMAILS = [
+  process.env.ADMIN_EMAIL_1,
+  process.env.ADMIN_EMAIL_2,
+  process.env.ADMIN_EMAIL_3,
+].filter(Boolean) as string[];
 
 export const dynamic = "force-dynamic";
 // Orchestre plusieurs sous-crons en séquence (avis + taille-suivante + réassort + purges) :
@@ -125,6 +134,33 @@ export async function GET(req: Request) {
     results.pendingOrdersPurge = error ? { error: error.message } : { deleted: data?.length ?? 0 };
   } catch (e: any) {
     results.pendingOrdersPurge = { error: e?.message ?? "exception" };
+  }
+
+  // 8. Réconciliation Stripe — détecte un VRAI échec de webhook : une Checkout Session PAYÉE
+  //    sans ligne `orders` (le seul signe observable, cf. lib/server/stripe-reconcile.ts).
+  //    Silence si zéro trou (une alerte quotidienne qui parle pour rien n'est plus lue).
+  //    NON bloquant + échec VISIBLE (console.error + Sentry + results) : jamais de catch muet.
+  try {
+    const { checkedPaid, gaps, windowHours } = await findPaidSessionsMissingOrders(48);
+    if (gaps.length > 0 && ADMIN_EMAILS.length > 0) {
+      const lignes = gaps
+        .map(g => `• ${g.session_id} — ${g.amount.toFixed(2)} ${g.currency}${g.email ? ` — ${g.email}` : ""}`)
+        .join("\n");
+      await resend.emails.send({
+        from: "M!LK <contact@milkbebe.fr>",
+        to: ADMIN_EMAILS,
+        subject: `⚠️ ${gaps.length} paiement(s) Stripe sans commande en base (${windowHours} h)`,
+        text:
+          `${gaps.length} session(s) Stripe payée(s) sur les dernières ${windowHours} h n'ont AUCUNE ` +
+          `ligne orders correspondante — le webhook est probablement tombé.\n\n${lignes}\n\n` +
+          `Vérifier sur le dashboard Stripe et rejouer l'événement si besoin.`,
+      });
+    }
+    results.stripeReconcile = { checkedPaid, gaps: gaps.length };
+  } catch (e: any) {
+    console.error("[cron:daily] réconciliation Stripe échec:", e?.message);
+    Sentry.captureException(e);
+    results.stripeReconcile = { error: e?.message ?? "exception" };
   }
 
   return NextResponse.json({ ok: true, results });

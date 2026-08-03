@@ -12,7 +12,7 @@ import { useIsNarrow } from "@/lib/useIsNarrow";
 import { C } from "@/components/admin/analytics/tokens";
 import {
   PRESETS, dateInputStyle, DATA_MIN_DATE, todayYmd, WEEKDAY_LONG,
-  compareRangeOf, parseQuery, toSearchParams, DEFAULT_QUERY,
+  compareRangeOf, comparisonLabelOf, parseQuery, toSearchParams, DEFAULT_QUERY,
   type AnalyticsQuery, type PresetKey,
 } from "@/components/admin/analytics/period";
 import { useAnalyticsRefresh } from "@/components/admin/analytics/refresh-context";
@@ -91,7 +91,8 @@ export default function PeriodBar() {
           <option value="wd">⚖️ vs même jour, S-1</option>
         </select>
       ) : (
-        <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, whiteSpace: "nowrap" }}>⚖️ {cmp.label}</span>
+        // Base de comparaison UNIQUE de la page — même libellé (troncature comprise) que les cartes KPI.
+        <span style={{ fontSize: 12, fontWeight: 700, color: C.muted, whiteSpace: "nowrap" }}>⚖️ {comparisonLabelOf(q)}</span>
       ))}
 
       {/* Icône calendrier : replie/déplie le mode weekday (conservé) */}

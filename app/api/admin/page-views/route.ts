@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, fetchAllPaged, VALID_STATUSES, countsInWebStats, pct, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, fetchAllPaged, VALID_STATUSES, countsInWebStats, deltaVal, comparisonWindow, botSessionIds, toParis, parisDayKey, enumerateParisDays } from "@/lib/analytics-server";
 import { geocodeCity } from "@/lib/geo/geocode-fr";
 import type { NextRequest } from "next/server";
 
@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
     const sp = new URL(req.url).searchParams;
     const rr = resolveAnalyticsRange(sp);
     if (!rr.ok) return Response.json({ data: null, error: rr.error }, { status: 400 });
-    const { period, from, fromPrev, to } = rr.range;
+    const { from, to } = rr.range;
     const excludeBots = sp.get("bots") === "exclude";
 
     // ⚠️ Pagination obligatoire : PostgREST plafonne à 1000 lignes/requête, donc
@@ -74,9 +74,12 @@ export async function GET(req: NextRequest) {
       .order("viewed_at", { ascending: true })
       .range(rf, rt));
 
-    // ── Filtrage bots (heuristique) si le toggle est actif ───────────────────
-    const botSet = excludeBots ? botSessionIds(rows) : new Set<string>();
-    const bots_excluded = botSet.size;
+    // ── Bots (heuristique) ───────────────────────────────────────────────────
+    // On les détecte TOUJOURS (pour afficher le nombre, même filtre inactif — « ne le cache
+    // pas », défaut #3) ; on ne les RETIRE que si le toggle est actif.
+    const botSet = botSessionIds(rows);
+    const bots_detected = botSet.size;
+    const bots_excluded = excludeBots ? botSet.size : 0;
     if (excludeBots) rows = rows.filter(r => !r.session_id || !botSet.has(r.session_id));
 
     // ── KPIs ────────────────────────────────────────────────────────────────
@@ -90,6 +93,30 @@ export async function GET(req: NextRequest) {
     const avg_scroll = scrolled.length ? Math.round(mean(scrolled.map(r => Number(r.scroll_depth)))) : null;
     const bounce_rate = behav.length ? Math.round((behav.filter(r => r.is_bounce).length / behav.length) * 100) : null;
     const pages_per_session = sessions.size > 0 ? rows.length / sessions.size : 0;
+
+    // ── Répartition PAR SESSION à valeur UNIQUE (défaut #8) ──────────────────
+    // Chaque session est attribuée à EXACTEMENT une catégorie (sa 1re valeur non vide, sinon
+    // « Inconnu ») → Σ(catégories) == sessions uniques, toujours. Avant, une session sans OS
+    // détecté disparaissait en silence (« Système » totalisait 21 pour 22 sessions). Règle
+    // générale appliquée à Appareils / Système / Navigateur / Pays.
+    const totalSess = sessions.size;
+    const perSessionAttr = (keyFn: (r: any) => any): Map<string, number> => {
+      const chosen = new Map<string, string>();
+      for (const r of rows) {
+        const sid = r.session_id; if (!sid || chosen.has(sid)) continue;
+        const v = keyFn(r);
+        if (v != null && String(v).trim() !== "") chosen.set(sid, String(v).trim());
+      }
+      const counts = new Map<string, number>();
+      for (const sid of sessions) { const v = chosen.get(sid) ?? "Inconnu"; counts.set(v, (counts.get(v) ?? 0) + 1); }
+      return counts;
+    };
+    const distFrom = (counts: Map<string, number>, limit = 12) =>
+      [...counts.entries()]
+        .map(([k, n]) => ({ k, sessions: n, pct: totalSess > 0 ? Math.round((n / totalSess) * 100) : 0 }))
+        // « Inconnu » toujours en dernier, le reste par volume décroissant.
+        .sort((a, b) => (a.k === "Inconnu" ? 1 : 0) - (b.k === "Inconnu" ? 1 : 0) || b.sessions - a.sessions)
+        .slice(0, limit);
 
     // ── Helpers d'agrégation par clé ────────────────────────────────────────
     type Agg = { views: number; sessions: Set<string>; times: number[]; scrolls: number[]; bounces: number; bounceTot: number };
@@ -272,13 +299,8 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.sessions - a.sessions).slice(0, 10);
 
     // ── Géographie ──────────────────────────────────────────────────────────
-    const countryMap = new Map<string, Set<string>>();
     const cityMap = new Map<string, { city: string; region: string; sessions: Set<string>; lats: number[]; lngs: number[] }>();
     rows.forEach(r => {
-      if (r.country) {
-        if (!countryMap.has(r.country)) countryMap.set(r.country, new Set());
-        if (r.session_id) countryMap.get(r.country)!.add(r.session_id);
-      }
       if (r.city) {
         const key = `${r.city}|${r.region ?? ""}`;
         if (!cityMap.has(key)) cityMap.set(key, { city: r.city, region: r.region ?? "", sessions: new Set(), lats: [], lngs: [] });
@@ -291,7 +313,8 @@ export async function GET(req: NextRequest) {
         }
       }
     });
-    const by_country = [...countryMap.entries()].map(([country, set]) => ({ country, sessions: set.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
+    // Pays — répartition exacte par session (« Inconnu » pour une géo non résolue), totalise (défaut #8).
+    const by_country = distFrom(perSessionAttr(r => r.country), 50).map(x => ({ country: x.k, sessions: x.sessions, pct: x.pct }));
     const by_city = [...cityMap.values()].map(c => {
       // Coordonnée RÉELLE si une ancienne ligne en portait (rétro-compat) ; sinon
       // géocodage local du nom de ville → commune, avec repli sur le centroïde régional.
@@ -305,22 +328,10 @@ export async function GET(req: NextRequest) {
       return { city: c.city, region: c.region, sessions: c.sessions.size, lat, lng };
     }).sort((a, b) => b.sessions - a.sessions).slice(0, 50);
 
-    // ── Appareils ───────────────────────────────────────────────────────────
-    const bucketSessions = (key: (r: any) => string | null) => {
-      const m = new Map<string, Set<string>>();
-      rows.forEach(r => {
-        const k = key(r);
-        if (!k) return;
-        if (!m.has(k)) m.set(k, new Set());
-        if (r.session_id) m.get(k)!.add(r.session_id);
-      });
-      return m;
-    };
-    const devM = bucketSessions(r => r.device_type ?? r.device ?? null);
-    const devTotal = [...devM.values()].reduce((s, set) => s + set.size, 0) || 1;
-    const by_device  = [...devM.entries()].map(([device_type, set]) => ({ device_type, sessions: set.size, pct: Math.round((set.size / devTotal) * 100) })).sort((a, b) => b.sessions - a.sessions);
-    const by_os      = [...bucketSessions(r => r.os).entries()].map(([os, set]) => ({ os, sessions: set.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 10);
-    const by_browser = [...bucketSessions(r => r.browser).entries()].map(([browser, set]) => ({ browser, sessions: set.size })).sort((a, b) => b.sessions - a.sessions).slice(0, 10);
+    // ── Appareils / Système / Navigateur — répartition exacte par session (défaut #8) ──
+    const by_device  = distFrom(perSessionAttr(r => r.device_type ?? r.device)).map(x => ({ device_type: x.k, sessions: x.sessions, pct: x.pct }));
+    const by_os      = distFrom(perSessionAttr(r => r.os)).map(x => ({ os: x.k, sessions: x.sessions, pct: x.pct }));
+    const by_browser = distFrom(perSessionAttr(r => r.browser)).map(x => ({ browser: x.k, sessions: x.sessions, pct: x.pct }));
 
     // ── Distributions comportement ──────────────────────────────────────────
     const scrollBuckets = { "0-25%": 0, "25-50%": 0, "50-75%": 0, "75-100%": 0 };
@@ -371,7 +382,7 @@ export async function GET(req: NextRequest) {
     // un cadeau valait 1 « achat »). Et la requête DOIT sélectionner is_internal_test ET classification,
     // sinon countsInWebStats devient un NO-OP silencieux (colonne absente → défaut 'cliente' → comptée).
     // 2ᵉ occurrence de ce piège structurel : il est écrit ici, à l'endroit exact où il frappe.
-    const ordCur = await supabaseServer.from("orders").select("status, shipping_status, is_internal_test, classification")
+    const ordCur = await supabaseServer.from("orders").select("status, shipping_status, is_internal_test, classification, source")
       .in("status", VALID_STATUSES).gte("created_at", from).lte("created_at", to).limit(100000);
     const purchases = (ordCur.data ?? []).filter(countsInWebStats).length;
     const funnel = [
@@ -397,21 +408,24 @@ export async function GET(req: NextRequest) {
       bounce_rate: e.sessions.size ? Math.round((e.bounce.size / e.sessions.size) * 100) : 0,
     })).sort((a, b) => b.sessions - a.sessions).slice(0, 15);
 
-    // ── Comparaison N vs N-1 (#4) — deltas sur les KPIs trafic ───────────────
-    let deltas: { views: number; sessions: number; visitors: number; avg_time: number } | null = null;
-    if (period !== "all") {
+    // ── Comparaison (défauts #4/#6) — deltas trafic sur la MÊME base que la courbe ───
+    // Fenêtre de comparaison unifiée (préset tronqué) au lieu de la période précédente de
+    // même durée. Valeurs discriminées (number | "new" | null) via deltaVal.
+    const cmp = comparisonWindow(sp, rr.range);
+    let deltas: { views: any; sessions: any; visitors: any; avg_time: any } | null = null;
+    if (cmp) {
       let prevRows = await fetchAllPaged<any>((rf, rt) => supabaseServer
-        .from("page_views").select("session_id, visitor_id, time_on_page, scroll_depth, is_bounce, user_agent, country, region, city")
-        .gte("viewed_at", fromPrev).lt("viewed_at", from)
+        .from("page_views").select("session_id, visitor_id, time_on_page, scroll_depth, is_bounce, user_agent, country, region, city, os, page_path")
+        .gte("viewed_at", cmp.from).lt("viewed_at", cmp.to)
         .order("viewed_at", { ascending: true }).range(rf, rt));
       if (excludeBots) { const pb = botSessionIds(prevRows); prevRows = prevRows.filter(r => !r.session_id || !pb.has(r.session_id)); }
       const pSess = new Set<string>(), pVis = new Set<string>(), pTimes: number[] = [];
       prevRows.forEach(r => { if (r.session_id) pSess.add(r.session_id); if (r.visitor_id) pVis.add(r.visitor_id); if (r.time_on_page != null) pTimes.push(Number(r.time_on_page)); });
       deltas = {
-        views:    pct(rows.length,   prevRows.length),
-        sessions: pct(sessions.size, pSess.size),
-        visitors: pct(visitors.size, pVis.size),
-        avg_time: pct(avg_time ?? 0, pTimes.length ? Math.round(mean(pTimes)) : 0),
+        views:    deltaVal(rows.length,   prevRows.length),
+        sessions: deltaVal(sessions.size, pSess.size),
+        visitors: deltaVal(visitors.size, pVis.size),
+        avg_time: deltaVal(avg_time ?? 0, pTimes.length ? Math.round(mean(pTimes)) : 0),
       };
     }
 
@@ -446,6 +460,8 @@ export async function GET(req: NextRequest) {
         funnel,
         entry_pages,
         deltas,
+        sessions_total: sessions.size,   // dénominateur des répartitions (défaut #8)
+        bots_detected,                    // bots repérés (affiché même filtre inactif, défaut #3)
         bots_excluded,
         bots_filter_active: excludeBots,
       },

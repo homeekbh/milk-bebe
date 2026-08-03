@@ -176,10 +176,49 @@ export function resolveAnalyticsRange(sp: URLSearchParams): RangeResolution {
   return { ok: true, range: periodRange(normalizePeriod(sp.get("period"))) };
 }
 
-/** Variation en % (0 si pas de base de comparaison). */
+/** Variation en % (0 si pas de base de comparaison). @deprecated pour l'affichage : préférer
+ *  deltaVal, qui distingue « depuis zéro » (nouveau) de « 0 % » (stagnation). Conservé pour
+ *  d'éventuels usages numériques internes. */
 export function pct(cur: number, prev: number): number {
   if (!prev || prev <= 0) return 0;
   return ((cur - prev) / prev) * 100;
+}
+
+// Variation DESTINÉE À L'AFFICHAGE (défauts #4/#5). Trois états distincts, jamais confondus :
+//   • number  → variation en % (base de comparaison > 0) ;
+//   • "new"   → apparition depuis zéro (base nulle, valeur courante > 0) → « nouveau », JAMAIS 0 % ;
+//   • null    → rien à comparer (les deux à zéro) → « — », jamais une valeur calculée.
+export type DeltaValue = number | "new" | null;
+export function deltaVal(cur: number, prev: number): DeltaValue {
+  if (prev > 0) return ((cur - prev) / prev) * 100;
+  if (cur > 0)  return "new";
+  return null;
+}
+
+/**
+ * Fenêtre de comparaison UNIFIÉE (défaut #6) — la MÊME base que la courbe comparée :
+ *   • cfrom/cto (bornes calendaires du préset : « mois dernier », « semaine dernière »…),
+ *   • TRONQUÉE à la portion écoulée si la période courante est EN COURS (même date + même
+ *     heure), y compris pour les métriques de vente.
+ * Repli sur la période précédente de même durée (fromPrev) si cfrom/cto absents (ex. weekday),
+ * et null pour « all » (pas de comparaison). Renvoie des bornes ISO, borne haute EXCLUSIVE.
+ */
+export function comparisonWindow(sp: URLSearchParams, cur: PeriodRange): { from: string; to: string } | null {
+  const cfrom = sp.get("cfrom"), cto = sp.get("cto");
+  if (cfrom && cto) {
+    const r = resolveAnalyticsRange(new URLSearchParams({ from: cfrom, to: cto }));
+    if (!r.ok) return null;
+    const cmpFrom = r.range.from, cmpToFull = r.range.to;
+    const inProgress = parisDayKey(cur.to) === parisDayKey(new Date());
+    if (inProgress) {
+      const elapsedMs = Date.now() - new Date(cur.from).getTime();
+      const truncEnd  = Math.min(new Date(cmpFrom).getTime() + elapsedMs, new Date(cmpToFull).getTime());
+      return { from: cmpFrom, to: new Date(truncEnd).toISOString() };
+    }
+    return { from: cmpFrom, to: cmpToFull };
+  }
+  if (cur.period === "all") return null;
+  return { from: cur.fromPrev, to: cur.from };
 }
 
 // ── Heuristique bots (partagée par /api/admin/page-views et /conversion) ─────
@@ -197,13 +236,31 @@ function noInteraction(r: any): boolean {
       && (r.scroll_depth == null || Number(r.scroll_depth) === 0);
 }
 
-// Signature géo « préchargement datacenter » : pays US, région ET ville non résolues.
-// ⚠️ country=US sans région/ville est AUSSI la signature du Relais privé iCloud
-// d'Apple (de vrais iPhone) → n'exclure QUE combiné à l'absence d'interaction.
-function isUsDatacenterGeo(r: any): boolean {
-  return String(r.country ?? "") === "US"
-      && (r.region == null || r.region === "")
-      && (r.city   == null || r.city   === "");
+function isProductView(r: any): boolean {
+  return String(r.page_path ?? "").startsWith("/produits/");
+}
+
+// Villes de datacenters connus (Google, AWS, Azure…) — vues comme US mais qui ne sont pas
+// de vrais visiteurs. Minuscules, comparaison insensible à la casse/espaces.
+const DATACENTER_CITIES = new Set([
+  "mountain view", "council bluffs", "the dalles", "boardman", "ashburn",
+  "san francisco", "kansas city", "columbus", "north charleston",
+]);
+
+// Ligne « datacenter US » (défaut #3, durci) : pays US ET au moins un signal datacenter :
+//   • géo non résolue (région ET ville vides) — l'ancien préchargement Meta ;
+//   • ville d'un datacenter connu (Council Bluffs / Mountain View = Google, etc.) — la géo
+//     RÉSOLUE laissait passer ces bots avant ;
+//   • OS Linux — un desktop Linux est quasi inexistant chez de vrais acheteurs (site bébé,
+//     54 % mobile). Combiné à US + aucune interaction = crawler datacenter.
+// ⚠️ country=US/∅/∅ est aussi la signature du Relais privé iCloud (vrais iPhone) → c'est
+// pourquoi on n'exclut JAMAIS sur ce seul critère : toujours combiné à « aucune interaction ».
+function isUsDatacenterRow(r: any): boolean {
+  if (String(r.country ?? "") !== "US") return false;
+  const geoEmpty = (r.region == null || r.region === "") && (r.city == null || r.city === "");
+  const dcCity   = DATACENTER_CITIES.has(String(r.city ?? "").toLowerCase().trim());
+  const linux    = String(r.os ?? "") === "Linux";
+  return geoEmpty || dcCity || linux;
 }
 
 export function botSessionIds(rows: any[]): Set<string> {
@@ -213,20 +270,24 @@ export function botSessionIds(rows: any[]): Set<string> {
   for (const [sid, rs] of bySess) {
     // is_bot est écrit à l'ingestion (MÊME regex, cf. lib/bot-detection.ts). On le
     // RÉUTILISE quand la colonne est renseignée (true/false) ; on ne recalcule via
-    // isCrawlerUA que pour les lignes ANCIENNES où is_bot est NULL. Classification
-    // identique (même source : le user-agent de la vue).
+    // isCrawlerUA que pour les lignes ANCIENNES où is_bot est NULL. (Aujourd'hui
+    // page_views.user_agent est vide → ce signal ne tranche rien, cf. mesures.)
     const uaBot = rs.some(r =>
       r.is_bot === true  ? true  :
       r.is_bot === false ? false :
       isCrawlerUA(r.user_agent)
     );
-    // Historique : crawler connu OU session 100% sans engagement (rebond inclus).
-    const noEngagement = rs.every(r => noInteraction(r) && !!r.is_bounce);
-    // Lot G-4c : préchargement datacenter Meta — TOUTES les vues US/∅/∅ ET sans
-    // interaction. Le beacon de départ ne se déclenchant pas sur un préchargement,
-    // is_bounce y reste NULL → on ne l'exige PAS ici (sinon 0 exclusion, cf. mesures).
-    const dcPreload = rs.every(isUsDatacenterGeo) && rs.every(noInteraction);
-    if (uaBot || noEngagement || dcPreload) bots.add(sid);
+    const allNoInter = rs.every(noInteraction);
+    const hasProduct = rs.some(isProductView);
+    // Datacenter US durci (défaut #3) : TOUTES les vues portent un signal datacenter ET
+    // aucune interaction. Attrape désormais Linux/US et les villes de datacenters résolues.
+    const dcBot = rs.every(isUsDatacenterRow) && allNoInter;
+    // Rebond total sans engagement (ex-heuristique). NE s'applique PAS aux sessions ayant vu
+    // une fiche produit (défaut #2 : atteindre un produit = intention, pas un préchargement) →
+    // on cesse de faire disparaître de vraies vues produit. Les bots datacenter qui touchent
+    // un produit restent pris par dcBot ci-dessus.
+    const noEngagement = allNoInter && rs.every(r => !!r.is_bounce) && !hasProduct;
+    if (uaBot || dcBot || noEngagement) bots.add(sid);
   }
   return bots;
 }

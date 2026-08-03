@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   // 1) orders → filleuls (commandes payées valides avec code) + remise filleul €.
   const { data: ords } = await supabaseServer
-    .from("orders").select("parrain_code, parrain_discount, status, shipping_status, is_internal_test, classification");
+    .from("orders").select("parrain_code, parrain_discount, status, shipping_status, is_internal_test, classification, source");
   const filleulsByCode = new Map<string, number>();
   let filleulsTotaux = 0;
   let remiseFilleulTotal = 0;

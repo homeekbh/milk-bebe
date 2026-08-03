@@ -1,7 +1,7 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, pct, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, deltaVal, comparisonWindow, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
@@ -19,11 +19,12 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
   try {
-    const rr = resolveAnalyticsRange(new URL(req.url).searchParams);
+    const sp = new URL(req.url).searchParams;
+    const rr = resolveAnalyticsRange(sp);
     if (!rr.ok) return fail(rr.error, 400);
-    const { period, from, fromPrev } = rr.range;
-    const fromMs     = new Date(from).getTime();
-    const fromPrevMs = new Date(fromPrev).getTime();
+    const { from } = rr.range;
+    const cmp    = comparisonWindow(sp, rr.range); // base unifiée (défaut #6)
+    const fromMs = new Date(from).getTime();
 
     // Pagination complète des comptes Auth. perPage 1000 = plafond GoTrue par défaut ;
     // on s'arrête dès qu'une page renvoie moins que perPage (dernière page).
@@ -40,10 +41,10 @@ export async function GET(req: NextRequest) {
     }
 
     const count      = createdAts.filter(t => t >= fromMs).length;
-    const prev_count = period === "all"
-      ? 0
-      : createdAts.filter(t => t >= fromPrevMs && t < fromMs).length;
-    const delta_pct  = period === "all" ? 0 : pct(count, prev_count);
+    const prev_count = cmp
+      ? createdAts.filter(t => { const b = new Date(cmp.to).getTime(), a = new Date(cmp.from).getTime(); return t >= a && t < b; }).length
+      : 0;
+    const delta_pct  = cmp ? deltaVal(count, prev_count) : null;
 
     return ok({ count, prev_count, delta_pct, total: createdAts.length });
   } catch (e: any) {

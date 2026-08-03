@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C } from "@/components/admin/analytics/tokens";
 import { SectionTitle, Card, KpiCard } from "@/components/admin/analytics/ui";
 import { LineChart, DonutChart, MiniBar } from "@/components/admin/analytics/charts";
-import { eur, ymdToLocal, periodFromMs, weekdayOccurrences, periodLabelOf } from "@/components/admin/analytics/period";
+import { eur, ymdToLocal, periodFromMs, weekdayOccurrences, periodLabelOf, comparisonLabelOf } from "@/components/admin/analytics/period";
 
 export default function VentesPage() {
   const { data, q, narrow, serverError, failedEndpoints } = useAnalyticsData([
@@ -27,6 +27,7 @@ export default function VentesPage() {
   const dayStr = q.date, rangeFrom = q.from, rangeTo = q.to;
   const showDelta   = mode === "period" ? period !== "all" : true;
   const periodLabel = periodLabelOf(q);
+  const cmpLabel    = comparisonLabelOf(q); // base de comparaison UNIQUE de la page (défaut #6)
 
   // ── Statuts livraison (client-side, depuis slim orders filtrés période) ──────
   const shippingDonut = useMemo(() => {
@@ -86,9 +87,9 @@ export default function VentesPage() {
       <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(200px, 1fr))", gap: 12, marginBottom: 24 }}>
         {kpis ? (
           <>
-            <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}        color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} />
-            <KpiCard label="Panier moyen"        value={eur(kpis.avg_basket, 2)}  delta={showDelta ? kpis.basket_delta_pct : undefined} />
-            <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} delta={showDelta ? conversion?.conversion_delta_pct ?? undefined : undefined} />
+            <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}        color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} deltaLabel={cmpLabel} />
+            <KpiCard label="Panier moyen"        value={eur(kpis.avg_basket, 2)}  delta={showDelta ? kpis.basket_delta_pct : undefined} deltaLabel={cmpLabel} />
+            <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} delta={showDelta ? conversion?.conversion_delta_pct : undefined} deltaLabel={cmpLabel} warn={conversion?.low_sample ? "échantillon insuffisant pour conclure" : undefined} />
           </>
         ) : <><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></>}
       </div>

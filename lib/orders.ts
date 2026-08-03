@@ -127,6 +127,17 @@ export function sumValidCA(orders: OrderForCalc[]): number {
 const ACCOUNTING_CLASSES = new Set(["cliente", "vente_directe"]);
 const WEB_STATS_CLASSES  = new Set(["cliente"]);
 
+// Une SORTIE MANUELLE (orders.source = 'manual') est saisie à la main dans l'admin :
+// elle n'a produit NI visite, NI panier, NI paiement web → elle ne doit apparaître dans
+// AUCUNE statistique web (funnel, conversion, CA analytics, top produits/clients…), quelle
+// que soit sa classification. Même garde-fou que classification / is_internal_test : n'a
+// d'effet QUE si la colonne `source` est SÉLECTIONNÉE (absente → "" ≠ "manual" → traitée
+// comme web = défaut sûr, rétrocompatible). Toute requête utilisant countsInWebStats DOIT
+// donc sélectionner `source` EN PLUS de is_internal_test ET classification.
+function isManualEntry(o: OrderForCalc): boolean {
+  return String(o?.source ?? "") === "manual";
+}
+
 /** Classification effective : absente/vide → 'cliente' (défaut rétrocompatible). */
 export function classificationOf(o: OrderForCalc): string {
   const c = o?.classification;
@@ -138,9 +149,9 @@ export function countsInAccounting(o: OrderForCalc): boolean {
   return isValidOrder(o) && ACCOUNTING_CLASSES.has(classificationOf(o));
 }
 
-/** Compte dans les STATS WEB (cliente uniquement) — commandes valides seulement. */
+/** Compte dans les STATS WEB (cliente uniquement, HORS sortie manuelle) — commandes valides. */
 export function countsInWebStats(o: OrderForCalc): boolean {
-  return isValidOrder(o) && WEB_STATS_CLASSES.has(classificationOf(o));
+  return isValidOrder(o) && !isManualEntry(o) && WEB_STATS_CLASSES.has(classificationOf(o));
 }
 
 // ── DÉCOMPOSITION DE L'ENCAISSEMENT (Lot cohérence comptable) ─────────────────

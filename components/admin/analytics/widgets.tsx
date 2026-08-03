@@ -10,8 +10,11 @@ export function Skeleton({ h = 80 }: { h?: number }) {
 
 // Badge d'écart signé, coloré selon le SENS FAVORABLE de la métrique (pas selon le
 // signe brut) : une baisse du taux de rebond est une bonne nouvelle → verte.
-export function DeltaBadge({ d, better, lowVol }: { d: number | null; better: "up" | "down"; lowVol?: boolean }) {
-  if (d == null) return <span style={{ color: "rgba(242,237,230,0.45)", fontSize: 12 }}>n/a</span>;
+// Accepte le delta discriminé (number | "new" | null) : « nouveau » depuis zéro, « — » si rien
+// à comparer — jamais « 0,0 % » (défaut #4).
+export function DeltaBadge({ d, better, lowVol }: { d: number | "new" | null; better: "up" | "down"; lowVol?: boolean }) {
+  if (d === "new") return <span style={{ color: "#22c55e", fontWeight: 800, fontSize: 12 }}>nouveau</span>;
+  if (d == null)   return <span style={{ color: "rgba(242,237,230,0.45)", fontSize: 12 }}>—</span>;
   const favorable = better === "up" ? d >= 0 : d <= 0;
   const col = lowVol ? "rgba(242,237,230,0.45)" : (favorable ? "#22c55e" : "#ef4444");
   return <span style={{ color: col, fontWeight: 800, fontSize: 13, whiteSpace: "nowrap" }}>{d >= 0 ? "▲ +" : "▼ "}{d.toFixed(1)}%</span>;

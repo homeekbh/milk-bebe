@@ -22,6 +22,9 @@ export default function ComportementPage() {
   const wishlist = data.wishlist;
   const abandonedCarts: any[] = data.abandonedCarts ?? [];
   const periodLabel = periodLabelOf(q);
+  // Dénominateur commun des répartitions par session (défaut #8 : chaque bloc totalise ceci).
+  const sessTotal: number = pv?.sessions_total ?? pv?.unique_sessions ?? 0;
+  const denom = (n: number) => <div style={{ fontSize: 11, color: C.muted, marginTop: 10, paddingTop: 8, borderTop: `1px solid ${C.faint}` }}>Σ = {n} session(s) · par session</div>;
 
   const [showAllPages,     setShowAllPages]     = useState(false);
   const [showAllCountries, setShowAllCountries] = useState(false);
@@ -75,7 +78,7 @@ export default function ComportementPage() {
             <>
               <FunnelChart steps={pv.funnel} />
               <div style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
-                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
+                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes <b>clientes web</b> valides de la période (hors sorties manuelles, cadeaux et collabs — pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
               </div>
             </>
           )}
@@ -163,17 +166,23 @@ export default function ComportementPage() {
             </Card>
           </div>
 
-          {/* Profondeur de scroll + Durée de visite (distributions — barres conservées) */}
+          {/* Profondeur de scroll + Durée PAR PAGE VUE (distributions par page vue, pas par session — défaut #7) */}
           <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 16, marginBottom: 24 }}>
-            <Card title="🖱️ Profondeur de scroll" lexique="Scroll depth">
+            <Card title="🖱️ Profondeur de scroll (par page vue)" lexique="Scroll depth">
               {(pv.scroll_distribution ?? []).every((d: any) => !d.count)
                 ? <BehaviorPlaceholder />
-                : <HBars data={pv.scroll_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />}
+                : <>
+                    <HBars data={pv.scroll_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.blue} />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Réparti par page vue — {(pv.scroll_distribution ?? []).reduce((s: number, d: any) => s + (d.count || 0), 0)} page(s) mesurée(s).</div>
+                  </>}
             </Card>
-            <Card title="⏱️ Durée de visite" lexique="Durée moyenne">
+            <Card title="⏱️ Durée par page vue" lexique="Durée moyenne">
               {(pv.time_distribution ?? []).every((d: any) => !d.count)
                 ? <BehaviorPlaceholder />
-                : <HBars data={pv.time_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />}
+                : <>
+                    <HBars data={pv.time_distribution.map((d: any) => ({ label: d.bucket, value: d.count }))} color={C.green} />
+                    <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>Temps par PAGE VUE (pas par session) — {(pv.time_distribution ?? []).reduce((s: number, d: any) => s + (d.count || 0), 0)} page(s) mesurée(s).</div>
+                  </>}
             </Card>
           </div>
 
@@ -227,38 +236,42 @@ export default function ComportementPage() {
             </Card>
           </div>
 
-          {/* Appareils / Système / Navigateur */}
+          {/* Appareils / Système / Navigateur — répartitions par session, « Inconnu » inclus,
+              somme == Σ sessions (défaut #8) */}
           <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr 1fr", gap: 16, marginBottom: 24 }}>
             <Card title="📱 Appareils">
               <div style={{ display: "grid", gap: 8 }}>
                 {(pv.by_device ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
                   pv.by_device.map((d: any) => (
                     <div key={d.device_type} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
+                      <span style={{ color: d.device_type === "Inconnu" ? C.muted : C.warm }}>{DEVICE_ICON[d.device_type] ?? "•"} {d.device_type}</span>
                       <span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
                     </div>
                   ))}
               </div>
+              {(pv.by_device ?? []).length > 0 && denom(sessTotal)}
             </Card>
             <Card title="💿 Système">
               <div style={{ display: "grid", gap: 8 }}>
                 {(pv.by_os ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
                   pv.by_os.map((d: any) => (
                     <div key={d.os} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                      <span style={{ color: d.os === "Inconnu" ? C.muted : C.warm }}>{d.os}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
                     </div>
                   ))}
               </div>
+              {(pv.by_os ?? []).length > 0 && denom(sessTotal)}
             </Card>
             <Card title="🌐 Navigateur">
               <div style={{ display: "grid", gap: 8 }}>
                 {(pv.by_browser ?? []).length === 0 ? <div style={{ color: C.muted, fontSize: 13 }}>—</div> :
                   pv.by_browser.map((d: any) => (
                     <div key={d.browser} style={{ display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-                      <span style={{ color: C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions}</span>
+                      <span style={{ color: d.browser === "Inconnu" ? C.muted : C.warm }}>{d.browser}</span><span style={{ color: C.amber, fontWeight: 700 }}>{d.sessions} · {d.pct}%</span>
                     </div>
                   ))}
               </div>
+              {(pv.by_browser ?? []).length > 0 && denom(sessTotal)}
             </Card>
           </div>
         </>

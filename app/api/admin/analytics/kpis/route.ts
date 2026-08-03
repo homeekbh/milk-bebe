@@ -1,12 +1,12 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import * as Sentry from "@sentry/nextjs";
 import { requireAdmin }   from "@/lib/admin-auth";
-import { resolveAnalyticsRange, countsInWebStats, getNetAmount, VALID_STATUSES, pct, ok, fail } from "@/lib/analytics-server";
+import { resolveAnalyticsRange, countsInWebStats, getNetAmount, VALID_STATUSES, deltaVal, comparisonWindow, ok, fail } from "@/lib/analytics-server";
 import type { NextRequest } from "next/server";
 
 export const dynamic = "force-dynamic";
 
-const COLS = "amount_total, refund_amount, status, shipping_status, customer_email, created_at, is_internal_test, classification";
+const COLS = "amount_total, refund_amount, status, shipping_status, customer_email, created_at, is_internal_test, classification, source";
 
 function summarize(rows: any[]) {
   const valid   = (rows ?? []).filter(countsInWebStats);
@@ -21,15 +21,20 @@ export async function GET(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
   try {
-    const rr = resolveAnalyticsRange(new URL(req.url).searchParams);
+    const sp = new URL(req.url).searchParams;
+    const rr = resolveAnalyticsRange(sp);
     if (!rr.ok) return fail(rr.error, 400);
-    const { period, from, fromPrev, to } = rr.range;
+    const { from, to } = rr.range;
+    // Base de comparaison UNIFIÉE (même que la courbe : préset tronqué), défaut #6.
+    const cmp = comparisonWindow(sp, rr.range);
 
     const [cur, prev] = await Promise.all([
       supabaseServer.from("orders").select(COLS).in("status", VALID_STATUSES)
         .gte("created_at", from).lte("created_at", to).limit(100000),
-      supabaseServer.from("orders").select(COLS).in("status", VALID_STATUSES)
-        .gte("created_at", fromPrev).lt("created_at", from).limit(100000),
+      cmp
+        ? supabaseServer.from("orders").select(COLS).in("status", VALID_STATUSES)
+            .gte("created_at", cmp.from).lt("created_at", cmp.to).limit(100000)
+        : Promise.resolve({ data: [] as any[], error: null }),
     ]);
     if (cur.error)  return fail(cur.error.message);
 
@@ -44,9 +49,10 @@ export async function GET(req: NextRequest) {
       prev_revenue:      p.revenue,
       prev_orders:       p.count,
       prev_avg_basket:   p.avg,
-      revenue_delta_pct: pct(c.revenue, p.revenue),
-      orders_delta_pct:  pct(c.count,   p.count),
-      basket_delta_pct:  pct(c.avg,     p.avg),
+      // Valeurs d'affichage discriminées (number | "new" | null), défauts #4/#5.
+      revenue_delta_pct: deltaVal(c.revenue, p.revenue),
+      orders_delta_pct:  deltaVal(c.count,   p.count),
+      basket_delta_pct:  deltaVal(c.avg,     p.avg),
     });
   } catch (e: any) {
     Sentry.captureException(e, { tags: { area: "analytics" } });

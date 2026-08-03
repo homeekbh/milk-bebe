@@ -8,7 +8,7 @@ import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C, CHANNEL_COLORS, CHANNEL_LABELS_FR, WEEKDAYS } from "@/components/admin/analytics/tokens";
 import { KpiCard, SectionTitle, Card } from "@/components/admin/analytics/ui";
 import { BarChart, DonutChart, SessionsLineChart, LineChart, TrafficHeatmap } from "@/components/admin/analytics/charts";
-import { fmtDur, periodLabelOf } from "@/components/admin/analytics/period";
+import { fmtDur, periodLabelOf, comparisonLabelOf } from "@/components/admin/analytics/period";
 import WorldVisitorsMap from "@/components/admin/WorldVisitorsMap";
 
 export default function TraficPage() {
@@ -18,6 +18,7 @@ export default function TraficPage() {
   const pv = data.pageViews;
   const showDelta   = q.mode === "period" ? q.period !== "all" : true;
   const periodLabel = periodLabelOf(q);
+  const cmpLabel    = comparisonLabelOf(q); // base de comparaison UNIQUE de la page (défaut #6)
   const th = { padding: "8px 10px", fontWeight: 700, textAlign: "left" as const };
   const td = { padding: "9px 10px" };
   const channelDonut = (pv?.by_channel ?? []).map((c: any) => ({ label: CHANNEL_LABELS_FR[c.channel] ?? c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
@@ -49,9 +50,13 @@ export default function TraficPage() {
       {/* ══════════════ 1 · ACQUISITION ══════════════ */}
       <SectionTitle>1 · Acquisition</SectionTitle>
 
-      {pv?.bots_filter_active && (
+      {/* Nombre de bots TOUJOURS affiché, filtre actif ou non (défaut #3 : ne pas le cacher). */}
+      {pv && (pv.bots_detected ?? 0) > 0 && (
         <div style={{ marginBottom: 16, padding: "8px 14px", borderRadius: 8, background: "rgba(196,154,74,0.1)", border: `1px solid rgba(196,154,74,0.25)`, color: C.amber, fontSize: 12, fontWeight: 700 }}>
-          🤖 Filtre bots actif (heuristique) — {pv.bots_excluded} session(s) exclue(s). Filtre 100 % fiable dès que le user-agent sera capté (colonne page_views.user_agent).
+          🤖 {pv.bots_detected} session(s) bot détectée(s) (heuristique datacenter / sans engagement).{" "}
+          {pv.bots_filter_active
+            ? `Exclues des chiffres ci-dessous.`
+            : `Incluses ci-dessous — active le filtre bots pour les retirer.`}
         </div>
       )}
 
@@ -63,13 +68,13 @@ export default function TraficPage() {
         <>
           {/* KPIs trafic */}
           <div style={{ display: "grid", gridTemplateColumns: narrow ? "repeat(2, minmax(0, 1fr))" : "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 24 }}>
-            <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={showDelta ? pv.deltas?.views : undefined} />
-            <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={showDelta ? pv.deltas?.sessions : undefined} />
-            <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={showDelta ? pv.deltas?.visitors : undefined} />
-            <KpiCard label="Durée moyenne"     value={fmtDur(pv.avg_time_on_page)} color={C.green}
-                     delta={showDelta ? pv.deltas?.avg_time : undefined}
+            <KpiCard label="Vues totales"      value={String(pv.total_views ?? 0)}     color={C.blue}   delta={showDelta ? pv.deltas?.views : undefined} deltaLabel={cmpLabel} />
+            <KpiCard label="Sessions uniques"  value={String(pv.unique_sessions ?? 0)} color={C.purple} delta={showDelta ? pv.deltas?.sessions : undefined} deltaLabel={cmpLabel} />
+            <KpiCard label="Visiteurs uniques" value={String(pv.unique_visitors ?? 0)} delta={showDelta ? pv.deltas?.visitors : undefined} deltaLabel={cmpLabel} />
+            <KpiCard label="Durée moy. / page vue" value={fmtDur(pv.avg_time_on_page)} color={C.green}
+                     delta={showDelta ? pv.deltas?.avg_time : undefined} deltaLabel={cmpLabel}
                      pending={pv.avg_time_on_page == null || pv.avg_time_on_page === 0}
-                     title="Ces données se remplissent après les premières navigations complètes" />
+                     title="Temps moyen passé PAR PAGE VUE (pas par session) — se remplit après les premières navigations complètes" />
             <KpiCard label="Taux de rebond"    value={pv.bounce_rate == null ? "—" : `${pv.bounce_rate}%`}
                      pending={pv.bounce_rate == null || pv.bounce_rate === 0}
                      title="Ces données se remplissent après les premières navigations complètes" />

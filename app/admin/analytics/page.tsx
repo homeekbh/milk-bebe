@@ -56,8 +56,14 @@ export default function OverviewPage() {
   const truncated = series?.compare_truncated != null;
   const compareLabel = cmp.label + (truncated ? truncationSuffix(g) : "");
   const cmpT: any = series?.compare_truncated ?? series?.compare_totals ?? null;
-  const variation = (m: MetricKey): number | undefined =>
-    series && cmpT && cmpT[m] > 0 ? ((series.totals[m] - cmpT[m]) / cmpT[m]) * 100 : undefined;
+  // Delta discriminé (défauts #4/#5) : « nouveau » depuis zéro, null si rien à comparer, undefined si pas de série.
+  const variation = (m: MetricKey): number | "new" | null | undefined => {
+    if (!series || !cmpT) return undefined;
+    const cur = Number(series.totals[m] ?? 0), prev = Number(cmpT[m] ?? 0);
+    if (prev > 0) return ((cur - prev) / prev) * 100;
+    if (cur > 0)  return "new";
+    return null;
+  };
 
   // Source des KPIs trafic : /series (préset/custom) ou page-views (weekday).
   const tsrc = wk
@@ -141,9 +147,9 @@ export default function OverviewPage() {
         ) : <><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></>}
         {kpis ? (
           <>
-            <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}       color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} />
-            <KpiCard label="Panier moyen"        value={eur(kpis.avg_basket, 2)} delta={showDelta ? kpis.basket_delta_pct : undefined} />
-            <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} delta={showDelta ? conversion?.conversion_delta_pct ?? undefined : undefined} />
+            <KpiCard label="Chiffre d'affaires" value={eur(kpis.revenue)}       color={C.amber} delta={showDelta ? kpis.revenue_delta_pct : undefined} deltaLabel={dLabel} />
+            <KpiCard label="Panier moyen"        value={eur(kpis.avg_basket, 2)} delta={showDelta ? kpis.basket_delta_pct : undefined} deltaLabel={dLabel} />
+            <KpiCard label="Taux de conversion"  value={conversion ? `${conversion.conversion_rate.toFixed(2)}%` : "—"} sub={conversion ? `${conversion.purchases} vente(s) / ${conversion.sessions} session(s)` : ""} color={C.green} delta={showDelta ? conversion?.conversion_delta_pct : undefined} deltaLabel={dLabel} warn={conversion?.low_sample ? "échantillon insuffisant pour conclure" : undefined} />
           </>
         ) : <><Skeleton h={110} /><Skeleton h={110} /><Skeleton h={110} /></>}
       </div>
@@ -178,7 +184,7 @@ export default function OverviewPage() {
             <>
               <FunnelChart steps={pv.funnel} />
               <div style={{ fontSize: 11, color: C.muted, marginTop: 12, lineHeight: 1.6 }}>
-                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes valides de la période (pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
+                « Checkout » = event <b>begin_checkout</b> (clic « Passer au paiement » / « Commander », panier non vide) — plus de proxy page vue. « Achat » = commandes <b>clientes web</b> valides de la période (hors sorties manuelles, cadeaux et collabs — pas de session_id sur les commandes → comparaison indicative). Les begin_checkout n'existent qu'à partir du déploiement de ce suivi : l'étape peut être basse tant que la donnée s'accumule.
               </div>
             </>
           )}

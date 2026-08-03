@@ -62,10 +62,13 @@ function LexiqueTag({ terme }: LexiqueTagProps) {
   );
 }
 
+// Delta d'affichage : nombre (%), "new" (apparition depuis zéro → « nouveau », jamais 0 %),
+// null (rien à comparer → « — »), ou undefined (pas de delta sur cette carte). Voir deltaVal serveur.
+export type DeltaValue = number | "new" | null;
 export type KpiCardProps = {
-  label: string; value: string; sub?: string; color?: string; delta?: number; deltaLabel?: string; pending?: boolean; title?: string; href?: string; actionLabel?: string;
+  label: string; value: string; sub?: string; color?: string; delta?: DeltaValue; deltaLabel?: string; pending?: boolean; title?: string; href?: string; actionLabel?: string; warn?: string;
 };
-export function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc.", pending, title, href, actionLabel }: KpiCardProps) {
+export function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel = "vs période préc.", pending, title, href, actionLabel, warn }: KpiCardProps) {
   return (
     <div title={title} style={{ background: C.card, borderRadius: 16, padding: "22px 20px", border: `1px solid ${C.faint}` }}>
       <div style={{ fontSize: 10, fontWeight: 800, letterSpacing: 2, textTransform: "uppercase" as const, color: C.muted, marginBottom: 8 }}>{label}</div>
@@ -73,10 +76,20 @@ export function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel =
         ? <div style={{ fontSize: 14, fontStyle: "italic", color: C.muted, lineHeight: 1.3 }}>En cours de collecte…</div>
         : <div style={{ fontSize: "clamp(22px,2.5vw,32px)", fontWeight: 950, letterSpacing: -1, color, lineHeight: 1 }}>{value}</div>}
       {sub && <div style={{ fontSize: 12, color: C.muted, marginTop: 6 }}>{sub}</div>}
-      {delta !== undefined && (
-        <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: delta >= 0 ? C.green : C.red }}>
-          {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% {deltaLabel}
+      {warn && (
+        <div title="Échantillon insuffisant pour conclure" style={{ fontSize: 11, fontWeight: 800, marginTop: 6, color: "#d97706", display: "flex", alignItems: "center", gap: 5 }}>
+          ⚠ {warn}
         </div>
+      )}
+      {delta !== undefined && (
+        // « nouveau » (depuis zéro) et « — » (rien à comparer) ne sont JAMAIS rendus « 0,0 % » (défauts #4/#5).
+        delta === "new"
+          ? <div style={{ fontSize: 12, fontWeight: 800, marginTop: 6, color: C.green }}>nouveau <span style={{ fontWeight: 600, color: C.muted }}>{deltaLabel}</span></div>
+          : delta === null
+          ? <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted }}>— {deltaLabel}</div>
+          : <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: delta >= 0 ? C.green : C.red }}>
+              {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% {deltaLabel}
+            </div>
       )}
       {href && actionLabel && (
         <a href={href} style={{ display: "inline-block", marginTop: 12, fontSize: 12, fontWeight: 800, color: C.amber, textDecoration: "none", border: `1px solid rgba(196,154,74,0.4)`, borderRadius: 8, padding: "5px 12px" }}>{actionLabel}</a>

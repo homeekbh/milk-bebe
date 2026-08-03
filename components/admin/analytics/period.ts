@@ -232,7 +232,21 @@ export function toApiQuery(q: AnalyticsQuery): string {
     const occ = weekdayOccurrences(q.weekday, q.wdDepth);
     return occ.length ? `?from=${occ[0]}&to=${occ[occ.length - 1]}` : `?from=${q.from}&to=${q.to}`;
   }
-  return `?from=${q.from}&to=${q.to}`;
+  // Base de comparaison UNIFIÉE (défaut #6) : on transmet cfrom/cto aux routes KPI (kpis /
+  // conversion / page-views) pour qu'elles calculent le delta sur la MÊME fenêtre que la courbe
+  // (préset tronqué), au lieu de leur propre « période précédente de même durée ». Les routes qui
+  // ne s'en servent pas ignorent ces paramètres.
+  const cmp = compareRangeOf(q.preset, q.from, q.to, q.compare === "wd");
+  return `?from=${q.from}&to=${q.to}&cfrom=${cmp.cfrom}&cto=${cmp.cto}`;
+}
+
+// Libellé de la base de comparaison UNIQUE de la page (défaut #6) — le même pour la courbe ET
+// les cartes KPI. Ajoute le suffixe de troncature (« , même jour ») quand la période est en cours.
+export function comparisonLabelOf(q: AnalyticsQuery): string {
+  if (q.mode === "weekday") return "vs période préc.";
+  const cmp = compareRangeOf(q.preset, q.from, q.to, q.compare === "wd");
+  const inProgress = q.to === todayYmd();
+  return cmp.label + (inProgress ? truncationSuffix(granularityOf(q.from, q.to)) : "");
 }
 
 // Libellé d'en-tête : préset (« cette semaine »), plage custom (« du X au Y ») ou

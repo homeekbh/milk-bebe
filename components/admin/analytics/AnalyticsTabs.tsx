@@ -21,10 +21,12 @@ const TABS: { href: string; label: string }[] = [
 ];
 
 export default function AnalyticsTabs() {
-  // Seuil relevé à 1100px (A9) : la sidebar admin (~220–300px) + les 6 libellés
-  // longs (« CLIENTS & FIDÉLITÉ »…) débordent bien avant 640px. En dessous de
-  // 1100px → menu déroulant ; au-delà → onglets en ligne sans débordement.
-  const narrow = useIsNarrow(1100);
+  // Seuil relevé à 1350px : 7 onglets (ajout « Synthèse ») + libellés longs
+  // (« CLIENTS & FIDÉLITÉ »…) + sidebar admin (~220–300px) débordent la barre en
+  // ligne en dessous d'environ 1310px. Sous 1350 → menu déroulant (7 onglets
+  // atteignables) ; au-delà → onglets en ligne. Le seuil précédent (1100, pour 6
+  // onglets) laissait le 7e hors-champ dans la zone 1100–1310px.
+  const narrow = useIsNarrow(1350);
   const pathname = usePathname();
   const sp = useSearchParams();
   const qs = sp.toString();
@@ -68,7 +70,7 @@ export default function AnalyticsTabs() {
   }
 
   return (
-    <nav style={{ display: "flex", gap: 8, marginBottom: 16, overflowX: "auto", flexWrap: "nowrap", WebkitOverflowScrolling: "touch", borderBottom: `1px solid ${C.faint}` }}>
+    <nav style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", borderBottom: `1px solid ${C.faint}` }}>
       {TABS.map(t => {
         const on = pathname === t.href;
         return (

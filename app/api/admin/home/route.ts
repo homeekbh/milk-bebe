@@ -81,10 +81,8 @@ export async function GET(req: NextRequest) {
     const in7 = new Date(nowMs + 7 * DAY);
 
     // ── Tâches ────────────────────────────────────────────────────────────────
-    const unshipped = orders.filter(o =>
-      String(o.status ?? "").toLowerCase() === "payee" &&
-      ["en_preparation", "processing", ""].includes(String(o.shipping_status ?? "en_preparation").toLowerCase()));
-    const toShipOldest = unshipped.reduce<string | null>((min, o) => (!min || o.created_at < min ? o.created_at : min), null);
+    // « Commandes à expédier » — SOURCE UNIQUE définie plus bas (aExpedier / aExpedierOldest),
+    // consommée à la fois par tasks.toShip et par la tuile « à préparer » (aPreparer).
 
     const pendingReviews = reviews.filter(r => !r.approved);
     const revOldest = pendingReviews.reduce<string | null>((min, r) => (!min || (r.created_at && r.created_at < min) ? r.created_at : min), null);
@@ -104,13 +102,20 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    // ── Alerte webhook (D4) — payée, webhook_processed=false, NON expédiée, > 10 min.
-    // (Garde-fou « non expédiée » : les commandes déjà livrées avec le flag à false
-    //  sont d'anciennes commandes traitées manuellement, pas une panne active.)
-    const webhookStuck = orders.filter(o =>
-      String(o.status ?? "").toLowerCase() === "payee" && o.webhook_processed === false &&
+    // ── SOURCE UNIQUE « commande à expédier » : payée, NON expédiée, hors tests, > 10 min.
+    //    Consommée par tasks.toShip ET par la tuile « à préparer » (aPreparer) → plus AUCUNE
+    //    double définition. (Ex « alerte webhook » retirée : webhook_processed reste false sur
+    //    TOUTES les commandes web — posé uniquement dans le flux legacy injoignable — il ne
+    //    détecte donc aucun vrai échec ; l'existence de la ligne orders prouve déjà que
+    //    handleUnifiedOrder a tourné.) is_internal_test exclu (colonne déjà lue par
+    //    countsInAccounting → dispo via select("*")). JAMAIS d'exclusion par classification
+    //    (un cadeau / une collab se prépare et s'expédie aussi).
+    const isAExpedier = (o: any) =>
+      String(o.status ?? "").toLowerCase() === "payee" && o.is_internal_test !== true &&
       ["en_preparation", "processing", ""].includes(String(o.shipping_status ?? "en_preparation").toLowerCase()) &&
-      (nowMs - new Date(o.created_at).getTime()) > 10 * 60000);
+      (nowMs - new Date(o.created_at).getTime()) > 10 * 60000;
+    const aExpedier = orders.filter(isAExpedier);
+    const aExpedierOldest = aExpedier.reduce<string | null>((min, o) => (!min || o.created_at < min ? o.created_at : min), null);
 
     // ── Dernières commandes (D5) ────────────────────────────────────────────────
     const lastOrders = orders.slice(0, 5).map(o => ({
@@ -189,13 +194,13 @@ export async function GET(req: NextRequest) {
     return Response.json({
       data: {
         tasks: {
-          toShip:            { count: unshipped.length, oldest: ageLabel(toShipOldest) },
+          toShip:            { count: aExpedier.length, oldest: ageLabel(aExpedierOldest) },
           reviewsToModerate: { count: pendingReviews.length, oldest: ageLabel(revOldest) },
           reviewsNoReply:    { count: reviewsNoReply },
           promoExpiring:     { count: promoExpiring },
         },
         ruptures,
-        webhookAlert: webhookStuck.length > 0 ? { count: webhookStuck.length, oldest: ageLabel(webhookStuck.reduce<string | null>((min, o) => (!min || o.created_at < min ? o.created_at : min), null)) } : null,
+        aPreparer: aExpedier.length > 0 ? { count: aExpedier.length, oldest: ageLabel(aExpedierOldest) } : null,
         lastOrders,
         site: { popup: livePopup?.title ?? null, promoActive },
         promoCodes,

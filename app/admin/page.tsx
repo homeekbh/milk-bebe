@@ -11,11 +11,16 @@ import ClocksBar from "@/components/admin/AdminClocks";
 
 const eur = (n: number) => `${Math.round(Number(n) || 0).toLocaleString("fr-FR")} €`;
 const cap = (s: string) => s ? s.charAt(0).toUpperCase() + s.slice(1) : s;
-const deltaPct = (cur: number, prev: number): number | null => (prev > 0 ? ((cur - prev) / prev) * 100 : null);
+const deltaPct = (cur: number, prev: number): number | "nouveau" | "—" => {
+  if (prev > 0) return ((cur - prev) / prev) * 100;  // variation normale (0 % = stagnation LÉGITIME ici)
+  if (cur > 0)  return "nouveau";                     // S-1 à 0, aujourd'hui > 0 → jamais « 0 % »
+  return "—";                                         // les deux à 0
+};
 const SHIP_LABEL: Record<string, string> = { en_preparation: "En préparation", processing: "En préparation", label_created: "Étiquette créée", expediee: "Expédiée", livree: "Livrée", retour: "Retour", annulee: "Annulée" };
 
-function Delta({ d }: { d: number | null }) {
-  if (d == null) return <span style={{ color: C.muted, fontSize: 12 }}> </span>;
+function Delta({ d }: { d: number | "nouveau" | "—" }) {
+  if (d === "nouveau") return <span style={{ color: C.green, fontSize: 12, fontWeight: 800 }}>nouveau</span>;
+  if (d === "—")       return <span style={{ color: C.muted, fontSize: 12, fontWeight: 800 }}>—</span>;
   return <span style={{ color: d >= 0 ? C.green : C.red, fontSize: 12, fontWeight: 800 }}>{d >= 0 ? "▲ +" : "▼ "}{d.toFixed(0)}%</span>;
 }
 
@@ -51,7 +56,6 @@ export default function AdminHome() {
   const tasks: { count: number; label: string; href: string; sub?: string }[] = [];
   if (d) {
     const rupLines = (d.ruptures ?? []).map((r: any) => r.sizes.length ? `${r.product} — ${r.sizes.join(", ")}` : `${r.product} — en rupture`);
-    if (d.tasks.toShip.count > 0)            tasks.push({ count: d.tasks.toShip.count, label: "Commandes à expédier", href: "/admin/commandes", sub: d.tasks.toShip.oldest ? `la plus ancienne depuis ${d.tasks.toShip.oldest}` : undefined });
     if (d.tasks.reviewsToModerate.count > 0) tasks.push({ count: d.tasks.reviewsToModerate.count, label: "Avis à modérer", href: "/admin/avis", sub: d.tasks.reviewsToModerate.oldest ? `le plus ancien depuis ${d.tasks.reviewsToModerate.oldest}` : undefined });
     if (d.tasks.reviewsNoReply.count > 0)    tasks.push({ count: d.tasks.reviewsNoReply.count, label: "Avis sans réponse", href: "/admin/avis" });
     if (rupLines.length > 0)                 tasks.push({ count: rupLines.length, label: "En rupture", href: "/admin/produits", sub: rupLines.slice(0, 2).join(" · ") });
@@ -110,14 +114,12 @@ export default function AdminHome() {
               <ClocksBar size={66} dark />
             </div>
 
-            {/* ── Alerte webhook (D4) — style PANNE, distinct des tâches ── */}
-            {d.webhookAlert && (
-              <div style={{ marginBottom: 24, padding: "16px 20px", borderRadius: 14, background: "rgba(239,68,68,0.12)", border: `1px solid rgba(239,68,68,0.5)` }}>
-                <Link href="/admin/commandes" style={{ textDecoration: "none" }}>
-                  <div style={{ fontSize: 14, fontWeight: 900, color: C.red }}>⚠️ {d.webhookAlert.count} commande(s) payée(s) non traitée(s) par le webhook Stripe{d.webhookAlert.oldest ? ` (depuis ${d.webhookAlert.oldest})` : ""}</div>
-                  <div style={{ fontSize: 12, color: "rgba(242,237,230,0.6)", marginTop: 4 }}>Stock non décrémenté et email de confirmation non envoyé — à vérifier.</div>
-                </Link>
-              </div>
+            {/* ── À préparer — tuile NEUTRE (ex-alerte webhook mensongère retirée) ── */}
+            {d.aPreparer && (
+              <Link href="/admin/commandes" style={{ display: "block", textDecoration: "none", ...card, marginBottom: 24 }}>
+                <div style={{ fontSize: 14, fontWeight: 900, color: C.warm }}>{d.aPreparer.count} commande(s) à préparer</div>
+                {d.aPreparer.oldest && <div style={{ fontSize: 12, color: C.muted, marginTop: 4 }}>la plus ancienne depuis {d.aPreparer.oldest}</div>}
+              </Link>
             )}
 
             {/* ── À traiter ── */}

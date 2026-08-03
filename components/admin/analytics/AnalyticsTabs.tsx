@@ -17,6 +17,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/admin/analytics/ventes",       label: "Ventes" },
   { href: "/admin/analytics/clients",      label: "Clients & fidélité" },
   { href: "/admin/analytics/operationnel", label: "Opérationnel" },
+  { href: "/admin/analytics/synthese",     label: "Synthèse" },
 ];
 
 export default function AnalyticsTabs() {

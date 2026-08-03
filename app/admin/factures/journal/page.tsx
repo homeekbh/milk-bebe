@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { EMETTEUR } from "../emetteur";
 import { ventilateTTC } from "@/lib/tva";
+import { isValidOrder } from "@/lib/orders";
 
 // Journal des ventes IMPRIMABLE (PDF via le navigateur — AUCUNE dépendance PDF serveur). Même principe
 // que la facture unitaire /admin/factures/[id]. Données : /api/admin/commandes-data — MÊME source que la
@@ -39,6 +40,8 @@ interface Order {
   id: string; invoice_number?: string | null; created_at: string;
   customer_name?: string | null; customer_email?: string | null;
   amount_total?: number | null; status?: string | null;
+  // Requis par isValidOrder (exclusion des factures remboursées / test du total net).
+  shipping_status?: string | null; is_internal_test?: boolean | null; classification?: string | null;
 }
 
 export default function JournalPrint() {
@@ -70,10 +73,12 @@ export default function JournalPrint() {
     .filter(o => o.invoice_number)
     .filter(o => year === "all" || new Date(o.created_at).getFullYear() === year)
     .sort((a, b) => String(a.invoice_number).localeCompare(String(b.invoice_number)));
-  const totalNet = factures.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+  // TOTAL NET ENCAISSÉ : exclut les factures non valides (remboursées / annulées / test). Les lignes
+  // restent affichées (continuité de numérotation) mais annotées et barrées.
+  const totalNet = factures.filter(isValidOrder).reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
   const periode  = year === "all" ? "Toutes les factures émises" : `Année ${year}`;
 
-  const vatTotal = ventilateTTC(totalNet); // ventilation TVA 20 % « en dedans » du total encaissé (TTC)
+  const vatTotal = ventilateTTC(totalNet); // ventilation TVA 20 % « en dedans » du total NET encaissé (TTC)
 
   if (loading) return <div style={{ padding: 40, fontFamily: "sans-serif" }}>Chargement…</div>;
   if (err)     return <div style={{ padding: 40, fontFamily: "sans-serif", color: "#b91c1c" }}>{err}</div>;
@@ -142,20 +147,26 @@ export default function JournalPrint() {
               </tr>
             </thead>
             <tbody>
-              {factures.map(o => (
-                <tr key={o.id}>
+              {factures.map(o => {
+                const exclue = !isValidOrder(o);
+                return (
+                <tr key={o.id} style={exclue ? { color: "rgba(26,20,16,0.55)" } : undefined}>
                   <td style={{ ...td, fontFamily: "monospace", fontWeight: 700, whiteSpace: "nowrap" }}>{o.invoice_number}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>{fmtDate(o.created_at)}</td>
-                  <td style={td}>{o.customer_name || "—"}</td>
+                  <td style={td}>
+                    {o.customer_name || "—"}
+                    {exclue && <span style={{ color: "#b91c1c", fontWeight: 700 }}> — {o.is_internal_test === true ? "test — " : ""}{String(o.status) === "remboursee" ? "remboursée" : "annulée"}, exclue du total</span>}
+                  </td>
                   <td style={{ ...td, color: "rgba(26,20,16,0.7)", wordBreak: "break-all" }}>{o.customer_email || "—"}</td>
-                  <td style={{ ...td, textAlign: "right", fontWeight: 700, whiteSpace: "nowrap" }}>{euro(Number(o.amount_total ?? 0))}</td>
+                  <td style={{ ...td, textAlign: "right", fontWeight: 700, whiteSpace: "nowrap", textDecoration: exclue ? "line-through" : "none" }}>{euro(Number(o.amount_total ?? 0))}</td>
                   <td style={{ ...td, whiteSpace: "nowrap" }}>{STATUT_LABEL[String(o.status)] ?? o.status ?? "—"}</td>
                 </tr>
-              ))}
-              {/* Total général — dernière ligne (apparaît une seule fois, en fin de journal). */}
+                );
+              })}
+              {/* Total NET encaissé — dernière ligne (apparaît une seule fois, en fin de journal). */}
               <tr>
                 <td colSpan={4} style={{ padding: "12px 10px", fontWeight: 950, fontSize: 13, borderTop: "2px solid #1a1410" }}>
-                  TOTAL{year === "all" ? "" : ` ${year}`} — {factures.length} facture{factures.length > 1 ? "s" : ""}
+                  TOTAL NET ENCAISSÉ{year === "all" ? "" : ` ${year}`} — {factures.length} facture{factures.length > 1 ? "s" : ""} émise{factures.length > 1 ? "s" : ""} (hors remboursées / test)
                 </td>
                 <td style={{ padding: "12px 10px", fontWeight: 950, fontSize: 14, textAlign: "right", borderTop: "2px solid #1a1410", whiteSpace: "nowrap" }}>{euro(totalNet)}</td>
                 <td style={{ borderTop: "2px solid #1a1410" }} />

@@ -2,6 +2,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { requireAdmin }   from "@/lib/admin-auth";
 import { csvCell }        from "@/lib/csv";
 import { ventilateTTC }   from "@/lib/tva";
+import { isValidOrder }   from "@/lib/orders";
 import type { NextRequest } from "next/server";
 
 // GET /api/admin/export/factures — journal de ventes (CSV). Une ligne par facture émise
@@ -16,7 +17,8 @@ export async function GET(req: NextRequest) {
 
   const { data, error } = await supabaseServer
     .from("orders")
-    .select("invoice_number, created_at, customer_name, customer_email, amount_total, status")
+    // shipping_status + is_internal_test requis par isValidOrder (exclure remboursées/annulées/test du total net).
+    .select("invoice_number, created_at, customer_name, customer_email, amount_total, status, shipping_status, is_internal_test, classification")
     .not("invoice_number", "is", null)
     .order("invoice_number", { ascending: true });
 
@@ -24,25 +26,31 @@ export async function GET(req: NextRequest) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  const rows = (data ?? [])
-    .filter(o => !year || new Date(o.created_at).getFullYear() === year)
-    .map(o => {
-      const v = ventilateTTC(Number(o.amount_total ?? 0)); // ventilation TVA 20 % « en dedans »
-      return [
-        o.invoice_number ?? "",
-        o.created_at ? new Date(o.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "",
-        o.customer_name  ?? "",
-        o.customer_email ?? "",
-        v.ht.toFixed(2),
-        v.tva.toFixed(2),
-        v.ttc.toFixed(2),
-        o.status ?? "",
-      ].map(csvCell).join(";");
-    });
+  const factures = (data ?? []).filter(o => !year || new Date(o.created_at).getFullYear() === year);
+  const rows = factures.map(o => {
+    const v = ventilateTTC(Number(o.amount_total ?? 0)); // ventilation TVA 20 % « en dedans »
+    const encaisse = isValidOrder(o);
+    return [
+      o.invoice_number ?? "",
+      o.created_at ? new Date(o.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "",
+      o.customer_name  ?? "",
+      o.customer_email ?? "",
+      v.ht.toFixed(2),
+      v.tva.toFixed(2),
+      v.ttc.toFixed(2),
+      o.status ?? "",
+      encaisse ? "oui" : "NON (remboursée/annulée/test — hors total)",
+    ].map(csvCell).join(";");
+  });
 
-  const header = ["N° facture", "Date", "Client", "Email", "Montant HT (€)", "TVA 20% (€)", "Montant TTC (€)", "Statut"].join(";");
+  // Total NET encaissé : somme des seules factures valides (isValidOrder).
+  const totalNet = factures.filter(isValidOrder).reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+  const vNet = ventilateTTC(totalNet);
+  const totalRow = ["TOTAL NET ENCAISSÉ", "", "", "", vNet.ht.toFixed(2), vNet.tva.toFixed(2), vNet.ttc.toFixed(2), "", "hors remboursées/test"].map(csvCell).join(";");
+
+  const header = ["N° facture", "Date", "Client", "Email", "Montant HT (€)", "TVA 20% (€)", "Montant TTC (€)", "Statut", "Encaissée"].join(";");
   // BOM UTF-8 pour Excel FR + rappel assujettissement en pied.
-  const csv = "﻿" + [header, ...rows, "", "Montants en euros TTC — TVA 20% incluse (assujetti a la TVA)"].join("\n");
+  const csv = "﻿" + [header, ...rows, totalRow, "", "Montants en euros TTC — TVA 20% incluse (assujetti a la TVA). Total net = factures encaissees uniquement."].join("\n");
 
   return new Response(csv, {
     headers: {

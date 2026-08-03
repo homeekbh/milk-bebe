@@ -950,20 +950,61 @@ export default function AdminCommandes() {
   });
 
   const isCancelled = (o: Order) => o.shipping_status === "annulee" || (o as any).status === "annulee" || (o as any).status === "remboursee";
-  // « CA valide » / « Panier moyen » = CA COMPTABLE ENCAISSÉ (countsInAccounting : classification
-  // 'cliente' + 'vente_directe', hors tests / annulées / remboursées) — pas une statistique web.
-  // commandes-data fait select("*") → is_internal_test ET classification sont bien SÉLECTIONNÉS
-  // (sinon le filtre serait un no-op silencieux, cf. lib/orders). `isCancelled` reste utilisé pour
-  // les compteurs de statut ci-dessous, qui sont opérationnels et non du CA.
-  const validOrders = orders.filter(o => countsInAccounting(o));
-  const totalCA     = validOrders.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
-  const pending     = orders.filter(o => o.shipping_status === "en_preparation" && !isCancelled(o)).length;
-  const labelCreated = orders.filter(o => o.shipping_status === "label_created" && !isCancelled(o)).length;
-  const shipped     = orders.filter(o => o.shipping_status === "expediee").length;
-  const delivered   = orders.filter(o => o.shipping_status === "livree").length;
-  const cancelled   = orders.filter(o => isCancelled(o)).length;
-  const refunded    = orders.filter(o => (o as any).status === "remboursee").length;
+  // DEUX PÉRIMÈTRES DISTINCTS, jamais mélangés dans une même phrase :
+  //  • OPÉRATIONNEL : orders.length = toutes les lignes physiques à traiter (test inclus).
+  //  • CA (ventes clientes) = countsInAccounting ('cliente' + 'vente_directe', hors test/annulée/
+  //    remboursée). commandes-data fait select("*") → is_internal_test ET classification sont
+  //    bien SÉLECTIONNÉS (sinon le filtre serait un no-op silencieux, cf. lib/orders).
+  const ventesClientes = orders.filter(o => countsInAccounting(o));
+  const caClientes     = ventesClientes.reduce((s, o) => s + Number(o.amount_total ?? 0), 0);
+  const panierClientes = ventesClientes.length > 0 ? caClientes / ventesClientes.length : 0;
+
+  // COMPTEURS DE STATUT — MUTUELLEMENT EXCLUSIFS : chaque commande tombe dans exactement une
+  // catégorie, donc leur somme == total. Avant, une remboursée était comptée à la fois dans
+  // « Livrées » (shipping_status='livree' non filtré), « Annulées » (isCancelled) ET
+  // « Remboursées » → 13 pour 11. Ici : les 4 catégories opérationnelles excluent isCancelled,
+  // et l'ensemble annulé est partitionné en Remboursées (status='remboursee') vs Annulées (le reste).
+  const pending      = orders.filter(o => !isCancelled(o) && o.shipping_status === "en_preparation").length;
+  const labelCreated = orders.filter(o => !isCancelled(o) && o.shipping_status === "label_created").length;
+  const shipped      = orders.filter(o => !isCancelled(o) && o.shipping_status === "expediee").length;
+  const delivered    = orders.filter(o => !isCancelled(o) && o.shipping_status === "livree").length;
+  const refunded     = orders.filter(o => (o as any).status === "remboursee").length;
+  const annulees     = orders.filter(o => isCancelled(o) && (o as any).status !== "remboursee").length;
   const selectedOrder = orders.find(o => o.id === selected);
+
+  // ── Export CSV — route serveur (colonnes complètes, csvCell + BOM), récupérée AUTHENTIFIÉE via
+  //    adminFetch → blob (comme le journal des factures et les exports XLSX). Corrige le SEUL bug de
+  //    l'ancien <a href download> nu : une navigation n'envoie pas le Bearer (session en localStorage)
+  //    → requireAdmin renvoyait un 401 JSON enregistré en « commandes.json ». La génération reste
+  //    SERVEUR : rien à construire ni retenir dans le navigateur, quel que soit le nombre de commandes.
+  async function exportCommandesCSV() {
+    try {
+      const res = await adminFetch("/api/admin/export/commandes");
+      if (!res.ok) { alert("Erreur export CSV."); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `milk-commandes-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { alert("Erreur réseau export CSV."); }
+  }
+
+  // ── Export Excel (.xlsx typé) — route serveur exceljs, récupérée AUTHENTIFIÉE (blob).
+  async function exportCommandesXLSX() {
+    try {
+      const res = await adminFetch("/api/admin/export/commandes-xlsx");
+      if (!res.ok) { alert("Erreur export Excel."); return; }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = url;
+      a.download = `milk-commandes-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch { alert("Erreur réseau export Excel."); }
+  }
 
   const selectedCarrier = (() => { try { return JSON.parse(transporteur).carrier_name; } catch { return transporteur; } })();
   const canShip = tracking.trim().length > 0 && transporteur.length > 0;
@@ -971,26 +1012,28 @@ export default function AdminCommandes() {
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1100 }}>
 
-      {/* En-tête */}
+      {/* En-tête — DEUX périmètres explicitement séparés et étiquetés */}
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ margin: 0, fontSize: 34, fontWeight: 950, letterSpacing: -1, color: "#1a1410" }}>Commandes</h1>
         <div style={{ fontSize: 15, color: "rgba(26,20,16,0.5)", marginTop: 4, fontWeight: 600 }}>
-          {orders.length} commande{orders.length > 1 ? "s" : ""} · CA valide : {totalCA.toFixed(2)} €
+          {orders.length} commande{orders.length > 1 ? "s" : ""} au total (opérationnel)
+          <span style={{ color: "rgba(26,20,16,0.3)", margin: "0 8px" }}>·</span>
+          <span style={{ color: "#8b6c2f" }}>CA : {ventesClientes.length} vente{ventesClientes.length > 1 ? "s" : ""} cliente{ventesClientes.length > 1 ? "s" : ""} · {caClientes.toFixed(2)} €</span>
         </div>
       </div>
 
-      {/* KPIs — compteurs séparés par statut */}
+      {/* KPIs — statuts MUTUELLEMENT EXCLUSIFS (leur somme == Total) + périmètre CA à part */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12, marginBottom: 28 }}>
         {[
-          { label: "Total",          value: orders.length,                                                              color: "#1a1410" },
+          { label: "Total (opér.)",  value: orders.length,                                                              color: "#1a1410" },
           { label: "En préparation", value: pending,                                                                     color: "#92400e" },
           { label: "À déposer",      value: labelCreated,                                                                color: labelCreated > 0 ? "#9a3412" : "#166534" },
           { label: "Expédiées",      value: shipped,                                                                     color: "#1e40af" },
           { label: "Livrées",        value: delivered,                                                                   color: "#166534" },
-          { label: "Annulées",       value: cancelled,                                                                   color: cancelled > 0 ? "#7f1d1d" : "#166534" },
+          { label: "Annulées",       value: annulees,                                                                    color: annulees > 0 ? "#7f1d1d" : "#166534" },
           { label: "Remboursées",    value: refunded,                                                                    color: refunded  > 0 ? "#7f1d1d" : "#166534" },
-          { label: "CA valide",      value: `${totalCA.toFixed(0)} €`,                                                  color: "#c49a4a" },
-          { label: "Panier moyen",   value: validOrders.length > 0 ? `${(totalCA / validOrders.length).toFixed(2)} €` : "—", color: "#1a1410" },
+          { label: "CA ventes clientes", value: `${caClientes.toFixed(0)} €`,                                            color: "#c49a4a" },
+          { label: "Panier moyen · clientes", value: ventesClientes.length > 0 ? `${panierClientes.toFixed(2)} €` : "—", color: "#1a1410" },
         ].map(stat => (
           <div key={stat.label} style={{ background: "#fff", borderRadius: 14, border: "1px solid rgba(0,0,0,0.07)", padding: "16px 20px", textAlign: "center" }}>
             <div style={{ fontSize: 26, fontWeight: 950, letterSpacing: -1, color: stat.color, lineHeight: 1 }}>{stat.value}</div>
@@ -1027,9 +1070,17 @@ export default function AdminCommandes() {
           <option value="point_relais">📍 Point Relais (tous carriers)</option>
           <option value="locker">🔒 Locker (tous carriers)</option>
         </select>
-        <a href="/api/admin/export/commandes" download
-          style={{ padding: "11px 18px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, textDecoration: "none", whiteSpace: "nowrap" }}>
+        <button onClick={exportCommandesCSV}
+          style={{ padding: "11px 16px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
           ⬇ CSV
+        </button>
+        <button onClick={exportCommandesXLSX}
+          style={{ padding: "11px 16px", borderRadius: 10, background: "#1a1410", color: "#c49a4a", fontWeight: 800, fontSize: 14, border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+          ⬇ Excel
+        </button>
+        <a href="/admin/commandes/impression" target="_blank" rel="noopener noreferrer"
+          style={{ padding: "11px 16px", borderRadius: 10, background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 14, border: "1px solid rgba(0,0,0,0.15)", textDecoration: "none", whiteSpace: "nowrap" }}>
+          🖨 PDF
         </a>
       </div>
 

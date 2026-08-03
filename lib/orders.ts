@@ -30,7 +30,7 @@
  *   - app/admin/page.tsx (dashboard)
  *   - app/admin/analytics/page.tsx (statistiques)
  *   - app/admin/clients/page.tsx (CA par client)
- *   - app/api/admin/export/commandes/route.ts (export CSV)
+ *   - app/api/admin/export/commandes/route.ts (export CSV) + /api/admin/export/*-xlsx (exceljs)
  *   - app/api/admin/analytics/* (KPIs server-side)
  */
 
@@ -128,7 +128,7 @@ const ACCOUNTING_CLASSES = new Set(["cliente", "vente_directe"]);
 const WEB_STATS_CLASSES  = new Set(["cliente"]);
 
 /** Classification effective : absente/vide → 'cliente' (défaut rétrocompatible). */
-function classificationOf(o: OrderForCalc): string {
+export function classificationOf(o: OrderForCalc): string {
   const c = o?.classification;
   return c == null || c === "" ? "cliente" : String(c).toLowerCase();
 }
@@ -141,4 +141,63 @@ export function countsInAccounting(o: OrderForCalc): boolean {
 /** Compte dans les STATS WEB (cliente uniquement) — commandes valides seulement. */
 export function countsInWebStats(o: OrderForCalc): boolean {
   return isValidOrder(o) && WEB_STATS_CLASSES.has(classificationOf(o));
+}
+
+// ── DÉCOMPOSITION DE L'ENCAISSEMENT (Lot cohérence comptable) ─────────────────
+// Modèle métier M!LK, non négociable, et SOURCE UNIQUE réconciliable pour les trois
+// pages (commandes / comptabilité / factures) :
+//
+//   totalEncaisse = caProduits + portEncaisse
+//
+//   • caProduits   : part PRODUITS des ventes COMPTABLES (cliente + vente_directe).
+//                    Une collab / un cadeau = produit OFFERT → 0 produit.
+//   • portEncaisse : port de TOUTES les commandes VALIDES (clientes + collabs + cadeaux).
+//                    C'est de l'argent réellement encaissé — invisible jusqu'ici parce que
+//                    la comptabilité ne sommait que les commandes comptables.
+//   • is_internal_test / remboursée / annulée : exclues des DEUX (via isValidOrder).
+//
+// productPart(o) + portPart(o) = getNetAmount(o) pour une vente cliente ; = port pour une
+// collab/cadeau ; = 0 pour un test / une remboursée. Aucun double comptage : produit et
+// port sont deux tranches disjointes du montant encaissé.
+
+const CLASSIFICATION_LABELS: Record<string, string> = {
+  cliente:       "Cliente",
+  vente_directe: "Vente directe",
+  influenceuse:  "Collab",
+  cadeau:        "Cadeau",
+};
+
+/** Libellé lisible de la classification (défaut : 'cliente'). */
+export function classificationLabel(o: OrderForCalc): string {
+  const c = classificationOf(o);
+  return CLASSIFICATION_LABELS[c] ?? c;
+}
+
+/** Part « produits » encaissée d'une commande — 0 hors ventes comptables (collab/cadeau/test/remb.). */
+export function productPart(o: OrderForCalc): number {
+  if (!countsInAccounting(o)) return 0;
+  return Math.max(0, getNetAmount(o) - Number(o?.delivery_price ?? 0));
+}
+
+/** Part « port » encaissée d'une commande — inclut collabs et cadeaux ; 0 si test/remboursée/annulée. */
+export function portPart(o: OrderForCalc): number {
+  if (!isValidOrder(o)) return 0;
+  return Math.max(0, Number(o?.delivery_price ?? 0));
+}
+
+const round2 = (n: number) => Math.round((Number(n) || 0) * 100) / 100;
+
+/** CA produits (cliente + vente_directe) sur une liste. */
+export function caProduits(orders: OrderForCalc[]): number {
+  return round2(orders.reduce((s, o) => s + productPart(o), 0));
+}
+
+/** Port encaissé (toutes commandes valides, collabs et cadeaux compris) sur une liste. */
+export function portEncaisse(orders: OrderForCalc[]): number {
+  return round2(orders.reduce((s, o) => s + portPart(o), 0));
+}
+
+/** Total net encaissé = CA produits + Port encaissé. */
+export function totalEncaisse(orders: OrderForCalc[]): number {
+  return round2(caProduits(orders) + portEncaisse(orders));
 }

@@ -82,10 +82,13 @@ export function KpiCard({ label, value, sub, color = C.warm, delta, deltaLabel =
         </div>
       )}
       {delta !== undefined && (
-        // « nouveau » (depuis zéro) et « — » (rien à comparer) ne sont JAMAIS rendus « 0,0 % » (défauts #4/#5).
+        // SEUL point de rendu d'un delta (défaut #6 : un seul chemin). Blindé (défaut #4/#5) :
+        //   "new" → « nouveau » ; null OU nombre non fini → « — » ; sinon le %.
+        // Le garde Number.isFinite rend un NaN IMPOSSIBLE à afficher — y compris si un vieux
+        // bundle client (déploiement en cours) recevait la chaîne "new"/null d'une route à jour.
         delta === "new"
           ? <div style={{ fontSize: 12, fontWeight: 800, marginTop: 6, color: C.green }}>nouveau <span style={{ fontWeight: 600, color: C.muted }}>{deltaLabel}</span></div>
-          : delta === null
+          : (delta === null || !Number.isFinite(delta))
           ? <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: C.muted }}>— {deltaLabel}</div>
           : <div style={{ fontSize: 12, fontWeight: 700, marginTop: 6, color: delta >= 0 ? C.green : C.red }}>
               {delta >= 0 ? "▲" : "▼"} {Math.abs(delta).toFixed(1)}% {deltaLabel}

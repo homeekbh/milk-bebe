@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C } from "@/components/admin/analytics/tokens";
 import { SectionTitle, Card, KpiCard } from "@/components/admin/analytics/ui";
 import { LineChart, MiniBar } from "@/components/admin/analytics/charts";
-import { eur } from "@/components/admin/analytics/period";
+import { eur, comparisonLabelOf } from "@/components/admin/analytics/period";
 
 export default function ClientsPage() {
   const { data, q, narrow, serverError, failedEndpoints } = useAnalyticsData([
@@ -26,6 +26,7 @@ export default function ClientsPage() {
   const newsletter: any[] = data.newsletter ?? [];
   const reviews: any[] = data.reviews ?? [];
   const showDelta = q.mode === "period" ? q.period !== "all" : true;
+  const cmpLabel  = comparisonLabelOf(q); // base de comparaison UNIQUE de la page (défaut #6)
 
   // ── Newsletter par mois (client-side) ───────────────────────────────────────
   const newsletterByMonth = useMemo(() => {
@@ -73,10 +74,10 @@ export default function ClientsPage() {
             TOTAL all-time même quand le compte de la période vaut 0. */}
         <KpiCard label="Comptes créés" value={String(accounts?.count ?? 0)}
           sub={accounts ? `${accounts.total ?? 0} compte(s) au total` : "inscriptions sur la période"}
-          color={C.blue} delta={showDelta ? accounts?.delta_pct : undefined}
+          color={C.blue} delta={showDelta ? accounts?.delta_pct : undefined} deltaLabel={cmpLabel}
           href="/admin/comptes" actionLabel="Voir les comptes →" />
         {kpis
-          ? <KpiCard label="Clients uniques" value={String(kpis.unique_customers)} sub={`${kpis.orders_count} commande(s)`} delta={showDelta ? kpis.orders_delta_pct : undefined} deltaLabel="commandes vs préc." />
+          ? <KpiCard label="Clients uniques" value={String(kpis.unique_customers)} sub={`${kpis.orders_count} commande(s)`} delta={showDelta ? kpis.orders_delta_pct : undefined} deltaLabel={cmpLabel} />
           : <Skeleton h={110} />}
         {retention ? (
           <>

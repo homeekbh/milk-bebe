@@ -3,6 +3,14 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
+// ⚠️ Cette 404 rend son PROPRE <html>, HORS du segment [locale] → pas de NextIntlClientProvider
+// dans l'arbre, donc le Link localisé de @/i18n/navigation n'y fonctionne pas. On préfixe donc
+// « /fr » EN DUR (locale par défaut, cf. i18n/routing.ts). Sans ça, avec robots follow:true, ces
+// liens partaient vers /, /produits, /categorie/* SANS préfixe → Google les suivait et
+// redécouvrait des URL redirigées (301 proxy.ts), et un vrai visiteur atterrissait sur une
+// redirection. Les liens ci-dessous DOIVENT rester préfixés.
+const P = "/fr";
+
 export const metadata: Metadata = {
   title: "Page introuvable | M!LK",
   description: "Cette page n'existe pas. Découvrez la collection M!LK — vêtements bébé en bambou premium.",
@@ -91,14 +99,14 @@ export default function NotFound() {
 
         {/* Liens rapides */}
         <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap", marginTop: 8 }}>
-          <Link href="/" style={{
+          <Link href={P} style={{
             padding: "14px 28px", borderRadius: 12,
             background: "#f0ede8", color: "#000",
             fontWeight: 900, fontSize: 15, textDecoration: "none",
           }}>
             Accueil
           </Link>
-          <Link href="/produits" style={{
+          <Link href={`${P}/produits`} style={{
             padding: "14px 28px", borderRadius: 12,
             border: "1px solid rgba(240,237,232,0.15)",
             color: "#f0ede8",
@@ -114,9 +122,9 @@ export default function NotFound() {
         {/* Raccourcis catégories */}
         <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
           {[
-            { label: "Bodies",      href: "/categorie/bodies" },
-            { label: "Pyjamas",     href: "/categorie/pyjamas" },
-            { label: "Gigoteuses",  href: "/categorie/gigoteuses" },
+            { label: "Bodies",      href: `${P}/categorie/bodies` },
+            { label: "Pyjamas",     href: `${P}/categorie/pyjamas` },
+            { label: "Gigoteuses",  href: `${P}/categorie/gigoteuses` },
           ].map((c) => (
             <Link key={c.href} href={c.href} style={{
               padding: "8px 16px", borderRadius: 99,

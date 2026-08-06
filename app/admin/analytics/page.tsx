@@ -9,7 +9,7 @@ import { useAnalyticsData, adminFetch } from "@/components/admin/analytics/useAn
 import { useAnalyticsRefresh } from "@/components/admin/analytics/refresh-context";
 import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C } from "@/components/admin/analytics/tokens";
-import { KpiCard, SectionTitle, Card, LEXIQUE } from "@/components/admin/analytics/ui";
+import { KpiCard, Card } from "@/components/admin/analytics/ui";
 import { FunnelChart, LineChart } from "@/components/admin/analytics/charts";
 import ComparisonChart, { type MetricKey } from "@/components/admin/analytics/ComparisonChart";
 import { eur, WEEKDAY_LONG, weekdayOccurrences, fmtDayShort, periodLabelOf, granularityOf, compareRangeOf, truncationSuffix } from "@/components/admin/analytics/period";
@@ -189,16 +189,6 @@ export default function OverviewPage() {
             </>
           )}
         </Card>
-      </div>
-
-      {/* Lexique (reste accessible en bas de la Vue d'ensemble) */}
-      <SectionTitle>Lexique</SectionTitle>
-      <div style={{ background: C.card, borderRadius: 20, padding: 24, border: `1px solid ${C.faint}`, display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: "10px 28px" }}>
-        {Object.entries(LEXIQUE).map(([terme, { icon, def }]) => (
-          <div key={terme} style={{ fontSize: 12, color: C.muted, lineHeight: 1.6 }}>
-            <span style={{ color: C.warm, fontWeight: 800 }}>{icon} {terme}</span> — {def}
-          </div>
-        ))}
       </div>
     </>
   );

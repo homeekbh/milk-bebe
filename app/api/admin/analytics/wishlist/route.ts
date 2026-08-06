@@ -26,17 +26,19 @@ export async function GET(req: NextRequest) {
     const { from, to } = rr.range;
 
     // Ajouts + retraits en une passe (paginé — cap PostgREST 1000/req).
-    const rows = await fetchAllPaged<{ event_type: string; product_id: string | null; metadata: any }>((rf, rt) =>
+    const rows = await fetchAllPaged<{ event_type: string; product_id: string | null; metadata: any; created_at: string }>((rf, rt) =>
       supabaseServer
         .from("analytics_events")
-        .select("event_type, product_id, metadata")
+        .select("event_type, product_id, metadata, created_at")
         .in("event_type", ["add_to_wishlist", "remove_from_wishlist"])
         .gte("created_at", from).lte("created_at", to)
         .order("created_at", { ascending: true }).range(rf, rt));
 
     let adds = 0, removed_manual = 0, removed_purchased = 0;
     const counts = new Map<string, number>(); // top produits favorisés (sur les ajouts)
+    const allIds = new Set<string>();          // tous les produits vus (ajouts + retraits) → noms de l'historique
     for (const r of rows) {
+      if (r.product_id) allIds.add(r.product_id);
       if (r.event_type === "add_to_wishlist") {
         adds++;
         if (r.product_id) counts.set(r.product_id, (counts.get(r.product_id) ?? 0) + 1);
@@ -49,11 +51,10 @@ export async function GET(req: NextRequest) {
     const removed_total = removed_manual + removed_purchased;
     const active = Math.max(0, adds - removed_total);
 
-    // Résolution des noms via la table products.
-    const ids = [...counts.keys()];
+    // Résolution des noms via la table products (tous les produits vus, ajouts + retraits).
     const names = new Map<string, string>();
-    if (ids.length > 0) {
-      const { data: prods } = await supabaseServer.from("products").select("id, name").in("id", ids);
+    if (allIds.size > 0) {
+      const { data: prods } = await supabaseServer.from("products").select("id, name").in("id", [...allIds]);
       for (const p of prods ?? []) names.set(p.id, p.name);
     }
     const top_products = [...counts.entries()]
@@ -61,7 +62,19 @@ export async function GET(req: NextRequest) {
       .sort((a, b) => b.count - a.count)
       .slice(0, 10);
 
-    return ok({ active, adds, removed_manual, removed_purchased, removed_total, top_products });
+    // Historique détaillé (le plus récent d'abord) : quel produit, quand, ajout/retrait + raison.
+    const history = rows
+      .map(r => ({
+        product_id: r.product_id,
+        name: r.product_id ? (names.get(r.product_id) ?? "Produit") : "Produit",
+        type: r.event_type === "add_to_wishlist" ? ("add" as const) : ("remove" as const),
+        reason: r.event_type === "remove_from_wishlist" ? (r.metadata?.reason ?? "manual") : null,
+        created_at: r.created_at,
+      }))
+      .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+      .slice(0, 200);
+
+    return ok({ active, adds, removed_manual, removed_purchased, removed_total, top_products, history });
   } catch (e: any) {
     Sentry.captureException(e, { tags: { area: "analytics" } });
     return fail(e?.message ?? "Erreur interne");

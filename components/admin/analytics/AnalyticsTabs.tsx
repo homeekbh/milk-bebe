@@ -14,6 +14,7 @@ const TABS: { href: string; label: string }[] = [
   { href: "/admin/analytics",              label: "Vue d'ensemble" },
   { href: "/admin/analytics/trafic",       label: "Trafic" },
   { href: "/admin/analytics/comportement", label: "Comportement" },
+  { href: "/admin/analytics/paniers-favoris", label: "Paniers & Favoris" },
   { href: "/admin/analytics/ventes",       label: "Ventes" },
   { href: "/admin/analytics/clients",      label: "Clients & fidélité" },
   { href: "/admin/analytics/operationnel", label: "Opérationnel" },
@@ -21,12 +22,12 @@ const TABS: { href: string; label: string }[] = [
 ];
 
 export default function AnalyticsTabs() {
-  // Seuil relevé à 1350px : 7 onglets (ajout « Synthèse ») + libellés longs
-  // (« CLIENTS & FIDÉLITÉ »…) + sidebar admin (~220–300px) débordent la barre en
-  // ligne en dessous d'environ 1310px. Sous 1350 → menu déroulant (7 onglets
-  // atteignables) ; au-delà → onglets en ligne. Le seuil précédent (1100, pour 6
-  // onglets) laissait le 7e hors-champ dans la zone 1100–1310px.
-  const narrow = useIsNarrow(1350);
+  // Seuil relevé à 1500px : 8 onglets (ajout « Paniers & Favoris ») + libellés longs
+  // (« CLIENTS & FIDÉLITÉ », « PANIERS & FAVORIS »…) + sidebar admin (~220–300px)
+  // débordent la barre en ligne en dessous d'environ 1460px. Sous 1500 → menu
+  // déroulant (8 onglets atteignables) ; au-delà → onglets en ligne. Seuils
+  // précédents : 1100 (6 onglets), 1350 (7 onglets).
+  const narrow = useIsNarrow(1500);
   const pathname = usePathname();
   const sp = useSearchParams();
   const qs = sp.toString();

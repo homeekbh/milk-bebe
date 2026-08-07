@@ -33,8 +33,8 @@ const CATEGORY_META: Record<string, { title: string; subtitle: string; seoTitle:
   gigoteuses: {
     title:    "Gigoteuses nourrisson",
     subtitle: "Sommeil sécurisé toute la nuit — bambou OEKO-TEX",
-    seoTitle: "Gigoteuse bambou bébé 0-6 mois | Douce et thermorégulante",
-    seoDesc:  "Gigoteuse à nouer en bambou certifié OEKO-TEX pour bébé 0-6 mois. Ultra-douce, thermorégulante, sommeil serein sans zip ni bouton. Livraison offerte dès 60€ en France métropolitaine.",
+    seoTitle: "Gigoteuse & turbulette bébé bambou 0-6 mois",
+    seoDesc:  "Gigoteuse bébé en bambou OEKO-TEX, douce et thermorégulante. Turbulette évolutive à nouer, s'ajuste à la croissance de bébé. Naissance à 6 mois.",
     keywords: ["gigoteuse bambou", "gigoteuse bébé", "gigoteuse à nouer", "turbulette bambou", "sac de couchage bébé bambou", "gigoteuse OEKO-TEX"],
   },
   accessoires: {
@@ -117,10 +117,10 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
   },
   gigoteuses: {
     fr: {
-      seoTitle: "Gigoteuse bébé bambou — Turbulette nourrisson 0-3 mois à nouer",
-      seoDesc:  "En bambou certifié OEKO-TEX, respirante et à nouer. Pas un seul bouton : le change de nuit se fait sans réveiller bébé. Livraison offerte dès 60€.",
+      seoTitle: "Gigoteuse & turbulette bébé bambou 0-6 mois",
+      seoDesc:  "Gigoteuse bébé en bambou OEKO-TEX, douce et thermorégulante. Turbulette évolutive à nouer, s'ajuste à la croissance de bébé. Naissance à 6 mois.",
       keywords: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "turbulette 0-3 mois", "gigoteuse bébé respirante", "gigoteuse sans bouton"],
-      h1: "Gigoteuses à nouer bébé bambou",
+      h1: "Gigoteuses & turbulettes bébé en bambou",
     },
     en: {
       seoTitle: "Baby Sleep Bags OEKO-TEX Bamboo — Newborn Sleep Sack 0-3 months",

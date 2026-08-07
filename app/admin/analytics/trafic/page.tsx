@@ -7,7 +7,7 @@ import AnalyticsComparison from "@/components/admin/analytics/AnalyticsCompariso
 import { Skeleton } from "@/components/admin/analytics/widgets";
 import { C, CHANNEL_COLORS, CHANNEL_LABELS_FR, WEEKDAYS } from "@/components/admin/analytics/tokens";
 import { KpiCard, SectionTitle, Card } from "@/components/admin/analytics/ui";
-import { BarChart, DonutChart, SessionsLineChart, LineChart, TrafficHeatmap } from "@/components/admin/analytics/charts";
+import { BarChart, DonutChart, TrafficHeatmap, MultiLineChart } from "@/components/admin/analytics/charts";
 import { fmtDur, periodLabelOf, comparisonLabelOf } from "@/components/admin/analytics/period";
 import WorldVisitorsMap from "@/components/admin/WorldVisitorsMap";
 
@@ -22,6 +22,18 @@ export default function TraficPage() {
   const th = { padding: "8px 10px", fontWeight: 700, textAlign: "left" as const };
   const td = { padding: "9px 10px" };
   const channelDonut = (pv?.by_channel ?? []).map((c: any) => ({ label: CHANNEL_LABELS_FR[c.channel] ?? c.channel, value: c.sessions, color: CHANNEL_COLORS[c.channel] ?? "#94a3b8" }));
+
+  // « Évolution du trafic » : fusion des 3 métriques par jour. Vues + sessions viennent
+  // de by_day ; les visiteurs uniques/jour = new + returning de new_returning_by_day
+  // (mêmes clés de date, cf. enumerateParisDays côté serveur). Croisement par date.
+  const visByDate = new Map<string, number>();
+  for (const d of (pv?.new_returning_by_day ?? [])) visByDate.set(String(d.date), (Number(d.new) || 0) + (Number(d.returning) || 0));
+  const trafficByDay = (pv?.by_day ?? []).map((d: any) => ({
+    date:     d.date,
+    views:    Number(d.views) || 0,
+    sessions: Number(d.sessions) || 0,
+    visitors: visByDate.get(String(d.date)) ?? 0,
+  }));
 
   return (
     <>
@@ -160,18 +172,18 @@ export default function TraficPage() {
             </Card>
           </div>
 
-          {/* Vues par jour (courbe) + Évolution des sessions */}
+          {/* Évolution du trafic — FUSION (ex « Vues par jour » + « Évolution des sessions ») :
+              3 courbes togglables (Vues / Sessions / Visiteurs), 1 infobulle, jour/mois. */}
           <div style={{ marginBottom: 24 }}>
-            <Card title="📈 Vues par jour" lexique="Vues totales">
-              <LineChart data={(pv.by_day ?? []).map((d: any) => ({ label: String(d.date).slice(5), value: d.views }))} color={C.blue} />
-              <div style={{ fontSize: 12, color: C.muted, marginTop: 8 }}>
-                Sessions uniques sur la période : <span style={{ color: C.warm, fontWeight: 700 }}>{pv.unique_sessions ?? 0}</span>
-              </div>
-            </Card>
-          </div>
-          <div style={{ marginBottom: 24 }}>
-            <Card title="📉 Évolution des sessions" lexique="Sessions uniques">
-              <SessionsLineChart byDay={pv.by_day ?? []} />
+            <Card title="📈 Évolution du trafic" lexique="Vues totales">
+              <MultiLineChart
+                byDay={trafficByDay}
+                series={[
+                  { key: "views",    label: "Vues",              color: C.blue,   total: pv.total_views ?? 0 },
+                  { key: "sessions", label: "Sessions",          color: C.purple, total: pv.unique_sessions ?? 0 },
+                  { key: "visitors", label: "Visiteurs uniques", color: C.amber,  total: pv.unique_visitors ?? 0 },
+                ]}
+              />
             </Card>
           </div>
 

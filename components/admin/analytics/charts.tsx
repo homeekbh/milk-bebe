@@ -115,93 +115,6 @@ export function HBars({ data, color = C.amber }: HBarsProps) {
   );
 }
 
-// ─── Courbe temporelle des sessions (SVG pur) + sélecteur jour / mois ───────────
-export type SessionsLineChartProps = { byDay: { date: string; views: number; sessions: number }[] };
-export function SessionsLineChart({ byDay }: SessionsLineChartProps) {
-  const [gran, setGran] = useState<"day" | "month">("day");
-  const [hi, setHi]     = useState<number | null>(null);
-
-  const data = useMemo(() => {
-    const src = Array.isArray(byDay) ? byDay : [];
-    if (gran === "month") {
-      const m = new Map<string, number>();
-      for (const d of src) {
-        const key = String(d.date).slice(0, 7); // YYYY-MM
-        m.set(key, (m.get(key) ?? 0) + (Number(d.sessions) || 0));
-      }
-      return [...m.entries()].map(([ym, v]) => {
-        const [yy, mm] = ym.split("-");
-        return { key: ym, label: `${MONTHS_FR[Number(mm) - 1] ?? mm} ${yy.slice(2)}`, value: v };
-      });
-    }
-    return src.map(d => ({ key: String(d.date), label: String(d.date).slice(5), value: Number(d.sessions) || 0 }));
-  }, [byDay, gran]);
-
-  const VBW = 600, VBH = 200, TOP = 16, BOT = 28, PADX = 10;
-  const innerW = VBW - PADX * 2, innerH = VBH - TOP - BOT;
-  const max = Math.max(...data.map(d => d.value), 1);
-  const n = data.length;
-  const px = (i: number) => (n <= 1 ? PADX + innerW / 2 : PADX + (i / (n - 1)) * innerW);
-  const py = (v: number) => TOP + innerH - (v / max) * innerH;
-  const line = data.map((d, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(d.value).toFixed(1)}`).join(" ");
-  const area = n > 0 ? `${line} L ${px(n - 1).toFixed(1)} ${(TOP + innerH).toFixed(1)} L ${px(0).toFixed(1)} ${(TOP + innerH).toFixed(1)} Z` : "";
-  const labelEvery = Math.max(1, Math.ceil(n / 12));
-  const hovered = hi != null ? data[hi] : null;
-
-  return (
-    <div>
-      {/* Sélecteur jour / mois — au-dessus de la courbe */}
-      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 10 }}>
-        <div style={{ display: "flex", gap: 4, background: "#0d0b09", borderRadius: 9, padding: 3, border: `1px solid ${C.faint}` }}>
-          {(["day", "month"] as const).map(g => (
-            <button key={g} onClick={() => { setGran(g); setHi(null); }}
-              style={{ padding: "5px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 800,
-                       background: gran === g ? C.amber : "transparent", color: gran === g ? "#1a1410" : C.muted }}>
-              {g === "day" ? "Jour" : "Mois"}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {n === 0 ? (
-        <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 30 }}>Aucune donnée</div>
-      ) : (
-        <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
-          <svg viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: "100%", minWidth: 320, display: "block" }} onMouseLeave={() => setHi(null)}>
-            {[0, 0.25, 0.5, 0.75, 1].map(t => (
-              <line key={t} x1={PADX} x2={VBW - PADX} y1={TOP + innerH - innerH * t} y2={TOP + innerH - innerH * t} stroke={C.faint} strokeWidth={1} />
-            ))}
-            <path d={area} fill="rgba(196,154,74,0.12)" stroke="none" />
-            <path d={line} fill="none" stroke={C.amber} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
-            {data.map((d, i) => {
-              const active = hi === i;
-              return (
-                <g key={d.key}>
-                  <rect x={px(i) - Math.max(6, innerW / n / 2)} y={TOP} width={Math.max(12, innerW / n)} height={innerH}
-                        fill="transparent" onMouseEnter={() => setHi(i)} style={{ cursor: "pointer" }} />
-                  <circle cx={px(i)} cy={py(d.value)} r={active ? 4.5 : 2.6} fill={C.amber} stroke="#161210" strokeWidth={active ? 1.5 : 0} />
-                  {(i % labelEvery === 0 || i === n - 1) && (
-                    <text x={px(i)} y={VBH - 8} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
-                  )}
-                  <title>{d.label} : {d.value} sessions</title>
-                </g>
-              );
-            })}
-            {hovered && (
-              <g pointerEvents="none">
-                <line x1={px(hi!)} x2={px(hi!)} y1={TOP} y2={TOP + innerH} stroke="rgba(196,154,74,0.35)" strokeWidth={1} />
-                <rect x={Math.min(Math.max(px(hi!), 46), VBW - 46) - 44} y={Math.max(py(hovered.value) - 34, 2)} width={88} height={26} rx={5} fill="#0d0b09" opacity={0.95} />
-                <text x={Math.min(Math.max(px(hi!), 46), VBW - 46)} y={Math.max(py(hovered.value) - 34, 2) + 11} fill={C.warm} fontSize={11} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{hovered.value} sessions</text>
-                <text x={Math.min(Math.max(px(hi!), 46), VBW - 46)} y={Math.max(py(hovered.value) - 34, 2) + 21} fill={C.muted} fontSize={8} textAnchor="middle" fontFamily="system-ui">{hovered.label}</text>
-              </g>
-            )}
-          </svg>
-        </div>
-      )}
-    </div>
-  );
-}
-
 // ─── Nouveaux vs récurrents dans le temps (2 séries, SVG maison) + jour/mois ──────
 export type NewVsReturningChartProps = { byDay: { date: string; new: number; returning: number }[] };
 export function NewVsReturningChart({ byDay }: NewVsReturningChartProps) {
@@ -427,6 +340,124 @@ export function TrafficHeatmap({ cells }: TrafficHeatmapProps) {
       <div style={{ fontSize: 11, color: C.muted, marginTop: 8 }}>
         Couleur = canal dominant du créneau · intensité = volume de sessions (heure de Paris). Survolez une case pour le détail.
       </div>
+    </div>
+  );
+}
+
+// ─── Multi-courbes (N séries) — légende CLIQUABLE (toggle) + jour/mois + infobulle
+//     UNIQUE (toutes les séries du jour survolé). Même « savoir-faire » SVG que
+//     NewVsReturningChart (viewBox, grille, survol, sélecteur
+//     jour/mois) — aucune lib externe, rendu cohérent avec le reste de la page.
+export type MultiLineSeries = { key: string; label: string; color: string; total?: number };
+export type MultiLineChartProps = {
+  byDay:  { date: string; [k: string]: number | string }[];
+  series: MultiLineSeries[];
+};
+export function MultiLineChart({ byDay, series }: MultiLineChartProps) {
+  const [gran, setGran]     = useState<"day" | "month">("day");
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [hi, setHi]         = useState<number | null>(null);
+
+  // Agrégation (somme par métrique) — même logique jour/mois que les autres courbes.
+  const data = useMemo(() => {
+    const src = Array.isArray(byDay) ? byDay : [];
+    if (gran === "month") {
+      const m = new Map<string, Record<string, number>>();
+      for (const d of src) {
+        const key = String(d.date).slice(0, 7); // YYYY-MM
+        const acc = m.get(key) ?? {};
+        for (const s of series) acc[s.key] = (acc[s.key] ?? 0) + (Number(d[s.key]) || 0);
+        m.set(key, acc);
+      }
+      return [...m.entries()].map(([ym, vals]) => {
+        const [yy, mm] = ym.split("-");
+        return { key: ym, label: `${MONTHS_FR[Number(mm) - 1] ?? mm} ${yy.slice(2)}`, vals };
+      });
+    }
+    return src.map(d => {
+      const vals: Record<string, number> = {};
+      for (const s of series) vals[s.key] = Number(d[s.key]) || 0;
+      return { key: String(d.date), label: String(d.date).slice(5), vals };
+    });
+  }, [byDay, gran, series]);
+
+  const active = series.filter(s => !hidden.has(s.key));
+  const toggle = (key: string) => setHidden(prev => { const nx = new Set(prev); if (nx.has(key)) nx.delete(key); else nx.add(key); return nx; });
+
+  const VBW = 600, VBH = 200, TOP = 16, BOT = 28, PADX = 10;
+  const innerW = VBW - PADX * 2, innerH = VBH - TOP - BOT;
+  const max = Math.max(1, ...data.flatMap(d => active.map(s => d.vals[s.key] ?? 0)));
+  const n = data.length;
+  const px = (i: number) => (n <= 1 ? PADX + innerW / 2 : PADX + (i / (n - 1)) * innerW);
+  const py = (v: number) => TOP + innerH - (v / max) * innerH;
+  const lineOf = (key: string) => data.map((d, i) => `${i === 0 ? "M" : "L"} ${px(i).toFixed(1)} ${py(d.vals[key] ?? 0).toFixed(1)}`).join(" ");
+  const labelEvery = Math.max(1, Math.ceil(n / 12));
+  const hv = hi != null ? data[hi] : null;
+
+  return (
+    <div>
+      {/* Légende CLIQUABLE (toggle) + total par courbe + sélecteur jour/mois */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10, flexWrap: "wrap" }}>
+        <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+          {series.map(s => {
+            const off = hidden.has(s.key);
+            return (
+              <button key={s.key} onClick={() => toggle(s.key)} title={off ? "Afficher" : "Masquer"}
+                style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12, fontWeight: 700, color: off ? C.muted : C.warm, opacity: off ? 0.55 : 1 }}>
+                <span style={{ display: "inline-block", width: 14, height: 3, borderRadius: 2, background: off ? C.muted : s.color }} />
+                {s.label}{typeof s.total === "number" ? <span style={{ color: C.muted, fontWeight: 800 }}>{" · "}{s.total}</span> : null}
+              </button>
+            );
+          })}
+        </div>
+        <div style={{ display: "flex", gap: 4, background: "#0d0b09", borderRadius: 9, padding: 3, border: `1px solid ${C.faint}` }}>
+          {(["day", "month"] as const).map(g => (
+            <button key={g} onClick={() => { setGran(g); setHi(null); }}
+              style={{ padding: "5px 12px", borderRadius: 7, border: "none", cursor: "pointer", fontSize: 12, fontWeight: 800, background: gran === g ? C.amber : "transparent", color: gran === g ? "#1a1410" : C.muted }}>
+              {g === "day" ? "Jour" : "Mois"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {n === 0 ? (
+        <div style={{ color: C.muted, fontSize: 13, textAlign: "center", padding: 30 }}>Aucune donnée</div>
+      ) : (
+        <div style={{ background: "#161210", borderRadius: 12, padding: "10px 8px", overflowX: "auto" }}>
+          <svg viewBox={`0 0 ${VBW} ${VBH}`} style={{ width: "100%", minWidth: 320, display: "block" }} onMouseLeave={() => setHi(null)}>
+            {[0, 0.25, 0.5, 0.75, 1].map(t => (
+              <line key={t} x1={PADX} x2={VBW - PADX} y1={TOP + innerH - innerH * t} y2={TOP + innerH - innerH * t} stroke={C.faint} strokeWidth={1} />
+            ))}
+            {active.map(s => (
+              <path key={s.key} d={lineOf(s.key)} fill="none" stroke={s.color} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
+            ))}
+            {data.map((d, i) => (
+              <g key={d.key}>
+                <rect x={px(i) - Math.max(6, innerW / n / 2)} y={TOP} width={Math.max(12, innerW / n)} height={innerH} fill="transparent" onMouseEnter={() => setHi(i)} style={{ cursor: "pointer" }} />
+                {hi === i && active.map(s => <circle key={s.key} cx={px(i)} cy={py(d.vals[s.key] ?? 0)} r={3.5} fill={s.color} stroke="#161210" strokeWidth={1} />)}
+                {(i % labelEvery === 0 || i === n - 1) && (
+                  <text x={px(i)} y={VBH - 8} fill={C.muted} fontSize={9} textAnchor="middle" fontFamily="system-ui">{d.label}</text>
+                )}
+              </g>
+            ))}
+            {/* Infobulle UNIQUE : le jour survolé + toutes les séries ACTIVES d'un coup. */}
+            {hv && active.length > 0 && (() => {
+              const cx   = Math.min(Math.max(px(hi!), 70), VBW - 70);
+              const boxH = 16 + active.length * 12;
+              return (
+                <g pointerEvents="none">
+                  <line x1={px(hi!)} x2={px(hi!)} y1={TOP} y2={TOP + innerH} stroke="rgba(196,154,74,0.35)" strokeWidth={1} />
+                  <rect x={cx - 64} y={2} width={128} height={boxH} rx={6} fill="#0d0b09" opacity={0.96} />
+                  <text x={cx} y={14} fill={C.warm} fontSize={10} fontWeight={800} textAnchor="middle" fontFamily="system-ui">{hv.label}</text>
+                  {active.map((s, k) => (
+                    <text key={s.key} x={cx} y={26 + k * 12} fill={s.color} fontSize={9.5} fontWeight={700} textAnchor="middle" fontFamily="system-ui">{s.label} : {hv.vals[s.key] ?? 0}</text>
+                  ))}
+                </g>
+              );
+            })()}
+          </svg>
+        </div>
+      )}
     </div>
   );
 }

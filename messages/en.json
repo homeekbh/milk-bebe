@@ -262,7 +262,7 @@
   },
   "sizeguide": {
     "meta_title": "Baby size in cm: 0, 3 and 6 months",
-    "meta_description": "0 months: ~50 cm · 3 months: 50–60 cm · 6 months: 60–67 cm. Baby size chart with weight guidance and tips for choosing the right fit.",
+    "meta_description": "Baby size in cm by month: birth ~48 cm, 3 months ~59 cm, 6 months ~66 cm. Baby size chart 0-12 months, weight guidance and M!LK pyjama, bodysuit and sleep bag size match.",
     "og_title": "Baby size guide 0-6 months — M!LK",
     "og_description": "Baby size chart 0-6 months, how to measure and choose the right fit. M!LK bamboo OEKO-TEX baby clothing.",
     "eyebrow": "M!LK sizes",
@@ -270,25 +270,33 @@
     "crumb_home": "Home",
     "h1": "Baby size guide: from birth to 6 months",
     "intro": "Choosing the right size means avoiding two headaches: the outfit that's too big and swamps baby, and the one you never use because it's already too small. Here's how to get it right, from hospital to 6 months.",
-    "col_size": "M!LK size",
-    "col_age": "Approx. age",
+    "col_age": "Age",
     "col_length": "Baby length",
-    "col_weight": "Approx. weight",
+    "col_weight": "Weight",
+    "col_clothing": "Pyjamas & bodysuits",
+    "col_sleepbag": "Sleep bag",
     "rows": [
-      { "size": "Newborn", "age": "Birth–1 month", "length": "~50 cm", "weight": "~2.5–4 kg" },
-      { "size": "0-3 months", "age": "0–3 months", "length": "~50–60 cm", "weight": "~4–6 kg" },
-      { "size": "3-6 months", "age": "3–6 months", "length": "~60–67 cm", "weight": "~6–8 kg" }
+      { "age": "Birth", "length": "46-50 cm", "weight": "3.0-3.5 kg", "clothing": "Newborn", "sleepbag": "0-6 months" },
+      { "age": "1 month", "length": "51-55 cm", "weight": "3.5-4.5 kg", "clothing": "Newborn", "sleepbag": "0-6 months" },
+      { "age": "2 months", "length": "54-58 cm", "weight": "4.5-5.5 kg", "clothing": "0-3 months", "sleepbag": "0-6 months" },
+      { "age": "3 months", "length": "57-61 cm", "weight": "5.5-6.5 kg", "clothing": "0-3 months", "sleepbag": "0-6 months" },
+      { "age": "4 months", "length": "59-63 cm", "weight": "6-7 kg", "clothing": "3-6 months", "sleepbag": "0-6 months" },
+      { "age": "5 months", "length": "61-66 cm", "weight": "6.5-7.5 kg", "clothing": "3-6 months", "sleepbag": "0-6 months" },
+      { "age": "6 months", "length": "63-68 cm", "weight": "7-8 kg", "clothing": "3-6 months", "sleepbag": "0-6 months" },
+      { "age": "9 months", "length": "68-72 cm", "weight": "8-9 kg", "clothing": "Coming soon", "sleepbag": "Coming soon" },
+      { "age": "12 months", "length": "71-76 cm", "weight": "9-10 kg", "clothing": "Coming soon", "sleepbag": "Coming soon" }
     ],
+    "table_note": "Average indicative measurements (WHO data). Every baby grows at their own pace — if in doubt between two sizes, choose the larger one. Newborn-size bodysuit coming soon; for the very first days, our Newborn pyjama is ideal.",
     "sections": [
       { "h2": "How to measure your baby", "p": "Clothing size is based on length, not age. Two babies the same age can differ noticeably in build. Measure your baby lying down, from head to heels with legs extended. That's the figure that matters." },
-      { "h2": "What size at birth?", "p": "If you're packing the hospital bag without knowing the birth weight, take both Newborn AND 0-3 months. Babies grow fast — 0-3 often fits within the first few weeks. For a baby expected to be big, or a baby born past their due date, go straight for 0-3." },
-      { "h2": "What about a gift?", "p": "Avoid Newborn (outgrown too fast). 3-6 months is the smart pick: baby will wear it longer, and it's rarely what parents buy first." }
+      { "h2": "What size at birth?", "p": "The Newborn size covers the very first days, up to about 1 month (~54 cm, ~4 kg). Then 0-3 months takes over — often within the first few weeks, as babies grow fast. If you're packing the hospital bag without knowing the weight, take both; for a baby expected to be big, or born past their due date, go straight for 0-3." },
+      { "h2": "What about a gift?", "p": "Avoid the Newborn size (outgrown too fast). 3-6 months is the smart pick: baby will wear it longer, and it's rarely what parents buy first." }
     ],
     "faq_title": "Frequently asked questions",
     "faq": [
       { "q": "Baby is between two sizes — which do I pick?", "a": "The bigger one. A little room is better than a garment that's too tight." },
       { "q": "Does bamboo shrink in the wash?", "a": "Washed at 30°C, no." },
-      { "q": "What's the difference between Newborn and 0-3 months?", "a": "About 10 cm and a full kilo. Newborn is cut for the first few weeks; 0-3 takes over quickly." }
+      { "q": "What's the difference between Newborn and 0-3 months?", "a": "About 10 cm and a full kilo. Newborn is cut for the very first days; 0-3 takes over from about 1 month." }
     ],
     "links": [
       { "label": "See bodysuits", "href": "/categorie/bodies" },

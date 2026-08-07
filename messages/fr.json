@@ -262,7 +262,7 @@
   },
   "sizeguide": {
     "meta_title": "Taille bébé en cm : 0, 3 et 6 mois",
-    "meta_description": "0 mois : ~50 cm · 3 mois : 50–60 cm · 6 mois : 60–67 cm. Tableau des tailles bébé avec poids indicatifs, conseils pour mesurer et bien choisir.",
+    "meta_description": "Taille bébé en cm par mois : naissance ~48 cm, 3 mois ~59 cm, 6 mois ~66 cm. Tableau des tailles bébé 0-12 mois, poids indicatifs et correspondance pyjamas, bodies et gigoteuses M!LK.",
     "og_title": "Guide des tailles bébé 0-6 mois — M!LK",
     "og_description": "Tableau des tailles bébé 0-6 mois, comment mesurer et bien choisir. Vêtements bébé bambou OEKO-TEX M!LK.",
     "eyebrow": "Tailles M!LK",
@@ -270,25 +270,33 @@
     "crumb_home": "Accueil",
     "h1": "Guide des tailles bébé : de la naissance à 6 mois",
     "intro": "Choisir la bonne taille, c'est éviter deux galères : le vêtement trop grand qui flotte, et celui qu'on ne met jamais parce qu'il est déjà trop petit. Voici comment viser juste, de la maternité aux 6 mois.",
-    "col_size": "Taille M!LK",
-    "col_age": "Âge indicatif",
-    "col_length": "Taille de bébé",
-    "col_weight": "Poids indicatif",
+    "col_age": "Âge",
+    "col_length": "Taille bébé",
+    "col_weight": "Poids",
+    "col_clothing": "Pyjamas & bodies",
+    "col_sleepbag": "Gigoteuse",
     "rows": [
-      { "size": "Nouveau-né", "age": "Naissance–1 mois", "length": "~50 cm", "weight": "~2,5–4 kg" },
-      { "size": "0-3 mois", "age": "0–3 mois", "length": "~50–60 cm", "weight": "~4–6 kg" },
-      { "size": "3-6 mois", "age": "3–6 mois", "length": "~60–67 cm", "weight": "~6–8 kg" }
+      { "age": "Naissance", "length": "46-50 cm", "weight": "3,0-3,5 kg", "clothing": "Naissance", "sleepbag": "0-6 mois" },
+      { "age": "1 mois", "length": "51-55 cm", "weight": "3,5-4,5 kg", "clothing": "Naissance", "sleepbag": "0-6 mois" },
+      { "age": "2 mois", "length": "54-58 cm", "weight": "4,5-5,5 kg", "clothing": "0-3 mois", "sleepbag": "0-6 mois" },
+      { "age": "3 mois", "length": "57-61 cm", "weight": "5,5-6,5 kg", "clothing": "0-3 mois", "sleepbag": "0-6 mois" },
+      { "age": "4 mois", "length": "59-63 cm", "weight": "6-7 kg", "clothing": "3-6 mois", "sleepbag": "0-6 mois" },
+      { "age": "5 mois", "length": "61-66 cm", "weight": "6,5-7,5 kg", "clothing": "3-6 mois", "sleepbag": "0-6 mois" },
+      { "age": "6 mois", "length": "63-68 cm", "weight": "7-8 kg", "clothing": "3-6 mois", "sleepbag": "0-6 mois" },
+      { "age": "9 mois", "length": "68-72 cm", "weight": "8-9 kg", "clothing": "Bientôt", "sleepbag": "Bientôt" },
+      { "age": "12 mois", "length": "71-76 cm", "weight": "9-10 kg", "clothing": "Bientôt", "sleepbag": "Bientôt" }
     ],
+    "table_note": "Mensurations moyennes indicatives (données OMS). Chaque bébé grandit à son rythme — en cas de doute entre deux tailles, choisissez la plus grande. Body taille Naissance bientôt disponible ; pour les tout premiers jours, notre pyjama Naissance est idéal.",
     "sections": [
       { "h2": "Comment mesurer bébé", "p": "La taille en vêtement se base sur la taille (longueur), pas l'âge. Deux bébés de 2 mois peuvent avoir un écart de gabarit. Mesure bébé allongé, de la tête aux talons, jambes tendues. C'est cette valeur qui compte." },
-      { "h2": "Quelle taille à la naissance ?", "p": "Si tu prépares la valise de maternité sans connaître le poids : prends du Nouveau-né ET du 0-3 mois. Les bébés grandissent vite — le 0-3 sert souvent dès les premières semaines. Pour un bébé annoncé costaud ou un terme dépassé, mise direct sur le 0-3." },
-      { "h2": "Et pour un cadeau ?", "p": "Évite le Nouveau-né (trop vite trop petit). Le 3-6 mois est le choix malin : bébé le portera plus longtemps, et c'est rarement ce que les parents achètent en premier." }
+      { "h2": "Quelle taille à la naissance ?", "p": "La taille Naissance couvre les tout premiers jours, jusqu'à environ 1 mois (~54 cm, ~4 kg). Ensuite le 0-3 mois prend le relais — souvent dès les premières semaines, car les bébés grandissent vite. Si tu prépares la valise de maternité sans connaître le poids, prends les deux ; pour un bébé annoncé costaud ou un terme dépassé, mise direct sur le 0-3." },
+      { "h2": "Et pour un cadeau ?", "p": "Évite la taille Naissance (trop vite trop petite). Le 3-6 mois est le choix malin : bébé le portera plus longtemps, et c'est rarement ce que les parents achètent en premier." }
     ],
     "faq_title": "Questions fréquentes",
     "faq": [
       { "q": "Bébé est entre deux tailles, je prends laquelle ?", "a": "La plus grande. Un peu d'aisance vaut mieux qu'un vêtement qui serre." },
       { "q": "Le bambou rétrécit-il au lavage ?", "a": "Lavé à 30°, non." },
-      { "q": "Quelle différence entre Nouveau-né et 0-3 mois ?", "a": "Environ 10 cm et un bon kilo. Le Nouveau-né est taillé pour les premières semaines, le 0-3 prend le relais vite." }
+      { "q": "Quelle différence entre la taille Naissance et le 0-3 mois ?", "a": "Environ 10 cm et un bon kilo. La taille Naissance est taillée pour les tout premiers jours, le 0-3 prend le relais dès ~1 mois." }
     ],
     "links": [
       { "label": "Voir les bodies", "href": "/categorie/bodies" },

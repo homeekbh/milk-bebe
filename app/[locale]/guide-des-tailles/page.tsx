@@ -17,7 +17,7 @@ export default async function GuideTaillesPage(
   setRequestLocale(locale);
   const t = await getTranslations("sizeguide");
 
-  const rows     = t.raw("rows")     as { size: string; age: string; length: string; weight: string }[];
+  const rows     = t.raw("rows")     as { age: string; length: string; weight: string; clothing: string; sleepbag: string }[];
   const sections = t.raw("sections") as { h2: string; p: string }[];
   const faq      = t.raw("faq")      as { q: string; a: string }[];
   const links    = t.raw("links")    as { label: string; href: string }[];
@@ -33,29 +33,34 @@ export default async function GuideTaillesPage(
         </h1>
         <p style={{ margin: "0 0 36px", fontSize: "clamp(16px,1.4vw,18px)", color: "rgba(26,20,16,0.7)", lineHeight: 1.75, maxWidth: 680 }}>{t("intro")}</p>
 
-        {/* Tableau des tailles */}
-        <div style={{ overflowX: "auto", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", background: C.cream, marginBottom: 44 }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 520, fontSize: 15 }}>
+        {/* Tableau des tailles — mois par mois (cible le featured snippet âge→cm).
+            Vrai <table> sémantique : thead/tbody + th. 5 colonnes : Âge · Taille bébé ·
+            Poids · Pyjamas & bodies · Gigoteuse (les tailles diffèrent selon la catégorie). */}
+        <div style={{ overflowX: "auto", borderRadius: 16, border: "1px solid rgba(26,20,16,0.1)", background: C.cream, marginBottom: 14 }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: 620, fontSize: 15 }}>
             <thead>
               <tr style={{ background: C.dark, color: C.cream }}>
-                <th style={{ textAlign: "left", padding: "14px 18px", fontWeight: 800 }}>{t("col_size")}</th>
                 <th style={{ textAlign: "left", padding: "14px 18px", fontWeight: 800 }}>{t("col_age")}</th>
                 <th style={{ textAlign: "left", padding: "14px 18px", fontWeight: 800 }}>{t("col_length")}</th>
                 <th style={{ textAlign: "left", padding: "14px 18px", fontWeight: 800 }}>{t("col_weight")}</th>
+                <th style={{ textAlign: "left", padding: "14px 18px", fontWeight: 800 }}>{t("col_clothing")}</th>
+                <th style={{ textAlign: "left", padding: "14px 18px", fontWeight: 800 }}>{t("col_sleepbag")}</th>
               </tr>
             </thead>
             <tbody>
               {rows.map((s, i) => (
-                <tr key={s.size} style={{ borderTop: "1px solid rgba(26,20,16,0.08)", background: i % 2 ? "rgba(26,20,16,0.02)" : "transparent" }}>
-                  <td style={{ padding: "14px 18px", fontWeight: 900, color: C.dark }}>{s.size}</td>
-                  <td style={{ padding: "14px 18px", color: "rgba(26,20,16,0.7)" }}>{s.age}</td>
+                <tr key={s.age} style={{ borderTop: "1px solid rgba(26,20,16,0.08)", background: i % 2 ? "rgba(26,20,16,0.02)" : "transparent" }}>
+                  <td style={{ padding: "14px 18px", fontWeight: 900, color: C.dark }}>{s.age}</td>
                   <td style={{ padding: "14px 18px", color: "rgba(26,20,16,0.7)" }}>{s.length}</td>
                   <td style={{ padding: "14px 18px", color: "rgba(26,20,16,0.7)" }}>{s.weight}</td>
+                  <td style={{ padding: "14px 18px", fontWeight: 800, color: C.amber }}>{s.clothing}</td>
+                  <td style={{ padding: "14px 18px", fontWeight: 800, color: C.amber }}>{s.sleepbag}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p style={{ margin: "0 0 44px", fontSize: 13, color: "rgba(26,20,16,0.55)", lineHeight: 1.65, fontStyle: "italic" }}>{t("table_note")}</p>
 
         {/* Sections */}
         {sections.map(s => (

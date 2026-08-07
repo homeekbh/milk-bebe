@@ -12,6 +12,7 @@ interface Subscriber {
   created_at: string;
   active: boolean;
   unsubscribe_token: string | null;
+  has_ordered?: boolean; // Point B — a déjà passé une commande cliente valide
 }
 
 function adminFetch(url: string, options: RequestInit = {}) {
@@ -138,6 +139,15 @@ export default function NewsletterAdminPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [search, setSearch] = useState("");
+
+  // ── Filtres / tris / sélection (envoi ciblé) ──
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo,   setDateTo]   = useState("");
+  const [statusFilter,   setStatusFilter]   = useState<"active" | "all" | "unsub">("active"); // actifs par défaut
+  const [purchaseFilter, setPurchaseFilter] = useState<"all" | "ordered" | "never">("all");
+  const [sortKey, setSortKey] = useState<"email" | "date">("date");
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("desc");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
 
   // ── Composer newsletter ──
   const [subject,     setSubject]     = useState("");
@@ -391,14 +401,16 @@ export default function NewsletterAdminPage() {
     showToast("Article inséré — modifie librement avant l'envoi", true);
   }
 
-  async function handleSend() {
+  // Envoi UNIFIÉ (global OU sélection) — MÊME route sécurisée /api/admin/newsletter/send.
+  // emailsSel fourni ⇒ envoi à la SÉLECTION (le serveur re-filtre active=true) ;
+  // absent ⇒ envoi GLOBAL (tous les actifs). Un seul chemin, une seule confirmation.
+  async function doSend(emailsSel?: string[]) {
     const contentEmpty = mode === "simple" ? !simpleText.trim() : !htmlContent.trim();
-    if (!subject.trim() || contentEmpty) {
-      showToast("Sujet et contenu requis", false);
-      return;
-    }
-    if (actifs === 0) { showToast("Aucun abonné actif", false); return; }
-    if (!window.confirm(`Envoyer cette newsletter à ${actifs} abonné${actifs > 1 ? "s" : ""} ? Cette action est irréversible.`)) return;
+    if (!subject.trim() || contentEmpty) { showToast("Sujet et contenu requis", false); return; }
+    const isSelection = Array.isArray(emailsSel);
+    const targetCount = isSelection ? emailsSel!.length : actifs;
+    if (targetCount === 0) { showToast(isSelection ? "Aucun destinataire sélectionné" : "Aucun abonné actif", false); return; }
+    if (!window.confirm(`Vous allez envoyer à ${targetCount} destinataire${targetCount > 1 ? "s" : ""}. Confirmer ? Cette action est irréversible.`)) return;
 
     setSending(true);
     try {
@@ -408,26 +420,26 @@ export default function NewsletterAdminPage() {
           subject:      subject.trim(),
           html:         buildFinalHtml(),
           preview_text: previewText.trim() || undefined,
+          ...(isSelection ? { emails: emailsSel } : {}),
         }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || `Erreur ${res.status}`);
-      const n = data.sent ?? actifs;
+      const n = data.sent ?? targetCount;
       const fails: { email: string; error: string }[] = Array.isArray(data.failed_emails) ? data.failed_emails : [];
       if (fails.length === 0) {
-        showToast(`✓ Newsletter envoyée à ${n} abonné${n > 1 ? "s" : ""}`, true);
+        showToast(`✓ Newsletter envoyée à ${n} destinataire${n > 1 ? "s" : ""}`, true);
       } else {
-        // Adresses à relancer affichées directement (les 12 premières) pour ne
-        // pas avoir à rouvrir le journal. Toast rouge + durée allongée : une
-        // relance ciblée est requise. Liste complète aussi dans activity_log.
+        // Adresses à relancer affichées directement (12 premières) — liste complète dans activity_log.
         const shown = fails.slice(0, 12).map(f => f.email).join(", ");
         const extra = fails.length > 12 ? ` +${fails.length - 12} autre${fails.length - 12 > 1 ? "s" : ""}` : "";
         showToast(
-          `✓ Envoyée à ${n} abonné${n > 1 ? "s" : ""} — ${fails.length} échec${fails.length > 1 ? "s" : ""} à relancer : ${shown}${extra}`,
+          `✓ Envoyée à ${n} destinataire${n > 1 ? "s" : ""} — ${fails.length} échec${fails.length > 1 ? "s" : ""} à relancer : ${shown}${extra}`,
           false,
           12000
         );
       }
+      if (isSelection) setSelected(new Set()); // reset la sélection après un envoi ciblé réussi
     } catch (e: unknown) {
       showToast("✕ " + (e instanceof Error ? e.message : "Erreur d'envoi"), false);
     } finally {
@@ -435,9 +447,34 @@ export default function NewsletterAdminPage() {
     }
   }
 
-  const filtered = subscribers.filter(s =>
-    s.email.toLowerCase().includes(search.toLowerCase())
-  );
+  // Résultat filtré + trié (client-side ; la liste est bornée côté route).
+  const filtered = subscribers
+    .filter(s => {
+      if (search && !s.email.toLowerCase().includes(search.toLowerCase())) return false;
+      if (statusFilter === "active" && !s.active) return false;
+      if (statusFilter === "unsub"  &&  s.active) return false;
+      const day = (s.created_at ?? "").slice(0, 10);
+      if (dateFrom && day && day < dateFrom) return false;
+      if (dateTo   && day && day > dateTo)   return false;
+      if (purchaseFilter === "ordered" && !s.has_ordered) return false;
+      if (purchaseFilter === "never"   &&  s.has_ordered) return false;
+      return true;
+    })
+    .sort((a, b) => {
+      const dir = sortDir === "asc" ? 1 : -1;
+      if (sortKey === "email") return a.email.localeCompare(b.email) * dir;
+      return (new Date(a.created_at).getTime() - new Date(b.created_at).getTime()) * dir;
+    });
+
+  // Seuls les ACTIFS du résultat filtré sont ciblables — un désabonné n'est JAMAIS sélectionnable.
+  const selectableEmails = filtered.filter(s => s.active).map(s => s.email);
+  const toggleOne = (email: string) => setSelected(prev => {
+    const next = new Set(prev);
+    if (next.has(email)) next.delete(email); else next.add(email);
+    return next;
+  });
+  const selectAllFiltered = () => setSelected(prev => { const next = new Set(prev); for (const e of selectableEmails) next.add(e); return next; });
+  const clearSelection    = () => setSelected(new Set());
 
   return (
     <div style={{ padding: "32px 40px", maxWidth: 1100 }}>
@@ -663,11 +700,11 @@ export default function NewsletterAdminPage() {
           {/* 10-12. Envoi (32px au-dessus) */}
           <div style={{ marginTop: 32, display: "grid", gap: 8, justifyItems: "start" }}>
             <button
-              onClick={handleSend}
+              onClick={() => doSend()}
               disabled={sending || actifs === 0}
               style={{ padding: "15px 32px", borderRadius: 12, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 15, border: "none", cursor: (sending || actifs === 0) ? "not-allowed" : "pointer", opacity: (sending || actifs === 0) ? 0.5 : 1 }}
             >
-              {sending ? "Envoi en cours..." : `Envoyer à ${actifs} abonné${actifs > 1 ? "s" : ""}`}
+              {sending ? "Envoi en cours..." : `Envoyer à tous les actifs (${actifs})`}
             </button>
             <span style={{ fontSize: 12, color: "rgba(26,20,16,0.4)" }}>
               Action irréversible — une confirmation sera demandée.
@@ -708,70 +745,121 @@ export default function NewsletterAdminPage() {
             </div>
           ) : (
             <>
-              {/* Barre de recherche */}
-              <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)" }}>
-                <input
-                  type="text"
-                  placeholder="🔍 Rechercher un email..."
-                  value={search}
-                  onChange={e => setSearch(e.target.value)}
-                  style={{ width: 280, padding: "10px 14px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", fontSize: 14, fontWeight: 600, background: "#fafaf9", outline: "none" }}
-                />
+              {/* ── Barre d'outils : filtres + tris + sélection ── */}
+              <div style={{ padding: "16px 20px", borderBottom: "1px solid rgba(0,0,0,0.06)", display: "grid", gap: 14 }}>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 14, alignItems: "flex-end" }}>
+                  <div><label style={LBL}>Rechercher</label>
+                    <input type="text" placeholder="🔍 email…" value={search} onChange={e => setSearch(e.target.value)} style={{ ...INP, width: 190 }} /></div>
+                  <div><label style={LBL}>Inscrit depuis</label>
+                    <input type="date" value={dateFrom} onChange={e => setDateFrom(e.target.value)} style={{ ...INP, width: 160 }} /></div>
+                  <div><label style={LBL}>Jusqu&apos;au</label>
+                    <input type="date" value={dateTo} onChange={e => setDateTo(e.target.value)} style={{ ...INP, width: 160 }} /></div>
+                  <div><label style={LBL}>Statut</label>
+                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value as "active" | "all" | "unsub")} style={{ ...INP, width: 160, cursor: "pointer" }}>
+                      <option value="active">Actifs (ciblables)</option>
+                      <option value="all">Tous</option>
+                      <option value="unsub">Désabonnés</option>
+                    </select></div>
+                  <div><label style={LBL}>Achat</label>
+                    <select value={purchaseFilter} onChange={e => setPurchaseFilter(e.target.value as "all" | "ordered" | "never")} style={{ ...INP, width: 165, cursor: "pointer" }}>
+                      <option value="all">Tous</option>
+                      <option value="ordered">A déjà commandé</option>
+                      <option value="never">Jamais commandé</option>
+                    </select></div>
+                  <div><label style={LBL}>Trier</label>
+                    <div style={{ display: "flex", gap: 6 }}>
+                      <select value={sortKey} onChange={e => setSortKey(e.target.value as "email" | "date")} style={{ ...INP, width: 155, cursor: "pointer" }}>
+                        <option value="date">Date d&apos;inscription</option>
+                        <option value="email">Email (A→Z)</option>
+                      </select>
+                      <button onClick={() => setSortDir(d => d === "asc" ? "desc" : "asc")} title="Inverser le sens"
+                        style={{ ...INP, width: 46, cursor: "pointer", fontWeight: 800, textAlign: "center" }}>{sortDir === "asc" ? "↑" : "↓"}</button>
+                    </div></div>
+                </div>
+
+                {/* Sélection */}
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(0,0,0,0.06)" }}>
+                  <button onClick={selectAllFiltered} disabled={selectableEmails.length === 0}
+                    style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 13, cursor: selectableEmails.length === 0 ? "not-allowed" : "pointer", opacity: selectableEmails.length === 0 ? 0.5 : 1 }}>
+                    ☑︎ Cocher tous les résultats filtrés ({selectableEmails.length})
+                  </button>
+                  <button onClick={clearSelection} disabled={selected.size === 0}
+                    style={{ padding: "9px 16px", borderRadius: 10, border: "1px solid rgba(0,0,0,0.12)", background: "#fff", color: "#1a1410", fontWeight: 800, fontSize: 13, cursor: selected.size === 0 ? "not-allowed" : "pointer", opacity: selected.size === 0 ? 0.5 : 1 }}>
+                    Tout décocher
+                  </button>
+                  <span style={{ fontWeight: 900, fontSize: 14, color: selected.size > 0 ? "#c49a4a" : "rgba(26,20,16,0.4)" }}>
+                    {selected.size} destinataire{selected.size > 1 ? "s" : ""} sélectionné{selected.size > 1 ? "s" : ""}
+                  </span>
+                  <button onClick={() => doSend([...selected])} disabled={sending || selected.size === 0}
+                    style={{ marginLeft: "auto", padding: "11px 22px", borderRadius: 10, background: "#c49a4a", color: "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: (sending || selected.size === 0) ? "not-allowed" : "pointer", opacity: (sending || selected.size === 0) ? 0.5 : 1 }}>
+                    {sending ? "Envoi…" : `📤 Envoyer à la sélection (${selected.size})`}
+                  </button>
+                </div>
               </div>
 
               {/* Table */}
-              <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                <thead>
-                  <tr style={{ background: "#f9f7f4" }}>
-                    {["Email", "Source", "Promo", "Statut", "Date"].map(h => (
-                      <th key={h} style={{ padding: "13px 20px", textAlign: "left", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "2px solid rgba(0,0,0,0.07)" }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {filtered.map((s, i) => (
-                    <tr key={s.id}
-                      style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none" }}
-                      onMouseEnter={e => (e.currentTarget as HTMLTableRowElement).style.background = "#fafaf9"}
-                      onMouseLeave={e => (e.currentTarget as HTMLTableRowElement).style.background = ""}
-                    >
-                      <td style={{ padding: "13px 20px", fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{s.email}</td>
-                      <td style={{ padding: "13px 20px", fontSize: 13, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>{s.source ?? "—"}</td>
-                      <td style={{ padding: "13px 20px" }}>
-                        {s.promo_code ? (
-                          <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(196,154,74,0.12)", color: "#c49a4a", fontSize: 12, fontWeight: 800 }}>
-                            {s.promo_code}
-                          </span>
-                        ) : (
-                          <span style={{ color: "rgba(26,20,16,0.25)", fontSize: 13 }}>—</span>
-                        )}
-                      </td>
-                      <td style={{ padding: "13px 20px" }}>
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: s.active ? "#16a34a" : "#b91c1c" }}>
-                          <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.active ? "#16a34a" : "#b91c1c", display: "inline-block" }} />
-                          {s.active ? "Actif" : "Désabonné"}
-                        </span>
-                      </td>
-                      <td style={{ padding: "13px 20px", fontSize: 13, color: "rgba(26,20,16,0.45)", fontWeight: 600 }}>
-                        {new Date(s.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
-                      </td>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse" }}>
+                  <thead>
+                    <tr style={{ background: "#f9f7f4" }}>
+                      {["", "Email", "Commandé", "Source", "Promo", "Statut", "Inscription"].map((h, hi) => (
+                        <th key={hi} style={{ padding: "13px 20px", textAlign: "left", fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", borderBottom: "2px solid rgba(0,0,0,0.07)", whiteSpace: "nowrap" }}>
+                          {h}
+                        </th>
+                      ))}
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody>
+                    {filtered.map((s, i) => (
+                      <tr key={s.id} style={{ borderBottom: i < filtered.length - 1 ? "1px solid rgba(0,0,0,0.05)" : "none", background: selected.has(s.email) ? "rgba(196,154,74,0.06)" : undefined }}>
+                        <td style={{ padding: "13px 20px" }}>
+                          {/* Désabonné = JAMAIS de case (jamais ciblable). */}
+                          {s.active ? (
+                            <input type="checkbox" checked={selected.has(s.email)} onChange={() => toggleOne(s.email)}
+                              style={{ width: 17, height: 17, cursor: "pointer", accentColor: "#c49a4a" }} />
+                          ) : (
+                            <span style={{ color: "rgba(26,20,16,0.25)", fontSize: 13 }} title="Désabonné — non ciblable">🚫</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "13px 20px", fontWeight: 800, fontSize: 14, color: "#1a1410" }}>{s.email}</td>
+                        <td style={{ padding: "13px 20px" }}>
+                          {s.has_ordered
+                            ? <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(22,163,74,0.12)", color: "#16a34a", fontSize: 12, fontWeight: 800 }}>✓ Cliente</span>
+                            : <span style={{ color: "rgba(26,20,16,0.25)", fontSize: 13 }}>—</span>}
+                        </td>
+                        <td style={{ padding: "13px 20px", fontSize: 13, color: "rgba(26,20,16,0.5)", fontWeight: 600 }}>{s.source ?? "—"}</td>
+                        <td style={{ padding: "13px 20px" }}>
+                          {s.promo_code ? (
+                            <span style={{ padding: "3px 10px", borderRadius: 99, background: "rgba(196,154,74,0.12)", color: "#c49a4a", fontSize: 12, fontWeight: 800 }}>{s.promo_code}</span>
+                          ) : (
+                            <span style={{ color: "rgba(26,20,16,0.25)", fontSize: 13 }}>—</span>
+                          )}
+                        </td>
+                        <td style={{ padding: "13px 20px" }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13, fontWeight: 800, color: s.active ? "#16a34a" : "#b91c1c" }}>
+                            <span style={{ width: 8, height: 8, borderRadius: "50%", background: s.active ? "#16a34a" : "#b91c1c", display: "inline-block" }} />
+                            {s.active ? "Actif" : "Désabonné"}
+                          </span>
+                        </td>
+                        <td style={{ padding: "13px 20px", fontSize: 13, color: "rgba(26,20,16,0.45)", fontWeight: 600, whiteSpace: "nowrap" }}>
+                          {new Date(s.created_at).toLocaleDateString("fr-FR", { day: "2-digit", month: "short", year: "numeric" })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
 
-              {filtered.length === 0 && search && (
-                <div style={{ textAlign: "center", padding: "30px 20px", color: "rgba(26,20,16,0.35)", fontSize: 14 }}>
-                  Aucun résultat pour « {search} »
+              {filtered.length === 0 && (
+                <div style={{ textAlign: "center", padding: "40px 20px", color: "rgba(26,20,16,0.4)", fontSize: 14 }}>
+                  Aucun abonné ne correspond aux filtres — élargis la période ou change les critères.
                 </div>
               )}
 
               {/* Footer */}
-              <div style={{ padding: "12px 20px", background: "#f9f7f4", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600 }}>
-                {filtered.length} abonné{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""}
-                {search && ` sur ${total} au total`}
+              <div style={{ padding: "12px 20px", background: "#f9f7f4", borderTop: "1px solid rgba(0,0,0,0.06)", fontSize: 12, color: "rgba(26,20,16,0.4)", fontWeight: 600, display: "flex", justifyContent: "space-between", flexWrap: "wrap", gap: 8 }}>
+                <span>{filtered.length} abonné{filtered.length > 1 ? "s" : ""} affiché{filtered.length > 1 ? "s" : ""} sur {total} · {actifs} actif{actifs > 1 ? "s" : ""}</span>
+                {selected.size > 0 && <span style={{ color: "#c49a4a", fontWeight: 800 }}>{selected.size} sélectionné{selected.size > 1 ? "s" : ""}</span>}
               </div>
             </>
           )}

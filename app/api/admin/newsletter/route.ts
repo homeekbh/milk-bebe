@@ -33,15 +33,31 @@ export async function GET(req: Request) {
   }
 
   // Lecture des abonnés (service role → ignore RLS)
+  // ── Point B : « a déjà commandé » calculé ENTIÈREMENT CÔTÉ SQL ──────────────────
+  // La fonction RPC newsletter_subscribers_with_orders() renvoie chaque abonné + un
+  // booléen has_ordered = EXISTS(commande cliente pour cet email). TOUT le croisement
+  // est en SQL : lower(email) des DEUX côtés, classification='cliente' (NULL/'' = défaut
+  // projet, cf. lib/orders.classificationOf), hors is_internal_test ; un EXISTS PAR
+  // abonné = sondage indexé, JAMAIS un scan complet de la table orders. Le booléen
+  // vient donc de la requête — aucun croisement JS après chargement.
+  //
+  // ⚠️ LIMITE ASSUMÉE (rapprochement PAR EMAIL) : une cliente qui a commandé avec une
+  // adresse DIFFÉRENTE de son inscription newsletter apparaîtra « jamais commandé ».
+  // C'est une imprécision inhérente au croisement par email, pas un bug.
+  const { data: enriched, error: rpcErr } = await supabaseAdmin.rpc("newsletter_subscribers_with_orders");
+  if (!rpcErr && Array.isArray(enriched)) {
+    return NextResponse.json({ subscribers: enriched });
+  }
+
+  // Fallback : fonction RPC pas encore créée (SQL non exécuté) → liste SANS has_ordered.
+  // La page fonctionne ; la colonne « Commandé » reste « — » jusqu'à création de la fonction.
   const { data, error } = await supabaseAdmin
     .from("newsletter_subscribers")
     .select("id, email, source, promo_code, created_at, active, unsubscribe_token")
     .order("created_at", { ascending: false });
-
   if (error) {
     console.error("[newsletter] Supabase error:", error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
-
   return NextResponse.json({ subscribers: data ?? [] });
 }

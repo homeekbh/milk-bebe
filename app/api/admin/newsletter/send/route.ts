@@ -6,6 +6,12 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { Resend } from "resend";
 import { supabaseServer } from "@/lib/server/supabase";
 
+// Un gros envoi = plusieurs tranches de 100 + retries/backoff → peut dépasser la
+// limite par défaut (~10s Hobby) et timeouter EN PLEIN BATCH. On élargit la fenêtre
+// (comme /api/emails/relance) pour que la boucle aille au bout. L'idempotence Resend
+// protège déjà d'un doublon si un retry survenait malgré tout.
+export const maxDuration = 60;
+
 function escapeHtml(s: string): string {
   return String(s ?? "")
     .replace(/&/g, "&amp;")
@@ -29,9 +35,22 @@ export async function POST(req: NextRequest) {
   const auth = await requireAdmin(req);
   if (!auth.ok) return auth.response;
 
-  const { subject, html, preview_text } = await req.json();
+  const { subject, html, preview_text, emails } = await req.json();
   if (!subject || !html) {
     return NextResponse.json({ error: "subject et html requis" }, { status: 400 });
+  }
+
+  // Sélection ciblée (optionnelle) : liste d'emails cochés dans l'admin. Normalisée
+  // (minuscules), DÉDUPLIQUÉE (une personne présente 2× = un seul message) et bornée.
+  // Absente/non-fournie → envoi GLOBAL (tous les actifs), comportement inchangé.
+  const selection = Array.isArray(emails)
+    ? [...new Set(emails.map((e: any) => String(e ?? "").toLowerCase().trim()).filter(Boolean))]
+    : null;
+  if (selection && selection.length === 0) {
+    return NextResponse.json({ error: "Sélection vide" }, { status: 400 });
+  }
+  if (selection && selection.length > 5000) {
+    return NextResponse.json({ error: "Sélection trop large (max 5000)" }, { status: 400 });
   }
 
   const supabase = createClient(
@@ -40,14 +59,20 @@ export async function POST(req: NextRequest) {
     { auth: { persistSession: false } }
   );
 
-  const { data: subscribers, error } = await supabase
+  // ⚠️ CHEMIN SÉCURISÉ UNIQUE : le filtre .eq("active", true) est TOUJOURS appliqué.
+  // La sélection ne fait que RESTREINDRE (.in) ce même set → un abonné désabonné
+  // ENTRE-TEMPS, même s'il est coché, est exclu AU MOMENT DE L'ENVOI. Aucun second
+  // chemin, aucun court-circuit des garde-fous (batch/throttle/tokens ci-dessous).
+  let subsQuery = supabase
     .from("newsletter_subscribers")
     .select("email, unsubscribe_token")
     .eq("active", true);
+  if (selection) subsQuery = subsQuery.in("email", selection);
+  const { data: subscribers, error } = await subsQuery;
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!subscribers?.length) {
-    return NextResponse.json({ error: "Aucun abonné actif" }, { status: 400 });
+    return NextResponse.json({ error: selection ? "Aucun destinataire actif dans la sélection" : "Aucun abonné actif" }, { status: 400 });
   }
 
   const resend = new Resend(process.env.RESEND_API_KEY);

@@ -1141,7 +1141,7 @@
       },
       {
         "q": "How do I choose the right M!LK size?",
-        "a": "Newborn: up to 3 kg. 0-3 months: 3 to 6 kg. 3-6 months: 6 to 9 kg. If in doubt, size up."
+        "a": "Newborn: 3.0-3.5 kg. 0-3 months: ~3.5-6.5 kg. 3-6 months: ~6-8 kg. If in doubt, size up."
       },
       {
         "q": "Which payment methods do you accept?",
@@ -1188,8 +1188,8 @@
       {
         "section": "Sizes & products",
         "questions": [
-          { "q": "How do I choose the right size?", "r": "Newborn: up to ~3 kg. 0-3 months: 3 to 6 kg. 3-6 months: 6 to 9 kg. When in doubt, go one size up — bamboo adapts. Size charts are available on every product page." },
-          { "q": "Is M!LK clothing suitable for premature babies?", "r": "Our sizes start at Newborn (up to 3 kg). For premature babies, contact us — we have advice based on birth weight." },
+          { "q": "How do I choose the right size?", "r": "Newborn: 3.0-3.5 kg. 0-3 months: ~3.5-6.5 kg. 3-6 months: ~6-8 kg. When in doubt, go one size up — bamboo adapts. Size charts are available on every product page." },
+          { "q": "Is M!LK clothing suitable for premature babies?", "r": "Our sizes start at Newborn (from ~3 kg). For premature babies, contact us — we have advice based on birth weight." },
           { "q": "How are M!LK products made?", "r": "Our essentials are designed with care for the details that matter: smart openings, silent closures, flat anti-chafing seams, built-in mittens. Every product solves a real problem for an exhausted parent." },
           { "q": "Are the patterns available in all sizes?", "r": "Yes. All our patterns (Lightning, Smileys, Checkerboard) are available in every size, while stocks last. Stock is limited — if it's sold out, you can set a restock alert." }
         ]

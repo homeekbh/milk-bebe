@@ -1141,7 +1141,7 @@
       },
       {
         "q": "Comment choisir la bonne taille M!LK ?",
-        "a": "Naissance : jusqu'à 3 kg. 0-3 mois : 3 à 6 kg. 3-6 mois : 6 à 9 kg. En cas de doute, prenez la taille au-dessus."
+        "a": "Naissance : 3,0-3,5 kg. 0-3 mois : ~3,5-6,5 kg. 3-6 mois : ~6-8 kg. En cas de doute, prenez la taille au-dessus."
       },
       {
         "q": "Quels moyens de paiement acceptez-vous ?",
@@ -1188,8 +1188,8 @@
       {
         "section": "Tailles & produits",
         "questions": [
-          { "q": "Comment choisir la bonne taille ?", "r": "Naissance : jusqu'à 3 kg env. 0-3 mois : 3 à 6 kg. 3-6 mois : 6 à 9 kg. En cas de doute, prenez la taille au-dessus — le bambou s'adapte. Les tableaux de taille sont disponibles sur chaque fiche produit." },
-          { "q": "Les vêtements M!LK conviennent-ils aux prématurés ?", "r": "Nos tailles commencent à la taille Naissance (jusqu'à 3 kg). Pour les prématurés, contactez-nous — nous avons des conseils selon le poids de naissance." },
+          { "q": "Comment choisir la bonne taille ?", "r": "Naissance : 3,0-3,5 kg. 0-3 mois : ~3,5-6,5 kg. 3-6 mois : ~6-8 kg. En cas de doute, prenez la taille au-dessus — le bambou s'adapte. Les tableaux de taille sont disponibles sur chaque fiche produit." },
+          { "q": "Les vêtements M!LK conviennent-ils aux prématurés ?", "r": "Nos tailles commencent à la taille Naissance (dès ~3 kg). Pour les prématurés, contactez-nous — nous avons des conseils selon le poids de naissance." },
           { "q": "Comment sont fabriqués les produits M!LK ?", "r": "Nos essentiels sont conçus avec une attention particulière aux détails qui comptent : ouvertures intelligentes, fermetures silencieuses, coutures plates anti-frottement, moufles intégrées. Chaque produit répond à un problème réel de parent épuisé." },
           { "q": "Les motifs sont-ils disponibles dans toutes les tailles ?", "r": "Oui. Tous nos motifs (Éclair, Smileys, Damier) sont disponibles dans toutes les tailles, tant qu'il y a du stock. Les stocks sont limités — en cas de rupture, vous pouvez activer une alerte réassort." }
         ]

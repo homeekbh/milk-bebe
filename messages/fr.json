@@ -85,7 +85,7 @@
       },
       {
         "q": "Comment choisir la bonne taille de gigoteuse ?",
-        "r": "Le tissu bambou stretch est extrêmement extensible. Si tu hésites entre deux tailles, prends la plus grande pour prolonger l'usage. Les gigoteuses M!LK sont disponibles en Nouveau-né (0-1 mois) et 0-3 mois."
+        "r": "Pas de casse-tête : la gigoteuse M!LK existe en taille unique 0-6 mois. Le système à nouer s'ajuste à la croissance de bébé, de la naissance jusqu'à 6 mois — une seule taille couvre les premiers mois."
       }
     ]
   },
@@ -345,7 +345,7 @@
     "ticker5": "✦ Retour sous 14 jours",
     "ticker6": "✦ Antibactérien naturel",
     "ticker7": "✦ Bodies · Pyjamas · Gigoteuses",
-    "hero_tags": ["Nouveau-né", "0-3 mois", "3-6 mois"],
+    "hero_tags": ["Naissance", "0-3 mois", "3-6 mois"],
     "hero_h1_l1": "L'essentiel.",
     "hero_h1_l2": "Sans compromis.",
     "hero_sub": "Des essentiels bébé en bambou certifié OEKO-TEX. Pensés pour réduire les galères du quotidien — pas pour faire joli en photo.",
@@ -1015,7 +1015,7 @@
     "pwd_hide": "Masquer le mot de passe"
   },
   "sizes": {
-    "newborn": "Nouveau-né",
+    "newborn": "Naissance",
     "0_3": "0-3 mois",
     "3_6": "3-6 mois"
   },
@@ -1141,7 +1141,7 @@
       },
       {
         "q": "Comment choisir la bonne taille M!LK ?",
-        "a": "Nouveau-né : jusqu'à 3 kg. 0-3 mois : 3 à 6 kg. 3-6 mois : 6 à 9 kg. En cas de doute, prenez la taille au-dessus."
+        "a": "Naissance : jusqu'à 3 kg. 0-3 mois : 3 à 6 kg. 3-6 mois : 6 à 9 kg. En cas de doute, prenez la taille au-dessus."
       },
       {
         "q": "Quels moyens de paiement acceptez-vous ?",
@@ -1188,8 +1188,8 @@
       {
         "section": "Tailles & produits",
         "questions": [
-          { "q": "Comment choisir la bonne taille ?", "r": "Nouveau-né : jusqu'à 3 kg env. 0-3 mois : 3 à 6 kg. 3-6 mois : 6 à 9 kg. En cas de doute, prenez la taille au-dessus — le bambou s'adapte. Les tableaux de taille sont disponibles sur chaque fiche produit." },
-          { "q": "Les vêtements M!LK conviennent-ils aux prématurés ?", "r": "Nos tailles commencent à Nouveau-né (jusqu'à 3 kg). Pour les prématurés, contactez-nous — nous avons des conseils selon le poids de naissance." },
+          { "q": "Comment choisir la bonne taille ?", "r": "Naissance : jusqu'à 3 kg env. 0-3 mois : 3 à 6 kg. 3-6 mois : 6 à 9 kg. En cas de doute, prenez la taille au-dessus — le bambou s'adapte. Les tableaux de taille sont disponibles sur chaque fiche produit." },
+          { "q": "Les vêtements M!LK conviennent-ils aux prématurés ?", "r": "Nos tailles commencent à la taille Naissance (jusqu'à 3 kg). Pour les prématurés, contactez-nous — nous avons des conseils selon le poids de naissance." },
           { "q": "Comment sont fabriqués les produits M!LK ?", "r": "Nos essentiels sont conçus avec une attention particulière aux détails qui comptent : ouvertures intelligentes, fermetures silencieuses, coutures plates anti-frottement, moufles intégrées. Chaque produit répond à un problème réel de parent épuisé." },
           { "q": "Les motifs sont-ils disponibles dans toutes les tailles ?", "r": "Oui. Tous nos motifs (Éclair, Smileys, Damier) sont disponibles dans toutes les tailles, tant qu'il y a du stock. Les stocks sont limités — en cas de rupture, vous pouvez activer une alerte réassort." }
         ]

@@ -106,7 +106,7 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
       seoTitle: "Pyjama bébé bambou OEKO-TEX — Grenouillère nourrisson ultra-douce 0-6 mois",
       seoDesc:  "En bambou certifié OEKO-TEX, thermorégulant pour des nuits sereines. Double zip inversé pour changer sans réveiller bébé. Livraison offerte dès 60€.",
       keywords: ["pyjama bébé", "pyjama nourrisson", "grenouillère bébé", "grenouillère nourrisson", "pyjama bambou bébé", "pyjama bébé doux", "pyjama bébé OEKO-TEX", "pyjama bébé 0-3 mois", "turbulette pyjama"],
-      h1: "Pyjamas bébé bambou",
+      h1: "Pyjamas & grenouillères bébé en bambou",
     },
     en: {
       seoTitle: "Baby Pyjamas OEKO-TEX Bamboo — Ultra-soft Newborn Sleepsuits 0-6 months",

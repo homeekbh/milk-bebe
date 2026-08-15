@@ -14,7 +14,7 @@ async function logActivity(type: string, message: string, opts?: { entity_name?:
 
 // ── Logger d'activité ──────────────────────────────────────────────────────────
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 // Helper inline — lit le token Supabase depuis localStorage
 function adminFetch(url: string, options: RequestInit = {}) {
   let token = "";
@@ -333,6 +333,15 @@ export default function AdminCommandes() {
 
   // Modale envoi instructions de retour au client
   const [returnEmailModal, setReturnEmailModal] = useState<{ orderId: string; previewHtml: string; customMessage: string; sending: boolean } | null>(null);
+
+  // Modale message libre au client (objet + corps pilotables)
+  const [messageModal, setMessageModal] = useState<{ orderId: string; previewHtml: string; subject: string; message: string; sending: boolean } | null>(null);
+  // Timer de debounce pour l'aperçu du message libre — un seul appel réseau après la pause,
+  // pas un par frappe (deux champs = trop d'appels sinon).
+  const messagePreviewTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Nettoyage au démontage (navigation avec modale ouverte) : évite un setState post-unmount
+  // et un fetch d'aperçu qui part dans le vide.
+  useEffect(() => () => { if (messagePreviewTimer.current) clearTimeout(messagePreviewTimer.current); }, []);
 
   // Modale "Annuler + Rembourser Stripe" (action IRRÉVERSIBLE)
   const [refundModal, setRefundModal] = useState<{ orderId: string; amount: number; reason: string; customMessage: string; sending: boolean; mode: "full" | "partial" } | null>(null);
@@ -845,6 +854,91 @@ export default function AdminCommandes() {
     alert("Instructions de retour envoyées au client");
   }
 
+  // ── Message libre au client (objet + corps pilotables) ─────────────────────
+  //    Calque sur le flux retour ci-dessus, avec deux champs (objet + message)
+  //    et un aperçu réseau DEBOUNCÉ. Envoi répétable : aucun marqueur, aucune colonne.
+  async function buildMessagePreview(order: Order, subject: string, message: string): Promise<string> {
+    try {
+      const res = await adminFetch("/api/emails/message", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          email:        order.customer_email,
+          prenom:       order.customer_name?.split(" ")[0] ?? "",
+          order_number: order.id,
+          subject,
+          message,
+          preview:      true,
+        }),
+      });
+      if (!res.ok) return `<p style="padding:20px;color:#b91c1c">Erreur génération aperçu (${res.status})</p>`;
+      return await res.text();
+    } catch (e: any) {
+      return `<p style="padding:20px;color:#b91c1c">Erreur réseau: ${e?.message ?? "inconnue"}</p>`;
+    }
+  }
+
+  async function openMessageModal(order: Order) {
+    const subject = "Votre commande M!LK";
+    const previewHtml = await buildMessagePreview(order, subject, "");
+    setMessageModal({ orderId: order.id, previewHtml, subject, message: "", sending: false });
+  }
+
+  // MàJ immédiate des champs (inputs contrôlés) ; SEUL l'appel réseau d'aperçu est différé de 400 ms.
+  function refreshMessagePreview(subject: string, message: string) {
+    setMessageModal(s => s ? { ...s, subject, message } : null);
+    const orderId = messageModal?.orderId;
+    if (!orderId) return;
+    if (messagePreviewTimer.current) clearTimeout(messagePreviewTimer.current);
+    messagePreviewTimer.current = setTimeout(async () => {
+      const order = orders.find(o => o.id === orderId);
+      if (!order) return;
+      const previewHtml = await buildMessagePreview(order, subject, message);
+      // Fusion fonctionnelle : ne pas écraser ce que l'admin a tapé depuis.
+      setMessageModal(s => s ? { ...s, previewHtml } : null);
+    }, 400);
+  }
+
+  async function sendCustomMessage() {
+    if (!messageModal) return;
+    const order = orders.find(o => o.id === messageModal.orderId);
+    if (!order) return;
+    const subject = messageModal.subject.trim();
+    const message = messageModal.message.trim();
+    if (!subject || !message) { alert("Objet et message sont obligatoires."); return; }
+    if (messageModal.sending) return; // garde double-clic
+    setMessageModal({ ...messageModal, sending: true });
+    const res = await adminFetch("/api/emails/message", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        email:        order.customer_email,
+        prenom:       order.customer_name?.split(" ")[0] ?? "",
+        order_number: order.id,
+        subject,
+        message,
+      }),
+    });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}));
+      alert(`Erreur envoi email: ${err.error ?? `HTTP ${res.status}`}`);
+      setMessageModal({ ...messageModal, sending: false });
+      return;
+    }
+    // Wrapper CLIENT (page.tsx:5) — signature sans meta. Type en order_ (aligné sur
+    // order_cancel_email_sent / order_shipped). Aucun marqueur notes, aucune colonne DB.
+    await logActivity("order_custom_email_sent", `Message libre envoyé à ${order.customer_email}`, { entity_id: order.id });
+    closeMessageModal();
+    alert("Message envoyé au client");
+  }
+
+  // Fermeture centralisée : annule le timer d'aperçu EN ATTENTE avant de fermer,
+  // pour ne pas laisser partir un fetch d'aperçu inutile après la fermeture.
+  function closeMessageModal() {
+    if (messagePreviewTimer.current) { clearTimeout(messagePreviewTimer.current); messagePreviewTimer.current = null; }
+    setMessageModal(null);
+  }
+
   // L'ancien handleShip envoyait l'email auto. Maintenant openShipModal ouvre une modale
   // avec preview + champ message + 2 boutons (envoyer / sans email).
 
@@ -1285,6 +1379,16 @@ export default function AdminCommandes() {
                           </button>
                         </div>
                         )}
+
+                        {/* Écrire au client — HORS de la garde shipping_status : reste utilisable même annulée */}
+                        <div style={{ display: "grid", marginTop: 10 }}>
+                          <button
+                            onClick={() => openMessageModal(order)}
+                            style={{ padding: "12px 16px", borderRadius: 12, background: "#fef3c7", color: "#92400e", fontWeight: 800, fontSize: 13, border: "2px solid #fde68a", cursor: "pointer", display: "flex", alignItems: "center", justifyContent: "center", gap: 6 }}
+                          >
+                            ✉️ Écrire au client
+                          </button>
+                        </div>
                       </div>
 
                       {/* Colonne droite — expédition (masquée si annulée) */}
@@ -1982,6 +2086,87 @@ export default function AdminCommandes() {
                 <button
                   onClick={() => setReturnEmailModal(null)}
                   disabled={returnEmailModal.sending}
+                  style={{ padding: "10px 18px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
+                >
+                  Annuler
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ══ MODALE 5 — MESSAGE LIBRE AU CLIENT ══ */}
+      {messageModal && (
+        <div
+          onClick={() => !messageModal.sending && closeMessageModal()}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}
+        >
+          <div
+            onClick={e => e.stopPropagation()}
+            style={{ background: "#fff", borderRadius: 18, maxWidth: 900, width: "100%", maxHeight: "90vh", overflow: "auto", padding: 32 }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 22, fontWeight: 950, color: "#1a1410" }}>Écrire au client</h2>
+                <p style={{ margin: "6px 0 0", fontSize: 13, color: "rgba(26,20,16,0.5)" }}>Objet + message libres · Email transactionnel signé M!LK · légitimement répétable</p>
+              </div>
+              <button onClick={() => !messageModal.sending && closeMessageModal()} style={{ background: "none", border: "none", fontSize: 24, cursor: "pointer", color: "rgba(26,20,16,0.4)" }}>×</button>
+            </div>
+
+            <div style={{ display: "grid", gridTemplateColumns: narrow ? "1fr" : "1fr 1fr", gap: 20 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.4)", marginBottom: 8 }}>Aperçu de l'email</div>
+                <iframe
+                  srcDoc={messageModal.previewHtml}
+                  style={{ width: "100%", height: 480, border: "1px solid rgba(0,0,0,0.1)", borderRadius: 10, background: "#fff" }}
+                  title="Aperçu email message"
+                />
+              </div>
+
+              <div style={{ display: "grid", gap: 14, alignContent: "start" }}>
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", display: "block", marginBottom: 6 }}>
+                    Objet de l'email
+                  </label>
+                  <input
+                    type="text"
+                    value={messageModal.subject}
+                    onChange={e => refreshMessagePreview(e.target.value, messageModal.message)}
+                    maxLength={150}
+                    placeholder="Votre commande M!LK"
+                    style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ fontSize: 11, fontWeight: 800, letterSpacing: 1, textTransform: "uppercase", color: "rgba(26,20,16,0.45)", display: "block", marginBottom: 6 }}>
+                    Message
+                  </label>
+                  <textarea
+                    value={messageModal.message}
+                    onChange={e => refreshMessagePreview(messageModal.subject, e.target.value)}
+                    placeholder="Bonjour, ..."
+                    rows={10}
+                    maxLength={5000}
+                    style={{ width: "100%", padding: "11px 14px", borderRadius: 10, border: "2px solid rgba(0,0,0,0.08)", fontSize: 14, fontWeight: 600, outline: "none", background: "#fff", resize: "vertical", fontFamily: "inherit", boxSizing: "border-box" }}
+                  />
+                  <div style={{ fontSize: 11, color: "rgba(26,20,16,0.45)", textAlign: "right", marginTop: 4 }}>
+                    {messageModal.message.length} / 5000
+                  </div>
+                </div>
+
+                <button
+                  onClick={() => sendCustomMessage()}
+                  disabled={messageModal.sending || !messageModal.subject.trim() || !messageModal.message.trim()}
+                  style={{ padding: "14px 18px", borderRadius: 12, background: (messageModal.sending || !messageModal.subject.trim() || !messageModal.message.trim()) ? "#e5e7eb" : "#c49a4a", color: (messageModal.sending || !messageModal.subject.trim() || !messageModal.message.trim()) ? "#9ca3af" : "#1a1410", fontWeight: 900, fontSize: 14, border: "none", cursor: (messageModal.sending || !messageModal.subject.trim() || !messageModal.message.trim()) ? "not-allowed" : "pointer" }}
+                >
+                  {messageModal.sending ? "⏳ Envoi..." : "✉️ Envoyer au client"}
+                </button>
+
+                <button
+                  onClick={() => closeMessageModal()}
+                  disabled={messageModal.sending}
                   style={{ padding: "10px 18px", borderRadius: 10, background: "transparent", color: "rgba(26,20,16,0.5)", fontWeight: 700, fontSize: 13, border: "none", cursor: "pointer" }}
                 >
                   Annuler

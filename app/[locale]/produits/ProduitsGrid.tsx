@@ -263,7 +263,9 @@ export default function ProduitsGrid({ products, title, subtitle, defaultCategor
         /* Pastille produit (Lot D) — composant partagé ProductBadge, classe .milk-badge.
            Animation « respiration » définie une seule fois via BADGE_KEYFRAMES (source unique). */
         ${BADGE_KEYFRAMES}
-        /* Carte promo déjà animée (shake) → on coupe la respiration de sa pastille (pas de double mouvement). */
+        /* Carte promo : sa pastille reste figée (respiration BADGE_KEYFRAMES coupée). L'ancien
+           « shake » de la carte a été retiré au lot D (cf. l.18) ; on garde la pastille immobile
+           pour ne pas réintroduire de mouvement superflu sur la palette sobre. */
         .pcard-promo .milk-badge { animation: none !important; }
 
         /* ── Lot 4b : « Nos packs » = une OFFRE, pas un filtre ───────────────────────

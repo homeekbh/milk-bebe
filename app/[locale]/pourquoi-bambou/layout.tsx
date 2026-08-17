@@ -14,7 +14,6 @@ export async function generateMetadata({
   return {
     title: t("meta_title"),
     description: t("meta_description"),
-    keywords: t.raw("keywords") as string[],
     openGraph: {
       title:       t("og_title"),
       description: t("og_description"),

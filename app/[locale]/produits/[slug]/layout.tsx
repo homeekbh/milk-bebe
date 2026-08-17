@@ -62,19 +62,12 @@ export async function generateMetadata(
 
   const url = `${BASE}/${locale}/produits/${product.slug}`;
 
-  // Mots-clés : génériques de la catégorie + signaux marque/matière.
-  const keywords = [
-    ...(t.has(`cat_keywords.${catSlug}`) ? (t.raw(`cat_keywords.${catSlug}`) as string[]) : []),
-    ...(t.raw("base_keywords") as string[]),
-  ];
-
   // NB : le BreadcrumbList JSON-LD est désormais émis comme VRAI <script> via
   // getBreadcrumbLd()/<JsonLd> dans le layout (avant : `other:{script:breadcrumb}`
   // → rendu en <meta name="script:breadcrumb">, non reconnu par Google).
   return {
     title,
     description,
-    keywords,
     openGraph: {
       title,
       description,

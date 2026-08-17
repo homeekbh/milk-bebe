@@ -12,7 +12,7 @@ const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 // checkout, donc 120s de fraîcheur sur la liste est sans risque.
 export const revalidate = 120;
 
-// generateMetadata dynamique : titles/desc/keywords localisés FR/EN + hreflang
+// generateMetadata dynamique : titles/desc localisés FR/EN + hreflang
 // via getAlternates (même mécanisme www + x-default que le reste du site).
 export async function generateMetadata(
   { params }: { params: Promise<{ locale: string }> }
@@ -28,9 +28,6 @@ export async function generateMetadata(
   return {
     title,
     description,
-    keywords: isFR
-      ? ["pyjama bébé", "body bébé", "gigoteuse bébé", "turbulette bébé", "grenouillère bébé", "vêtement bébé bambou", "pyjama nourrisson", "body nourrisson", "gigoteuse nourrisson", "vêtement bébé OEKO-TEX", "layette bébé bambou"]
-      : ["baby pyjamas", "baby bodysuits", "baby sleep bags", "bamboo baby clothes", "OEKO-TEX baby", "newborn clothes"],
     alternates: getAlternates(locale, "/produits"),
     openGraph: {
       title,

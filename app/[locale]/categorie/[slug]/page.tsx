@@ -120,13 +120,13 @@ const CATEGORY_SEO: Record<string, { fr: { seoTitle: string; seoDesc: string; ke
       seoTitle: "Gigoteuse & turbulette bébé bambou 0-6 mois",
       seoDesc:  "Gigoteuse bébé en bambou OEKO-TEX, douce et thermorégulante. Turbulette évolutive à nouer, s'ajuste à la croissance de bébé. Naissance à 6 mois.",
       keywords: ["gigoteuse bébé", "turbulette bébé", "gigoteuse nourrisson", "turbulette nourrisson", "gigoteuse bambou", "gigoteuse 0-3 mois", "gigoteuse à nouer", "turbulette 0-3 mois", "gigoteuse bébé respirante", "gigoteuse sans bouton"],
-      h1: "Gigoteuses & turbulettes bébé en bambou",
+      h1: "Gigoteuses à nouer bébé en bambou — 0 à 6 mois",
     },
     en: {
       seoTitle: "Baby Sleep Bags OEKO-TEX Bamboo — Newborn Sleep Sack 0-3 months",
       seoDesc:  "OEKO-TEX certified bamboo baby sleep bags. Breathable newborn sleep sack, tie fastening. Zero snaps, easy night changes. Free delivery from €60.",
       keywords: ["baby sleep bag", "newborn sleep sack", "bamboo sleep bag", "baby sleeping bag 0-3 months"],
-      h1: "Tie-Up Baby Sleep Bags",
+      h1: "Tie-Up Baby Sleep Bags — 0 to 6 months",
     },
   },
   langes: {
@@ -178,7 +178,6 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title:       seo.seoTitle,
     description: seo.seoDesc,
-    keywords:    seo.keywords,
     alternates:  getAlternates(locale, `/categorie/${slug}`),
     openGraph: {
       title:       seo.seoTitle,

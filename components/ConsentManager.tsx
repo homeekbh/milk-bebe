@@ -31,7 +31,9 @@ import GTMScript from "@/components/analytics/GTMScript";
 import { readConsent, writeConsent, onOpenConsent, syncConsentCookie, type ConsentStatus } from "@/components/analytics/consent-store";
 import { isInternalTraffic } from "@/lib/internal-traffic";
 
-const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID;
+// `.trim()` défensif : la valeur Vercel de NEXT_PUBLIC_GA4_ID porte une tabulation en tête
+// (copier-coller) → "\tG-XZF6MRW395". Neutralisé ici pour ne pas polluer le src gtag ni config.
+const GA4_ID     = process.env.NEXT_PUBLIC_GA4_ID?.trim();
 const META_PIXEL = process.env.NEXT_PUBLIC_META_PIXEL_ID ?? "";
 
 type Status = ConsentStatus;

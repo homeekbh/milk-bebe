@@ -60,9 +60,13 @@ const nextConfig: NextConfig = {
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
       {
+        // ⚠️ Cache-Control RETIRÉ ici (lot durcissement 17/08). Il écrasait le header du Route
+        // Handler du flux et l'empêchait de gérer son cache PAR STATUT : 200 → max-age=3600 (1 h),
+        // 503 → no-store (anti-gel — un échec transitoire ne doit JAMAIS être figé 6 h en cache,
+        // sinon la panne devient invisible et persistante). Le handler pose maintenant son propre
+        // Cache-Control. On conserve uniquement le CORS.
         source: "/api/feed/(.*)",
         headers: [
-          { key: "Cache-Control",               value: "public, max-age=21600, s-maxage=21600" },
           { key: "Access-Control-Allow-Origin", value: "*" },
         ],
       },

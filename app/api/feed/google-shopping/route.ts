@@ -179,13 +179,19 @@ function packItemXml(opts: {
 
 export async function GET() {
   try {
-    const { data, error } = await supabaseServer
+    const { data: prodData, error: prodError } = await supabaseServer
       .from("products")
       .select("id, slug, name, description, price_ttc, promo_price, promo_start, promo_end, stock, category_slug, image_url, image_url_2, image_url_3, image_url_4, image_url_5, image_url_6, image_url_7, image_url_8, sizes, colors, weight_g, published")
       .eq("published", true)
       .order("position", { ascending: true });
 
-    const products = error ? [] : (data ?? []);
+    // ⚠️ La requête Supabase ne LÈVE PAS d'exception : elle renvoie { data, error }. Lire
+    // `error` est indispensable — sinon un échec (timeout, transitoire) passe en silence et le
+    // flux sort un catalogue tronqué en 200 (cf. régression 19→14 du 17/08). Un échec produits
+    // est le plus grave : 14 articles approuvés délistés si servi en 200.
+    const productsFailed = !!prodError;
+    if (productsFailed) console.error("[feed] ERREUR requête produits:", prodError!.message);
+    const products = prodData ?? [];
     const items: string[] = [];
 
     for (const p of products) {
@@ -261,17 +267,27 @@ export async function GET() {
       }
     }
 
+    // Nombre d'articles PRODUITS (avant la branche packs) — pour l'auto-déclaration et la
+    // détection d'un échec PARTIEL des packs.
+    const productItemCount = items.length;
+    let packsEmitted = 0;   // packs réellement écrits dans le flux
+    let activePacks  = 0;   // packs actifs lus en base (pour repérer un partiel)
+    let packsFailed  = false;
+
     // ── COFFRETS (packs) — branche dédiée. Structure DISTINCTE des produits :
     //    prix de référence = Σ price_ttc des composants (comme packSavings), sale_price =
     //    packs.price si économie ; disponibilité = SOURCE UNIQUE lib/pack-availability (même
     //    règle que la fiche pack) ; poids = Σ weight_g composants, OMIS si l'un manque.
-    //    try/catch : un échec packs ne doit JAMAIS casser les 14 articles produits approuvés.
+    //    ⚠️ On LIT `error` : une requête Supabase ne lève pas d'exception, elle renvoie
+    //    { data, error }. Sans ça, un échec passait en silence (régression 19→14 du 17/08).
     try {
-      const { data: packData } = await supabaseServer
+      const { data: packData, error: packError } = await supabaseServer
         .from("packs")
         .select("slug, title, description, price, image_url, active, pack_items ( position, product:products ( price_ttc, weight_g, sizes, sizes_stock, image_url ) )")
         .eq("active", true)
         .order("created_at", { ascending: false });
+      if (packError) { packsFailed = true; console.error("[feed] ERREUR requête packs:", packError.message); }
+      activePacks = (packData ?? []).length;
 
       for (const pk of (packData ?? []) as any[]) {
         const comps = (pk.pack_items ?? []).map((i: any) => i.product).filter(Boolean);
@@ -302,10 +318,28 @@ export async function GET() {
           weight,
           category:     "5622", // Ensembles pour bébés et tout-petits (coffret = ensemble de vêtements)
         }));
+        packsEmitted++;
       }
-    } catch {
-      // best-effort : packs optionnels, les 14 produits restent intacts.
+      // Échec PARTIEL : lecture OK mais moins de packs émis que d'actifs → anomalie de données
+      // (ex. pack sans composant). Bruyant, mais PAS 503 (la requête, elle, a réussi).
+      if (!packsFailed && packsEmitted < activePacks) {
+        console.error(`[feed] PACKS PARTIELS: ${packsEmitted}/${activePacks} packs actifs émis — certains ont été sautés`);
+      }
+    } catch (e: any) {
+      packsFailed = true;
+      console.error("[feed] BRANCHE PACKS — exception:", e?.message ?? e);
     }
+
+    // (C) DÉGRADÉ → 503 : un catalogue VIDE ou une requête EN ÉCHEC ne doivent JAMAIS être
+    // déclarés à Google en 200 (une récup réussie est AUTORITATIVE → Google RETIRE les articles
+    // absents). En 503, Google conserve sa dernière version valide et réessaie. Garde « zéro
+    // produit » incluse : un catalogue à 0 article n'est jamais un état légitime, quelle qu'en
+    // soit la cause (table vide, bascule du filtre published, échec silencieux).
+    const degraded = productsFailed || packsFailed || products.length === 0;
+
+    // Auto-déclaration : un humain ou un contrôle automatique voit le compte sans compter les
+    // balises. Présente aussi en 503 pour diagnostiquer.
+    const declaration = `  <!-- feed items: ${items.length} (${productItemCount} produits + ${packsEmitted} packs${degraded ? " — DEGRADED" : ""}) -->`;
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">
@@ -314,18 +348,33 @@ export async function GET() {
     <link>${BASE}/fr</link>
     <description>Bodies, Pyjamas, Gigoteuses et Langes nourrisson bambou certifié OEKO-TEX</description>
 ${items.join("\n")}
+${declaration}
   </channel>
 </rss>`;
 
+    const commonHeaders: Record<string, string> = {
+      "Content-Type":    "application/xml; charset=utf-8",
+      "X-Feed-Items":    String(items.length),
+      "X-Feed-Products": String(productItemCount),
+      "X-Feed-Packs":    String(packsEmitted),
+    };
+
+    if (degraded) {
+      console.error(`[feed] DÉGRADÉ → 503 · productsFailed=${productsFailed} packsFailed=${packsFailed} produits=${products.length} packs=${packsEmitted}/${activePacks}`);
+      // no-store : jamais figé → la récupération suivante réessaie et repasse à 19 (auto-guérison).
+      return new Response(xml, { status: 503, headers: { ...commonHeaders, "Cache-Control": "no-store" } });
+    }
+
+    // Nominal → cache 1 h. Merchant récupère 1×/jour ; l'ancien 6 h faisait servir un stock daté
+    // de 6 h (invisible 18:00→00:00). Flux peu coûteux, aucun consommateur tiers connu.
     return new Response(xml, {
       status: 200,
-      headers: {
-        "Content-Type":  "application/xml; charset=utf-8",
-        "Cache-Control": "public, max-age=21600, s-maxage=21600",
-      },
+      headers: { ...commonHeaders, "Cache-Control": "public, max-age=3600, s-maxage=3600" },
     });
   } catch (e: any) {
-    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n    <title>M!LK</title>\n    <link>${BASE}/fr</link>\n    <description>Flux temporairement indisponible</description>\n  </channel>\n</rss>`;
-    return new Response(xml, { status: 200, headers: { "Content-Type": "application/xml; charset=utf-8" } });
+    // Exception non prévue → 503 (JAMAIS un 200 vide, qui délisterait les 14 produits approuvés).
+    console.error("[feed] EXCEPTION GET:", e?.message ?? e);
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>\n<rss version="2.0" xmlns:g="http://base.google.com/ns/1.0">\n  <channel>\n    <title>M!LK</title>\n    <link>${BASE}/fr</link>\n    <description>Flux temporairement indisponible</description>\n    <!-- feed items: 0 — EXCEPTION -->\n  </channel>\n</rss>`;
+    return new Response(xml, { status: 503, headers: { "Content-Type": "application/xml; charset=utf-8", "Cache-Control": "no-store" } });
   }
 }

@@ -8,6 +8,11 @@ export interface PackProduct {
   slug?: string;
   price_ttc?: number;
   image_url?: string | null;
+  // Peuplés par le SELECT des packs (produits composants) — servent à la règle de
+  // disponibilité partagée (lib/pack-availability). Optionnels : absents des contextes
+  // qui ne les fetchent pas.
+  sizes?: string[] | null;
+  sizes_stock?: Record<string, number> | null;
 }
 export interface Pack {
   id: string;

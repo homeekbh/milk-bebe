@@ -1,5 +1,6 @@
 import { supabaseServer } from "@/lib/server/supabase";
 import { getDeliveryPrice } from "@/lib/delivery-config";
+import { isPackAvailable } from "@/lib/pack-availability";
 
 export const dynamic = "force-dynamic";
 
@@ -139,6 +140,43 @@ function itemXml(opts: {
     </item>`;
 }
 
+// Article COFFRET (pack) — structure DISTINCTE des produits : g:is_bundle, pas de couleur/
+// taille/item_group_id (article unique), et g:shipping_weight OMIS si le poids est inconnu
+// (jamais inventé). Fonction séparée pour ne rien changer au rendu des 14 produits.
+function packItemXml(opts: {
+  id: string; title: string; description: string; link: string; image: string;
+  additionalImages: string[]; price: string; salePrice?: string; availability: string;
+  weight?: string; category: string;
+}): string {
+  const extraImages = (opts.additionalImages ?? [])
+    .filter((u) => u && u !== opts.image)
+    .slice(0, 10)
+    .map((u) => `\n      <g:additional_image_link>${xmlEscape(u)}</g:additional_image_link>`)
+    .join("");
+  const weightLine = opts.weight ? `\n      <g:shipping_weight>${opts.weight}</g:shipping_weight>` : "";
+  return `    <item>
+      <g:id>${xmlEscape(opts.id)}</g:id>
+      <g:title>${xmlEscape(opts.title)}</g:title>
+      <g:description>${opts.description}</g:description>
+      <g:link>${xmlEscape(opts.link)}</g:link>
+      <g:image_link>${xmlEscape(opts.image)}</g:image_link>${extraImages}
+      <g:price>${opts.price}</g:price>${opts.salePrice ? `\n      <g:sale_price>${opts.salePrice}</g:sale_price>` : ""}
+      <g:availability>${opts.availability}</g:availability>
+      <g:brand>M!LK</g:brand>
+      <g:condition>new</g:condition>
+      <g:age_group>infant</g:age_group>
+      <g:gender>unisex</g:gender>
+      <g:is_bundle>yes</g:is_bundle>
+      <g:google_product_category>${opts.category}</g:google_product_category>
+      <g:identifier_exists>no</g:identifier_exists>
+      <g:shipping>
+        <g:country>FR</g:country>
+        <g:service>Colissimo / Mondial Relay</g:service>
+        <g:price>${FEED_SHIPPING_EUR} EUR</g:price>
+      </g:shipping>${weightLine}
+    </item>`;
+}
+
 export async function GET() {
   try {
     const { data, error } = await supabaseServer
@@ -221,6 +259,52 @@ export async function GET() {
           category:     googleCategoryFor(p.slug),
         }));
       }
+    }
+
+    // ── COFFRETS (packs) — branche dédiée. Structure DISTINCTE des produits :
+    //    prix de référence = Σ price_ttc des composants (comme packSavings), sale_price =
+    //    packs.price si économie ; disponibilité = SOURCE UNIQUE lib/pack-availability (même
+    //    règle que la fiche pack) ; poids = Σ weight_g composants, OMIS si l'un manque.
+    //    try/catch : un échec packs ne doit JAMAIS casser les 14 articles produits approuvés.
+    try {
+      const { data: packData } = await supabaseServer
+        .from("packs")
+        .select("slug, title, description, price, image_url, active, pack_items ( position, product:products ( price_ttc, weight_g, sizes, sizes_stock, image_url ) )")
+        .eq("active", true)
+        .order("created_at", { ascending: false });
+
+      for (const pk of (packData ?? []) as any[]) {
+        const comps = (pk.pack_items ?? []).map((i: any) => i.product).filter(Boolean);
+        if (comps.length === 0) continue;
+        const refPrice   = comps.reduce((s: number, c: any) => s + (Number(c.price_ttc) || 0), 0);
+        const effective  = Number(pk.price) || 0;
+        const hasSavings = refPrice > effective + 0.001;
+        // Prix barré : g:price = référence (Σ), g:sale_price = prix effectif si économie.
+        const priceStr   = money(hasSavings ? refPrice : effective);
+        const salePrice  = hasSavings ? money(effective) : undefined;
+        const availability = isPackAvailable(comps) ? "in_stock" : "out_of_stock";
+        // Poids : Σ weight_g composants ; UN SEUL composant sans poids valide → attribut OMIS.
+        const weightsOk  = comps.every((c: any) => Number.isFinite(Number(c.weight_g)) && Number(c.weight_g) > 0);
+        const weight     = weightsOk ? shippingWeight(comps.reduce((s: number, c: any) => s + Number(c.weight_g), 0)) : undefined;
+        // Images additionnelles = vraies photos des composants (image_url), dédupées, hors image principale.
+        const mainImage  = pk.image_url || FALLBACK_IMG;
+        const additionalImages = dedupExcluding(comps.map((c: any) => c.image_url).filter(Boolean), mainImage).slice(0, 10);
+        items.push(packItemXml({
+          id:           pk.slug,
+          title:        pk.title,
+          description:  cleanDesc(pk.description),
+          link:         `${BASE}/fr/packs/${pk.slug}`,
+          image:        mainImage,
+          additionalImages,
+          price:        priceStr,
+          salePrice,
+          availability,
+          weight,
+          category:     "5622", // Ensembles pour bébés et tout-petits (coffret = ensemble de vêtements)
+        }));
+      }
+    } catch {
+      // best-effort : packs optionnels, les 14 produits restent intacts.
     }
 
     const xml = `<?xml version="1.0" encoding="UTF-8"?>

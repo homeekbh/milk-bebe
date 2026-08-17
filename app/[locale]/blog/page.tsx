@@ -5,7 +5,7 @@ import { supabaseServer } from "@/lib/server/supabase";
 import { getAlternates } from "@/i18n/seo";
 import BeholdWidget from "@/components/blog/BeholdWidget";
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", cream: "#f2ede6", taupe: "#e9e1d4" };
 

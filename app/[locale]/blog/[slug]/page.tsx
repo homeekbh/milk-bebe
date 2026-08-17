@@ -9,7 +9,7 @@ import { getAlternates } from "@/i18n/seo";
 import { JsonLd } from "@/components/seo/JsonLd";
 import BeholdWidget from "@/components/blog/BeholdWidget";
 
-export const revalidate = 60;
+export const revalidate = 3600;
 
 const BASE = process.env.NEXT_PUBLIC_BASE_URL ?? "https://www.milkbebe.fr";
 

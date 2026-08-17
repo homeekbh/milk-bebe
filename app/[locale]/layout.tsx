@@ -83,17 +83,24 @@ export async function generateMetadata({
   },
 
   // ── Indexation ──────────────────────────────────────────────────────────────
-  robots: {
-    index:  true,
-    follow: true,
-    googleBot: {
-      index:               true,
-      follow:              true,
-      "max-video-preview": -1,
-      "max-image-preview": "large",
-      "max-snippet":       -1,
-    },
-  },
+  //   /en : noindex, follow (302 impressions / 0 clic sur 28 j, tendance dégradée, 16 pages
+  //   « détectée non indexée » + conflit de canonique). `follow: true` → les liens internes
+  //   continuent de transmettre leur valeur. Pages toujours servies (LangSwitcher en place).
+  //   /fr : indexation riche inchangée. Cascade vers les pages enfant qui ne redéfinissent
+  //   pas `robots` (seul profil/layout pose le sien).
+  robots: locale === "en"
+    ? { index: false, follow: true, googleBot: { index: false, follow: true } }
+    : {
+        index:  true,
+        follow: true,
+        googleBot: {
+          index:               true,
+          follow:              true,
+          "max-video-preview": -1,
+          "max-image-preview": "large",
+          "max-snippet":       -1,
+        },
+      },
 
   // ── Canonique + hreflang (par locale) ───────────────────────────────────────
   alternates: getAlternates(locale),

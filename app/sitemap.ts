@@ -26,17 +26,19 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // SANS préfixe de locale). C'est l'URL qui négocie la langue du visiteur : 307 pour "/"
     // (volontaire, cf. proxy.ts), 301→/fr pour les autres chemins. x-default est une ALTERNATE
     // partagée par les deux <url> (fr, en) — jamais une nouvelle <loc> → le total reste à 128.
+    // /en RETIRÉ (lot 17/08, noindex) : plus aucune <url> /en ni alternate hreflang `en`.
+    // On n'émet que /fr ; x-default reste la racine de négociation (${BASE}${path}).
     const languages: Record<string, string> = {
-      ...Object.fromEntries(locales.map((l) => [l, `${BASE}/${l}${path}`])),
+      fr: `${BASE}/fr${path}`,
       "x-default": `${BASE}${path}`,
     };
-    return locales.map((locale) => ({
-      url: `${BASE}/${locale}${path}`,
+    return [{
+      url: `${BASE}/fr${path}`,
       lastModified,
       changeFrequency,
       priority,
       alternates: { languages },
-    }));
+    }];
   };
 
   const staticPages: MetadataRoute.Sitemap = [

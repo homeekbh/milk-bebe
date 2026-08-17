@@ -6,9 +6,11 @@ export function getAlternates(locale: string, path = "") {
   const p = path === "/" ? "" : path;
   return {
     canonical: `${BASE}/${locale}${p}`,
+    // hreflang `en` RETIRÉ (lot 17/08) : /en passe en noindex → déclarer un hreflang vers une
+    // page qu'on demande à Google de ne pas indexer est incohérent (et entretenait le conflit
+    // de canonique sur /en/avis-clients). On garde fr + x-default → /fr.
     languages: {
       fr: `${BASE}/fr${p}`,
-      en: `${BASE}/en${p}`,
       "x-default": `${BASE}/fr${p}`,
     },
   };

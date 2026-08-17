@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
 import { Link } from "@/i18n/navigation";
 import { type Pack, packProducts, packSavings } from "@/components/packs/PackCard";
+import { packSizeAvailability } from "@/lib/pack-availability";
 import { trackAddToCart, metaAddToCart } from "@/lib/analytics";
 
 const C = { dark: "#1a1410", amber: "#c49a4a", light: "#ede8df", taupe: "#e9e1d4", cream: "#f2ede6", muted: "rgba(26,20,16,0.6)" };
@@ -19,28 +20,9 @@ export default function PackDetailClient({ pack }: { pack: Pack }) {
   //    sélecteur ; expédiée d'office dans sa taille unique, quelle que soit la
   //    taille choisie. Sa dispo (stock>0) conditionne quand même tout le pack.
   //  • Pack 100% mono/sans-taille → pas de sélecteur (sizeRequired = false).
-  const { sizes, sizeRequired } = useMemo(() => {
-    const sz = (p: any): string[] => Array.isArray(p.sizes) ? p.sizes : [];
-    const ss = (p: any): Record<string, number> => p.sizes_stock ?? {};
-    const multi = prods.filter(p => sz(p).length > 1);
-    const mono  = prods.filter(p => sz(p).length === 1);
-
-    // Les mono-tailles doivent toutes être en stock (sinon le pack ne part pas).
-    const monoOk = mono.every(p => (ss(p)[sz(p)[0]] ?? 0) > 0);
-
-    if (multi.length === 0) {
-      // Aucun produit multi-taille → pas de choix ; tout part en taille unique.
-      return { sizes: [] as { size: string; available: boolean }[], sizeRequired: false };
-    }
-    // Intersection des tailles des produits MULTI-tailles uniquement.
-    const first = sz(multi[0]);
-    const common = first.filter(s => multi.every(p => sz(p).includes(s)));
-    const list = common.map(size => ({
-      size,
-      available: monoOk && multi.every(p => (ss(p)[size] ?? 0) > 0),
-    }));
-    return { sizes: list, sizeRequired: true };
-  }, [prods]);
+  // Règle de disponibilité = SOURCE UNIQUE lib/pack-availability (partagée avec le flux
+  // Google Shopping). Comportement strictement identique à l'ancienne version inline.
+  const { sizes, sizeRequired } = useMemo(() => packSizeAvailability(prods), [prods]);
 
   const firstAvail = sizes.find(s => s.available)?.size ?? "";
   const [selectedSize, setSelectedSize] = useState(firstAvail);

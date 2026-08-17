@@ -2,6 +2,8 @@
 import { getAlternates } from "@/i18n/seo";
 import { getTranslations } from "next-intl/server";
 import { getParrainageSettings } from "@/lib/parrainage-server";
+import { getDeliveryPrice } from "@/lib/delivery-config";
+import { getFreeShipThreshold } from "@/lib/server/free-shipping";
 import ParrainageBareme from "@/components/ParrainageBareme";
 
 // ISR : le schéma parrainage lit parrainage_settings en base. On régénère la page
@@ -25,8 +27,19 @@ export async function generateMetadata({
   };
 }
 
-﻿export default async function CGV() {
-  const t = await getTranslations("legal");
+﻿export default async function CGV({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
+  const FREE = await getFreeShipThreshold();
+  const t = await getTranslations({ locale, namespace: "legal" });
+  // Frais de port CGV interpolés depuis lib/delivery-config (source unique) — fourchette réelle
+  // facturée (Mondial Relay → Colissimo). Le seuil de 60€ reste littéral (mention légale stable).
+  const num = (n: number) => new Intl.NumberFormat(locale === "en" ? "en-GB" : "fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const ship = {
+    relaisMin: num(getDeliveryPrice("mondial_relay", "point_relais")),
+    relaisMax: num(getDeliveryPrice("colissimo", "point_relais")),
+    homeMin:   num(getDeliveryPrice("mondial_relay", "home")),
+    homeMax:   num(getDeliveryPrice("colissimo", "home")),
+  };
   // Valeurs du barème lues côté serveur → passées en `initial` au visuel pour un
   // rendu immédiat sans flash sur cette page publique (aucune donnée sensible).
   const p = await getParrainageSettings();
@@ -76,7 +89,7 @@ Email : contact@milkbebe.fr`,
           },
           {
             title: t("cgv_s7"),
-            content: t("cgv_s7_c"),
+            content: t("cgv_s7_c", { ...ship, amount: FREE }),
           },
           {
             title: t("cgv_s8"),

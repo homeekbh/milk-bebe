@@ -1,7 +1,8 @@
 ﻿import type { Metadata } from "next";
-import { supabaseServer } from "@/lib/server/supabase";
+import { getFreeShipThreshold } from "@/lib/server/free-shipping";
 import { getAlternates } from "@/i18n/seo";
 import { getTranslations } from "next-intl/server";
+import { getDeliveryPrice } from "@/lib/delivery-config";
 
 export async function generateMetadata({
   params,
@@ -20,23 +21,20 @@ export async function generateMetadata({
   };
 }
 
-async function getFreeShipThreshold(): Promise<number> {
-  try {
-    const { data } = await supabaseServer
-      .from("settings")
-      .select("value")
-      .eq("key", "free_shipping_threshold")
-      .maybeSingle();
-    const n = Number(data?.value);
-    return Number.isFinite(n) && n > 0 ? n : 60;
-  } catch {
-    return 60;
-  }
-}
-
-﻿export default async function LivraisonRetours() {
+﻿export default async function LivraisonRetours({ params }: { params: Promise<{ locale: string }> }) {
+  const { locale } = await params;
   const FREE = await getFreeShipThreshold();
-  const t = await getTranslations("shipping");
+  const t = await getTranslations({ locale, namespace: "shipping" });
+  // Frais de port INTERPOLÉS depuis la source unique (lib/delivery-config) → jamais de nombre figé
+  // qui dérive quand un tarif change ailleurs. Fourchette réelle facturée au checkout :
+  // Mondial Relay (le moins cher) → Colissimo.
+  const num = (n: number) => new Intl.NumberFormat(locale === "en" ? "en-GB" : "fr-FR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+  const ship = {
+    relaisMin: num(getDeliveryPrice("mondial_relay", "point_relais")),
+    relaisMax: num(getDeliveryPrice("colissimo", "point_relais")),
+    homeMin:   num(getDeliveryPrice("mondial_relay", "home")),
+    homeMax:   num(getDeliveryPrice("colissimo", "home")),
+  };
   return (
     <div style={{ background: "#ede8df", minHeight: "100vh", paddingTop: 100, paddingBottom: 80 }}>
       <div style={{ maxWidth: 800, margin: "0 auto", padding: "0 24px" }}>
@@ -49,7 +47,7 @@ async function getFreeShipThreshold(): Promise<number> {
         <div style={{ marginBottom: 40 }}>
           <h2 style={{ fontSize: 26, fontWeight: 950, color: "#1a1410", marginBottom: 8 }}>{t("delivery_title")}</h2>
           <p style={{ fontSize: 14, color: "rgba(26,20,16,0.55)", marginBottom: 24, fontWeight: 600 }}>
-            {t("delivery_summary", { amount: FREE })}
+            {t("delivery_summary", { ...ship, amount: FREE })}
           </p>
           <div style={{ display: "grid", gap: 16, marginBottom: 28 }}>
             {[
